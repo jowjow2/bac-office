@@ -18,6 +18,19 @@ body {
   overflow-x: hidden;
 }
 
+.home-page,
+.home-page button,
+.home-page input,
+.home-page textarea,
+.home-page select,
+.public-page,
+.public-page button,
+.public-page input,
+.public-page textarea,
+.public-page select {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
 .navbar {
   display: flex;
   justify-content: space-between;
@@ -456,6 +469,50 @@ body {
 
 .login-btn-inline {
   border: none;
+}
+
+.home-page .navbar,
+.public-page .navbar {
+  background: #ffffff;
+}
+
+.home-page .logo,
+.public-page .logo {
+  color: #0f172a;
+}
+
+.home-page .navbar .nav-links a,
+.home-page .navbar .nav-links a:visited,
+.public-page .navbar .nav-links a,
+.public-page .navbar .nav-links a:visited {
+  color: #374151;
+}
+
+.home-page .navbar .nav-links a:hover,
+.home-page .navbar .nav-links a:focus-visible,
+.home-page .navbar .nav-links a:active,
+.home-page .navbar .nav-links a.active,
+.public-page .navbar .nav-links a:hover,
+.public-page .navbar .nav-links a:focus-visible,
+.public-page .navbar .nav-links a:active,
+.public-page .navbar .nav-links a.active {
+  color: #f97316;
+}
+
+.home-page .search-form,
+.public-page .search-form {
+  background: #ffffff;
+}
+
+.home-page .login-btn,
+.public-page .login-btn {
+  border-color: #f59e0b;
+  color: #b45309;
+}
+
+.home-page .login-btn:hover,
+.public-page .login-btn:hover {
+  background: #fff7ed;
 }
 
 .public-status {
