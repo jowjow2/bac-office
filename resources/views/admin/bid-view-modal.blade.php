@@ -38,8 +38,8 @@
         <div class="view-bid-field">
             <label>Proposal File</label>
             <div class="view-bid-value">
-                @if($bid->proposal_file)
-                    <a href="{{ asset($bid->proposal_file) }}" target="_blank" rel="noopener" class="view-bid-link">{{ basename($bid->proposal_file) }}</a>
+                @if($bid->proposal_url)
+                    <a href="{{ $bid->proposal_url }}" target="_blank" rel="noopener" class="view-bid-link">{{ $bid->proposal_filename }}</a>
                 @else
                     No file uploaded
                 @endif
@@ -54,9 +54,9 @@
         <div class="view-bid-field">
             <label>Certificate Proof</label>
             <div class="view-bid-value">
-                @if($bid->user->philgepsCertificate?->file_path)
-                    <a href="{{ asset($bid->user->philgepsCertificate->file_path) }}" target="_blank" rel="noopener" class="view-bid-link">
-                        {{ $bid->user->philgepsCertificate->original_name ?: basename($bid->user->philgepsCertificate->file_path) }}
+                @if($bid->user->philgepsCertificate?->file_url)
+                    <a href="{{ $bid->user->philgepsCertificate->file_url }}" target="_blank" rel="noopener" class="view-bid-link">
+                        {{ $bid->user->philgepsCertificate->display_name }}
                     </a>
                 @else
                     No PhilGEPS certificate uploaded

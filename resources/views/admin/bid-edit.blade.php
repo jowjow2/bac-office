@@ -90,8 +90,8 @@
                     <div>
                         <label class="bid-field-label">Proposal File</label>
                         <div class="bid-detail-box">
-                            @if($bid->proposal_file)
-                                <a href="{{ asset($bid->proposal_file) }}" target="_blank" rel="noopener" style="color: #1d4ed8; text-decoration: none;">{{ basename($bid->proposal_file) }}</a>
+                            @if($bid->proposal_url)
+                                <a href="{{ $bid->proposal_url }}" target="_blank" rel="noopener" style="color: #1d4ed8; text-decoration: none;">{{ $bid->proposal_filename }}</a>
                             @else
                                 No file uploaded
                             @endif

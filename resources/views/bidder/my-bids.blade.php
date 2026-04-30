@@ -313,8 +313,8 @@
                                     </td>
                                     <td>{{ $bid->created_at?->format('Y-m-d') ?? 'N/A' }}</td>
                                     <td>
-                                        @if($bid->proposal_file)
-                                            <a href="{{ asset($bid->proposal_file) }}" target="_blank" class="bidder-doc-link">{{ basename($bid->proposal_file) }}</a>
+                                        @if($bid->proposal_url)
+                                            <a href="{{ $bid->proposal_url }}" target="_blank" class="bidder-doc-link">{{ $bid->proposal_filename }}</a>
                                         @else
                                             -
                                         @endif

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Uploads;
 use Illuminate\Database\Eloquent\Model;
 
 class Bid extends Model
@@ -27,6 +28,16 @@ class Bid extends Model
     public function setAmountAttribute($value)
     {
         $this->attributes['bid_amount'] = $value;
+    }
+
+    public function getProposalUrlAttribute(): ?string
+    {
+        return Uploads::url($this->proposal_file);
+    }
+
+    public function getProposalFilenameAttribute(): ?string
+    {
+        return Uploads::fileName($this->proposal_file);
     }
 
     public function project()

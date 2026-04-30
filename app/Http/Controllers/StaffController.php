@@ -7,6 +7,7 @@ use App\Models\Assignment;
 use App\Models\Bid;
 use App\Models\Project;
 use App\Support\SystemNotification;
+use App\Support\Uploads;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -101,15 +102,12 @@ class StaffController extends Controller
 
         abort_unless(filled($bid->proposal_file), 404);
 
-        $path = public_path($bid->proposal_file);
-        abort_unless(is_file($path), 404);
-
-        $extension = pathinfo($path, PATHINFO_EXTENSION);
+        $extension = pathinfo((string) $bid->proposal_file, PATHINFO_EXTENSION);
         $projectSlug = Str::slug($bid->project->title ?? 'project');
         $bidderSlug = Str::slug($bid->user->company ?: ($bid->user->name ?? 'bidder'));
         $downloadName = $projectSlug . '-' . $bidderSlug . '-proposal.' . $extension;
 
-        return response()->download($path, $downloadName);
+        return Uploads::download($bid->proposal_file, $downloadName);
     }
 
     public function markAllNotificationsRead(Request $request)

@@ -112,13 +112,14 @@
                                 $varianceColor = is_null($variance) ? '#64748b' : ($variance <= 0 ? '#047857' : '#dc2626');
                                 $bidderName = $bid->user->company ?: ($bid->user->name ?? 'N/A');
                                 $certificateProof = $bid->user->philgepsCertificate;
+                                $certificateProofUrl = $certificateProof?->file_url;
                             @endphp
                             <tr style="border-bottom: 1px solid #eef3f8;">
                                 <td style="padding: 18px; font-size: 13px; vertical-align: top;">
                                     <div style="font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 6px;">{{ $bidderName }}</div>
                                     <div style="font-size: 12px; line-height: 1.5; color: #9ca3af;">{{ $bid->user->email ?? 'N/A' }}</div>
-                                    @if($certificateProof?->file_path)
-                                        <a href="{{ asset($certificateProof->file_path) }}" target="_blank" rel="noopener" style="display: inline-flex; margin-top: 8px; font-size: 12px; font-weight: 600; color: #1d4ed8; text-decoration: none;">View certificate proof</a>
+                                    @if($certificateProofUrl)
+                                        <a href="{{ $certificateProofUrl }}" target="_blank" rel="noopener" style="display: inline-flex; margin-top: 8px; font-size: 12px; font-weight: 600; color: #1d4ed8; text-decoration: none;">View certificate proof</a>
                                     @else
                                         <div style="margin-top: 8px; font-size: 12px; color: #94a3b8;">No certificate proof uploaded</div>
                                     @endif

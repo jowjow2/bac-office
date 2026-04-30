@@ -7,6 +7,7 @@ use App\Models\BidderDocument;
 use App\Models\Bid;
 use App\Models\Project;
 use App\Models\User;
+use App\Support\Uploads;
 use App\Support\SystemNotification;
 use App\Support\QrCodeService;
 use Illuminate\Http\Request;
@@ -86,13 +87,7 @@ class BidderController extends Controller
 
         $file = $request->file('document_file');
         $filename = 'bidder_doc_' . $user->id . '_' . now()->format('YmdHis') . '.' . $file->getClientOriginalExtension();
-        $destination = public_path('uploads/bidder-documents');
-
-        if (! is_dir($destination)) {
-            mkdir($destination, 0777, true);
-        }
-
-        $file->move($destination, $filename);
+        $storedPath = Uploads::store($file, 'bidder-documents', $filename);
 
         BidderDocument::updateOrCreate(
             [
@@ -101,7 +96,7 @@ class BidderController extends Controller
             ],
             [
                 'original_name' => $file->getClientOriginalName(),
-                'file_path' => 'uploads/bidder-documents/' . $filename,
+                'file_path' => $storedPath,
                 'status' => 'uploaded',
                 'uploaded_at' => now(),
             ]
@@ -138,14 +133,7 @@ class BidderController extends Controller
         if ($request->hasFile('proposal_file')) {
             $file = $request->file('proposal_file');
             $filename = 'proposal_' . Auth::id() . '_' . $project->id . '_' . now()->format('YmdHis') . '.' . $file->getClientOriginalExtension();
-            $destination = public_path('uploads/proposals');
-
-            if (! is_dir($destination)) {
-                mkdir($destination, 0777, true);
-            }
-
-            $file->move($destination, $filename);
-            $proposalPath = 'uploads/proposals/' . $filename;
+            $proposalPath = Uploads::store($file, 'proposals', $filename);
         }
 
         Bid::updateOrCreate(

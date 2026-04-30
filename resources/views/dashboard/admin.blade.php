@@ -234,15 +234,15 @@
                                 @forelse($latestBids as $bid)
                                     @php
                                         $certificateProof = $bid->user->philgepsCertificate;
-                                        $certificateProofPath = optional($certificateProof)->file_path;
+                                        $certificateProofUrl = $certificateProof?->file_url;
                                     @endphp
                                     <tr>
                                         <td>{{ $bid->user->company ?: ($bid->user->name ?? 'N/A') }}</td>
                                         <td>{{ $bid->project->title ?? 'N/A' }}</td>
                                         <td>P{{ number_format((float) $bid->bid_amount, 2) }}</td>
                                         <td>
-                                            @if($certificateProofPath)
-                                                <a href="{{ asset($certificateProofPath) }}" target="_blank" rel="noopener" style="color: #1d4ed8; text-decoration: none; font-weight: 600;">View Proof</a>
+                                            @if($certificateProofUrl)
+                                                <a href="{{ $certificateProofUrl }}" target="_blank" rel="noopener" style="color: #1d4ed8; text-decoration: none; font-weight: 600;">View Proof</a>
                                             @else
                                                 <span class="dashboard-badge dashboard-badge-pending" style="background: #e5e7eb; color: #475569;">Missing</span>
                                             @endif
@@ -277,14 +277,14 @@
                     <div class="approval-list">
                         @forelse($pendingRegistrations as $registration)
                             @php
-                                $registrationCertificatePath = optional($registration->philgepsCertificate)->file_path;
+                                $registrationCertificateUrl = $registration->philgepsCertificate?->file_url;
                             @endphp
                             <div class="approval-item">
                                 <div class="approval-item-main">
                                     <strong>{{ $registration->company ?: $registration->name }}</strong>
                                     <p>{{ $registration->email }}</p>
-                                    @if($registrationCertificatePath)
-                                        <a href="{{ asset($registrationCertificatePath) }}" target="_blank" rel="noopener" style="display: inline-flex; margin-top: 6px; font-size: 12px; font-weight: 600; color: #1d4ed8; text-decoration: none;">View PhilGEPS certificate</a>
+                                    @if($registrationCertificateUrl)
+                                        <a href="{{ $registrationCertificateUrl }}" target="_blank" rel="noopener" style="display: inline-flex; margin-top: 6px; font-size: 12px; font-weight: 600; color: #1d4ed8; text-decoration: none;">View PhilGEPS certificate</a>
                                     @else
                                         <p style="margin-top: 6px; font-size: 12px; color: #94a3b8;">No PhilGEPS certificate uploaded</p>
                                     @endif
