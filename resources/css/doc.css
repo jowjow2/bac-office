@@ -1,0 +1,119 @@
+/* ===== RESET ===== */
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+/* ===== BODY ===== */
+body{
+    font-family:'Inter','Segoe UI',sans-serif;
+    background:#f8fafc;
+    color:#1f2937;
+}
+
+/* ===== MAIN CONTENT ===== */
+.main{
+    max-width:1200px;
+    margin:0 auto;
+    padding:30px 20px;
+}
+
+/* ===== NAVBAR BASE ===== */
+.navbar{
+    width:100%;
+    background:#ffffff;
+    border-bottom:1px solid #e5e7eb;
+    padding:14px 30px;
+
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+/* ===== LOGO ===== */
+.navbar .logo{
+    font-size:18px;
+    font-weight:600;
+    color:#111827;
+}
+
+/* ===== NAV LINKS ===== */
+.navbar .nav-links{
+    display:flex;
+    gap:25px;
+}
+
+.navbar .nav-links a{
+    text-decoration:none;
+    font-size:14px;
+    color:#374151;
+    font-weight:500;
+    transition:0.2s;
+}
+
+.navbar .nav-links a:hover{
+    color:#2563eb;
+}
+
+/* ===== RIGHT SIDE (LOGIN / SEARCH) ===== */
+.navbar .nav-right{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+
+/* SEARCH INPUT */
+.navbar input{
+    padding:6px 10px;
+    border:1px solid #e5e7eb;
+    border-radius:6px;
+    font-size:13px;
+}
+
+/* BUTTONS */
+.btn{
+    background:#2563eb;
+    color:white;
+    padding:6px 12px;
+    border-radius:6px;
+    font-size:13px;
+    text-decoration:none;
+    border:none;
+    cursor:pointer;
+    transition:0.2s;
+}
+
+.btn:hover{
+    background:#1d4ed8;
+}
+
+/* SECONDARY BUTTON */
+.btn-outline{
+    background:white;
+    border:1px solid #e5e7eb;
+    color:#374151;
+}
+
+.btn-outline:hover{
+    background:#f3f4f6;
+}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:768px){
+
+    .navbar{
+        flex-direction:column;
+        gap:10px;
+        align-items:flex-start;
+    }
+
+    .nav-links{
+        flex-wrap:wrap;
+        gap:10px;
+    }
+
+    .main{
+        padding:20px;
+    }
+}

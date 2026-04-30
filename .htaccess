@@ -1,0 +1,25 @@
+<IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews -Indexes
+    </IfModule>
+
+    RewriteEngine On
+
+    # Allow already-routed public requests to continue without looping.
+    RewriteRule ^public/ - [L]
+
+    # Serve public assets from /public while keeping /bac-office URLs clean.
+    RewriteRule ^(build|documents|Images|storage|uploads)(/.*)?$ public/$1$2 [L]
+    RewriteRule ^(favicon\.ico|robots\.txt)$ public/$1 [L]
+
+    # Handle Authorization Header
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Handle X-XSRF-Token Header
+    RewriteCond %{HTTP:x-xsrf-token} .
+    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+
+    # Send every non-asset request to the root front controller.
+    RewriteRule ^ index.php [L]
+</IfModule>
