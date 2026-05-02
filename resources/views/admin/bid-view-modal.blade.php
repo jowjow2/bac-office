@@ -1,3 +1,10 @@
+@php
+    $proposalPreviewUrl = $bid->proposal_url ? route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'proposal']) : null;
+    $certificatePreviewUrl = $bid->user->philgepsCertificate?->file_url
+        ? route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'certificate'])
+        : null;
+@endphp
+
 <div class="view-bid-modal-shell">
     <div class="view-bid-modal-header">
         <div>
@@ -39,7 +46,12 @@
             <label>Proposal File</label>
             <div class="view-bid-value">
                 @if($bid->proposal_url)
-                    <a href="{{ $bid->proposal_url }}" target="_blank" rel="noopener" class="view-bid-link">{{ $bid->proposal_filename }}</a>
+                    <a
+                        href="{{ $proposalPreviewUrl }}"
+                        target="_blank"
+                        rel="noopener"
+                        class="view-bid-link"
+                    >{{ $bid->proposal_filename }}</a>
                 @else
                     No file uploaded
                 @endif
@@ -55,7 +67,12 @@
             <label>Certificate Proof</label>
             <div class="view-bid-value">
                 @if($bid->user->philgepsCertificate?->file_url)
-                    <a href="{{ $bid->user->philgepsCertificate->file_url }}" target="_blank" rel="noopener" class="view-bid-link">
+                    <a
+                        href="{{ $certificatePreviewUrl }}"
+                        target="_blank"
+                        rel="noopener"
+                        class="view-bid-link"
+                    >
                         {{ $bid->user->philgepsCertificate->display_name }}
                     </a>
                 @else
@@ -66,6 +83,7 @@
 
         <div class="view-bid-actions">
             <button type="button" onclick="closeBidViewModal()" class="btn-secondary">Close</button>
+            <a href="{{ route('admin.bid.view', $bid) }}" class="btn-secondary" style="text-decoration: none;">View Docs</a>
             <a href="{{ route('admin.bid.edit', $bid) }}" class="btn-primary" style="text-decoration: none;">Edit Bid</a>
         </div>
     </div>
@@ -184,6 +202,30 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
+    }
+
+    .view-bid-actions .btn-primary {
+        background: #1d4ed8;
+        border: 1px solid #1d4ed8;
+        color: #ffffff;
+        font-weight: 600;
+        box-shadow: 0 10px 24px rgba(29, 78, 216, 0.22);
+    }
+
+    .view-bid-actions .btn-primary:hover {
+        background: #1e40af;
+        border-color: #1e40af;
+    }
+
+    .view-bid-actions .btn-secondary {
+        background: #ffffff;
+        border: 1px solid #d1d5db;
+        color: #334155;
+        font-weight: 500;
+    }
+
+    .view-bid-actions .btn-secondary:hover {
+        background: #f8fafc;
     }
 
     @media (max-width: 700px) {

@@ -426,26 +426,6 @@ body {
   color: #ea580c;
 }
 
-.public-card-qr {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 96px;
-  height: 96px;
-  padding: 8px;
-  border-radius: 14px;
-  background: #ffffff;
-  border: 1px solid #fdba74;
-  flex-shrink: 0;
-}
-
-.public-card-qr img,
-.public-qr-panel img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
 .public-card-footer {
   display: flex;
   justify-content: space-between;
@@ -572,36 +552,8 @@ body {
   color: #f97316;
 }
 
-.public-page-hero-detail {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 240px;
-  gap: 24px;
-  align-items: center;
-}
-
 .public-detail-hero-copy {
   min-width: 0;
-}
-
-.public-qr-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 18px;
-  border-radius: 18px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
-  text-align: center;
-}
-
-.public-qr-label {
-  color: #b45309;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .public-detail-grid {
@@ -756,11 +708,6 @@ body {
   .public-card-footer {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .public-card-qr {
-    width: 112px;
-    height: 112px;
   }
 
   .public-card-actions {

@@ -1,0 +1,16 @@
+/vendor
+/node_modules
+/.git
+/.github
+/.vscode
+/.qodo
+/.idea
+/.env
+/.env.*
+/storage/logs
+/storage/framework/cache
+/storage/framework/sessions
+/storage/framework/testing
+/storage/framework/views
+/tests
+/public/build

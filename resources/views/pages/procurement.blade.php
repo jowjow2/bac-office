@@ -38,21 +38,10 @@
                     <h2>{{ $project->title }}</h2>
                     <p>{{ $project->description ?: 'No description available yet.' }}</p>
 
-                    <div class="public-card-share">
-                        <div class="public-card-share-copy">
-                            <span class="public-card-share-title">Scan to open this project directly</span>
-                            <a href="{{ $project->scan_url }}" class="public-card-link">Open scan link</a>
-                        </div>
-
-                        <a href="{{ $project->scan_url }}" class="public-card-qr" aria-label="Open direct project link for {{ $project->title }}">
-                            <img src="{{ $project->qr_code_data_uri }}" alt="QR code for {{ $project->title }} public page">
-                        </a>
-                    </div>
-
                     <div class="public-card-footer">
                         <strong>P{{ number_format((float) $project->budget, 2) }}</strong>
                         <div class="public-card-actions">
-                            <a href="{{ $project->public_url }}" class="btn btn-outline">View Details</a>
+                            <a href="{{ route('public.procurement.show', $project) }}" class="btn btn-outline">View Details</a>
                             <button type="button" class="btn login-btn-inline" onclick="openLogin()">Login to Participate</button>
                         </div>
                     </div>

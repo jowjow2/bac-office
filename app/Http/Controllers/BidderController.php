@@ -2,49 +2,76 @@
 
 namespace App\Http\Controllers;
 
+use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Award;
 use App\Models\BidderDocument;
 use App\Models\Bid;
 use App\Models\Project;
 use App\Models\User;
+use App\Support\DocumentPreview;
 use App\Support\Uploads;
 use App\Support\SystemNotification;
-use App\Support\QrCodeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class BidderController extends Controller
 {
-    public function index(Request $request, QrCodeService $qrCodes)
+    public function index(Request $request)
     {
-        return view('dashboard.bidder', $this->bidderPageData($request, $qrCodes));
+        return view('dashboard.bidder', $this->bidderPageData($request));
     }
 
-    public function availableProjects(Request $request, QrCodeService $qrCodes)
+    public function availableProjects(Request $request)
     {
-        return view('bidder.available-projects', $this->bidderPageData($request, $qrCodes) + [
-            'scanProjectId' => $request->integer('scan_project') ?: null,
-        ]);
+        return view('bidder.available-projects', $this->bidderPageData($request));
     }
 
-    public function myBids(Request $request, QrCodeService $qrCodes)
+    public function myBids(Request $request)
     {
-        return view('bidder.my-bids', $this->bidderPageData($request, $qrCodes));
+        return view('bidder.my-bids', $this->bidderPageData($request));
     }
 
-    public function awardedContracts(Request $request, QrCodeService $qrCodes)
+    public function awardedContracts(Request $request)
     {
-        return view('bidder.awarded-contracts', $this->bidderPageData($request, $qrCodes));
+        return view('bidder.awarded-contracts', $this->bidderPageData($request));
     }
 
-    public function companyProfile(Request $request, QrCodeService $qrCodes)
+    public function companyProfile(Request $request)
     {
-        return view('bidder.company-profile', $this->bidderPageData($request, $qrCodes));
+        return view('bidder.company-profile', $this->bidderPageData($request));
     }
 
-    public function notifications(Request $request, QrCodeService $qrCodes)
+    public function notifications(Request $request)
     {
-        return view('bidder.notifications', $this->bidderPageData($request, $qrCodes));
+        return view('bidder.notifications', $this->bidderPageData($request));
+    }
+
+    public function previewProjectDocument(Project $project, string $document)
+    {
+        abort_unless(in_array($project->status, Project::PUBLIC_STATUSES, true), 404);
+
+        $project->loadMissing('documents');
+        $documentMeta = $this->projectDocumentMeta($project, $document);
+
+        abort_unless(filled($documentMeta['path']), 404);
+
+        return redirect()->route('bidder.project.document.pdf', ['project' => $project, 'document' => $document]);
+    }
+
+    public function streamProjectDocumentPdf(Project $project, string $document)
+    {
+        abort_unless(in_array($project->status, Project::PUBLIC_STATUSES, true), 404);
+
+        $project->loadMissing('documents');
+        $documentMeta = $this->projectDocumentMeta($project, $document);
+
+        abort_unless(filled($documentMeta['path']), 404);
+
+        return $this->streamDocumentPdfPreview(
+            $documentMeta['path'],
+            $documentMeta['display_name'],
+            $documentMeta['label']
+        );
     }
 
     public function markAllNotificationsRead(Request $request)
@@ -171,29 +198,16 @@ class BidderController extends Controller
             ->with('success', 'Bid submitted successfully.');
     }
 
-    protected function bidderPageData(Request $request, QrCodeService $qrCodes): array
+    protected function bidderPageData(Request $request): array
     {
         /** @var User $user */
         $user = Auth::user();
 
-        $availableProjects = Project::withCount('bids')
+        $availableProjects = Project::with(['documents'])
+            ->withCount('bids')
             ->where('status', 'open')
             ->latest()
-            ->get()
-            ->map(function (Project $project) use ($request, $qrCodes) {
-                $publicUrl = $this->publicProjectUrl($request, $project);
-                $publicPath = route('public.procurement.show', $project, false);
-                $scanUrl = $this->publicProjectScanUrl($request, $project);
-                $scanPath = route('public.procurement.scan', $project, false);
-
-                $project->setAttribute('public_url', $publicUrl);
-                $project->setAttribute('public_path', $publicPath);
-                $project->setAttribute('scan_url', $scanUrl);
-                $project->setAttribute('scan_path', $scanPath);
-                $project->setAttribute('qr_code_data_uri', $qrCodes->toDataUri($scanUrl, 120));
-
-                return $project;
-            });
+            ->get();
 
         $myBids = Bid::with(['project.awards', 'award'])
             ->where('user_id', $user->id)
@@ -253,14 +267,52 @@ class BidderController extends Controller
         ];
     }
 
-    protected function publicProjectUrl(Request $request, Project $project): string
+    protected function projectDocumentMeta(Project $project, string $document): array
     {
-        return rtrim($request->root(), '/') . route('public.procurement.show', $project, false);
+        abort_unless(ctype_digit($document), 404);
+
+        $projectDocument = $project->uploadedDocuments()->values()->get((int) $document);
+
+        abort_unless($projectDocument !== null, 404);
+
+        return [
+            'label' => 'Project File',
+            'path' => $projectDocument->file_path,
+            'display_name' => $projectDocument->display_name,
+        ];
     }
 
-    protected function publicProjectScanUrl(Request $request, Project $project): string
+    protected function streamDocumentPdfPreview(string $path, ?string $displayName, string $documentLabel)
     {
-        return rtrim($request->root(), '/') . route('public.procurement.scan', $project, false);
+        $resolvedDisplayName = Uploads::fileName($path, $displayName) ?? 'document';
+        $pdfFilename = $this->pdfPreviewFilename($resolvedDisplayName);
+
+        if (Uploads::extension($path, $resolvedDisplayName) === 'pdf') {
+            $contents = Uploads::contents($path);
+
+            if (is_string($contents) && $contents !== '') {
+                return response($contents, 200, [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'inline; filename="' . $pdfFilename . '"',
+                    'X-Content-Type-Options' => 'nosniff',
+                ]);
+            }
+        }
+
+        $preview = DocumentPreview::forUpload($path, $resolvedDisplayName);
+
+        return Pdf::loadView('admin.bid-document-pdf', [
+            'preview' => $preview,
+            'documentLabel' => $documentLabel,
+        ])->setPaper('a4')->stream($pdfFilename, ['Attachment' => false]);
+    }
+
+    protected function pdfPreviewFilename(string $displayName): string
+    {
+        $baseName = pathinfo($displayName, PATHINFO_FILENAME) ?: 'document';
+        $safeName = trim((string) preg_replace('/[^A-Za-z0-9._-]+/', '-', $baseName), '-');
+
+        return ($safeName !== '' ? $safeName : 'document') . '.pdf';
     }
 }
 

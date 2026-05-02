@@ -11,6 +11,7 @@
 /.phpunit.cache
 /.qodo
 /.vscode
+/.vercel
 /.zed
 /auth.json
 /node_modules
@@ -29,3 +30,5 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+.vercel

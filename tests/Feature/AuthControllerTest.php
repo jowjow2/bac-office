@@ -3,6 +3,7 @@
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 uses(RefreshDatabase::class);
 
@@ -16,6 +17,18 @@ it('returns the home view for the landing page', function () {
     $response->assertOk();
     $response->assertViewIs('pages.home');
     $response->assertSee('id="registerForm"', false);
+    $response->assertSee('Bidder Quick Access');
+    $response->assertSee('Scan QR Code');
+    $response->assertSee('Upload QR Image');
+    $response->assertSee('Confirm QR Image');
+    $response->assertSee('Login Manually');
+});
+
+it('redirects the standalone login route back to the landing page modal', function () {
+    $response = testCase()->get(route('login.page'));
+
+    $response->assertRedirect(route('home'));
+    $response->assertSessionHas('auth_tab', 'login');
 });
 
 it('returns a role-based redirect when login credentials are valid', function () {
@@ -148,6 +161,22 @@ it('creates a new user with a hashed password and notifies admins when registrat
     ]);
 });
 
+it('treats an active bidder as allowed when the bidders table is unavailable', function () {
+    Schema::dropIfExists('bidders');
+
+    $user = User::create([
+        'name' => 'Legacy Bidder',
+        'email' => 'legacy@example.com',
+        'password' => Hash::make('password'),
+        'role' => 'bidder',
+        'status' => 'active',
+        'company' => 'Legacy Company',
+        'registration_no' => 'REG-LEGACY-1',
+    ]);
+
+    expect($user->isApprovedBidder())->toBeTrue();
+});
+
 it('logs out the user and redirects to the landing page', function () {
     $test = testCase();
 
@@ -165,6 +194,6 @@ it('logs out the user and redirects to the landing page', function () {
         ->actingAs($user)
         ->post('/logout');
 
-    $response->assertRedirect('/');
+    $response->assertRedirect(route('home'));
     $test->assertGuest();
 });

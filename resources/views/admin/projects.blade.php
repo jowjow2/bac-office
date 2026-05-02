@@ -119,12 +119,21 @@
                     <tbody>
                         @forelse($projects as $project)
                         @php($projectStatusLabel = \Illuminate\Support\Str::headline($project->status))
+                        @php($projectDocuments = $project->uploadedDocuments())
                         <tr style="border-bottom: 1px solid #eef3f8;">
                             <td style="padding: 18px; font-size: 13px; vertical-align: top;">
                                 <div style="font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 6px;">{{ $project->title }}</div>
                                 <div style="max-width: 320px; font-size: 12px; line-height: 1.5; color: #9ca3af;">
                                     {{ \Illuminate\Support\Str::limit($project->description, 72) }}
                                 </div>
+                                @if($projectDocuments->isNotEmpty())
+                                <div style="margin-top: 10px;" data-project-files-wrap="{{ $project->id }}">
+                                    <button type="button" data-project-files-trigger="{{ $project->id }}" onclick="loadProjectFilesModal({{ $project->id }})" style="display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border: 1px solid #dbe7f5; border-radius: 999px; background: #f8fbff; color: #1d4ed8; font-size: 11px; font-weight: 600; cursor: pointer;">
+                                        <i class="fas fa-paperclip" style="font-size: 10px;"></i>
+                                        {{ $projectDocuments->count() }} {{ \Illuminate\Support\Str::plural('file', $projectDocuments->count()) }} attached
+                                    </button>
+                                </div>
+                                @endif
                             </td>
                             <td style="padding: 18px; font-size: 13px; font-weight: 500; color: #0f172a; vertical-align: top;">P{{ number_format((float) $project->budget, 2) }}</td>
                             <td style="padding: 18px; font-size: 13px; font-weight: 400; color: #334155; vertical-align: top;">{{ $project->deadline ? $project->deadline->format('Y-m-d') : 'N/A' }}</td>
@@ -173,6 +182,15 @@
 
 </div>
 
+<!-- PROJECT FILES MODAL -->
+<div id="projectFilesModal" style="display: none; position: fixed; inset: 0; padding: 20px; background: rgba(15, 23, 42, 0.45); z-index: 10000; justify-content: center; align-items: center; box-sizing: border-box;">
+    <div style="background: white; border-radius: 14px; width: min(680px, 100%); max-height: calc(100vh - 20px); overflow-y: auto; overflow-x: hidden; position: relative; box-shadow: 0 20px 44px rgba(15, 23, 42, 0.16); box-sizing: border-box;">
+        <button onclick="closeProjectFilesModal()" style="position: absolute; top: 16px; right: 16px; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; background: #f1f5f9; border: none; border-radius: 9px; font-size: 18px; line-height: 1; cursor: pointer; color: #7c8ba1; z-index: 2;">&times;</button>
+        <div id="projectFilesModalBody">
+        </div>
+    </div>
+</div>
+
 <!-- VIEW PROJECT MODAL -->
 <div id="viewProjectModal" style="display: none; position: fixed; inset: 0; padding: 20px; background: rgba(15, 23, 42, 0.45); z-index: 10000; justify-content: center; align-items: center; box-sizing: border-box;">
     <div style="background: white; border-radius: 14px; width: min(680px, 100%); max-height: calc(100vh - 20px); overflow-y: auto; overflow-x: hidden; position: relative; box-shadow: 0 20px 44px rgba(15, 23, 42, 0.16); box-sizing: border-box;">
@@ -219,7 +237,7 @@
         </div>
         @endif
 
-        <form action="{{ route('admin.projects.store') }}" method="POST">
+        <form action="{{ route('admin.projects.store') }}" method="POST" enctype="multipart/form-data">
             @csrf
 
             <div style="margin-bottom: 14px;">
@@ -230,6 +248,12 @@
             <div style="margin-bottom: 14px;">
                 <label style="display: block; font-size: 12px; font-weight: 500; color: #374151; margin-bottom: 5px;">Description</label>
                 <textarea name="description" rows="3" required style="width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; resize: vertical;">{{ old('description') }}</textarea>
+            </div>
+
+            <div style="margin-bottom: 14px;">
+                <label style="display: block; font-size: 12px; font-weight: 500; color: #374151; margin-bottom: 5px;">Upload Files</label>
+                <input type="file" name="document_files[]" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; background: white;">
+                <div style="margin-top: 5px; font-size: 11px; color: #6b7280;">You can upload multiple PDF, DOC, DOCX, JPG, JPEG, or PNG files. Limit is per file at 20MB.</div>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
@@ -302,9 +326,112 @@
                 }, 500);
             }, 5000);
         }
+
+        @if($errors->any())
+            openProjectModal();
+        @endif
     });
 
     let currentProjectId = null;
+
+    function loadProjectFilesModal(id) {
+        currentProjectId = id;
+        document.getElementById('projectFilesModal').style.display = 'flex';
+        document.getElementById('projectFilesModalBody').innerHTML = '<div style="padding: 28px; color: #64748b; font-size: 14px;">Loading project files...</div>';
+
+        fetch(`/admin/projects/${id}/files`)
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('projectFilesModalBody').innerHTML = html;
+                attachProjectFilesFormHandlers();
+            })
+            .catch(error => {
+                document.getElementById('projectFilesModalBody').innerHTML = '<p style="color: red; padding: 24px;">Error loading project files.</p>';
+                console.error('Error:', error);
+            });
+    }
+
+    function closeProjectFilesModal() {
+        document.getElementById('projectFilesModal').style.display = 'none';
+        document.getElementById('projectFilesModalBody').innerHTML = '';
+    }
+
+    function attachProjectFilesFormHandlers() {
+        document.querySelectorAll('#projectFilesModalBody [data-project-file-delete-form]').forEach(function(form) {
+            form.onsubmit = function(e) {
+                e.preventDefault();
+
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (!submitBtn) return;
+
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Deleting...';
+                setProjectFilesAlert('', 'error', false);
+
+                fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                    }
+                })
+                .then(async response => {
+                    const data = await response.json();
+                    return { ok: response.ok, data };
+                })
+                .then(result => {
+                    if (result.ok && result.data.success) {
+                        syncProjectFilesTrigger(currentProjectId, result.data.remaining_count);
+                        showTempMessage(result.data.message || 'Project file deleted successfully!', 'success');
+                        loadProjectFilesModal(currentProjectId);
+                    } else {
+                        setProjectFilesAlert(result.data.message || 'Unable to delete this project file.', 'error', true);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    setProjectFilesAlert('Unable to delete this project file.', 'error', true);
+                })
+                .finally(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Delete';
+                });
+            };
+        });
+    }
+
+    function setProjectFilesAlert(message = '', type = 'error', visible = true) {
+        const alertBox = document.getElementById('projectFilesAlert');
+        if (!alertBox) return;
+
+        alertBox.classList.remove('is-success', 'is-error');
+
+        if (!visible || !message) {
+            alertBox.style.display = 'none';
+            alertBox.textContent = '';
+            return;
+        }
+
+        alertBox.classList.add(type === 'success' ? 'is-success' : 'is-error');
+        alertBox.textContent = message;
+        alertBox.style.display = 'block';
+    }
+
+    function syncProjectFilesTrigger(projectId, remainingCount) {
+        const wrap = document.querySelector(`[data-project-files-wrap="${projectId}"]`);
+        const trigger = document.querySelector(`[data-project-files-trigger="${projectId}"]`);
+
+        if (!wrap || !trigger) return;
+
+        if (remainingCount <= 0) {
+            wrap.remove();
+            return;
+        }
+
+        const label = `${remainingCount} ${remainingCount === 1 ? 'file' : 'files'} attached`;
+        trigger.innerHTML = `<i class="fas fa-paperclip" style="font-size: 10px;"></i> ${label}`;
+    }
 
     function loadViewModal(id) {
         currentProjectId = id;
@@ -523,8 +650,12 @@
         }
 
         Object.entries(errors).forEach(([field, messages]) => {
-            const input = document.querySelector(`#editModalBody [name="${field}"]`);
-            const errorEl = document.querySelector(`#editModalBody [data-error-for="${field}"]`);
+            const normalizedField = field.replace(/\.\d+$/, '');
+            const input = document.querySelector(`#editModalBody [name="${field}"]`)
+                || document.querySelector(`#editModalBody [name="${normalizedField}"]`)
+                || document.querySelector(`#editModalBody [name="${normalizedField}[]"]`);
+            const errorEl = document.querySelector(`#editModalBody [data-error-for="${field}"]`)
+                || document.querySelector(`#editModalBody [data-error-for="${normalizedField}"]`);
             const text = Array.isArray(messages) ? messages[0] : messages;
 
             if (input) {
@@ -620,6 +751,10 @@
 
     document.getElementById('viewProjectModal').addEventListener('click', function(e) {
         if (e.target === this) closeViewModal();
+    });
+
+    document.getElementById('projectFilesModal').addEventListener('click', function(e) {
+        if (e.target === this) closeProjectFilesModal();
     });
 
     document.getElementById('editProjectModal').addEventListener('click', function(e) {

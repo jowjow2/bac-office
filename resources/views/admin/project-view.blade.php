@@ -1,3 +1,5 @@
+@php($projectDocuments = $project->uploadedDocuments())
+
 <div class="view-project-modal-shell">
     <div class="view-project-modal-header">
         <div>
@@ -35,6 +37,26 @@
         <div class="view-project-field">
             <label>Description</label>
             <div class="view-project-value view-project-textarea">{{ $project->description ?: 'N/A' }}</div>
+        </div>
+
+        <div class="view-project-field">
+            <label>Project Files</label>
+            <div style="margin-bottom: 8px; font-size: 12px; color: #64748b;">
+                Click any file below to open its PDF preview.
+            </div>
+            <div class="view-project-value">
+                @if($projectDocuments->isNotEmpty())
+                    <div class="view-project-file-list">
+                        @foreach($projectDocuments as $documentIndex => $document)
+                            <a href="{{ route('admin.project.document.pdf', ['project' => $project, 'document' => $documentIndex]) }}" target="_blank" rel="noopener" style="color: #1d4ed8; text-decoration: none;">
+                                {{ $document->display_name }}
+                            </a>
+                        @endforeach
+                    </div>
+                @else
+                    No files uploaded
+                @endif
+            </div>
         </div>
 
         <div class="view-project-grid">
@@ -128,6 +150,12 @@
         font-size: 13px;
         line-height: 1.5;
         box-sizing: border-box;
+    }
+
+    .view-project-file-list {
+        display: grid;
+        gap: 8px;
+        width: 100%;
     }
 
     .view-project-textarea {

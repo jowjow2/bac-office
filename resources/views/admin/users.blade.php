@@ -267,6 +267,18 @@
                 </div>
             @endif
 
+            @if(session('warning'))
+                <div class="error-alert" style="margin-bottom: 20px; background: #fff7ed; border-color: #fdba74; color: #9a3412;">
+                    {{ session('warning') }}
+                </div>
+            @endif
+
+            @if(!($bidderApprovalAvailable ?? false))
+                <div class="error-alert" style="margin-bottom: 20px; background: #eff6ff; border-color: #93c5fd; color: #1d4ed8;">
+                    Bidder review and approval actions are temporarily unavailable because the bidder approval table is not present in the current database.
+                </div>
+            @endif
+
             @if($errors->any() && !old('editing_user_id'))
                 <div class="error-alert" style="margin-bottom: 20px;">
                     <ul style="margin: 0; padding-left: 18px;">
@@ -338,7 +350,12 @@
                     <tbody>
                         @forelse($users as $user)
                             <tr style="border-bottom: 1px solid #f3f4f6;">
-                                <td style="padding: 12px; font-size: 14px; font-weight: 600; color: #111827;">{{ $user->name }}</td>
+                                <td style="padding: 12px; font-size: 14px; font-weight: 600; color: #111827;">
+                                    <div>{{ $user->name }}</div>
+                                    @if($user->username)
+                                        <div style="margin-top: 4px; font-size: 12px; font-weight: 500; color: #64748b;">{{ '@' . $user->username }}</div>
+                                    @endif
+                                </td>
                                 <td style="padding: 12px; font-size: 13px; color: #6b7280;">{{ $user->email }}</td>
                                 <td style="padding: 12px;">
                                     <span style="padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: 500;
@@ -363,7 +380,13 @@
                                 <td style="padding: 12px; font-size: 13px; color: #111827;">{{ $user->registration_no ?: 'N/A' }}</td>
                                 <td style="padding: 12px; font-size: 13px; color: #6b7280;">{{ $user->created_at?->format('M d, Y') ?? 'N/A' }}</td>
                                 <td style="padding: 12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                                    @if($user->role === 'bidder' && $user->status === 'pending')
+                                    @if($user->role === 'bidder' && ($bidderApprovalAvailable ?? false))
+                                        <a href="{{ route('admin.users.review', $user) }}" class="user-action-button">
+                                            Review
+                                        </a>
+                                    @endif
+
+                                    @if($user->role === 'bidder' && $user->status === 'pending' && ($bidderApprovalAvailable ?? false))
                                         <form method="POST" action="{{ route('admin.users.approve', $user) }}" style="display:inline;">
                                             @csrf
                                             @method('PATCH')
@@ -381,6 +404,10 @@
                                         </form>
                                     @endif
 
+                                    @if($user->role === 'bidder' && !($bidderApprovalAvailable ?? false))
+                                        <span style="font-size: 12px; color: #64748b;">Review unavailable</span>
+                                    @endif
+
                                     <button
                                         type="button"
                                         onclick="openEditUserModal(this)"
@@ -388,6 +415,7 @@
                                         data-id="{{ $user->id }}"
                                         data-name="{{ e($user->name) }}"
                                         data-email="{{ e($user->email) }}"
+                                        data-username="{{ e($user->username ?? '') }}"
                                         data-role="{{ $user->role }}"
                                         data-status="{{ $user->status }}"
                                         data-office="{{ e($user->office ?? '') }}"
@@ -453,6 +481,11 @@
                         <option value="bidder" {{ old('role', 'bidder') === 'bidder' ? 'selected' : '' }}>Bidder</option>
                     </select>
                 </div>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 5px;">Username</label>
+                <input type="text" name="username" value="{{ old('username') }}" class="form-input" placeholder="Optional for admin and staff">
             </div>
 
             <div id="createOfficeField" style="margin-bottom: 16px; display: {{ old('role') === 'staff' ? 'block' : 'none' }};">
@@ -542,6 +575,11 @@
                 </div>
             </div>
 
+            <div class="user-modal-field">
+                <label>Username</label>
+                <input type="text" name="username" id="edit_username" class="form-input" placeholder="Optional for admin and staff">
+            </div>
+
             <div class="user-modal-field" id="editOfficeField" style="display: none;">
                 <label>Office</label>
                 <select name="office" id="edit_office" class="form-select">
@@ -601,6 +639,7 @@
                 id: source.dataset.id,
                 name: source.dataset.name || '',
                 email: source.dataset.email || '',
+                username: source.dataset.username || '',
                 role: source.dataset.role || 'bidder',
                 status: source.dataset.status || 'active',
                 office: source.dataset.office || '',
@@ -616,6 +655,7 @@
         document.getElementById('edit_user_id').value = userId;
         document.getElementById('edit_name').value = data.name || '';
         document.getElementById('edit_email').value = data.email || '';
+        document.getElementById('edit_username').value = data.username || '';
         document.getElementById('edit_role').value = data.role || 'bidder';
         document.getElementById('edit_status').value = data.status || 'active';
         document.getElementById('edit_office').value = data.office || '';
@@ -685,6 +725,7 @@
                     id: @json(old('editing_user_id')),
                     name: @json(old('name')),
                     email: @json(old('email')),
+                    username: @json(old('username', '')),
                     role: @json(old('role', 'bidder')),
                     status: @json(old('status', 'active')),
                     office: @json(old('office', '')),

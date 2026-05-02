@@ -1,3 +1,5 @@
+@php($projectDocuments = $project->uploadedDocuments())
+
 <div class="edit-project-modal-shell">
     <div class="edit-project-modal-header">
         <div>
@@ -5,7 +7,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.project.update', $project->id) }}" method="POST" class="edit-project-form">
+    <form action="{{ route('admin.project.update', $project->id) }}" method="POST" enctype="multipart/form-data" class="edit-project-form">
         @csrf
         @method('PUT')
 
@@ -29,6 +31,27 @@
             <label>Description</label>
             <textarea name="description" required class="edit-project-textarea">{{ old('description', $project->description) }}</textarea>
             <p class="edit-project-error" data-error-for="description"></p>
+        </div>
+
+        <div class="edit-project-field">
+            <label>Current Files</label>
+            <div class="edit-project-file-box">
+                @if($projectDocuments->isNotEmpty())
+                    <div class="edit-project-file-list">
+                        @foreach($projectDocuments as $documentIndex => $document)
+                            <a href="{{ route('admin.project.document.pdf', ['project' => $project, 'document' => $documentIndex]) }}" target="_blank" rel="noopener" class="edit-project-file-link">{{ $document->display_name }}</a>
+                        @endforeach
+                    </div>
+                @else
+                    No files uploaded
+                @endif
+            </div>
+        </div>
+
+        <div class="edit-project-field">
+            <label>Upload New Files</label>
+            <input type="file" name="document_files[]" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" class="edit-project-input" style="height: auto; padding-top: 9px; padding-bottom: 9px;">
+            <p class="edit-project-error" data-error-for="document_files"></p>
         </div>
 
         <div class="edit-project-grid">
@@ -171,6 +194,31 @@
         max-height: 82px;
         padding-top: 10px;
         resize: vertical;
+    }
+
+    .edit-project-file-box {
+        width: 100%;
+        min-height: 40px;
+        padding: 10px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 12px;
+        background: #fff;
+        color: #111827;
+        font-size: 13px;
+        line-height: 1.5;
+        box-sizing: border-box;
+    }
+
+    .edit-project-file-list {
+        display: grid;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .edit-project-file-link {
+        color: #1d4ed8;
+        text-decoration: none;
+        word-break: break-all;
     }
 
     .edit-project-input.input-error,

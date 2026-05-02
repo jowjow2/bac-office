@@ -2,16 +2,26 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\BidderApprovedQrMail;
+use App\Mail\BidderRejectedMail;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Award;
 use App\Models\Assignment;
 use App\Models\Bid;
+use App\Models\Bidder;
+use App\Models\BidderDocument;
 use App\Models\Project;
+use App\Models\QrLoginToken;
 use App\Models\User;
+use App\Support\DocumentPreview;
+use App\Support\QrLoginService;
+use App\Support\Uploads;
 use App\Support\SystemNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class AdminController extends Controller
@@ -61,6 +71,14 @@ class AdminController extends Controller
             ->take(5)
             ->get();
 
+        $uploadedApprovedBids = Bid::with(['project', 'user'])
+            ->where('status', 'approved')
+            ->whereNotNull('proposal_file')
+            ->where('proposal_file', '!=', '')
+            ->latest()
+            ->take(5)
+            ->get();
+
         $recentProjects = Project::withCount('bids')
             ->latest()
             ->take(5)
@@ -87,6 +105,7 @@ class AdminController extends Controller
             'totalAwardedAmount',
             'totalBudgetAllocated',
             'latestBids',
+            'uploadedApprovedBids',
             'recentProjects'
         ));
     }
@@ -97,7 +116,7 @@ class AdminController extends Controller
         $status = trim((string) $request->query('status', ''));
 
         $projects = Project::withCount('bids')
-            ->with(['assignments.staff'])
+            ->with(['assignments.staff', 'documents'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($subQuery) use ($search) {
                     $subQuery
@@ -119,6 +138,9 @@ class AdminController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'required|string',
+            'document_files' => 'nullable|array',
+            'document_files.*' => 'file|mimes:pdf,doc,docx,jpg,jpeg,png|max:20480',
+            'document_file' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:20480',
             'budget' => 'required|numeric|min:0|lte:9999999999999.99',
             'status' => 'required|in:approved_for_bidding,open,closed,awarded',
             'deadline' => 'required|date|after:today',
@@ -126,7 +148,12 @@ class AdminController extends Controller
             'budget.lte' => 'Budget must not exceed 9,999,999,999,999.99.',
         ]);
 
-        Project::create($validated);
+        $documentFiles = $this->extractProjectDocumentFiles($request);
+        unset($validated['document_files']);
+        unset($validated['document_file']);
+
+        $project = Project::create($validated);
+        $this->storeProjectDocuments($project, $documentFiles);
 
         return redirect()->route('admin.projects')->with('success', 'Project created successfully!');
     }
@@ -136,6 +163,7 @@ class AdminController extends Controller
         $search = trim((string) $request->query('search', ''));
         $status = trim((string) $request->query('status', ''));
         $projectFilter = trim((string) $request->query('project', ''));
+        $proposalFilter = trim((string) $request->query('proposal', ''));
 
         $bids = Bid::with(['project', 'user.philgepsCertificate', 'award'])
             ->when($search !== '', function ($query) use ($search) {
@@ -158,17 +186,26 @@ class AdminController extends Controller
             ->when($projectFilter !== '' && ctype_digit($projectFilter), function ($query) use ($projectFilter) {
                 $query->where('project_id', (int) $projectFilter);
             })
+            ->when($proposalFilter === 'uploaded', function ($query) {
+                $query->whereNotNull('proposal_file')->where('proposal_file', '!=', '');
+            })
+            ->when($proposalFilter === 'missing', function ($query) {
+                $query->where(function ($subQuery) {
+                    $subQuery->whereNull('proposal_file')->orWhere('proposal_file', '');
+                });
+            })
             ->latest()
             ->get();
 
         $projects = Project::orderBy('title')->get(['id', 'title']);
 
-        return view('admin.bids', compact('bids', 'projects', 'search', 'status', 'projectFilter'));
+        return view('admin.bids', compact('bids', 'projects', 'search', 'status', 'projectFilter', 'proposalFilter'));
     }
     public function users(Request $request)
     {
         $search = trim((string) $request->query('search', ''));
         $filter = trim((string) $request->query('filter', 'all'));
+        $bidderApprovalAvailable = $this->bidderApprovalFeaturesAvailable();
 
         $users = User::query()
             ->when($filter === 'admin', fn ($query) => $query->where('role', 'admin'))
@@ -180,6 +217,7 @@ class AdminController extends Controller
                 $subQuery
                     ->where('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('username', 'like', "%{$search}%")
                     ->orWhere('role', 'like', "%{$search}%")
                     ->orWhere('office', 'like', "%{$search}%")
                     ->orWhere('company', 'like', "%{$search}%")
@@ -201,14 +239,110 @@ class AdminController extends Controller
             'rejected' => User::where('status', 'rejected')->count(),
         ];
 
-        return view('admin.users', compact('users', 'search', 'filter', 'roleCounts', 'statusCounts'));
+        return view('admin.users', compact('users', 'search', 'filter', 'roleCounts', 'statusCounts', 'bidderApprovalAvailable'));
+    }
+
+    public function reviewUser(User $user)
+    {
+        abort_unless($user->role === 'bidder', 404);
+
+        if (! $this->bidderApprovalFeaturesAvailable()) {
+            return redirect()
+                ->route('admin.users')
+                ->with('warning', 'Bidder review tools are unavailable because the bidder approval table is missing in the current database.');
+        }
+
+        $user->load([
+            'bidderProfile.approver',
+            'registrationDocuments',
+            'bidderDocuments' => fn ($query) => $query->orderBy('document_type'),
+            'qrLoginTokens' => fn ($query) => $query->latest(),
+            'loginLogs' => fn ($query) => $query->latest('created_at')->limit(20),
+        ]);
+
+        $registrationDocuments = $user->registrationDocuments;
+        $supportingDocuments = $user->bidderDocuments
+            ->reject(fn (BidderDocument $document) => str_starts_with($document->document_type, 'Registration Requirement '))
+            ->values();
+        $latestQrToken = $user->qrLoginTokens->first();
+        $qrPreviewDataUri = null;
+
+        if ($latestQrToken) {
+            $existingQrArtifacts = app(QrLoginService::class)->buildArtifactsForToken($latestQrToken, 220);
+            $qrPreviewDataUri = is_array($existingQrArtifacts) ? ($existingQrArtifacts['data_uri'] ?? null) : null;
+        }
+
+        return view('admin.bidder-review', compact(
+            'user',
+            'registrationDocuments',
+            'supportingDocuments',
+            'latestQrToken',
+            'qrPreviewDataUri',
+        ));
+    }
+
+    public function previewUserQr(User $user, QrLoginService $qrLoginService)
+    {
+        abort_unless($user->role === 'bidder', 404);
+        abort_unless($this->bidderApprovalFeaturesAvailable(), 404);
+        abort_unless($user->isApprovedBidder(), 403);
+
+        $qrIssue = $this->resolveBidderQrIssue($user, $qrLoginService);
+        $filename = 'bac-office-bidder-' . $user->id . '-qr.svg';
+
+        return response($qrIssue['svg'], 200, [
+            'Content-Type' => 'image/svg+xml',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    public function downloadUserQr(User $user, QrLoginService $qrLoginService)
+    {
+        abort_unless($user->role === 'bidder', 404);
+        abort_unless($this->bidderApprovalFeaturesAvailable(), 404);
+        abort_unless($user->isApprovedBidder(), 403);
+
+        $qrIssue = $this->resolveBidderQrIssue($user, $qrLoginService);
+        $filename = 'bac-office-bidder-' . $user->id . '-qr.svg';
+
+        return response($qrIssue['svg'], 200, [
+            'Content-Type' => 'image/svg+xml',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    public function previewBidderDocument(User $user, BidderDocument $document)
+    {
+        abort_unless($user->role === 'bidder', 404);
+        abort_unless((int) $document->user_id === (int) $user->id, 404);
+
+        return redirect()->route('admin.user.document.pdf', ['user' => $user, 'document' => $document]);
+    }
+
+    public function streamBidderDocumentPdf(User $user, BidderDocument $document)
+    {
+        abort_unless($user->role === 'bidder', 404);
+        abort_unless((int) $document->user_id === (int) $user->id, 404);
+
+        return $this->streamDocumentPdfPreview(
+            $document->file_path,
+            $document->display_name,
+            $document->document_type
+        );
     }
 
     public function storeUser(Request $request)
     {
         $validated = $this->validateUser($request);
 
-        User::create($validated);
+        $user = User::create($validated);
+        $this->syncBidderProfile($user);
 
         return redirect()->route('admin.users')->with('success', 'User created successfully.');
     }
@@ -222,25 +356,94 @@ class AdminController extends Controller
         }
 
         $user->update($validated);
+        $this->syncBidderProfile($user);
 
         return redirect()->route('admin.users')->with('success', 'User updated successfully.');
     }
 
-    public function approveUser(User $user)
+public function approveUser(User $user)
     {
-        $user->update(['status' => 'active']);
+        abort_unless($user->role === 'bidder', 404);
+
+        if (! $this->bidderApprovalFeaturesAvailable()) {
+            return redirect()
+                ->route('admin.users')
+                ->with('warning', 'Bidder approval is unavailable because the bidder approval table is missing in the current database.');
+        }
+
+        DB::transaction(function () use ($user): void {
+            $bidder = $this->ensureBidderProfile($user);
+
+            $user->forceFill([
+                'status' => 'active',
+                'company' => $bidder->company_name,
+            ])->save();
+
+            $bidder->forceFill([
+                'approval_status' => 'approved',
+                'approved_at' => now(),
+                'approved_by' => Auth::id(),
+            ])->save();
+        });
+
+        $user->refresh()->load('bidderProfile');
+        $this->sendBidderApprovedQrEmail($user, app(QrLoginService::class));
 
         SystemNotification::createForUser(
             $user->id,
             'Account approved',
-            'Your bidder account has been approved. You can now sign in and participate in bidding.',
+            'Your bidder account has been approved. You can now scan your QR code or sign in with your password.',
             'account_approved'
         );
 
-        return redirect()->route('admin.users')->with('success', 'User approved successfully.');
+        $redirect = redirect()
+            ->route('admin.users.review', $user)
+            ->with('success', 'Bidder approved successfully.');
+
+        if (config('mail.default') === 'log') {
+            $redirect->with(
+                'warning',
+                'QR email delivery is currently set to log mode. The message was written to storage/logs/laravel.log instead of being sent to the bidder inbox.'
+            );
+        }
+
+        return $redirect;
     }
 
-    public function rejectUser(User $user)
+    public function resendUserQrEmail(User $user, QrLoginService $qrLoginService)
+    {
+        abort_unless($user->role === 'bidder', 404);
+
+        if (! $this->bidderApprovalFeaturesAvailable()) {
+            return redirect()
+                ->route('admin.users.review', $user)
+                ->with('warning', 'QR email resend is unavailable because the bidder approval tables are missing in the current database.');
+        }
+
+        if (! $user->isApprovedBidder()) {
+            return redirect()
+                ->route('admin.users.review', $user)
+                ->with('warning', 'Only approved bidder accounts can receive QR login emails.');
+        }
+
+        $user->loadMissing('bidderProfile');
+        $this->sendBidderApprovedQrEmail($user, $qrLoginService);
+
+        $redirect = redirect()
+            ->route('admin.users.review', $user)
+            ->with('success', 'QR email resent successfully.');
+
+        if (config('mail.default') === 'log') {
+            $redirect->with(
+                'warning',
+                'QR email delivery is currently set to log mode. The message was written to storage/logs/laravel.log instead of being sent to the bidder inbox.'
+            );
+        }
+
+        return $redirect;
+    }
+
+public function rejectUser(Request $request, User $user)
     {
         if ((int) $user->id === (int) Auth::id()) {
             return redirect()
@@ -248,24 +451,59 @@ class AdminController extends Controller
                 ->withErrors(['status' => 'You cannot reject your own signed-in account.']);
         }
 
-        $user->update(['status' => 'rejected']);
+        abort_unless($user->role === 'bidder', 404);
+
+        if (! $this->bidderApprovalFeaturesAvailable()) {
+            return redirect()
+                ->route('admin.users')
+                ->with('warning', 'Bidder rejection is unavailable because the bidder approval table is missing in the current database.');
+        }
+
+        $reason = trim((string) $request->input('rejection_reason'));
+        $bidder = null;
+
+        DB::transaction(function () use ($user, &$bidder): void {
+            $bidder = $this->ensureBidderProfile($user);
+
+            $user->forceFill([
+                'status' => 'rejected',
+            ])->save();
+
+            $bidder->forceFill([
+                'approval_status' => 'rejected',
+                'approved_at' => null,
+                'approved_by' => Auth::id(),
+            ])->save();
+        });
+
+        app(QrLoginService::class)->revokeAllForUser($user);
+
+        Mail::to($user->email)->send(new BidderRejectedMail($user, $bidder, $reason !== '' ? $reason : null));
 
         SystemNotification::createForUser(
             $user->id,
             'Account rejected',
-            'Your bidder account registration was rejected. Please contact the administrator for details.',
+            'Your bidder account registration was rejected. Please check your email for the BAC Office update.',
             'account_rejected'
         );
 
-        return redirect()->route('admin.users')->with('success', 'User rejected successfully.');
+        return redirect()
+            ->route('admin.users.review', $user)
+            ->with('success', 'Bidder registration rejected and email notification sent.');
     }
 
-    public function destroyUser(User $user)
+public function destroyUser(User $user)
     {
         if ((int) $user->id === (int) Auth::id()) {
             return redirect()
                 ->route('admin.users')
                 ->withErrors(['delete' => 'You cannot delete your own account while signed in.']);
+        }
+
+        if ($user->role === 'admin' && User::where('role', 'admin')->count() <= 1) {
+            return redirect()
+                ->route('admin.users')
+                ->withErrors(['delete' => 'You cannot delete the last remaining admin account.']);
         }
 
         $user->delete();
@@ -369,6 +607,44 @@ class AdminController extends Controller
         return view('admin.bid-view', compact('bid'));
     }
 
+    public function previewBidDocument(Bid $bid, string $document)
+    {
+        $bid->loadMissing('user.philgepsCertificate');
+        $documentMeta = $this->bidDocumentMeta($bid, $document);
+
+        abort_unless(filled($documentMeta['path']), 404);
+
+        return redirect()->route('admin.bid.document.pdf', ['bid' => $bid, 'document' => $document]);
+    }
+
+    public function streamBidDocumentPdf(Bid $bid, string $document)
+    {
+        $bid->loadMissing(['project', 'user.philgepsCertificate']);
+        $documentMeta = $this->bidDocumentMeta($bid, $document);
+
+        abort_unless(filled($documentMeta['path']), 404);
+
+        return $this->streamDocumentPdfPreview(
+            $documentMeta['path'],
+            $documentMeta['display_name'],
+            $documentMeta['label']
+        );
+    }
+
+    public function streamProjectDocumentPdf(Project $project, string $document)
+    {
+        $project->loadMissing('documents');
+        $documentMeta = $this->projectDocumentMeta($project, $document);
+
+        abort_unless(filled($documentMeta['path']), 404);
+
+        return $this->streamDocumentPdfPreview(
+            $documentMeta['path'],
+            $documentMeta['display_name'],
+            $documentMeta['label']
+        );
+    }
+
     public function editBid(Bid $bid)
     {
         $bid->load(['project', 'user']);
@@ -421,15 +697,40 @@ class AdminController extends Controller
     public function viewProject(Project $project)
     {
         $project->loadCount('bids');
-        $project->load(['assignments.staff']);
+        $project->load(['assignments.staff', 'documents']);
 
         return view('admin.project-view', compact('project'));
+    }
+
+    public function projectFiles(Project $project)
+    {
+        $project->load('documents');
+
+        return view('admin.project-files', compact('project'));
+    }
+
+    public function destroyProjectDocument(Request $request, Project $project, string $document)
+    {
+        $deletedDocument = $this->deleteProjectDocument($project, $document);
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Project file deleted successfully.',
+                'deleted_name' => $deletedDocument['display_name'],
+                'remaining_count' => $deletedDocument['remaining_count'],
+            ]);
+        }
+
+        return redirect()
+            ->route('admin.projects')
+            ->with('success', 'Project file deleted successfully.');
     }
 
     public function editProject(Project $project)
     {
         $project->loadCount('bids');
-        $project->load(['assignments']);
+        $project->load(['assignments', 'documents']);
 
         $staffMembers = User::where('role', 'staff')
             ->where('status', 'active')
@@ -446,6 +747,9 @@ class AdminController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'required|string',
+            'document_files' => 'nullable|array',
+            'document_files.*' => 'file|mimes:pdf,doc,docx,jpg,jpeg,png|max:20480',
+            'document_file' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:20480',
             'budget' => 'required|numeric|min:0|lte:9999999999999.99',
             'status' => 'required|in:approved_for_bidding,open,closed,awarded',
             'deadline' => 'required|date',
@@ -455,9 +759,13 @@ class AdminController extends Controller
         ]);
 
         $staffId = $validated['staff_id'] ?? null;
+        $documentFiles = $this->extractProjectDocumentFiles($request);
         unset($validated['staff_id']);
+        unset($validated['document_files']);
+        unset($validated['document_file']);
 
         $project->update($validated);
+        $this->storeProjectDocuments($project, $documentFiles);
 
         if ($staffId) {
             Assignment::updateOrCreate(
@@ -714,6 +1022,7 @@ class AdminController extends Controller
         return $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user?->id)],
+            'username' => ['nullable', 'string', 'min:4', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', Rule::unique('users', 'username')->ignore($user?->id)],
             'role' => ['required', Rule::in(['admin', 'staff', 'bidder'])],
             'status' => ['required', Rule::in(['active', 'pending', 'rejected'])],
             'office' => [
@@ -726,7 +1035,186 @@ class AdminController extends Controller
             'password' => $passwordRule,
             'company' => ['nullable', 'string', 'max:255'],
             'registration_no' => ['nullable', 'string', 'max:255'],
+        ], [
+            'username.regex' => 'Username may only contain letters, numbers, dots, dashes, and underscores.',
         ]);
+    }
+
+    protected function bidDocumentMeta(Bid $bid, string $document): array
+    {
+        return match ($document) {
+            'proposal' => [
+                'label' => 'Proposal File',
+                'path' => $bid->proposal_file,
+                'display_name' => $bid->proposal_filename,
+            ],
+            'certificate' => [
+                'label' => 'Certificate Proof',
+                'path' => $bid->user->philgepsCertificate?->file_path,
+                'display_name' => $bid->user->philgepsCertificate?->display_name,
+            ],
+            default => abort(404),
+        };
+    }
+
+    protected function projectDocumentMeta(Project $project, string $document): array
+    {
+        abort_unless(ctype_digit($document), 404);
+
+        $projectDocument = $project->uploadedDocuments()->values()->get((int) $document);
+
+        abort_unless($projectDocument !== null, 404);
+
+        return [
+            'label' => 'Project File',
+            'path' => $projectDocument->file_path,
+            'display_name' => $projectDocument->display_name,
+        ];
+    }
+
+    protected function deleteProjectDocument(Project $project, string $document): array
+    {
+        $project->loadMissing('documents');
+        $documentMeta = $this->projectDocumentMeta($project, $document);
+        $path = $documentMeta['path'];
+
+        DB::transaction(function () use ($project, $path) {
+            $projectDocument = $project->documents()->where('file_path', $path)->first();
+
+            if ($projectDocument) {
+                $projectDocument->delete();
+            }
+
+            if ($project->document_path === $path) {
+                $nextDocument = $project->documents()
+                    ->where('file_path', '!=', $path)
+                    ->orderBy('id')
+                    ->first();
+
+                $project->forceFill([
+                    'document_path' => $nextDocument?->file_path,
+                    'document_original_name' => $nextDocument?->original_name,
+                ])->save();
+            }
+        });
+
+        Uploads::delete($path);
+
+        $project->refresh()->load('documents');
+
+        return [
+            'display_name' => $documentMeta['display_name'] ?? 'document',
+            'remaining_count' => $project->uploadedDocuments()->count(),
+        ];
+    }
+
+    protected function streamDocumentPdfPreview(string $path, ?string $displayName, string $documentLabel)
+    {
+        $resolvedDisplayName = Uploads::fileName($path, $displayName) ?? 'document';
+        $pdfFilename = $this->pdfPreviewFilename($resolvedDisplayName);
+
+        if (Uploads::extension($path, $resolvedDisplayName) === 'pdf') {
+            $contents = Uploads::contents($path);
+
+            if (is_string($contents) && $contents !== '') {
+                return response($contents, 200, [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'inline; filename="' . $pdfFilename . '"',
+                    'X-Content-Type-Options' => 'nosniff',
+                ]);
+            }
+        }
+
+        $preview = DocumentPreview::forUpload($path, $resolvedDisplayName);
+
+        return Pdf::loadView('admin.bid-document-pdf', [
+            'preview' => $preview,
+            'documentLabel' => $documentLabel,
+        ])->setPaper('a4')->stream($pdfFilename, ['Attachment' => false]);
+    }
+
+    protected function pdfPreviewFilename(string $displayName): string
+    {
+        $baseName = pathinfo($displayName, PATHINFO_FILENAME) ?: 'document';
+        $safeName = trim((string) preg_replace('/[^A-Za-z0-9._-]+/', '-', $baseName), '-');
+
+        return ($safeName !== '' ? $safeName : 'document') . '.pdf';
+    }
+
+    protected function ensureBidderProfile(User $user): Bidder
+    {
+        $registrationDocumentPath = $user->registrationDocuments()->orderBy('id')->value('file_path');
+
+        return $user->bidderProfile()->firstOrCreate(
+            ['user_id' => $user->id],
+            [
+                'company_name' => $user->company ?: $user->name,
+                'contact_number' => 'Not provided',
+                'business_address' => 'Not provided',
+                'document_path' => $registrationDocumentPath,
+                'approval_status' => $user->status === 'active' ? 'approved' : 'pending',
+                'approved_at' => $user->status === 'active' ? now() : null,
+                'approved_by' => $user->status === 'active' ? Auth::id() : null,
+            ]
+        );
+    }
+
+    protected function syncBidderProfile(User $user): void
+    {
+        if ($user->role !== 'bidder' || ! $this->bidderApprovalFeaturesAvailable()) {
+            return;
+        }
+
+        $bidder = $this->ensureBidderProfile($user);
+
+        $bidder->forceFill([
+            'company_name' => $user->company ?: $bidder->company_name ?: $user->name,
+            'approval_status' => $user->status === 'active'
+                ? 'approved'
+                : ($user->status === 'rejected' ? 'rejected' : 'pending'),
+        ])->save();
+    }
+
+    protected function resolveBidderQrIssue(User $user, QrLoginService $qrLoginService): array
+    {
+        $activeToken = $user->qrLoginTokens()
+            ->active()
+            ->latest()
+            ->first();
+
+        if ($activeToken instanceof QrLoginToken) {
+            $existingArtifacts = $qrLoginService->buildArtifactsForToken($activeToken);
+
+            if (is_array($existingArtifacts)) {
+                return $existingArtifacts;
+            }
+        }
+
+        return $qrLoginService->issueForUser($user);
+    }
+
+    protected function sendBidderApprovedQrEmail(User $user, QrLoginService $qrLoginService): array
+    {
+        $user->loadMissing('bidderProfile');
+
+        $qrIssue = $qrLoginService->issueForUser($user);
+
+        Mail::to($user->email)->send(new BidderApprovedQrMail(
+            $user,
+            $user->bidderProfile,
+            $qrIssue['svg'],
+            $qrIssue['data_uri'],
+            $qrIssue['login_url'],
+        ));
+
+        return $qrIssue;
+    }
+
+    protected function bidderApprovalFeaturesAvailable(): bool
+    {
+        return Schema::hasTable('bidders')
+            && Schema::hasTable('qr_login_tokens')
+            && Schema::hasTable('login_logs');
     }
 
     protected function buildReportsData(): array
@@ -835,6 +1323,61 @@ class AdminController extends Controller
             'totalAwardedAmount' => $totalContractAmount,
             'bidParticipation' => $totalBids,
         ];
+    }
+
+    private function extractProjectDocumentFiles(Request $request): array
+    {
+        $files = [];
+
+        foreach ((array) $request->file('document_files', []) as $file) {
+            if ($file) {
+                $files[] = $file;
+            }
+        }
+
+        $singleFile = $request->file('document_file');
+        if ($singleFile) {
+            $files[] = $singleFile;
+        }
+
+        return $files;
+    }
+
+    private function storeProjectDocuments(Project $project, array $files): void
+    {
+        if ($files === []) {
+            return;
+        }
+
+        $timestamp = now();
+        $documentsToCreate = [];
+        $firstStoredDocument = null;
+
+        foreach ($files as $file) {
+            $filename = 'project_' . $project->id . '_' . $timestamp->format('YmdHis') . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $storedPath = Uploads::store($file, 'project-documents', $filename);
+
+            $document = [
+                'original_name' => $file->getClientOriginalName(),
+                'file_path' => $storedPath,
+                'created_at' => $timestamp,
+                'updated_at' => $timestamp,
+            ];
+
+            $documentsToCreate[] = $document;
+            $firstStoredDocument ??= $document;
+        }
+
+        $project->documents()->createMany($documentsToCreate);
+
+        if (! filled($project->document_path) && $firstStoredDocument !== null) {
+            $project->forceFill([
+                'document_path' => $firstStoredDocument['file_path'],
+                'document_original_name' => $firstStoredDocument['original_name'],
+            ])->save();
+        }
+
+        $project->unsetRelation('documents');
     }
 
 }

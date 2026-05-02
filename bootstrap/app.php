@@ -25,7 +25,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'staff' => \App\Http\Middleware\StaffMiddleware::class,
             'bidder' => \App\Http\Middleware\BidderMiddleware::class,
-]);
+            'approved.bidder' => \App\Http\Middleware\ApprovedBidderMiddleware::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

@@ -88,6 +88,13 @@
                             @endforeach
                         </select>
                     </div>
+                    <div style="width: 160px;">
+                        <select name="proposal" onchange="this.form.submit()" style="width: 100%; height: 42px; padding: 0 14px; border: 1px solid #d7e0ea; border-radius: 10px; font-size: 13px; color: #1f2937; background: white;">
+                            <option value="">All Uploads</option>
+                            <option value="uploaded" {{ ($proposalFilter ?? '') === 'uploaded' ? 'selected' : '' }}>Uploaded</option>
+                            <option value="missing" {{ ($proposalFilter ?? '') === 'missing' ? 'selected' : '' }}>Missing</option>
+                        </select>
+                    </div>
                 </form>
 
                 <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
@@ -99,6 +106,7 @@
                             <th style="text-align: left; padding: 14px 18px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Budget</th>
                             <th style="text-align: left; padding: 14px 18px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Variance</th>
                             <th style="text-align: left; padding: 14px 18px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Submitted</th>
+                            <th style="text-align: left; padding: 14px 18px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Proposal</th>
                             <th style="text-align: left; padding: 14px 18px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Status</th>
                             <th style="text-align: left; padding: 14px 18px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Actions</th>
                         </tr>
@@ -112,7 +120,9 @@
                                 $varianceColor = is_null($variance) ? '#64748b' : ($variance <= 0 ? '#047857' : '#dc2626');
                                 $bidderName = $bid->user->company ?: ($bid->user->name ?? 'N/A');
                                 $certificateProof = $bid->user->philgepsCertificate;
-                                $certificateProofUrl = $certificateProof?->file_url;
+                                $certificateProofUrl = $certificateProof?->file_url
+                                    ? route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'certificate'])
+                                    : null;
                             @endphp
                             <tr style="border-bottom: 1px solid #eef3f8;">
                                 <td style="padding: 18px; font-size: 13px; vertical-align: top;">
@@ -129,6 +139,13 @@
                                 <td style="padding: 18px; font-size: 13px; font-weight: 500; color: #94a3b8; vertical-align: top;">P{{ number_format($budget, 2) }}</td>
                                 <td style="padding: 18px; font-size: 13px; font-weight: 500; color: {{ $varianceColor }}; vertical-align: top;">{{ is_null($variance) ? 'N/A' : number_format($variance, 1) . '%' }}</td>
                                 <td style="padding: 18px; font-size: 13px; font-weight: 400; color: #334155; vertical-align: top;">{{ $bid->created_at?->format('Y-m-d') }}</td>
+                                <td style="padding: 18px; font-size: 13px; vertical-align: top;">
+                                    @if($bid->proposal_url)
+                                        <a href="{{ route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'proposal']) }}" target="_blank" rel="noopener" style="display: inline-flex; font-size: 12px; font-weight: 600; color: #1d4ed8; text-decoration: none;">View proposal</a>
+                                    @else
+                                        <span style="font-size: 12px; color: #94a3b8;">Missing upload</span>
+                                    @endif
+                                </td>
                                 <td style="padding: 18px; vertical-align: top;">
                                     <span style="display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600;
                                         @if($bid->status == 'pending') background: #fef3c7; color: #a16207;
@@ -158,7 +175,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" style="padding: 40px; text-align: center; color: #9ca3af;">
+                                <td colspan="9" style="padding: 40px; text-align: center; color: #9ca3af;">
                                     <i class="fas fa-gavel" style="font-size: 48px; margin-bottom: 10px; display: block;"></i>
                                     No bids found for this search/filter.
                                 </td>
@@ -200,6 +217,7 @@
 
     function closeBidViewModal() {
         document.getElementById('bidViewModal').style.display = 'none';
+        document.getElementById('bidViewModalBody').innerHTML = '';
     }
 
     function closeSuccessAlert() {

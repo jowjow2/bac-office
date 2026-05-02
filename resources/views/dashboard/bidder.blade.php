@@ -213,6 +213,78 @@
             color: #0f172a;
         }
 
+        .bidder-project-files {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #dbe4f0;
+            border-radius: 12px;
+            background: #f8fbff;
+        }
+
+        .bidder-project-files-compact {
+            margin-bottom: 0;
+        }
+
+        .bidder-project-files-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .bidder-project-files-title {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #334155;
+        }
+
+        .bidder-project-files-count {
+            font-size: 10px;
+            color: #64748b;
+        }
+
+        .bidder-project-files-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .bidder-project-file-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            max-width: 100%;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid #dbeafe;
+            background: #ffffff;
+            color: #1d4ed8;
+            font-size: 11px;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .bidder-project-file-link:hover {
+            color: #1e40af;
+            border-color: #93c5fd;
+        }
+
+        .bidder-project-file-link span {
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .bidder-project-file-link.is-disabled {
+            color: #94a3b8;
+            border-color: #e2e8f0;
+            cursor: default;
+        }
+
         .bidder-status-pill {
             display: inline-flex;
             align-items: center;
@@ -234,39 +306,6 @@
             text-align: center;
             font-size: 12px;
             color: #94a3b8;
-        }
-
-        .bidder-table-qr {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 54px;
-            height: 54px;
-            padding: 5px;
-            border-radius: 12px;
-            background: #ffffff;
-            border: 1px solid #dbeafe;
-            box-shadow: 0 8px 18px rgba(37, 99, 235, 0.08);
-        }
-
-        .bidder-table-qr img {
-            display: block;
-            width: 100%;
-            height: auto;
-        }
-
-        .bidder-table-qr-link {
-            display: inline-flex;
-            align-items: center;
-            margin-top: 6px;
-            color: #2563eb;
-            font-size: 11px;
-            font-weight: 600;
-            text-decoration: none;
-        }
-
-        .bidder-table-qr-link:hover {
-            color: #1d4ed8;
         }
 
         @media (max-width: 1200px) {
@@ -337,12 +376,6 @@
             <section class="dashboard-home-intro">
                 <h1 class="dashboard-home-title">Bidder Dashboard</h1>
                 <p class="dashboard-home-subtitle">Track your bids and available procurement opportunities.</p>
-                <div class="bidder-page-actions">
-                    <button type="button" class="bidder-scanner-trigger" data-scanner-open>
-                        <i class="fas fa-camera" aria-hidden="true"></i>
-                        Scan Project QR
-                    </button>
-                </div>
             </section>
 
             @if($awardedProjects->isNotEmpty())
@@ -432,13 +465,7 @@
                 <section class="bidder-table-panel" id="available-projects">
                     <div class="bidder-table-header">
                         <h2>Open Projects</h2>
-                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                            <button type="button" class="bidder-scanner-trigger" data-scanner-open>
-                                <i class="fas fa-qrcode" aria-hidden="true"></i>
-                                Scan QR
-                            </button>
-                            <a href="{{ route('bidder.available-projects') }}" class="bidder-header-action primary">Browse All</a>
-                        </div>
+                        <a href="{{ route('bidder.available-projects') }}" class="bidder-header-action primary">Browse All</a>
                     </div>
 
                     <div class="bidder-table-wrap">
@@ -449,14 +476,16 @@
                                     <th>Budget</th>
                                     <th>Deadline</th>
                                     <th>Status</th>
-                                    <th>Scan</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($availableProjects->take(5) as $project)
-                                    @php $hasBid = $myBids->contains('project_id', $project->id); @endphp
+                                    @forelse($availableProjects->take(5) as $project)
+                                        @php $hasBid = $myBids->contains('project_id', $project->id); @endphp
                                     <tr>
-                                        <td class="bidder-project-title">{{ $project->title }}</td>
+                                        <td>
+                                            <div class="bidder-project-title">{{ $project->title }}</div>
+                                            @include('bidder.partials.project-documents', ['project' => $project, 'compact' => true])
+                                        </td>
                                         <td>P{{ number_format((float) $project->budget, 2) }}</td>
                                         <td>{{ $project->deadline?->format('Y-m-d') ?? 'N/A' }}</td>
                                         <td>
@@ -466,16 +495,10 @@
                                                 <span class="bidder-status-pill open">Open</span>
                                             @endif
                                         </td>
-                                        <td>
-                                            <a href="{{ $project->scan_url }}" class="bidder-table-qr" aria-label="Open project flow for {{ $project->title }}">
-                                                <img src="{{ $project->qr_code_data_uri }}" alt="QR code for {{ $project->title }}">
-                                            </a>
-                                            <a href="{{ $project->scan_url }}" class="bidder-table-qr-link">Open project</a>
-                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="5" class="bidder-empty">No open projects available.</td>
+                                        <td colspan="4" class="bidder-empty">No open projects available.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -486,8 +509,6 @@
         </main>
     </div>
 </div>
-
-@include('bidder.partials.project-scanner')
 
 <script>
     (function () {

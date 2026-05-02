@@ -7,18 +7,12 @@
     <main class="public-shell">
         <a href="{{ route('public.procurement') }}" class="public-back-link">Back to Procurement</a>
 
-        <section class="public-page-hero public-page-hero-detail">
+        <section class="public-page-hero">
             <div class="public-detail-hero-copy">
                 <p class="public-page-kicker">{{ ucwords(str_replace('_', ' ', $project->status)) }}</p>
                 <h1>{{ $project->title }}</h1>
                 <p>{{ $project->description ?: 'No description available yet.' }}</p>
             </div>
-
-            <aside class="public-qr-panel">
-                <span class="public-qr-label">Scan to open this page</span>
-                <img src="{{ $qrCodeDataUri }}" alt="QR code for {{ $project->title }} public page">
-                <a href="{{ $projectScanUrl }}" class="public-card-link">Open direct project link</a>
-            </aside>
         </section>
 
         <section class="public-detail-grid">

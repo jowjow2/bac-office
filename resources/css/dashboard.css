@@ -2853,16 +2853,6 @@ body.dashboard-sidebar-open .dashboard-sidebar-backdrop {
         padding-right: 16px;
     }
 
-    .bidder-dashboard-page .bidder-table-qr {
-        width: 48px;
-        height: 48px;
-    }
-
-    .bidder-available-page .bidder-project-qr {
-        width: 84px;
-        height: 84px;
-    }
-
     .bidder-company-page .bidder-company-avatar {
         width: 60px;
         height: 60px;

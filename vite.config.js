@@ -6,6 +6,7 @@ export default defineConfig({
     plugins: [
         laravel({
             input: [
+                'resources/css/contact.css',
                 'resources/css/home.css',
                 'resources/css/app.css',
                 'resources/js/app.js',

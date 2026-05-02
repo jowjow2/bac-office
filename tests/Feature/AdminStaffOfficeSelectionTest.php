@@ -3,6 +3,7 @@
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 uses(RefreshDatabase::class);
 
@@ -114,5 +115,78 @@ it('allows admins to update the office selection of a staff user', function () {
     $test->assertDatabaseHas('users', [
         'id' => $staff->id,
         'office' => 'Engineering Office',
+    ]);
+});
+
+it('shows the manage users page even when the bidder approval table is missing', function () {
+    $admin = createAdminStaffOfficeUser();
+    $test = testCase();
+
+    User::create([
+        'name' => 'Legacy Bidder',
+        'email' => 'legacy.bidder@example.com',
+        'password' => Hash::make('password'),
+        'role' => 'bidder',
+        'status' => 'pending',
+        'company' => 'Legacy Builders',
+        'registration_no' => 'REG-LEGACY-2',
+    ]);
+
+    Schema::dropIfExists('bidders');
+
+    $response = $test
+        ->actingAs($admin)
+        ->get(route('admin.users'));
+
+    $response->assertOk();
+    $response->assertSee('Legacy Bidder');
+    $response->assertSee('Review unavailable');
+    $response->assertSee('bidder approval table is not present');
+});
+
+it('allows admins to create a bidder user even when the bidder approval table is missing', function () {
+    $admin = createAdminStaffOfficeUser();
+    $test = testCase();
+
+    Schema::dropIfExists('bidders');
+
+    $response = $test
+        ->actingAs($admin)
+        ->post(route('admin.users.store'), [
+            'name' => 'Legacy Created Bidder',
+            'email' => 'legacy.created.bidder@example.com',
+            'password' => 'password',
+            'role' => 'bidder',
+            'status' => 'pending',
+            'office' => '',
+            'company' => 'Legacy Created Builders',
+            'registration_no' => 'REG-LEGACY-3',
+        ]);
+
+    $response->assertRedirect(route('admin.users'));
+    $response->assertSessionHas('success', 'User created successfully.');
+
+    $test->assertDatabaseHas('users', [
+        'email' => 'legacy.created.bidder@example.com',
+        'role' => 'bidder',
+        'company' => 'Legacy Created Builders',
+    ]);
+});
+
+it('prevents deleting the last remaining admin account', function () {
+    $admin = createAdminStaffOfficeUser();
+    $test = testCase();
+
+    $response = $test
+        ->actingAs($admin)
+        ->delete(route('admin.users.destroy', $admin));
+
+    $response->assertRedirect(route('admin.users'));
+    $response->assertSessionHasErrors(['delete']);
+
+    $test->assertDatabaseHas('users', [
+        'id' => $admin->id,
+        'role' => 'admin',
+        'email' => 'admin-staff-office@example.com',
     ]);
 });

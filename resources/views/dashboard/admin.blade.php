@@ -234,7 +234,9 @@
                                 @forelse($latestBids as $bid)
                                     @php
                                         $certificateProof = $bid->user->philgepsCertificate;
-                                        $certificateProofUrl = $certificateProof?->file_url;
+                                        $certificateProofUrl = $certificateProof?->file_url
+                                            ? route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'certificate'])
+                                            : null;
                                     @endphp
                                     <tr>
                                         <td>{{ $bid->user->company ?: ($bid->user->name ?? 'N/A') }}</td>
@@ -329,6 +331,53 @@
                             <span>Staff Members</span>
                             <strong>{{ $staffMembers }}</strong>
                         </div>
+                    </div>
+                </article>
+            </section>
+
+            <section class="dashboard-main-grid dashboard-lower-grid">
+                <article class="dashboard-panel dashboard-table-panel" style="grid-column: 1 / -1;">
+                    <div class="dashboard-panel-header">
+                        <div>
+                            <h2>Uploaded Approved Bids</h2>
+                            <p>Approved bid submissions with uploaded proposal files</p>
+                        </div>
+                        <a href="{{ route('admin.bids', ['status' => 'approved', 'proposal' => 'uploaded']) }}" class="dashboard-panel-button">View All</a>
+                    </div>
+
+                    <div class="dashboard-table-wrap">
+                        <table class="dashboard-table">
+                            <thead>
+                                <tr>
+                                    <th>Bidder</th>
+                                    <th>Project</th>
+                                    <th>Amount</th>
+                                    <th>Proposal</th>
+                                    <th>Submitted</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($uploadedApprovedBids as $bid)
+                                    <tr>
+                                        <td>{{ $bid->user->company ?: ($bid->user->name ?? 'N/A') }}</td>
+                                        <td>{{ $bid->project->title ?? 'N/A' }}</td>
+                                        <td>P{{ number_format((float) $bid->bid_amount, 2) }}</td>
+                                        <td>
+                                            @if($bid->proposal_url)
+                                                <a href="{{ route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'proposal']) }}" target="_blank" rel="noopener" style="color: #1d4ed8; text-decoration: none; font-weight: 600;">View Proposal</a>
+                                            @else
+                                                <span class="dashboard-badge dashboard-badge-pending" style="background: #e5e7eb; color: #475569;">Missing</span>
+                                            @endif
+                                        </td>
+                                        <td>{{ $bid->created_at?->format('M d, Y') ?? 'N/A' }}</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="5" class="empty-cell">No approved bids with uploaded proposals yet.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
                     </div>
                 </article>
             </section>

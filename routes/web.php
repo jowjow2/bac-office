@@ -8,26 +8,51 @@ use App\Http\Controllers\PublicProcurementController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\BidderController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Http\Request;
 
 Route::get('/', function () {
-    $publicProjectsCount = Project::query()->visibleToPublic()->count();
-    $openProjectsCount = Project::query()->where('status', 'open')->count();
-    $awardedContractsCount = Award::query()->count();
-    $totalAwardedValue = (float) Award::query()->sum('contract_amount');
+    try {
+        $hasProjectsTable = Schema::hasTable('projects');
+        $hasAwardsTable = Schema::hasTable('awards');
 
-    $latestProjects = Project::query()
-        ->visibleToPublic()
-        ->withCount('bids')
-        ->latest()
-        ->take(3)
-        ->get();
+        $publicProjectsCount = $hasProjectsTable
+            ? Project::query()->visibleToPublic()->count()
+            : 0;
+        $openProjectsCount = $hasProjectsTable
+            ? Project::query()->where('status', 'open')->count()
+            : 0;
+        $awardedContractsCount = $hasAwardsTable
+            ? Award::query()->count()
+            : 0;
+        $totalAwardedValue = $hasAwardsTable
+            ? (float) Award::query()->sum('contract_amount')
+            : 0.0;
 
-    $latestAwards = Award::query()
-        ->with(['project:id,title', 'bid.user:id,name,company'])
-        ->latest('contract_date')
-        ->take(3)
-        ->get();
+        $latestProjects = $hasProjectsTable
+            ? Project::query()
+                ->visibleToPublic()
+                ->withCount('bids')
+                ->latest()
+                ->take(3)
+                ->get()
+            : collect();
+
+        $latestAwards = $hasAwardsTable
+            ? Award::query()
+                ->with(['project:id,title', 'bid.user:id,name,company'])
+                ->latest('contract_date')
+                ->take(3)
+                ->get()
+            : collect();
+    } catch (Throwable) {
+        $publicProjectsCount = 0;
+        $openProjectsCount = 0;
+        $awardedContractsCount = 0;
+        $totalAwardedValue = 0.0;
+        $latestProjects = collect();
+        $latestAwards = collect();
+    }
 
     return view('pages.home', compact(
         'publicProjectsCount',
@@ -53,26 +78,31 @@ Route::get('/contact', function () {
 
 Route::get('/procurement', [PublicProcurementController::class, 'index'])->name('public.procurement');
 Route::get('/procurement/projects/{project}', [PublicProcurementController::class, 'show'])->name('public.procurement.show');
-Route::get('/procurement/projects/{project}/scan', [PublicProcurementController::class, 'scan'])->name('public.procurement.scan');
 
 Route::get('/awards', function (Request $request) {
     $query = trim((string) $request->query('q', ''));
 
-    $awards = Award::query()
-        ->with(['project', 'bid.user'])
-        ->when($query !== '', function ($builder) use ($query) {
-            $builder->where(function ($nested) use ($query) {
-                $nested->whereHas('project', function ($projectQuery) use ($query) {
-                    $projectQuery->where('title', 'like', "%{$query}%")
-                        ->orWhere('description', 'like', "%{$query}%");
-                })->orWhereHas('bid.user', function ($userQuery) use ($query) {
-                    $userQuery->where('name', 'like', "%{$query}%")
-                        ->orWhere('company', 'like', "%{$query}%");
-                });
-            });
-        })
-        ->latest('contract_date')
-        ->get();
+    try {
+        $awards = Schema::hasTable('awards')
+            ? Award::query()
+                ->with(['project', 'bid.user'])
+                ->when($query !== '', function ($builder) use ($query) {
+                    $builder->where(function ($nested) use ($query) {
+                        $nested->whereHas('project', function ($projectQuery) use ($query) {
+                            $projectQuery->where('title', 'like', "%{$query}%")
+                                ->orWhere('description', 'like', "%{$query}%");
+                        })->orWhereHas('bid.user', function ($userQuery) use ($query) {
+                            $userQuery->where('name', 'like', "%{$query}%")
+                                ->orWhere('company', 'like', "%{$query}%");
+                        });
+                    });
+                })
+                ->latest('contract_date')
+                ->get()
+            : collect();
+    } catch (Throwable) {
+        $awards = collect();
+    }
 
     return view('pages.awards', compact('awards', 'query'));
 })->name('public.awards');
@@ -88,10 +118,12 @@ Route::view('/slider', 'slider')->name('slider');
 
 
 
+Route::get('/login', [AuthController::class, 'showLoginPage'])->name('login.page');
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 Route::post('/register', [AuthController::class, 'register'])->name('register');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::middleware('guest')->group(function () {
+    Route::post('/login/qr', [AuthController::class, 'loginWithQr'])->name('login.qr');
     Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm'])->name('password.request');
     Route::post('/forgot-password', [AuthController::class, 'sendPasswordResetLink'])->name('password.email');
     Route::get('/reset-password/{token}', [AuthController::class, 'showResetPasswordForm'])->name('password.reset');
@@ -103,17 +135,28 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/dashboard/admin', [AdminController::class, 'dashboard'])->name('admin.dashboard');
     Route::get('/admin/projects', [AdminController::class, 'projects'])->name('admin.projects');
     Route::post('/admin/projects', [AdminController::class, 'storeProject'])->name('admin.projects.store');
+    Route::get('/admin/projects/{project}/files', [AdminController::class, 'projectFiles'])->name('admin.project.files');
+    Route::delete('/admin/projects/{project}/documents/{document}', [AdminController::class, 'destroyProjectDocument'])->name('admin.project.document.destroy');
     Route::get('/admin/projects/{project}', [AdminController::class, 'viewProject'])->name('admin.project.view');
+    Route::get('/admin/projects/{project}/documents/{document}/pdf', [AdminController::class, 'streamProjectDocumentPdf'])->name('admin.project.document.pdf');
     Route::get('/admin/projects/{project}/edit', [AdminController::class, 'editProject'])->name('admin.project.edit');
     Route::match(['put', 'post'], '/admin/projects/{project}', [AdminController::class, 'updateProject'])->name('admin.project.update');
     Route::delete('/admin/projects/{project}', [AdminController::class, 'destroyProject'])->name('admin.project.destroy');
     Route::get('/admin/bidders', [AdminController::class, 'allBids'])->name('admin.bids');
     Route::get('/admin/bids/{bid}', [AdminController::class, 'viewBid'])->name('admin.bid.view');
+    Route::get('/admin/bids/{bid}/documents/{document}/pdf', [AdminController::class, 'streamBidDocumentPdf'])->name('admin.bid.document.pdf');
+    Route::get('/admin/bids/{bid}/documents/{document}', [AdminController::class, 'previewBidDocument'])->name('admin.bid.document.preview');
     Route::get('/admin/bids/{bid}/edit', [AdminController::class, 'editBid'])->name('admin.bid.edit');
     Route::put('/admin/bids/{bid}', [AdminController::class, 'updateBid'])->name('admin.bid.update');
     Route::patch('/admin/bids/{bid}/approve', [AdminController::class, 'approveBid'])->name('admin.bid.approve');
     Route::patch('/admin/bids/{bid}/reject', [AdminController::class, 'rejectBid'])->name('admin.bid.reject');
     Route::get('/admin/users', [AdminController::class, 'users'])->name('admin.users');
+    Route::get('/admin/users/{user}/review', [AdminController::class, 'reviewUser'])->name('admin.users.review');
+    Route::get('/admin/users/{user}/qr-code', [AdminController::class, 'previewUserQr'])->name('admin.users.qr.preview');
+    Route::get('/admin/users/{user}/qr-code/download', [AdminController::class, 'downloadUserQr'])->name('admin.users.qr.download');
+    Route::post('/admin/users/{user}/qr-email/resend', [AdminController::class, 'resendUserQrEmail'])->name('admin.users.qr.resend');
+    Route::get('/admin/users/{user}/documents/{document}', [AdminController::class, 'previewBidderDocument'])->name('admin.user.document.preview');
+    Route::get('/admin/users/{user}/documents/{document}/pdf', [AdminController::class, 'streamBidderDocumentPdf'])->name('admin.user.document.pdf');
     Route::post('/admin/users', [AdminController::class, 'storeUser'])->name('admin.users.store');
     Route::put('/admin/users/{user}', [AdminController::class, 'updateUser'])->name('admin.users.update');
     Route::patch('/admin/users/{user}/approve', [AdminController::class, 'approveUser'])->name('admin.users.approve');
@@ -151,9 +194,11 @@ Route::middleware(['auth', 'staff'])->group(function () {
     Route::patch('/staff/bids/{bid}/recommend', [StaffController::class, 'recommendBid'])->name('staff.bids.recommend');
 });
 
-Route::middleware(['auth', 'bidder'])->group(function () {
+Route::middleware(['auth', 'approved.bidder'])->group(function () {
     Route::get('/bidder/dashboard', [BidderController::class, 'index'])->name('bidder.dashboard');
     Route::get('/bidder/available-projects', [BidderController::class, 'availableProjects'])->name('bidder.available-projects');
+    Route::get('/bidder/projects/{project}/documents/{document}', [BidderController::class, 'previewProjectDocument'])->name('bidder.project.document.preview');
+    Route::get('/bidder/projects/{project}/documents/{document}/pdf', [BidderController::class, 'streamProjectDocumentPdf'])->name('bidder.project.document.pdf');
     Route::get('/bidder/my-bids', [BidderController::class, 'myBids'])->name('bidder.my-bids');
     Route::get('/bidder/awarded-contracts', [BidderController::class, 'awardedContracts'])->name('bidder.awarded-contracts');
     Route::get('/bidder/company-profile', [BidderController::class, 'companyProfile'])->name('bidder.company-profile');
@@ -174,5 +219,3 @@ Route::middleware(['auth', 'bidder'])->group(function () {
 
 
 //admin route
-
-

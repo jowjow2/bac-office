@@ -88,7 +88,12 @@
                             <label style="display: block; margin-bottom: 8px; font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #64748b;">Proposal File</label>
                             <div class="bid-detail-box">
                                 @if($bid->proposal_url)
-                                    <a href="{{ $bid->proposal_url }}" target="_blank" rel="noopener" style="color: #1d4ed8; text-decoration: none;">{{ $bid->proposal_filename }}</a>
+                                    <a
+                                        href="{{ route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'proposal']) }}"
+                                        target="_blank"
+                                        rel="noopener"
+                                        style="color: #1d4ed8; text-decoration: none;"
+                                    >{{ $bid->proposal_filename }}</a>
                                 @else
                                     No file uploaded
                                 @endif
@@ -105,7 +110,12 @@
                         <label style="display: block; margin-bottom: 8px; font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #64748b;">Certificate Proof</label>
                         <div class="bid-detail-box">
                             @if($bid->user->philgepsCertificate?->file_url)
-                                <a href="{{ $bid->user->philgepsCertificate->file_url }}" target="_blank" rel="noopener" style="color: #1d4ed8; text-decoration: none;">
+                                <a
+                                    href="{{ route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'certificate']) }}"
+                                    target="_blank"
+                                    rel="noopener"
+                                    style="color: #1d4ed8; text-decoration: none;"
+                                >
                                     {{ $bid->user->philgepsCertificate->display_name }}
                                 </a>
                             @else

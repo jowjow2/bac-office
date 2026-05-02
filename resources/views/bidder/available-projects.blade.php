@@ -51,12 +51,6 @@
             transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
         }
 
-        .bidder-available-card.is-scanned-target {
-            border-color: #60a5fa;
-            box-shadow: 0 18px 36px rgba(37, 99, 235, 0.18);
-            transform: translateY(-2px);
-        }
-
         .bidder-available-header {
             display: flex;
             align-items: flex-start;
@@ -135,73 +129,80 @@
             color: #64748b;
         }
 
-        .bidder-project-scan {
+        .bidder-project-files {
+            margin-bottom: 16px;
+            padding: 14px 16px;
+            border: 1px solid #dbe4f0;
+            border-radius: 14px;
+            background: #f8fbff;
+        }
+
+        .bidder-project-files-compact {
+            margin-top: 14px;
+            margin-bottom: 0;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: #ffffff;
+        }
+
+        .bidder-project-files-heading {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 16px;
-            padding: 14px 16px;
-            margin-bottom: 16px;
-            border: 1px solid #dbeafe;
-            border-radius: 16px;
-            background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+            gap: 12px;
+            margin-bottom: 10px;
         }
 
-        .bidder-project-scan-copy {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            min-width: 0;
-        }
-
-        .bidder-project-scan-title {
+        .bidder-project-files-title {
             font-size: 12px;
             font-weight: 700;
-            color: #1d4ed8;
+            color: #0f172a;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.04em;
         }
 
-        .bidder-project-scan-text {
-            margin: 0;
-            font-size: 12px;
-            line-height: 1.6;
+        .bidder-project-files-count {
+            font-size: 11px;
             color: #64748b;
         }
 
-        .bidder-project-scan-link {
+        .bidder-project-files-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .bidder-project-file-link {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            width: fit-content;
+            gap: 8px;
+            max-width: 100%;
+            padding: 9px 12px;
+            border-radius: 999px;
+            border: 1px solid #dbeafe;
+            background: #ffffff;
             color: #1d4ed8;
             font-size: 12px;
             font-weight: 600;
             text-decoration: none;
         }
 
-        .bidder-project-scan-link:hover {
+        .bidder-project-file-link:hover {
+            border-color: #93c5fd;
             color: #1e40af;
         }
 
-        .bidder-project-qr {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 96px;
-            height: 96px;
-            padding: 8px;
-            border-radius: 14px;
-            background: #ffffff;
-            border: 1px solid #bfdbfe;
-            box-shadow: 0 8px 18px rgba(37, 99, 235, 0.08);
-            flex-shrink: 0;
+        .bidder-project-file-link span {
+            max-width: 240px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
-        .bidder-project-qr img {
-            display: block;
-            width: 100%;
-            height: auto;
+        .bidder-project-file-link.is-disabled {
+            color: #94a3b8;
+            border-color: #e2e8f0;
+            cursor: default;
         }
 
         .bidder-available-footer {
@@ -572,11 +573,6 @@
                 justify-content: flex-start;
             }
 
-            .bidder-project-scan {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
             .bidder-modal {
                 width: 100%;
             }
@@ -628,33 +624,10 @@
             <section class="page-intro">
                 <h1 class="page-title">Available Projects</h1>
                 <p class="page-subtitle">Browse and bid on open procurement projects</p>
-                <div class="bidder-page-actions">
-                    <button type="button" class="bidder-scanner-trigger" data-scanner-open>
-                        <i class="fas fa-camera" aria-hidden="true"></i>
-                        Scan Project QR
-                    </button>
-                </div>
             </section>
-
-            @php
-                $scannedProject = isset($scanProjectId) ? $availableProjects->firstWhere('id', $scanProjectId) : null;
-                $scannedBid = $scannedProject ? $myBids->firstWhere('project_id', $scannedProject->id) : null;
-            @endphp
 
             @if($errors->any())
                 <div class="bidder-alert bidder-alert-error">{{ $errors->first() }}</div>
-            @endif
-
-            @if($scanProjectId)
-                <div class="bidder-alert {{ $scannedProject ? 'bidder-alert-success' : 'bidder-alert-error' }}">
-                    @if($scannedProject && ! $scannedBid)
-                        QR project found. Review the project below and complete your bid submission.
-                    @elseif($scannedProject)
-                        You already submitted a bid for {{ $scannedProject->title }}.
-                    @else
-                        The scanned project is not currently open for bidder submission.
-                    @endif
-                </div>
             @endif
 
             @forelse($availableProjects as $project)
@@ -669,13 +642,7 @@
                     $yourBidLabel = $myBid ? 'Your bid: ' . strtolower($myBid->status) : null;
                 @endphp
 
-                <article
-                    class="bidder-available-card"
-                    id="project-{{ $project->id }}"
-                    data-project-card
-                    data-project-id="{{ $project->id }}"
-                    data-project-modal-id="{{ $myBid ? '' : 'bid-modal-' . $project->id }}"
-                >
+                <article class="bidder-available-card">
                     <div class="bidder-available-header">
                         <div>
                             <h2>{{ $project->title }}</h2>
@@ -695,20 +662,7 @@
                     <div class="bidder-available-body">
                         <p class="bidder-available-desc">{{ $project->description ?: 'No project description available.' }}</p>
 
-                        <div class="bidder-project-scan">
-                            <div class="bidder-project-scan-copy">
-                                <span class="bidder-project-scan-title">Project QR</span>
-                                <p class="bidder-project-scan-text">Scan this code to open the public project page on another device.</p>
-                                <a href="{{ $project->scan_url }}" class="bidder-project-scan-link">
-                                    Open project directly
-                                    <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>
-                                </a>
-                            </div>
-
-                            <a href="{{ $project->scan_url }}" class="bidder-project-qr" aria-label="Open the project flow for {{ $project->title }}">
-                                <img src="{{ $project->qr_code_data_uri }}" alt="QR code for {{ $project->title }} public project page">
-                            </a>
-                        </div>
+                        @include('bidder.partials.project-documents', ['project' => $project])
 
                         <div class="bidder-available-footer">
                             <span>Deadline: <strong>{{ $project->deadline?->format('Y-m-d') ?? 'N/A' }}</strong></span>
@@ -733,6 +687,8 @@
                                 <div class="bidder-project-card">
                                     <h3 class="bidder-project-card-title">{{ $project->title }}</h3>
                                     <p class="bidder-project-card-meta">Approved Budget: P{{ number_format((float) $project->budget, 2) }} &middot; Deadline: {{ $project->deadline?->format('Y-m-d') ?? 'N/A' }}</p>
+
+                                    @include('bidder.partials.project-documents', ['project' => $project, 'compact' => true])
                                 </div>
 
                                 <form method="POST" action="{{ route('bidder.bids.store', $project) }}" enctype="multipart/form-data" class="bidder-bid-form" id="bid-form-{{ $project->id }}">
@@ -774,15 +730,11 @@
     </div>
 </div>
 
-@include('bidder.partials.project-scanner')
-
 <script>
     (function () {
         const BID_SUCCESS_HIDE_DELAY = 5000;
         const BID_SUCCESS_FADE_DURATION = 350;
         const bidSubmitSuccess = document.getElementById('bidSubmitSuccess');
-        const scannedProjectId = @json($scanProjectId);
-        const cleanAvailableProjectsUrl = @json(route('bidder.available-projects'));
 
         if (bidSubmitSuccess) {
             const bidSubmitAlert = bidSubmitSuccess.querySelector('.bidder-success-alert');
@@ -853,27 +805,6 @@
                     : 'No file selected';
             });
         });
-
-        if (scannedProjectId) {
-            const projectCard = document.querySelector('[data-project-card][data-project-id="' + scannedProjectId + '"]');
-
-            if (projectCard) {
-                projectCard.classList.add('is-scanned-target');
-                projectCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-                const modalId = projectCard.dataset.projectModalId;
-                if (modalId) {
-                    const targetModal = document.getElementById(modalId);
-                    if (targetModal) {
-                        targetModal.classList.add('show');
-                    }
-                }
-            }
-
-            if (window.history && typeof window.history.replaceState === 'function') {
-                window.history.replaceState({}, document.title, cleanAvailableProjectsUrl);
-            }
-        }
     })();
 </script>
 

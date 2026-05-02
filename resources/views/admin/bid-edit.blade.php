@@ -91,7 +91,7 @@
                         <label class="bid-field-label">Proposal File</label>
                         <div class="bid-detail-box">
                             @if($bid->proposal_url)
-                                <a href="{{ $bid->proposal_url }}" target="_blank" rel="noopener" style="color: #1d4ed8; text-decoration: none;">{{ $bid->proposal_filename }}</a>
+                                <a href="{{ route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'proposal']) }}" target="_blank" rel="noopener" style="color: #1d4ed8; text-decoration: none;">{{ $bid->proposal_filename }}</a>
                             @else
                                 No file uploaded
                             @endif

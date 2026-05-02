@@ -4,7 +4,7 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 $cloudflared = Join-Path $PSScriptRoot 'cloudflared.exe'
 $stdoutLog = Join-Path $PSScriptRoot 'cloudflared.out'
 $stderrLog = Join-Path $PSScriptRoot 'cloudflared.err'
-$originUrl = 'http://localhost/bac-office/'
+$originUrl = 'http://localhost:8000/'
 
 if (-not (Test-Path $cloudflared)) {
     throw "cloudflared.exe was not found at $cloudflared"
@@ -51,4 +51,4 @@ if (-not $publicUrl) {
 
 Write-Output "PID=$($process.Id)"
 Write-Output "Open this on your phone:"
-Write-Output "$publicUrl/bac-office/"
+Write-Output "$publicUrl"

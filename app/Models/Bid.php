@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Support\Uploads;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Model;
 
 class Bid extends Model
@@ -20,12 +22,12 @@ class Bid extends Model
         'bid_amount' => 'decimal:2',
     ];
 
-    public function getAmountAttribute()
+    public function getAmountAttribute(): mixed
     {
         return $this->bid_amount;
     }
 
-    public function setAmountAttribute($value)
+    public function setAmountAttribute(string|int|float|null $value): void
     {
         $this->attributes['bid_amount'] = $value;
     }
@@ -40,17 +42,17 @@ class Bid extends Model
         return Uploads::fileName($this->proposal_file);
     }
 
-    public function project()
+    public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
     }
 
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function award()
+    public function award(): HasOne
     {
         return $this->hasOne(Award::class);
     }

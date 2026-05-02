@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Schema;
 
 class User extends Authenticatable
 {
@@ -33,6 +34,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'username',
         'password',
         'role',
         'status',
@@ -76,10 +78,56 @@ class User extends Authenticatable
         return $this->hasMany(BidderDocument::class);
     }
 
+    public function registrationDocuments(): HasMany
+    {
+        return $this->hasMany(BidderDocument::class)
+            ->where('document_type', 'like', 'Registration Requirement %')
+            ->orderBy('id');
+    }
+
     public function philgepsCertificate(): HasOne
     {
         return $this->hasOne(BidderDocument::class)
             ->where('document_type', 'PhilGEPS Certificate');
+    }
+
+    public function bidderProfile(): HasOne
+    {
+        return $this->hasOne(Bidder::class);
+    }
+
+    public function qrLoginTokens(): HasMany
+    {
+        return $this->hasMany(QrLoginToken::class);
+    }
+
+    public function loginLogs(): HasMany
+    {
+        return $this->hasMany(LoginLog::class)->latest('created_at');
+    }
+
+    public function isApprovedBidder(): bool
+    {
+        if ($this->role !== 'bidder') {
+            return false;
+        }
+
+        if (! Schema::hasTable('bidders')) {
+            return $this->status === 'active';
+        }
+
+        if ($this->relationLoaded('bidderProfile')) {
+            $profile = $this->bidderProfile;
+        } else {
+            $profile = $this->bidderProfile()->first();
+        }
+
+        if ($profile) {
+            return in_array($this->status, ['active', 'approved'], true)
+                && $profile->approval_status === 'approved';
+        }
+
+        return $this->status === 'active';
     }
 
     public static function staffOfficeOptions(): array
