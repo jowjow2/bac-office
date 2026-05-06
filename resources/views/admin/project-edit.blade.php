@@ -78,6 +78,7 @@
         <div class="edit-project-field">
             <label>Status</label>
             <select name="status" required class="edit-project-input edit-project-select">
+                <option value="draft" {{ old('status', $project->status) == 'draft' ? 'selected' : '' }}>Draft</option>
                 <option value="approved_for_bidding" {{ old('status', $project->status) == 'approved_for_bidding' ? 'selected' : '' }}>Approved for Bidding</option>
                 <option value="open" {{ old('status', $project->status) == 'open' ? 'selected' : '' }}>Open</option>
                 <option value="closed" {{ old('status', $project->status) == 'closed' ? 'selected' : '' }}>Closed</option>

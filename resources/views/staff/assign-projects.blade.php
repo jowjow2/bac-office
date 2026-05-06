@@ -134,7 +134,7 @@
         }
     </style>
 
-    @include('partials.staff-sidebar', ['activeStaffMenu' => 'assign-projects'])
+    @include('partials.staff-sidebar')
 
     <div class="main-area">
         @include('partials.staff-topbar', [
@@ -144,10 +144,7 @@
 
         <main class="dashboard-content dashboard-home-content">
             <section class="staff-dashboard">
-                <section class="staff-page-intro">
-                    <h1 class="staff-page-title">Assigned Projects</h1>
-                    <p class="staff-page-subtitle">Projects under your oversight</p>
-                </section>
+
 
                 @if(session('success'))
                     <div class="assignment-alert assignment-alert-success assign-projects-alert-floating" data-auto-hide="4000">{{ session('success') }}</div>

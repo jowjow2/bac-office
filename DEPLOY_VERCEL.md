@@ -15,12 +15,15 @@ Set these in the Vercel project before deploying:
 
 - `APP_KEY`
 - `APP_URL`
-- `DB_CONNECTION`
-- `DB_HOST`
-- `DB_PORT`
-- `DB_DATABASE`
-- `DB_USERNAME`
-- `DB_PASSWORD`
+- One complete database config, either:
+- `DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`
+- or a single URL variable such as `DB_URL` or `DATABASE_URL`
+
+Important:
+
+- `DB_HOST=127.0.0.1` or `localhost` will not work on Vercel unless the database is inside the same runtime, which is not the case for XAMPP/phpMyAdmin on your own computer.
+- A Vercel deployment needs a publicly reachable MySQL/Postgres server, or the app and database must be hosted together somewhere else.
+- After the production database credentials are added, run your Laravel migrations against that production database before testing login.
 
 Recommended:
 

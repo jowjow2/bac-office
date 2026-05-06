@@ -4,7 +4,7 @@
     @vite(['resources/css/dashboard.css'])
     @include('partials.staff-page-styles')
 
-    @include('partials.staff-sidebar', ['activeStaffMenu' => 'notifications'])
+    @include('partials.staff-sidebar')
 
     <div class="main-area">
         @include('partials.staff-topbar', [
@@ -14,33 +14,33 @@
 
         <main class="dashboard-content dashboard-home-content">
             <section class="staff-dashboard">
-                <section class="staff-page-intro">
-                    <h1 class="staff-page-title">Notifications</h1>
-                    <p class="staff-page-subtitle">System alerts and updates</p>
-                </section>
 
 
                 <section class="staff-panel staff-notifications-panel">
                     <div class="staff-panel-header staff-notifications-header">
-                        <h2>All Notifications</h2>
-                        <form action="{{ route('staff.notifications.read-all') }}" method="POST">
+                        <div class="notifications-header-left">
+                            <h2>All Notifications</h2>
+                            <p class="notifications-header-subtitle" data-notification-unread-label>
+                                {{ ($staffNotificationCount ?? 0) > 0 ? $staffNotificationCount . ' unread notification' . ($staffNotificationCount > 1 ? 's' : '') : 'All important notifications are read' }}
+                            </p>
+                        </div>
+                        <form action="{{ route('notifications.read-all') }}" method="POST" data-notifications-read-all>
                             @csrf
-                            
-                            <button type="submit" class="staff-notification-clear">Mark all as read</button>
+                            <button type="submit" class="staff-notification-clear-btn">Mark all as read</button>
                         </form>
                     </div>
 
-                    <div class="staff-notification-list staff-notification-list-compact">
+                    <div class="notification-list" data-notifications-list>
                         @forelse($staffNotifications as $notification)
-                            <div class="staff-notification-item staff-notification-row">
-                                <span class="staff-notification-dot"></span>
-                                <div class="staff-notification-copy">
-                                    <strong>{{ $notification['title'] }}</strong>
-                                    <p>{{ $notification['time'] ?? 'Just now' }}</p>
-                                </div>
-                            </div>
+                            <x-notification-item :notification="$notification" />
                         @empty
-                            <div class="staff-empty-state">No notifications available right now.</div>
+                            <div class="staff-empty-state notifications-empty-state">
+                                <div class="notifications-empty-icon">
+                                    <i class="fas fa-inbox"></i>
+                                </div>
+                                <p>No important notifications right now.</p>
+                                <p class="notifications-empty-subtitle">You're all caught up!</p>
+                            </div>
                         @endforelse
                     </div>
                 </section>
@@ -48,4 +48,3 @@
         </main>
     </div>
 </div>
-

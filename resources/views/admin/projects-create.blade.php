@@ -3,41 +3,7 @@
 <div class="admin-dashboard">
     @vite(['resources/css/dashboard.css'])
 
-    <!-- SIDEBAR -->
-    <aside class="sidebar">
-        <a href="{{ route('admin.dashboard') }}" class="sidebar-logo-link"><h2 class="sidebar-logo">BAC-Office</h2></a>
-        @include('partials.sidebar-profile')
-        <ul class="sidebar-menu">
-
-            <p class="menu-title">MAIN</p>
-            <li><a href="/dashboard/admin"><span class="menu-icon-dashboard" aria-hidden="true"></span> Dashboard</a></li>
-            <li><a href="{{ route('admin.projects') }}" class="active"><i class="fas fa-folder-open"></i> Project/Biddings</a></li>
-            <li><a href="/admin/bidders"><span class="menu-icon-all-bids" aria-hidden="true"></span> All Bids</a></li>
-            <li><a href="{{ route('admin.awards') }}"><i class="fas fa-trophy"></i> Award & Contracts</a></li>
-
-            <p class="menu-title">MANAGEMENT</p>
-            <li><a href="{{ route('admin.users') }}"><i class="fas fa-users-cog"></i> Manage Users</a></li>
-            <li><a href="{{ route('admin.assignments') }}"><i class="fas fa-tasks"></i> Staff Assignments</a></li>
-            <li><a href="/admin/reports"><i class="fas fa-chart-bar"></i> Reports</a></li>
-
-            <p class="menu-title">SYSTEM</p>
-            <li>
-                <a href="{{ route('admin.notifications') }}">
-                    <i class="fas fa-bell"></i> Notifications
-                    @if(($unreadNotificationsCount ?? 0) > 0)
-                        <span class="notification-badge">{{ $unreadNotificationsCount }}</span>
-                    @endif
-                </a>
-            </li>
-
-            <li>
-                <form action="{{ route('logout') }}" method="POST" class="sidebar-form">
-                    @csrf
-                    <button type="submit" class="sidebar-logout"><i class="fas fa-sign-out-alt"></i> Logout</button>
-                </form>
-            </li>
-        </ul>
-    </aside>
+    @include('partials.admin-sidebar')
 
     <!-- MAIN AREA -->
     <div class="main-area">
@@ -52,15 +18,35 @@
 
         <!-- MAIN CONTENT -->
         <main class="dashboard-content">
+            <style>
+                @media (max-width: 640px) {
+                    .create-modal-actions {
+                        flex-direction: column-reverse;
+                        align-items: stretch;
+                    }
+                    .create-modal-actions button {
+                        width: 100%;
+                    }
+                }
+            </style>
 
-            <div class="welcome-text">
-                <h1 class="title">Create New Project</h1>
-                <p class="subtitle">
-                    Fill in the details below to create a new procurement project.
-                </p>
-            </div>
+            <!-- MODAL OVERLAY -->
+            <div id="createModalOverlay" style="display: flex; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.92); z-index: 10000; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; backdrop-filter: blur(4px);">
+                <div class="form-container" style="background: #111827; border-radius: 16px; width: 100%; max-width: 800px; max-height: calc(100vh - 40px); display: flex; flex-direction: column; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); overflow: hidden; margin: 0; color: #ffffff;">
+                    
+                    <!-- Modal Header -->
+                    <div style="padding: 20px 24px; border-bottom: 1px solid #374151; background: #111827; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #ffffff;">Create New Project</h2>
+                            <p style="margin: 4px 0 0; font-size: 14px; color: #9ca3af;">Fill in the details below to create a new procurement project.</p>
+                        </div>
+                        <a href="{{ route('admin.projects') }}" style="width: 32px; height: 32px; border-radius: 8px; border: none; background: #374151; color: #d1d5db; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; text-decoration: none;" onmouseover="this.style.background='#4b5563'; this.style.color='#ffffff';" onmouseout="this.style.background='#374151'; this.style.color='#d1d5db';">
+                            <i class="fas fa-times"></i>
+                        </a>
+                    </div>
 
-            <div class="form-container" style="background: white; border-radius: 12px; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); max-width: 800px;">
+                    <!-- Modal Body -->
+                    <div style="padding: 24px; overflow-y: auto;">
 
                 @if($errors->any())
                 <div style="background: #fee2e2; color: #991b1b; padding: 12px; border-radius: 8px; margin-bottom: 20px;">
@@ -72,55 +58,62 @@
                 </div>
                 @endif
 
-                <form action="{{ route('admin.projects.store') }}" method="POST">
+                <form id="createProjectForm" action="{{ route('admin.projects.store') }}" method="POST">
                     @csrf
 
                     <div style="margin-bottom: 20px;">
-                        <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 6px;">Project Title</label>
-                        <input type="text" name="title" value="{{ old('title') }}" required style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+                        <label style="display: block; font-size: 14px; font-weight: 500; color: #d1d5db; margin-bottom: 6px;">Project Title</label>
+                        <input type="text" name="title" value="{{ old('title') }}" required style="width: 100%; padding: 10px 12px; border: 1px solid #4b5563; background: #1f2937; color: #ffffff; border-radius: 8px; font-size: 14px;">
                     </div>
 
                     <div style="margin-bottom: 20px;">
-                        <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 6px;">Description</label>
-                        <textarea name="description" rows="4" required style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; resize: vertical;">{{ old('description') }}</textarea>
+                        <label style="display: block; font-size: 14px; font-weight: 500; color: #d1d5db; margin-bottom: 6px;">Description</label>
+                        <textarea name="description" rows="4" required style="width: 100%; padding: 10px 12px; border: 1px solid #4b5563; background: #1f2937; color: #ffffff; border-radius: 8px; font-size: 14px; resize: vertical;">{{ old('description') }}</textarea>
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
                         <div>
-                            <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 6px;">Category</label>
-                            <input type="text" name="category" value="{{ old('category') }}" required style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+                            <label style="display: block; font-size: 14px; font-weight: 500; color: #d1d5db; margin-bottom: 6px;">Category</label>
+                            <input type="text" name="category" value="{{ old('category') }}" required style="width: 100%; padding: 10px 12px; border: 1px solid #4b5563; background: #1f2937; color: #ffffff; border-radius: 8px; font-size: 14px;">
                         </div>
                         <div>
-                            <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 6px;">Budget (PHP)</label>
-                            <input type="number" name="budget" value="{{ old('budget') }}" required min="0" max="9999999999999.99" step="0.01" style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+                            <label style="display: block; font-size: 14px; font-weight: 500; color: #d1d5db; margin-bottom: 6px;">Budget (PHP)</label>
+                            <input type="number" name="budget" value="{{ old('budget') }}" required min="0" max="9999999999999.99" step="0.01" style="width: 100%; padding: 10px 12px; border: 1px solid #4b5563; background: #1f2937; color: #ffffff; border-radius: 8px; font-size: 14px;">
                         </div>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 20px; margin-bottom: 20px;">
                         <div>
-                            <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 6px;">Status</label>
-                            <select name="status" required style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; background: white;">
-                                <option value="approved_for_bidding" {{ old('status', 'approved_for_bidding') == 'approved_for_bidding' ? 'selected' : '' }}>Approved for Bidding</option>
-                                <option value="open" {{ old('status') == 'open' ? 'selected' : '' }}>Open</option>
-                                <option value="closed" {{ old('status') == 'closed' ? 'selected' : '' }}>Closed</option>
-                                <option value="awarded" {{ old('status') == 'awarded' ? 'selected' : '' }}>Awarded</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 6px;">Deadline</label>
-                            <input type="date" name="deadline" value="{{ old('deadline') }}" required style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+                            <label style="display: block; font-size: 14px; font-weight: 500; color: #d1d5db; margin-bottom: 6px;">Deadline</label>
+                            <input type="date" name="deadline" value="{{ old('deadline') }}" required style="width: 100%; padding: 10px 12px; border: 1px solid #4b5563; background: #1f2937; color: #ffffff; border-radius: 8px; font-size: 14px; color-scheme: dark;">
                         </div>
                     </div>
 
-                    <div style="display: flex; gap: 12px; margin-top: 30px;">
-                        <a href="{{ route('admin.projects') }}" style="padding: 10px 24px; border: 1px solid #d1d5db; border-radius: 8px; color: #374151; text-decoration: none; font-size: 14px; font-weight: 500;">Cancel</a>
-                        <button type="submit" style="padding: 10px 24px; background: #1a3cff; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer;">
-                            <i class="fas fa-save"></i> Create Project
+                    <input type="hidden" name="status" id="projectStatus" value="draft">
+
+                </form>
+                    </div>
+                    
+                    <!-- Modal Footer / Actions -->
+                    <div style="padding: 16px 24px; border-top: 1px solid #374151; background: #111827; display: flex; justify-content: flex-end; gap: 12px;" class="create-modal-actions">
+                        <a href="{{ route('admin.projects') }}" style="padding: 10px 24px; border: 1px solid #4b5563; border-radius: 8px; background: #374151; color: #d1d5db; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; text-decoration: none; display: inline-flex; align-items: center;" onmouseover="this.style.background='#4b5563'" onmouseout="this.style.background='#374151'">Cancel</a>
+                        <button type="button" onclick="document.getElementById('projectStatus').value='draft'; document.getElementById('createProjectForm').submit()" style="padding: 10px 24px; border: 1px solid #4b5563; border-radius: 8px; background: #374151; color: #d1d5db; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; text-decoration: none; display: inline-flex; align-items: center;" onmouseover="this.style.background='#4b5563'" onmouseout="this.style.background='#374151'">
+                            <i class="fas fa-file-alt" style="margin-right: 6px;"></i> Save as Draft
+                        </button>
+                        <button type="button" onclick="document.getElementById('projectStatus').value='open'; document.getElementById('createProjectForm').submit()" style="padding: 10px 24px; background: #3b82f6; color: #ffffff; border: 1px solid #3b82f6; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s;" onmouseover="this.style.background='#2563eb'; this.style.borderColor='#2563eb'" onmouseout="this.style.background='#3b82f6'; this.style.borderColor='#3b82f6'">
+                            <i class="fas fa-paper-plane"></i> Publish Project
                         </button>
                     </div>
-                </form>
+                </div>
             </div>
 
+            <script>
+                document.getElementById('createModalOverlay').addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        window.location.href = "{{ route('admin.projects') }}";
+                    }
+                });
+            </script>
         </main>
     </div>
 </div>

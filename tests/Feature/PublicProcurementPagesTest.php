@@ -20,7 +20,7 @@ beforeEach(function () {
     testCase()->withoutVite();
 });
 
-it('shows visible procurement projects without qr elements on the public listing', function () {
+it('shows visible procurement projects on the public listing', function () {
     $project = createPublicProjectPage([
         'title' => 'Bridge Repair Project',
     ]);
@@ -35,12 +35,11 @@ it('shows visible procurement projects without qr elements on the public listing
     $response->assertOk();
     $response->assertSee('Bridge Repair Project');
     $response->assertSee(route('public.procurement.show', $project), false);
-    $response->assertDontSee('Scan to open this project directly');
     $response->assertDontSee('data:image/svg+xml;base64,', false);
     $response->assertDontSee('Internal Draft Project');
 });
 
-it('shows the public procurement detail page without qr elements', function () {
+it('shows the public procurement detail page', function () {
     $project = createPublicProjectPage([
         'title' => 'Town Plaza Renovation',
         'status' => 'awarded',
@@ -50,7 +49,6 @@ it('shows the public procurement detail page without qr elements', function () {
 
     $response->assertOk();
     $response->assertSee('Town Plaza Renovation');
-    $response->assertDontSee('Scan to open this page');
     $response->assertDontSee('data:image/svg+xml;base64,', false);
 });
 

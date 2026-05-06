@@ -35,7 +35,7 @@ it('allows admins to create a project with approved for bidding status', functio
         ]);
 
     $response->assertRedirect(route('admin.projects'));
-    $response->assertSessionHas('success', 'Project created successfully!');
+    $response->assertSessionHas('success', 'Project created successfully.');
 
     $test->assertDatabaseHas('projects', [
         'title' => 'Community Hall Expansion',
@@ -80,7 +80,7 @@ it('allows admins to upload a project file during project creation', function ()
         ]);
 
     $response->assertRedirect(route('admin.projects'));
-    $response->assertSessionHas('success', 'Project created successfully!');
+    $response->assertSessionHas('success', 'Project created successfully.');
 
     $project = Project::where('title', 'Municipal Annex Renovation')->firstOrFail();
 

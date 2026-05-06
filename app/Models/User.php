@@ -73,6 +73,16 @@ class User extends Authenticatable
         return $this->hasMany(UserNotification::class);
     }
 
+    public function sentMessages(): HasMany
+    {
+        return $this->hasMany(Message::class, 'sender_id');
+    }
+
+    public function receivedMessages(): HasMany
+    {
+        return $this->hasMany(Message::class, 'recipient_id');
+    }
+
     public function bidderDocuments(): HasMany
     {
         return $this->hasMany(BidderDocument::class);
@@ -96,10 +106,6 @@ class User extends Authenticatable
         return $this->hasOne(Bidder::class);
     }
 
-    public function qrLoginTokens(): HasMany
-    {
-        return $this->hasMany(QrLoginToken::class);
-    }
 
     public function loginLogs(): HasMany
     {

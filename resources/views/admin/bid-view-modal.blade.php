@@ -1,247 +1,151 @@
 @php
+    $budget = (float) ($bid->project?->budget ?? 0);
+    $amount = (float) $bid->amount;
+    $variance = $budget > 0 ? (($amount - $budget) / $budget) * 100 : null;
+    $varianceColor = is_null($variance) ? '#64748b' : ($variance <= 0 ? '#047857' : '#dc2626');
+    $statusValue = strtolower((string) ($bid->status ?? 'pending'));
+    $statusLabel = match ($statusValue) {
+        'approved' => 'Approved',
+        'rejected' => 'Rejected',
+        'validated' => 'Validated',
+        default => 'Pending',
+    };
+    $statusClass = match ($statusValue) {
+        'approved' => 'is-approved',
+        'rejected' => 'is-rejected',
+        'validated' => 'is-validated',
+        'pending' => 'is-pending',
+        default => 'is-default',
+    };
+    $bidderName = $bid->user?->company ?: ($bid->user?->name ?? 'N/A');
     $proposalPreviewUrl = $bid->proposal_url ? route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'proposal']) : null;
-    $certificatePreviewUrl = $bid->user->philgepsCertificate?->file_url
+    $certificatePreviewUrl = $bid->user?->philgepsCertificate?->file_url
         ? route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'certificate'])
+        : null;
+    $latestStaffTracking = $bid->relationLoaded('trackings')
+        ? $bid->trackings->first(fn ($tracking) => in_array($tracking->status_type, ['validated', 'rejected'], true))
         : null;
 @endphp
 
 <div class="view-bid-modal-shell">
     <div class="view-bid-modal-header">
         <div>
-            <h2>View Bid</h2>
+            <p>Bid Details</p>
+            <h2>{{ $bidderName }}</h2>
         </div>
+        <span class="admin-bids-status-pill {{ $statusClass }}">{{ $statusLabel }}</span>
     </div>
 
     <div class="view-bid-modal-body">
-        <div class="view-bid-grid view-bid-grid-two">
-            <div class="view-bid-field">
-                <label>Project</label>
-                <div class="view-bid-value">{{ $bid->project->title ?? 'N/A' }}</div>
+        <section class="view-bid-section">
+            <h3>Submission</h3>
+            <div class="view-bid-grid view-bid-grid-two">
+                <div class="view-bid-field">
+                    <label>Bidder / Company</label>
+                    <div class="view-bid-value">{{ $bidderName }}</div>
+                </div>
+
+                <div class="view-bid-field">
+                    <label>Email</label>
+                    <div class="view-bid-value">{{ $bid->user?->email ?? 'N/A' }}</div>
+                </div>
+
+                <div class="view-bid-field">
+                    <label>Project</label>
+                    <div class="view-bid-value">{{ $bid->project?->title ?? 'N/A' }}</div>
+                </div>
+
+                <div class="view-bid-field">
+                    <label>Submitted</label>
+                    <div class="view-bid-value nowrap">{{ $bid->created_at?->format('M d, Y h:i A') ?? 'N/A' }}</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="view-bid-section">
+            <h3>Financials</h3>
+            <div class="view-bid-grid view-bid-grid-three">
+                <div class="view-bid-field">
+                    <label>Bid Amount</label>
+                    <div class="view-bid-value nowrap">&#8369;{{ number_format($amount, 2) }}</div>
+                </div>
+
+                <div class="view-bid-field">
+                    <label>Project Budget</label>
+                    <div class="view-bid-value nowrap">&#8369;{{ number_format($budget, 2) }}</div>
+                </div>
+
+                <div class="view-bid-field">
+                    <label>Variance</label>
+                    <div class="view-bid-value nowrap" style="color: {{ $varianceColor }};">
+                        {{ is_null($variance) ? 'N/A' : number_format($variance, 1) . '%' }}
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="view-bid-section">
+            <h3>Documents</h3>
+            <div class="view-bid-document-list">
+                <div class="view-bid-document-row">
+                    <div>
+                        <strong>Proposal File</strong>
+                        <span>{{ $bid->proposal_filename ?: 'No proposal uploaded' }}</span>
+                    </div>
+                    @if($proposalPreviewUrl)
+                        <a href="{{ $proposalPreviewUrl }}" target="_blank" rel="noopener" class="view-bid-link">
+                            <i class="fas fa-file-lines" aria-hidden="true"></i>
+                            Open file
+                        </a>
+                    @else
+                        <span class="view-bid-muted">Unavailable</span>
+                    @endif
+                </div>
+
+                <div class="view-bid-document-row">
+                    <div>
+                        <strong>Certificate Proof</strong>
+                        <span>{{ $bid->user?->philgepsCertificate?->display_name ?: 'No certificate proof uploaded' }}</span>
+                    </div>
+                    @if($certificatePreviewUrl)
+                        <a href="{{ $certificatePreviewUrl }}" target="_blank" rel="noopener" class="view-bid-link">
+                            <i class="fas fa-certificate" aria-hidden="true"></i>
+                            Open file
+                        </a>
+                    @else
+                        <span class="view-bid-muted">Unavailable</span>
+                    @endif
+                </div>
+            </div>
+        </section>
+
+        <section class="view-bid-section">
+            <h3>Review Notes</h3>
+            <div class="view-bid-note-box">
+                <label>Staff Validation Result</label>
+                <p>
+                    @if($latestStaffTracking)
+                        <strong>{{ $latestStaffTracking->status_title }}</strong><br>
+                        {{ $latestStaffTracking->status_description ?: 'No staff remarks provided.' }}
+                    @elseif($bid->documents_validated_at)
+                        <strong>Documents Validated by Staff</strong><br>
+                        Validated on {{ $bid->documents_validated_at->format('M d, Y h:i A') }}.
+                    @else
+                        No staff validation result yet.
+                    @endif
+                </p>
             </div>
 
-            <div class="view-bid-field">
-                <label>Bidder</label>
-                <div class="view-bid-value">{{ $bid->user->company ?: ($bid->user->name ?? 'N/A') }}</div>
+            <div class="view-bid-note-box">
+                <label>Admin Remarks / Rejection Reason</label>
+                <p>{{ $bid->rejection_reason ?: ($bid->notes ?: 'No remarks provided.') }}</p>
             </div>
-        </div>
-
-        <div class="view-bid-grid view-bid-grid-three">
-            <div class="view-bid-field">
-                <label>Bid Amount</label>
-                <div class="view-bid-value">P{{ number_format((float) $bid->amount, 2) }}</div>
-            </div>
-
-            <div class="view-bid-field">
-                <label>Status</label>
-                <div class="view-bid-value">{{ ucfirst($bid->status) }}</div>
-            </div>
-
-            <div class="view-bid-field">
-                <label>Submitted</label>
-                <div class="view-bid-value">{{ $bid->created_at?->format('m/d/Y h:i A') ?? 'N/A' }}</div>
-            </div>
-        </div>
-
-        <div class="view-bid-field">
-            <label>Proposal File</label>
-            <div class="view-bid-value">
-                @if($bid->proposal_url)
-                    <a
-                        href="{{ $proposalPreviewUrl }}"
-                        target="_blank"
-                        rel="noopener"
-                        class="view-bid-link"
-                    >{{ $bid->proposal_filename }}</a>
-                @else
-                    No file uploaded
-                @endif
-            </div>
-        </div>
-
-        <div class="view-bid-field">
-            <label>Notes</label>
-            <div class="view-bid-value view-bid-textarea">{{ $bid->notes ?: 'No notes provided.' }}</div>
-        </div>
-
-        <div class="view-bid-field">
-            <label>Certificate Proof</label>
-            <div class="view-bid-value">
-                @if($bid->user->philgepsCertificate?->file_url)
-                    <a
-                        href="{{ $certificatePreviewUrl }}"
-                        target="_blank"
-                        rel="noopener"
-                        class="view-bid-link"
-                    >
-                        {{ $bid->user->philgepsCertificate->display_name }}
-                    </a>
-                @else
-                    No PhilGEPS certificate uploaded
-                @endif
-            </div>
-        </div>
+        </section>
 
         <div class="view-bid-actions">
             <button type="button" onclick="closeBidViewModal()" class="btn-secondary">Close</button>
-            <a href="{{ route('admin.bid.view', $bid) }}" class="btn-secondary" style="text-decoration: none;">View Docs</a>
-            <a href="{{ route('admin.bid.edit', $bid) }}" class="btn-primary" style="text-decoration: none;">Edit Bid</a>
+            <a href="{{ route('admin.bid.view', $bid) }}" class="btn-secondary">View Docs</a>
+            <a href="{{ route('admin.bid.edit', $bid) }}" class="btn-primary">Edit Bid</a>
         </div>
     </div>
 </div>
-
-<style>
-    .view-bid-modal-shell {
-        background: #fff;
-        border-radius: 16px;
-        overflow: hidden;
-        width: 100%;
-        max-width: 100%;
-        box-sizing: border-box;
-        font-family: 'Inter', sans-serif;
-    }
-
-    .view-bid-modal-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        min-height: 64px;
-        padding: 0 20px;
-        border-bottom: 1px solid #edf2f7;
-        background: #ffffff;
-    }
-
-    .view-bid-modal-header h2 {
-        margin: 0;
-        font-size: 18px;
-        font-weight: 600;
-        line-height: 1.2;
-        color: #111827;
-    }
-
-    .view-bid-modal-body {
-        padding: 16px 16px 0;
-        display: grid;
-        gap: 8px;
-        box-sizing: border-box;
-    }
-
-    .view-bid-grid {
-        display: grid;
-        gap: 12px;
-    }
-
-    .view-bid-grid-two {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .view-bid-grid-three {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .view-bid-field {
-        margin-bottom: 6px;
-    }
-
-    .view-bid-field label {
-        display: block;
-        margin-bottom: 6px;
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        color: #6b7280;
-    }
-
-    .view-bid-value {
-        width: 100%;
-        min-height: 40px;
-        display: flex;
-        align-items: center;
-        padding: 10px 12px;
-        border: 1px solid #d1d5db;
-        border-radius: 12px;
-        background: #fff;
-        color: #111827;
-        font-size: 13px;
-        line-height: 1.5;
-        box-sizing: border-box;
-    }
-
-    .view-bid-textarea {
-        min-height: 84px;
-        align-items: flex-start;
-        white-space: pre-wrap;
-    }
-
-    .view-bid-link {
-        color: #1d4ed8;
-        text-decoration: none;
-        word-break: break-all;
-    }
-
-    .view-bid-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-        align-items: center;
-        margin: 2px -16px 0;
-        padding: 12px 16px 14px;
-        border-top: 1px solid #edf2f7;
-        background: #fff;
-        box-sizing: border-box;
-    }
-
-    .view-bid-actions .btn-primary,
-    .view-bid-actions .btn-secondary {
-        min-width: 132px;
-        height: 38px;
-        padding: 0 16px;
-        border-radius: 10px;
-        font-size: 12px;
-        font-family: 'Inter', sans-serif;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .view-bid-actions .btn-primary {
-        background: #1d4ed8;
-        border: 1px solid #1d4ed8;
-        color: #ffffff;
-        font-weight: 600;
-        box-shadow: 0 10px 24px rgba(29, 78, 216, 0.22);
-    }
-
-    .view-bid-actions .btn-primary:hover {
-        background: #1e40af;
-        border-color: #1e40af;
-    }
-
-    .view-bid-actions .btn-secondary {
-        background: #ffffff;
-        border: 1px solid #d1d5db;
-        color: #334155;
-        font-weight: 500;
-    }
-
-    .view-bid-actions .btn-secondary:hover {
-        background: #f8fafc;
-    }
-
-    @media (max-width: 700px) {
-        .view-bid-grid-two,
-        .view-bid-grid-three {
-            grid-template-columns: 1fr;
-        }
-
-        .view-bid-actions {
-            flex-direction: column;
-            align-items: stretch;
-        }
-
-        .view-bid-actions .btn-primary,
-        .view-bid-actions .btn-secondary {
-            width: 100%;
-        }
-    }
-</style>

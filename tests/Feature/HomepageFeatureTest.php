@@ -75,13 +75,10 @@ it('shows live procurement highlights on the homepage', function () {
         && ! $projects->contains('title', 'Internal Draft Project'));
     $response->assertViewHas('latestAwards', fn ($awards) => $awards->count() === 1
         && $awards->first()->project?->title === 'Water System Upgrade');
-    $response->assertSee('Welcome to BAC Office');
-    $response->assertSee('Your gateway to efficient procurement management');
-    $response->assertSee('BAC-Office activity slider');
-    $response->assertSee(route('public.awards'), false);
-    $response->assertDontSee('Showing the latest procurement projects');
-    $response->assertDontSee('School Building Repair');
-    $response->assertDontSee('Water System Upgrade');
-    $response->assertDontSee(route('public.procurement.show', $openProject), false);
+    $response->assertSee('Bids and Awards Committee Portal');
+    $response->assertSee('Ensuring transparency, accountability, and efficiency');
+    $response->assertSee('School Building Repair');
+    $response->assertSee('Water System Upgrade');
+    $response->assertSee(route('public.procurement.show', $openProject), false);
     $response->assertDontSee('Internal Draft Project');
 });

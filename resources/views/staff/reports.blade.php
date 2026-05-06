@@ -130,7 +130,7 @@
         }
     </style>
 
-    @include('partials.staff-sidebar', ['activeStaffMenu' => 'reports'])
+    @include('partials.staff-sidebar')
 
     <div class="main-area">
         @include('partials.staff-topbar', [
@@ -140,10 +140,7 @@
 
         <main class="dashboard-content dashboard-home-content">
             <section class="staff-dashboard">
-                <section class="staff-page-intro">
-                    <h1 class="staff-page-title">Reports &amp; Analytics</h1>
-                    <p class="staff-page-subtitle">Generate and export procurement reports</p>
-                </section>
+
 
                 <section class="staff-reports-kpi-grid">
                     <article class="staff-reports-kpi-card">
@@ -207,7 +204,7 @@
                                             <td class="staff-project-title">{{ $project->title }}</td>
                                             <td>P{{ number_format((float) $project->budget, 2) }}</td>
                                             <td>{{ $project->bids_count }}</td>
-                                            <td>{{ $project->status === 'awarded' ? 'Yes' : '—' }}</td>
+                                            <td>{{ $project->status === 'awarded' ? 'Yes' : 'ï¿½' }}</td>
                                             <td><span class="staff-status-pill {{ $project->status }}">{{ $project->status }}</span></td>
                                         </tr>
                                     @empty
@@ -246,7 +243,7 @@
                                                 @if($bidder['won'] > 0)
                                                     <span class="staff-report-won">{{ $bidder['won'] }} won</span>
                                                 @else
-                                                    —
+                                                    ï¿½
                                                 @endif
                                             </td>
                                         </tr>

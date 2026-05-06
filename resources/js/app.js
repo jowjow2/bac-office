@@ -209,6 +209,79 @@ document.addEventListener('DOMContentLoaded', () => {
     if (searchInput) searchInput.addEventListener('keyup', filterCards);
     if (categoryFilter) categoryFilter.addEventListener('change', filterCards);
 
+    const publicDetailsTriggers = document.querySelectorAll('[data-public-details-trigger]');
+    const publicDetailsModals = document.querySelectorAll('.public-details-modal');
+    let activePublicDetailsModal = null;
+
+    function closePublicDetailsModal(modal = activePublicDetailsModal) {
+        if (!modal) return;
+
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        modal.hidden = true;
+
+        if (activePublicDetailsModal === modal) {
+            activePublicDetailsModal = null;
+        }
+
+        if (!document.querySelector('.public-details-modal.is-open')) {
+            document.body.classList.remove('public-modal-open');
+        }
+    }
+
+    function openPublicDetailsModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+
+        if (activePublicDetailsModal && activePublicDetailsModal !== modal) {
+            closePublicDetailsModal(activePublicDetailsModal);
+        }
+
+        modal.hidden = false;
+        modal.setAttribute('aria-hidden', 'false');
+        modal.classList.add('is-open');
+        document.body.classList.add('public-modal-open');
+        activePublicDetailsModal = modal;
+
+        const closeButton = modal.querySelector('[data-public-details-close]');
+        if (closeButton) closeButton.focus({ preventScroll: true });
+    }
+
+    publicDetailsTriggers.forEach((trigger) => {
+        trigger.addEventListener('click', (event) => {
+            const modalId = trigger.dataset.publicDetailsTrigger;
+            const modal = modalId ? document.getElementById(modalId) : null;
+
+            if (!modal) return;
+
+            event.preventDefault();
+            openPublicDetailsModal(modalId);
+        });
+    });
+
+    publicDetailsModals.forEach((modal) => {
+        modal.querySelectorAll('[data-public-details-close]').forEach((button) => {
+            button.addEventListener('click', () => closePublicDetailsModal(modal));
+        });
+
+        const loginButton = modal.querySelector('[data-public-details-login]');
+        if (loginButton) {
+            loginButton.addEventListener('click', () => {
+                closePublicDetailsModal(modal);
+
+                if (typeof window.openLogin === 'function') {
+                    window.setTimeout(() => window.openLogin(), 80);
+                }
+            });
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closePublicDetailsModal();
+        }
+    });
+
     const homeRevealItems = document.querySelectorAll('[data-home-reveal]');
 
     if (homeRevealItems.length > 0) {

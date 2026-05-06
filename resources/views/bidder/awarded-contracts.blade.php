@@ -124,6 +124,55 @@
             text-decoration: none;
         }
 
+        .bidder-certificate-cell {
+            min-width: 190px;
+        }
+
+        .bidder-certificate-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .bidder-certificate-qr {
+            display: inline-flex;
+            width: 112px;
+            height: 112px;
+            padding: 8px;
+            border: 1px solid #dbe4f0;
+            border-radius: 12px;
+            background: #fff;
+            flex: 0 0 auto;
+        }
+
+        .bidder-certificate-qr img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .bidder-certificate-meta {
+            min-width: 0;
+        }
+
+        .bidder-certificate-meta strong {
+            display: block;
+            margin-bottom: 4px;
+            color: #0f172a;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+
+        .bidder-certificate-meta span {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
         .bidder-empty {
             padding: 26px 20px;
             text-align: center;
@@ -132,28 +181,7 @@
         }
     </style>
 
-    <aside class="sidebar">
-        <a href="{{ route('bidder.dashboard') }}" class="sidebar-logo-link"><h2 class="sidebar-logo">BAC-Office</h2></a>
-        @include('partials.sidebar-profile')
-        <ul class="sidebar-menu">
-            <p class="menu-title">MAIN</p>
-            <li><a href="{{ route('bidder.dashboard') }}"><span class="menu-icon-dashboard" aria-hidden="true"></span> Dashboard</a></li>
-            <li><a href="{{ route('bidder.available-projects') }}"><i class="fas fa-folder-open"></i> Available Projects</a></li>
-            <li><a href="{{ route('bidder.my-bids') }}"><i class="fas fa-file-signature"></i> My Bids</a></li>
-            <li><a href="{{ route('bidder.awarded-contracts') }}" class="active"><i class="fas fa-award"></i> Awarded Contracts</a></li>
-
-            <p class="menu-title">ACCOUNT</p>
-            <li><a href="{{ route('bidder.company-profile') }}"><i class="fas fa-building"></i> Company Profile</a></li>
-            <li><a href="{{ route('bidder.notifications') }}"><i class="fas fa-bell"></i> Notification @if(($bidderNotificationCount ?? 0) > 0)<span class="notification-badge bidder-sidebar-badge">{{ $bidderNotificationCount }}</span>@endif</a></li>
-
-            <li>
-                <form action="{{ route('logout') }}" method="POST" class="sidebar-form">
-                    @csrf
-                    <button type="submit" class="sidebar-logout"><i class="fas fa-sign-out-alt"></i> Logout</button>
-                </form>
-            </li>
-        </ul>
-    </aside>
+        @include('partials.bidder-sidebar')
 
     <div class="main-area">
         <header class="navbar">
@@ -174,10 +202,7 @@
         </header>
 
         <main class="dashboard-content dashboard-home-content">
-            <section class="page-intro">
-                <h1 class="page-title">Award Contracts</h1>
-                <p class="page-subtitle">View awarded contracts and projects awaiting final results</p>
-            </section>
+
 
             <section class="bidder-panel">
                 <div class="bidder-panel-header">
@@ -191,21 +216,41 @@
                                 <th>Awardee</th>
                                 <th>Awarded Amount</th>
                                 <th>Date</th>
+                                <th>Certificate QR</th>
                                 <th>Notes</th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse($awardedProjects as $award)
+                                @php
+                                    $hasCertificate = $award->hasCertificateFile();
+                                    $qrUrl = $award->tokenQrUrl();
+                                @endphp
                                 <tr>
                                     <td>{{ $award->project->title ?? 'N/A' }}</td>
                                     <td>{{ $award->bid->user->company ?? $award->bid->user->name ?? 'N/A' }}</td>
-                                    <td class="bidder-awarded-amount">P{{ number_format((float) $award->contract_amount, 2) }}</td>
+                                    <td class="bidder-awarded-amount">&#8369;{{ number_format((float) $award->contract_amount, 2) }}</td>
                                     <td>{{ $award->contract_date?->format('Y-m-d') ?? 'N/A' }}</td>
+                                    <td class="bidder-certificate-cell">
+                                        @if($hasCertificate)
+                                            <div class="bidder-certificate-wrap">
+                                                <div class="bidder-certificate-qr" aria-label="Scan QR code for official award certificate">
+                                                    <img src="{{ $qrUrl }}" alt="QR code for official award certificate">
+                                                </div>
+                                                <div class="bidder-certificate-meta">
+                                                    <strong>{{ $award->certificate_number }}</strong>
+                                                    <span>Scan QR to view certificate</span>
+                                                </div>
+                                            </div>
+                                        @else
+                                            <span class="bidder-panel-subtext">Pending certificate</span>
+                                        @endif
+                                    </td>
                                     <td>{{ $award->notes ?: 'No notes provided.' }}</td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="5" class="bidder-empty">No awarded contracts yet.</td>
+                                    <td colspan="6" class="bidder-empty">No awarded contracts yet.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -276,5 +321,3 @@
         setInterval(updateRealtimeDate, 1000);
     })();
 </script>
-
-

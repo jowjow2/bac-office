@@ -5,6 +5,9 @@
     "api/index.php": {
       "runtime": "vercel-php@0.8.0",
       "maxDuration": 60,
+      "regions": [
+        "sin1"
+      ],
       "excludeFiles": "{public/Images/**,public/documents/**,public/uploads/**,public/storage/**,storage/app/**,storage/logs/**,node_modules/**,tests/**,tools/**}"
     }
   },

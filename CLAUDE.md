@@ -47,7 +47,7 @@ Routes are grouped by role in `routes/web.php`. Staff and bidder routes are sepa
 
 ### Controllers
 
-- `AuthController` — login (password + QR), registration, password reset, logout
+- `AuthController` — login, registration, password reset, logout
 - `AdminController` — full CRUD for projects, bids, users, awards, assignments, reports, notifications
 - `StaffController` — bid validation/recommendation, project status updates, reports
 - `BidderController` — browse projects, submit bids, manage company profile/documents
@@ -56,7 +56,7 @@ Routes are grouped by role in `routes/web.php`. Staff and bidder routes are sepa
 ### Key Models & Relationships
 
 ```
-User → hasMany(Bid), hasOne(Bidder profile), hasMany(QrLoginToken), hasMany(LoginLog)
+User → hasMany(Bid), hasOne(Bidder profile), hasMany(LoginLog)
 Project → hasMany(Bid), hasOne(Award), hasMany(ProjectDocument), hasMany(Assignment)
 Bid → belongsTo(User), belongsTo(Project), hasOne(Award)
 Bidder → belongsTo(User)  [one-to-one, holds approval status + company info]
@@ -67,8 +67,6 @@ Project statuses: `draft` → `approved_for_bidding` → `open` → `closed` →
 ### Support Classes (`app/Support/`)
 
 - **`Uploads`** — storage abstraction over local/S3. Use `Uploads::url($path)` for file URLs; it handles both legacy `public/` paths and S3 temp URLs.
-- **`QrLoginService`** — issues and validates QR tokens (AES-encrypted, hashed, TTL-bound). Config via `BAC_QR_LOGIN_*` env vars.
-- **`QrCodeService`** — generates SVG QR codes with BaconQR.
 - **`DocumentPreview`** — renders PDF/image/DOCX/text files for inline preview in the browser.
 - **`LoginAudit`** — records login attempts to `login_logs` table.
 - **`SystemNotification`** — creates in-app notifications for individual users, by role, or in bulk; tracks unread counts and mark-read state.
@@ -80,13 +78,6 @@ Controlled by `UPLOADS_DISK` env var (`local` or `s3`). The `Uploads` support cl
 ### Auth Endpoints
 
 `POST /login` and `POST /register` always return JSON — never redirects. The response shape is `{ ok, message, redirect?, tab?, errors? }`. `GET /login` redirects to the homepage with an `auth_tab` session key to open the correct modal tab; there is no standalone login page.
-
-### QR Login Flow
-
-1. Admin approves a bidder → QR token generated → emailed via `BidderApprovedQrMail`
-2. Bidder scans QR → `POST /login/qr` with the token
-3. `QrLoginService::validate()` checks hash, expiry, revocation, activation
-4. Optional first-use password confirmation (`BAC_QR_LOGIN_REQUIRE_PASSWORD_ON_FIRST_USE`)
 
 ### Frontend
 

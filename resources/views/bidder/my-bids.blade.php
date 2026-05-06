@@ -1,4 +1,4 @@
-﻿<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 @include('partials.dashboard-viewport')
 <div class="admin-dashboard dashboard-home bidder-my-bids-page">
     @vite(['resources/css/dashboard.css'])
@@ -166,7 +166,26 @@
 
         .bidder-status-pill.pending { background: #fef3c7; color: #b45309; }
         .bidder-status-pill.approved { background: #dcfce7; color: #15803d; }
-        .bidder-status-pill.rejected { background: #fee2e2; color: #b91c1c; }
+         .bidder-status-pill.rejected { background: #fee2e2; color: #b91c1c; }
+
+         .track-btn {
+             display: inline-flex;
+             align-items: center;
+             gap: 4px;
+             padding: 6px 12px;
+             border-radius: 6px;
+             background: #dbeafe;
+             color: #1d4ed8;
+             text-decoration: none;
+             font-size: 11px;
+             font-weight: 500;
+             transition: all 0.2s ease;
+         }
+
+         .track-btn:hover {
+             background: #1d4ed8;
+             color: white;
+         }
 
         .bidder-empty {
             padding: 26px 20px;
@@ -188,28 +207,7 @@
         }
     </style>
 
-    <aside class="sidebar">
-        <a href="{{ route('bidder.dashboard') }}" class="sidebar-logo-link"><h2 class="sidebar-logo">BAC-Office</h2></a>
-        @include('partials.sidebar-profile')
-        <ul class="sidebar-menu">
-            <p class="menu-title">MAIN</p>
-            <li><a href="{{ route('bidder.dashboard') }}"><span class="menu-icon-dashboard" aria-hidden="true"></span> Dashboard</a></li>
-            <li><a href="{{ route('bidder.available-projects') }}"><i class="fas fa-folder-open"></i> Available Projects</a></li>
-            <li><a href="{{ route('bidder.my-bids') }}" class="active"><i class="fas fa-file-signature"></i> My Bids</a></li>
-            <li><a href="{{ route('bidder.awarded-contracts') }}"><i class="fas fa-award"></i> Awarded Contracts</a></li>
-
-            <p class="menu-title">ACCOUNT</p>
-            <li><a href="{{ route('bidder.company-profile') }}"><i class="fas fa-building"></i> Company Profile</a></li>
-            <li><a href="{{ route('bidder.notifications') }}"><i class="fas fa-bell"></i> Notification @if(($bidderNotificationCount ?? 0) > 0)<span class="notification-badge bidder-sidebar-badge">{{ $bidderNotificationCount }}</span>@endif</a></li>
-
-            <li>
-                <form action="{{ route('logout') }}" method="POST" class="sidebar-form">
-                    @csrf
-                    <button type="submit" class="sidebar-logout"><i class="fas fa-sign-out-alt"></i> Logout</button>
-                </form>
-            </li>
-        </ul>
-    </aside>
+        @include('partials.bidder-sidebar')
 
     <div class="main-area">
         <header class="navbar">
@@ -230,10 +228,7 @@
         </header>
 
         <main class="dashboard-content dashboard-home-content">
-            <section class="page-intro">
-                <h1 class="page-title">My Bids</h1>
-                <p class="page-subtitle">Track all your submitted bid proposals</p>
-            </section>
+
 
             <section class="bidder-stats-grid">
                 <article class="bidder-stat-card">
@@ -276,28 +271,29 @@
             <section class="bidder-table-panel">
                 <div class="bidder-table-wrap">
                     <table class="bidder-table">
-                        <thead>
-                            <tr>
-                                <th>Project</th>
-                                <th>Budget</th>
-                                <th>My Bid</th>
-                                <th>Variance</th>
-                                <th>Submitted</th>
-                                <th>Document</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
+                         <thead>
+                             <tr>
+                                 <th>Project</th>
+                                 <th>Budget</th>
+                                 <th>My Bid</th>
+                                 <th>Variance</th>
+                                 <th>Submitted</th>
+                                 <th>Document</th>
+                                 <th>Status</th>
+                                 <th>Actions</th>
+                             </tr>
+                         </thead>
                         <tbody>
                             @forelse($myBids as $bid)
                                 @php
-                                    $budget = (float) ($bid->project->budget ?? 0);
+                                    $budget = (float) ($bid->project?->budget ?? 0);
                                     $bidAmount = (float) $bid->bid_amount;
                                     $variance = $budget > 0 ? (($bidAmount - $budget) / $budget) * 100 : null;
                                     $statusText = $bid->project?->status === 'awarded' ? 'Awarded' : ($bid->project?->status === 'closed' ? 'Bidding closed' : 'Bidding open');
                                 @endphp
                                 <tr>
                                     <td>
-                                        <span class="bidder-project-title">{{ $bid->project->title ?? 'N/A' }}</span>
+                                        <span class="bidder-project-title">{{ $bid->project?->title ?? 'N/A' }}</span>
                                         <span class="bidder-project-subtitle">{{ $statusText }}</span>
                                     </td>
                                     <td>P{{ number_format($budget, 2) }}</td>
@@ -319,7 +315,17 @@
                                             -
                                         @endif
                                     </td>
-                                    <td><span class="bidder-status-pill {{ $bid->status }}">{{ $bid->status }}</span></td>
+                                    <td>
+                                        <span class="bidder-status-pill {{ $bid->status }}">{{ ucfirst($bid->status) }}</span>
+                                        @if($bid->status === 'pending')
+                                            <small style="display:block; color:#64748b; font-size:10px; margin-top:2px;">Awaiting review</small>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <a href="{{ route('bidder.bidding-track', ['bid' => $bid->id]) }}" class="track-btn">
+                                            <i class="fas fa-chart-line"></i> Track
+                                        </a>
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>

@@ -1,6 +1,9 @@
 <nav class="navbar" id="siteNavbar">
     <div class="nav-left">
-        <a href="{{ route('home') }}" class="logo">BAC-OFFICE</a>
+        <a href="{{ route('home') }}" class="logo">
+            <img src="{{ asset('Images/Logo2.png') }}" alt="Logo" class="logo-img">
+            BAC-OFFICE
+        </a>
 
         <button
             type="button"

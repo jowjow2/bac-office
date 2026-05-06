@@ -2,18 +2,21 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\LoginVerificationCodeMail;
+use App\Mail\PasswordResetCodeMail;
 use App\Models\User;
-use App\Support\LoginAudit;
-use App\Support\QrLoginService;
 use App\Support\SystemNotification;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Throwable;
 
 class AuthController extends Controller
@@ -75,21 +78,53 @@ class AuthController extends Controller
 
         $request->merge([
             'email' => strtolower(trim((string) $request->email)),
+            'role' => strtolower(trim((string) $request->input('role', 'bidder'))),
+            'name' => trim((string) $request->name),
             'company' => trim((string) $request->company),
+            'office' => trim((string) $request->office),
             'registration_no' => trim((string) $request->registration_no),
         ]);
 
         $validator = Validator::make($request->all(), [
-            'company' => ['required'],
+            'role' => ['required', Rule::in(['bidder', 'staff'])],
+            'name' => [
+                Rule::excludeIf($request->input('role') !== 'staff'),
+                'required',
+                'string',
+                'max:255',
+            ],
+            'company' => [
+                Rule::excludeIf($request->input('role') !== 'bidder'),
+                'required',
+                'string',
+                'max:255',
+            ],
             'email' => ['required', 'email'],
             'password' => ['required', 'min:6'],
-            'registration_no' => ['required'],
+            'office' => [
+                Rule::excludeIf($request->input('role') !== 'staff'),
+                'required',
+                'string',
+                'max:255',
+                Rule::in(User::staffOfficeOptions()),
+            ],
+            'registration_no' => [
+                Rule::excludeIf($request->input('role') !== 'bidder'),
+                'required',
+                'string',
+                'max:255',
+            ],
         ], [
+            'role.required' => 'Account type is required.',
+            'role.in' => 'Please select a valid account type.',
+            'name.required' => 'Name is required for staff registration.',
             'company.required' => 'Company is required.',
             'email.required' => 'Email is required.',
             'email.email' => 'Please enter a valid email address.',
             'password.required' => 'Password is required.',
             'password.min' => 'Password must be at least 6 characters.',
+            'office.required' => 'Office is required for staff registration.',
+            'office.in' => 'Please select a valid staff office.',
             'registration_no.required' => 'Registration number is required.',
         ]);
 
@@ -111,23 +146,45 @@ class AuthController extends Controller
             ]);
         }
 
-        User::create([
-            'name' => $request->company,
-            'company' => $request->company,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'registration_no' => $request->registration_no,
-            'role' => 'bidder',
-            'status' => 'pending',
-        ]);
+        if ($request->input('role') === 'staff') {
+            User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+                'role' => 'staff',
+                'status' => 'pending',
+                'office' => $request->office,
+            ]);
 
-        SystemNotification::createForRole(
-            'admin',
-            'New bidder registration',
-            $request->company . ' registration is pending approval.',
-            'bidder_registration',
-            ['email' => $request->email]
-        );
+            SystemNotification::createForRole(
+                'admin',
+                'New staff registration',
+                $request->name . ' selected ' . $request->office . ' and is pending activation.',
+                'staff_registration',
+                [
+                    'email' => $request->email,
+                    'office' => $request->office,
+                ]
+            );
+        } else {
+            User::create([
+                'name' => $request->company,
+                'company' => $request->company,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+                'registration_no' => $request->registration_no,
+                'role' => 'bidder',
+                'status' => 'pending',
+            ]);
+
+            SystemNotification::createForRole(
+                'admin',
+                'New bidder registration',
+                $request->company . ' registration is pending approval.',
+                'bidder_registration',
+                ['email' => $request->email]
+            );
+        }
 
         return $this->authResponse(
             $request,
@@ -185,6 +242,24 @@ class AuthController extends Controller
             return $this->authResponse($request, false, 'Your account already exists but is not active yet. Please wait for admin approval.', 'login', 422);
         }
 
+        if ($user->role === 'bidder') {
+            $this->issueBidderLoginVerificationCode($request, $user, $request->boolean('remember'));
+
+            return $this->authResponse(
+                $request,
+                true,
+                'Verification code sent to your Gmail account. Please enter the code to continue.',
+                'verify',
+                200,
+                null,
+                [],
+                [
+                    'requires_verification' => true,
+                    'email' => $user->email,
+                ]
+            );
+        }
+
         Auth::login($user, $request->boolean('remember'));
         $request->session()->regenerate();
 
@@ -198,133 +273,94 @@ class AuthController extends Controller
         );
     }
 
-    public function loginWithQr(Request $request, QrLoginService $qrLoginService)
+    public function resendLoginCode(Request $request)
     {
-        if (! $this->qrLoginAvailable()) {
-            return $this->authResponse(
-                $request,
-                false,
-                'QR login is not available yet because the required database tables have not been migrated.',
-                'qr',
-                503
-            );
+        $pending = $request->session()->get('bidder_login_verification');
+
+        if (! is_array($pending) || empty($pending['user_id'])) {
+            return $this->authResponse($request, false, 'Please sign in again to request a new verification code.', 'login', 422);
         }
 
-        $validator = Validator::make($request->all(), [
-            'qr_payload' => ['required', 'string'],
-            'password' => ['nullable', 'string'],
-        ], [
-            'qr_payload.required' => 'Scan a valid QR login code first.',
-        ]);
+        $user = User::find($pending['user_id']);
 
-        if ($validator->fails()) {
-            return $this->authResponse(
-                $request,
-                false,
-                $validator->errors()->first(),
-                'qr',
-                422,
-                null,
-                $validator->errors()->toArray()
-            );
+        if (! $user || $user->role !== 'bidder' || $user->status !== 'active') {
+            $request->session()->forget('bidder_login_verification');
+
+            return $this->authResponse($request, false, 'Your bidder account is not available for login.', 'login', 422);
         }
 
-        $plainToken = $qrLoginService->extractPlainToken((string) $request->input('qr_payload'));
-
-        if (! $plainToken) {
-            LoginAudit::record($request, null, 'qr', 'failed', 'invalid_payload');
-
-            return $this->authResponse($request, false, 'Unable to read that QR login code. Please scan again.', 'qr', 422, null, [
-                'qr_payload' => ['Unable to read that QR login code. Please scan again.'],
-            ]);
-        }
-
-        $token = $qrLoginService->findToken($plainToken);
-
-        if (! $token) {
-            LoginAudit::record($request, null, 'qr', 'failed', 'token_not_found');
-
-            return $this->authResponse($request, false, 'This QR login code is invalid. Please use a valid bidder QR code.', 'qr', 422, null, [
-                'qr_payload' => ['This QR login code is invalid.'],
-            ]);
-        }
-
-        $user = $token->user;
-
-        if (! $user || $user->role !== 'bidder') {
-            LoginAudit::record($request, $user, 'qr', 'failed', 'not_bidder');
-
-            return $this->authResponse($request, false, 'QR login is only available for registered bidder accounts.', 'qr', 422);
-        }
-
-        if (! $user->isApprovedBidder()) {
-            LoginAudit::record($request, $user, 'qr', 'failed', 'account_not_approved');
-
-            return $this->authResponse($request, false, 'QR login is only available for approved bidder accounts.', 'qr', 422);
-        }
-
-        if (! $token->is_active || $token->revoked_at !== null) {
-            LoginAudit::record($request, $user, 'qr', 'failed', 'token_revoked');
-
-            return $this->authResponse($request, false, 'This QR login code has been revoked. Please contact the BAC Office for a new one.', 'qr', 422);
-        }
-
-        if ($token->is_expired) {
-            LoginAudit::record($request, $user, 'qr', 'failed', 'token_expired');
-
-            return $this->authResponse($request, false, 'This QR login code has expired. Please contact the BAC Office for a new one.', 'qr', 422);
-        }
-
-        if ($token->activated_at === null && $this->qrLoginRequiresPasswordConfirmation()) {
-            $password = (string) $request->input('password', '');
-
-            if ($password === '') {
-                return $this->authResponse(
-                    $request,
-                    false,
-                    'Please confirm your password to activate this QR login code for the first time.',
-                    'qr',
-                    422,
-                    null,
-                    [],
-                    ['requires_password_confirmation' => true]
-                );
-            }
-
-            if (! Hash::check($password, (string) $user->password)) {
-                LoginAudit::record($request, $user, 'qr', 'failed', 'password_confirmation_failed');
-
-                return $this->authResponse(
-                    $request,
-                    false,
-                    'Password confirmation failed. Please enter your current account password.',
-                    'qr',
-                    422,
-                    null,
-                    ['password' => ['Password confirmation failed.']],
-                    ['requires_password_confirmation' => true]
-                );
-            }
-
-            $qrLoginService->activateAndMarkUsed($token);
-        } else {
-            $qrLoginService->activateAndMarkUsed($token);
-        }
-
-        Auth::login($user);
-        $request->session()->regenerate();
-
-        LoginAudit::record($request, $user, 'qr', 'success');
+        $this->issueBidderLoginVerificationCode($request, $user, (bool) ($pending['remember'] ?? false));
 
         return $this->authResponse(
             $request,
             true,
-            'QR login successful.',
-            'qr',
+            'New verification code sent to your Gmail account.',
+            'verify',
             200,
-            route('bidder.dashboard')
+            null,
+            [],
+            [
+                'requires_verification' => true,
+                'email' => $user->email,
+            ]
         );
     }
+
+    public function verifyLoginCode(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'code' => ['required', 'digits:6'],
+        ], [
+            'code.required' => 'Verification code is required.',
+            'code.digits' => 'Please enter the 6-digit verification code.',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->authResponse($request, false, $validator->errors()->first(), 'verify', 422, null, $validator->errors()->toArray());
+        }
+
+        $pending = $request->session()->get('bidder_login_verification');
+
+        if (! is_array($pending) || empty($pending['user_id']) || empty($pending['code_hash']) || empty($pending['expires_at'])) {
+            return $this->authResponse($request, false, 'Please sign in again to request a new verification code.', 'login', 422);
+        }
+
+        if (now()->timestamp > (int) $pending['expires_at']) {
+            $request->session()->forget('bidder_login_verification');
+
+            return $this->authResponse($request, false, 'Verification code expired. Please sign in again.', 'login', 422);
+        }
+
+        if (! Hash::check((string) $request->input('code'), (string) $pending['code_hash'])) {
+            return $this->authResponse($request, false, 'Verification code is incorrect.', 'verify', 422, null, [
+                'code' => ['Verification code is incorrect.'],
+            ]);
+        }
+
+        $user = User::find($pending['user_id']);
+
+        if (! $user || $user->role !== 'bidder' || $user->status !== 'active') {
+            $request->session()->forget('bidder_login_verification');
+
+            return $this->authResponse($request, false, 'Your bidder account is not available for login.', 'login', 422);
+        }
+
+        $remember = (bool) ($pending['remember'] ?? false);
+        $request->session()->forget('bidder_login_verification');
+
+        Auth::login($user, $remember);
+        $request->session()->regenerate();
+
+        return $this->authResponse(
+            $request,
+            true,
+            'Login successful.',
+            'verify',
+            200,
+            $this->redirectForUser($user)
+        );
+    }
+
 
     public function showForgotPasswordForm()
     {
@@ -358,37 +394,139 @@ class AuthController extends Controller
             return $this->authResponse($request, false, $validator->errors()->first(), 'forgot', 422, null, $validator->errors()->toArray());
         }
 
-        $status = Password::sendResetLink([
-            'email' => $request->email,
-        ]);
+        $user = User::where('email', $request->email)->first();
 
-        if ($status === Password::RESET_LINK_SENT) {
-            return $this->authResponse($request, true, 'Password reset link sent. Please check your email.', 'login');
+        if (! $user) {
+            return $this->authResponse($request, false, 'No account found with that email.', 'forgot', 422, null, [
+                'email' => ['No account found with that email.'],
+            ]);
         }
 
-        return $this->authResponse($request, false, __($status), 'forgot', 422, null, [
-            'email' => [__($status)],
-        ]);
+        $code = (string) random_int(100000, 999999);
+
+        DB::table('password_reset_tokens')->updateOrInsert(
+            ['email' => $request->email],
+            [
+                'token' => Hash::make($code),
+                'created_at' => now(),
+            ]
+        );
+
+        Mail::to($user->email)->send(new PasswordResetCodeMail($user, $code));
+
+        return $this->authResponse(
+            $request,
+            true,
+            'Password reset code sent to your Gmail account.',
+            'forgot_verify',
+            200,
+            null,
+            [],
+            [
+                'requires_password_code' => true,
+                'email' => $user->email,
+            ]
+        );
     }
 
-    public function showResetPasswordForm(Request $request, string $token)
+    public function verifyPasswordResetCode(Request $request)
     {
+        if (! $this->passwordResetAvailable()) {
+            return $this->authResponse($request, false, 'Password reset is temporarily unavailable because the application database is not connected yet.', 'forgot', 503);
+        }
+
+        $request->merge([
+            'email' => strtolower(trim((string) $request->email)),
+        ]);
+
+        $validator = Validator::make($request->all(), [
+            'email' => ['required', 'email'],
+            'code' => ['required', 'digits:6'],
+        ], [
+            'email.required' => 'Email is required.',
+            'email.email' => 'Please enter a valid email address.',
+            'code.required' => 'Verification code is required.',
+            'code.digits' => 'Please enter the 6-digit verification code.',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->authResponse($request, false, $validator->errors()->first(), 'forgot_verify', 422, null, $validator->errors()->toArray());
+        }
+
+        $reset = DB::table('password_reset_tokens')->where('email', $request->email)->first();
+
+        if (! $reset || ! Hash::check((string) $request->input('code'), (string) $reset->token)) {
+            return $this->authResponse($request, false, 'Verification code is incorrect.', 'forgot_verify', 422, null, [
+                'code' => ['Verification code is incorrect.'],
+            ]);
+        }
+
+        if (! $reset->created_at || now()->diffInMinutes($reset->created_at) > 10) {
+            DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+
+            return $this->authResponse($request, false, 'Verification code expired. Please request a new code.', 'forgot', 422);
+        }
+
+        $request->session()->put('verified_password_reset_email', $request->email);
+
+        return $this->authResponse(
+            $request,
+            true,
+            'Code verified. Create your new password.',
+            'reset_password',
+            200,
+            null,
+            [],
+            [
+                'password_reset_verified' => true,
+                'email' => $request->email,
+            ]
+        );
+    }
+
+    public function showResetPasswordForm(Request $request, ?string $token = null)
+    {
+        $email = (string) $request->query('email', '');
+
+        if ($token === null) {
+            $email = (string) $request->session()->get('verified_password_reset_email', '');
+
+            if ($email === '') {
+                return redirect()
+                    ->route('home')
+                    ->with('error', 'Please verify your password reset code first.')
+                    ->with('auth_tab', 'forgot');
+            }
+        }
+
         return view('auth.reset-password', [
-            'token' => $token,
-            'email' => (string) $request->query('email', ''),
+            'token' => $token ?? '',
+            'email' => $email,
         ]);
     }
 
     public function resetPassword(Request $request)
     {
         if (! $this->passwordResetAvailable()) {
+            if ($request->ajax() || $request->expectsJson()) {
+                return $this->authResponse(
+                    $request,
+                    false,
+                    'Password reset is temporarily unavailable because the application database is not connected yet.',
+                    'reset_password',
+                    503,
+                    null,
+                    ['email' => ['Password reset is temporarily unavailable because the application database is not connected yet.']]
+                );
+            }
+
             return back()->withErrors([
                 'email' => 'Password reset is temporarily unavailable because the application database is not connected yet.',
             ]);
         }
 
-        $validated = $request->validate([
-            'token' => ['required'],
+        $validator = Validator::make($request->all(), [
+            'token' => ['nullable'],
             'email' => ['required', 'email'],
             'password' => ['required', 'string', 'min:6', 'confirmed'],
         ], [
@@ -399,28 +537,63 @@ class AuthController extends Controller
             'password.confirmed' => 'Password confirmation does not match.',
         ]);
 
-        $status = Password::reset(
-            [
-                'email' => strtolower(trim($validated['email'])),
-                'password' => $validated['password'],
-                'password_confirmation' => $request->input('password_confirmation'),
-                'token' => $validated['token'],
-            ],
-            function (User $user, string $password): void {
-                $user->forceFill([
-                    'password' => Hash::make($password),
-                    'remember_token' => Str::random(60),
-                ])->save();
-
-                event(new PasswordReset($user));
+        if ($validator->fails()) {
+            if ($request->ajax() || $request->expectsJson()) {
+                return $this->authResponse($request, false, $validator->errors()->first(), 'reset_password', 422, null, $validator->errors()->toArray());
             }
-        );
 
-        if ($status === Password::PASSWORD_RESET) {
+            return back()
+                ->withInput($request->only(['email']))
+                ->withErrors($validator);
+        }
+
+        $validated = $validator->validated();
+        $email = strtolower(trim($validated['email']));
+        $verifiedEmail = (string) $request->session()->get('verified_password_reset_email', '');
+
+        if ($verifiedEmail !== '' && hash_equals($verifiedEmail, $email)) {
+            $user = User::where('email', $email)->firstOrFail();
+            $this->resetUserPassword($user, $validated['password']);
+            DB::table('password_reset_tokens')->where('email', $email)->delete();
+            $request->session()->forget('verified_password_reset_email');
+
+            if ($request->ajax() || $request->expectsJson()) {
+                return $this->authResponse($request, true, 'Your password has been reset. Please sign in.', 'login');
+            }
+
             return redirect()
                 ->route('home')
                 ->with('success', 'Your password has been reset. Please sign in.')
                 ->with('auth_tab', 'login');
+        }
+
+        $status = Password::reset(
+            [
+                'email' => $email,
+                'password' => $validated['password'],
+                'password_confirmation' => $request->input('password_confirmation'),
+                'token' => $validated['token'] ?? '',
+            ],
+            function (User $user, string $password): void {
+                $this->resetUserPassword($user, $password);
+            }
+        );
+
+        if ($status === Password::PASSWORD_RESET) {
+            if ($request->ajax() || $request->expectsJson()) {
+                return $this->authResponse($request, true, 'Your password has been reset. Please sign in.', 'login');
+            }
+
+            return redirect()
+                ->route('home')
+                ->with('success', 'Your password has been reset. Please sign in.')
+                ->with('auth_tab', 'login');
+        }
+
+        if ($request->ajax() || $request->expectsJson()) {
+            return $this->authResponse($request, false, __($status), 'reset_password', 422, null, [
+                'email' => [__($status)],
+            ]);
         }
 
         return back()
@@ -446,16 +619,30 @@ class AuthController extends Controller
         };
     }
 
-    protected function qrLoginAvailable(): bool
+    protected function issueBidderLoginVerificationCode(Request $request, User $user, bool $remember): void
     {
-        try {
-            return Schema::hasTable('bidders')
-                && Schema::hasTable('qr_login_tokens')
-                && Schema::hasTable('login_logs');
-        } catch (Throwable) {
-            return false;
-        }
+        $code = (string) random_int(100000, 999999);
+
+        $request->session()->put('bidder_login_verification', [
+            'user_id' => $user->id,
+            'remember' => $remember,
+            'code_hash' => Hash::make($code),
+            'expires_at' => now()->addMinutes(10)->timestamp,
+        ]);
+
+        Mail::to($user->email)->send(new LoginVerificationCodeMail($user, $code));
     }
+
+    protected function resetUserPassword(User $user, string $password): void
+    {
+        $user->forceFill([
+            'password' => Hash::make($password),
+            'remember_token' => Str::random(60),
+        ])->save();
+
+        event(new PasswordReset($user));
+    }
+
 
     protected function authTablesAvailable(): bool
     {
@@ -475,8 +662,4 @@ class AuthController extends Controller
         }
     }
 
-    protected function qrLoginRequiresPasswordConfirmation(): bool
-    {
-        return (bool) config('bac-office.qr_login.require_password_on_first_use', false);
-    }
 }

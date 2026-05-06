@@ -1,3 +1,6 @@
+@php
+    use App\Models\Award;
+@endphp
 <div class="view-bid-modal-shell">
     <div class="view-bid-modal-header">
         <div>
@@ -21,7 +24,7 @@
         <div class="view-bid-grid view-bid-grid-three">
             <div class="view-bid-field">
                 <label>Contract Amount</label>
-                <div class="view-bid-value">P{{ number_format((float) $award->contract_amount, 2) }}</div>
+                <div class="view-bid-value">&#8369;{{ number_format((float) $award->contract_amount, 2) }}</div>
             </div>
 
             <div class="view-bid-field">
@@ -37,7 +40,49 @@
 
         <div class="view-bid-field">
             <label>Winning Bid</label>
-            <div class="view-bid-value">P{{ number_format((float) ($award->bid->amount ?? 0), 2) }}</div>
+            <div class="view-bid-value">&#8369;{{ number_format((float) ($award->bid->amount ?? 0), 2) }}</div>
+        </div>
+
+        @if($award->hasCertificateFile())
+            <div class="view-bid-field">
+                <label>Official Certificate</label>
+                <div class="award-modal-certificate">
+                    <div class="award-modal-qr" aria-label="Scan QR code for official award certificate">
+                        <img src="{{ $award->tokenQrUrl() }}" alt="QR code for official award certificate">
+                    </div>
+                    <div>
+                        <strong>{{ $award->certificate_number }}</strong>
+                        <p>Scan this QR code to view the authentic award certificate.</p>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        <div class="view-bid-field">
+            <label>Certificate Administration</label>
+            <div class="award-cert-admin" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <span class="status-badge status-{{ $award->status }}" style="
+                    padding: 4px 12px;
+                    border-radius: 20px;
+                    font-size: 11px;
+                    font-weight: 600;
+                    @if($award->status === Award::STATUS_VALID)
+                        background: #d1fae5; color: #065f46;
+                    @elseif($award->status === Award::STATUS_REVOKED)
+                        background: #fee2e2; color: #991b1b;
+                    @else
+                        background: #fef3c7; color: #92400e;
+                    @endif
+                ">{{ ucfirst($award->status) }}</span>
+                <div class="award-cert-actions" style="display:flex; gap:8px; flex-wrap:wrap;">
+                    @if($award->status === Award::STATUS_VALID)
+                        <button type="button" class="award-cert-btn" onclick="confirmRevokeCertificate({{ $award->id }})" style="padding:6px 12px; border-radius:6px; border:1px solid #d1d5db; background:#fff; color:#374151; cursor:pointer; font-size:12px;">Revoke Certificate</button>
+                    @endif
+                    <button type="button" class="award-cert-btn" onclick="triggerReplaceCertificate({{ $award->id }})" style="padding:6px 12px; border-radius:6px; border:1px solid #1d4ed8; background:#1d4ed8; color:#fff; cursor:pointer; font-size:12px;">Replace Certificate</button>
+                    <button type="button" class="award-cert-btn" onclick="regenerateToken({{ $award->id }})" style="padding:6px 12px; border-radius:6px; border:1px solid #d1d5db; background:#fff; color:#374151; cursor:pointer; font-size:12px;">Regenerate QR Token</button>
+                </div>
+            </div>
+            <p id="replaceCertificateMsg-{{ $award->id }}" style="font-size:11px; color:#059669; margin-top:4px; display:none;"></p>
         </div>
 
         <div class="view-bid-field">
@@ -49,6 +94,9 @@
             <button type="button" onclick="closeAwardViewModal()" class="btn-secondary">Close</button>
             <a href="{{ route('admin.project.award', $award->project) }}" class="btn-primary" style="text-decoration: none;">Open Award Page</a>
         </div>
+
+        <!-- Hidden file input for certificate replacement -->
+        <input type="file" class="replace-certificate-input" accept=".pdf" style="display:none;">
     </div>
 </div>
 
@@ -134,6 +182,54 @@
         min-height: 84px;
         align-items: flex-start;
         white-space: pre-wrap;
+    }
+
+    .award-modal-certificate {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 12px;
+        border: 1px solid #dbe4f0;
+        border-radius: 14px;
+        background: #f8fafc;
+    }
+
+    .award-modal-qr {
+        display: inline-flex;
+        width: 160px;
+        height: 160px;
+        padding: 10px;
+        border-radius: 16px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        flex: 0 0 auto;
+    }
+
+    .award-modal-qr img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+
+    .award-modal-certificate strong {
+        display: block;
+        color: #0f172a;
+        font-size: 14px;
+        margin-bottom: 4px;
+    }
+
+    .award-modal-certificate p {
+        margin: 0 0 6px;
+        color: #64748b;
+        font-size: 12px;
+        line-height: 1.5;
+    }
+
+    .award-modal-certificate a {
+        color: #2563eb;
+        font-size: 12px;
+        font-weight: 700;
+        text-decoration: none;
     }
 
     .view-bid-actions {

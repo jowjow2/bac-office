@@ -2,6 +2,70 @@
 
 use Illuminate\Support\Str;
 
+$firstEnv = static function (array $keys, mixed $fallback = null): mixed {
+    foreach ($keys as $key) {
+        $value = env($key);
+
+        if ($value !== null && $value !== '') {
+            return $value;
+        }
+    }
+
+    return $fallback;
+};
+
+// Accept common managed-database env names so production can use a provider URL
+// or provider-specific credentials without needing to rename every secret.
+$sqliteUrl = $firstEnv(['SQLITE_URL', 'DB_URL', 'DATABASE_URL']);
+$mysqlUrl = $firstEnv(['MYSQL_URL', 'MARIADB_URL', 'DB_URL', 'DATABASE_URL']);
+$mariadbUrl = $firstEnv(['MARIADB_URL', 'MYSQL_URL', 'DB_URL', 'DATABASE_URL']);
+$pgsqlUrl = $firstEnv(['POSTGRES_URL', 'POSTGRES_URL_NON_POOLING', 'POSTGRES_PRISMA_URL', 'DB_URL', 'DATABASE_URL']);
+$sqlsrvUrl = $firstEnv(['SQLSERVER_URL', 'MSSQL_URL', 'DB_URL', 'DATABASE_URL']);
+
+$defaultConnection = $firstEnv(['DB_CONNECTION']);
+
+if (! $defaultConnection) {
+    $sharedUrl = $firstEnv([
+        'DB_URL',
+        'DATABASE_URL',
+        'MYSQL_URL',
+        'MARIADB_URL',
+        'POSTGRES_URL',
+        'POSTGRES_URL_NON_POOLING',
+        'POSTGRES_PRISMA_URL',
+        'SQLSERVER_URL',
+        'MSSQL_URL',
+        'SQLITE_URL',
+    ]);
+
+    $sharedScheme = is_string($sharedUrl)
+        ? strtolower((string) parse_url($sharedUrl, PHP_URL_SCHEME))
+        : null;
+
+    $defaultConnection = match ($sharedScheme) {
+        'mysql' => 'mysql',
+        'mariadb' => 'mariadb',
+        'pgsql', 'postgres', 'postgresql' => 'pgsql',
+        'sqlsrv', 'mssql' => 'sqlsrv',
+        'sqlite' => 'sqlite',
+        default => null,
+    };
+}
+
+if (! $defaultConnection) {
+    if ($pgsqlUrl) {
+        $defaultConnection = 'pgsql';
+    } elseif ($mariadbUrl) {
+        $defaultConnection = 'mariadb';
+    } elseif ($mysqlUrl) {
+        $defaultConnection = 'mysql';
+    } elseif ($sqlsrvUrl) {
+        $defaultConnection = 'sqlsrv';
+    } else {
+        $defaultConnection = 'sqlite';
+    }
+}
+
 return [
 
     /*
@@ -16,7 +80,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'sqlite'),
+    'default' => $defaultConnection,
 
     /*
     |--------------------------------------------------------------------------
@@ -33,8 +97,8 @@ return [
 
         'sqlite' => [
             'driver' => 'sqlite',
-            'url' => env('DB_URL'),
-            'database' => env('DB_DATABASE', database_path('database.sqlite')),
+            'url' => $sqliteUrl,
+            'database' => $firstEnv(['DB_DATABASE', 'SQLITE_DATABASE'], database_path('database.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
             'busy_timeout' => null,
@@ -45,12 +109,12 @@ return [
 
         'mysql' => [
             'driver' => 'mysql',
-            'url' => env('DB_URL'),
-            'host' => env('DB_HOST', '127.0.0.1'),
-            'port' => env('DB_PORT', '3306'),
-            'database' => env('DB_DATABASE', 'laravel'),
-            'username' => env('DB_USERNAME', 'root'),
-            'password' => env('DB_PASSWORD', ''),
+            'url' => $mysqlUrl,
+            'host' => $firstEnv(['DB_HOST', 'MYSQL_HOST', 'MYSQLHOST', 'MARIADB_HOST', 'MARIADBHOST'], '127.0.0.1'),
+            'port' => $firstEnv(['DB_PORT', 'MYSQL_PORT', 'MYSQLPORT', 'MARIADB_PORT', 'MARIADBPORT'], '3306'),
+            'database' => $firstEnv(['DB_DATABASE', 'MYSQL_DATABASE', 'MYSQLDATABASE', 'MARIADB_DATABASE', 'MARIADBDATABASE'], 'laravel'),
+            'username' => $firstEnv(['DB_USERNAME', 'MYSQL_USERNAME', 'MYSQLUSER', 'MARIADB_USERNAME', 'MARIADBUSER'], 'root'),
+            'password' => $firstEnv(['DB_PASSWORD', 'MYSQL_PASSWORD', 'MYSQLPASSWORD', 'MARIADB_PASSWORD', 'MARIADBPASSWORD'], ''),
             'unix_socket' => env('DB_SOCKET', ''),
             'charset' => env('DB_CHARSET', 'utf8mb4'),
             'collation' => env('DB_COLLATION', 'utf8mb4_unicode_ci'),
@@ -65,12 +129,12 @@ return [
 
         'mariadb' => [
             'driver' => 'mariadb',
-            'url' => env('DB_URL'),
-            'host' => env('DB_HOST', '127.0.0.1'),
-            'port' => env('DB_PORT', '3306'),
-            'database' => env('DB_DATABASE', 'laravel'),
-            'username' => env('DB_USERNAME', 'root'),
-            'password' => env('DB_PASSWORD', ''),
+            'url' => $mariadbUrl,
+            'host' => $firstEnv(['DB_HOST', 'MARIADB_HOST', 'MARIADBHOST', 'MYSQL_HOST', 'MYSQLHOST'], '127.0.0.1'),
+            'port' => $firstEnv(['DB_PORT', 'MARIADB_PORT', 'MARIADBPORT', 'MYSQL_PORT', 'MYSQLPORT'], '3306'),
+            'database' => $firstEnv(['DB_DATABASE', 'MARIADB_DATABASE', 'MARIADBDATABASE', 'MYSQL_DATABASE', 'MYSQLDATABASE'], 'laravel'),
+            'username' => $firstEnv(['DB_USERNAME', 'MARIADB_USERNAME', 'MARIADBUSER', 'MYSQL_USERNAME', 'MYSQLUSER'], 'root'),
+            'password' => $firstEnv(['DB_PASSWORD', 'MARIADB_PASSWORD', 'MARIADBPASSWORD', 'MYSQL_PASSWORD', 'MYSQLPASSWORD'], ''),
             'unix_socket' => env('DB_SOCKET', ''),
             'charset' => env('DB_CHARSET', 'utf8mb4'),
             'collation' => env('DB_COLLATION', 'utf8mb4_unicode_ci'),
@@ -85,12 +149,12 @@ return [
 
         'pgsql' => [
             'driver' => 'pgsql',
-            'url' => env('DB_URL'),
-            'host' => env('DB_HOST', '127.0.0.1'),
-            'port' => env('DB_PORT', '5432'),
-            'database' => env('DB_DATABASE', 'laravel'),
-            'username' => env('DB_USERNAME', 'root'),
-            'password' => env('DB_PASSWORD', ''),
+            'url' => $pgsqlUrl,
+            'host' => $firstEnv(['DB_HOST', 'POSTGRES_HOST', 'PGHOST'], '127.0.0.1'),
+            'port' => $firstEnv(['DB_PORT', 'POSTGRES_PORT', 'PGPORT'], '5432'),
+            'database' => $firstEnv(['DB_DATABASE', 'POSTGRES_DATABASE', 'PGDATABASE'], 'laravel'),
+            'username' => $firstEnv(['DB_USERNAME', 'POSTGRES_USER', 'PGUSER'], 'root'),
+            'password' => $firstEnv(['DB_PASSWORD', 'POSTGRES_PASSWORD', 'PGPASSWORD'], ''),
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
@@ -100,12 +164,12 @@ return [
 
         'sqlsrv' => [
             'driver' => 'sqlsrv',
-            'url' => env('DB_URL'),
-            'host' => env('DB_HOST', 'localhost'),
-            'port' => env('DB_PORT', '1433'),
-            'database' => env('DB_DATABASE', 'laravel'),
-            'username' => env('DB_USERNAME', 'root'),
-            'password' => env('DB_PASSWORD', ''),
+            'url' => $sqlsrvUrl,
+            'host' => $firstEnv(['DB_HOST', 'SQLSERVER_HOST', 'MSSQL_HOST'], 'localhost'),
+            'port' => $firstEnv(['DB_PORT', 'SQLSERVER_PORT', 'MSSQL_PORT'], '1433'),
+            'database' => $firstEnv(['DB_DATABASE', 'SQLSERVER_DATABASE', 'MSSQL_DATABASE'], 'laravel'),
+            'username' => $firstEnv(['DB_USERNAME', 'SQLSERVER_USERNAME', 'MSSQL_USERNAME'], 'root'),
+            'password' => $firstEnv(['DB_PASSWORD', 'SQLSERVER_PASSWORD', 'MSSQL_PASSWORD'], ''),
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,

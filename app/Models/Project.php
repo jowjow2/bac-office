@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Support\Uploads;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -14,19 +16,32 @@ class Project extends Model
 
     protected $fillable = [
         'title',
+        'slug',
         'description',
+        'category',
+        'location',
+        'procurement_mode',
+        'source_of_fund',
+        'contract_duration',
+        'budget',
+        'status',
+        'created_by',
+        // Legacy single document fields
         'document_path',
         'document_original_name',
-        'budget',
+        // Backward compatibility deadline field
         'deadline',
-        'status',
-        'slug',
-        'created_by',
     ];
 
     protected $casts = [
-        'deadline' => 'datetime',
         'budget' => 'decimal:2',
+        'required_documents' => 'array',
+        'deadline' => 'datetime',
+    ];
+
+    // Legacy deadline attribute casting (backward compatibility)
+    protected $dates = [
+        'deadline',
     ];
 
     // A project has many bids
@@ -50,9 +65,52 @@ class Project extends Model
         return $this->hasMany(ProjectDocument::class)->orderBy('id');
     }
 
+    public function requirement()
+    {
+        return $this->hasOne(ProjectRequirement::class);
+    }
+
+    public function schedule()
+    {
+        return $this->hasOne(ProjectSchedule::class);
+    }
+
     public function scopeVisibleToPublic(Builder $query): Builder
     {
         return $query->whereIn('status', self::PUBLIC_STATUSES);
+    }
+
+    public function scopeHasApprovedBids(Builder $query): Builder
+    {
+        return $query->whereHas('bids', function ($query) {
+            $query->where('status', 'approved');
+        });
+    }
+
+    public function scopeReadyForAward(Builder $query): Builder
+    {
+        return $query->whereHas('bids', function ($query) {
+            $query->where('status', 'approved');
+        })->whereDoesntHave('awards');
+    }
+
+    public function getDeadlineAttribute(mixed $value): ?Carbon
+    {
+        if (!$value) {
+            return null;
+        }
+
+        // If already a Carbon instance, return as-is
+        if ($value instanceof Carbon) {
+            return $value;
+        }
+
+        // Parse string to Carbon
+        try {
+            return \Carbon\Carbon::parse($value);
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 
     public function getDocumentUrlAttribute(): ?string

@@ -1,6 +1,6 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 @include('partials.dashboard-viewport')
-<div class="admin-dashboard dashboard-home">
+<div class="admin-dashboard dashboard-home staff-dashboard staff-dashboard-page">
     @vite(['resources/css/dashboard.css'])
     @include('partials.staff-page-styles')
 
@@ -13,11 +13,6 @@
         ])
 
         <main class="dashboard-content dashboard-home-content">
-            <section class="staff-dashboard">
-                <section class="dashboard-home-intro">
-                    <h1 class="dashboard-home-title">Staff Dashboard</h1>
-                    <p class="dashboard-home-subtitle">Your assigned projects and pending tasks.</p>
-                </section>
 
                 @if(session('success'))
                     <div class="assignment-alert assignment-alert-success">{{ session('success') }}</div>
@@ -60,6 +55,15 @@
                             <p>Accepting bids</p>
                         </div>
                     </article>
+
+                    <article class="staff-stat-card">
+                        <div class="staff-stat-icon blue"><i class="fas fa-comments"></i></div>
+                        <div class="staff-stat-copy">
+                            <strong>Messages</strong>
+                            <h3>Contact admin and bidders</h3>
+                            <p><a href="{{ route('staff.messages') }}" class="staff-view-all">Open Messages</a></p>
+                        </div>
+                    </article>
                 </section>
 
                 <section class="staff-table-panel">
@@ -99,7 +103,6 @@
                         </table>
                     </div>
                 </section>
-            </section>
         </main>
     </div>
 </div>

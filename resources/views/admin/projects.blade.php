@@ -3,182 +3,201 @@
 <div class="admin-dashboard">
     @vite(['resources/css/dashboard.css'])
 
-    <style>
-        .projects-page,
-        .projects-page * {
-            font-family: 'Inter', sans-serif;
-        }
-    </style>
-
-    <!-- SIDEBAR -->
-    <aside class="sidebar">
-        <a href="{{ route('admin.dashboard') }}" class="sidebar-logo-link"><h2 class="sidebar-logo">BAC-Office</h2></a>
-        @include('partials.sidebar-profile')
-        <ul class="sidebar-menu">
-
-            <p class="menu-title">MAIN</p>
-            <li><a href="/dashboard/admin"><span class="menu-icon-dashboard" aria-hidden="true"></span> Dashboard</a></li>
-            <li><a href="{{ route('admin.projects') }}" class="active"><i class="fas fa-folder-open"></i> Project/Biddings</a></li>
-            <li><a href="/admin/bidders"><span class="menu-icon-all-bids" aria-hidden="true"></span> All Bids</a></li>
-            <li><a href="{{ route('admin.awards') }}"><i class="fas fa-trophy"></i> Awards & Contracts</a></li>
-
-            <p class="menu-title">MANAGEMENT</p>
-            <li><a href="{{ route('admin.users') }}"><i class="fas fa-users-cog"></i> Manage Users</a></li>
-            <li><a href="{{ route('admin.assignments') }}"><i class="fas fa-tasks"></i> Staff Assignments</a></li>
-            <li><a href="/admin/reports"><i class="fas fa-chart-bar"></i> Reports</a></li>
-
-            <p class="menu-title">SYSTEM</p>
-            <li>
-                <a href="{{ route('admin.notifications') }}">
-                    <i class="fas fa-bell"></i> Notifications
-                    @if(($unreadNotificationsCount ?? 0) > 0)
-                        <span class="notification-badge">{{ $unreadNotificationsCount }}</span>
-                    @endif
-                </a>
-            </li>
-
-            <li>
-                <form action="{{ route('logout') }}" method="POST" class="sidebar-form">
-                    @csrf
-                    <button type="submit" class="sidebar-logout"><i class="fas fa-sign-out-alt"></i> Logout</button>
-                </form>
-            </li>
-        </ul>
-    </aside>
+    @include('partials.admin-sidebar')
 
     <!-- MAIN AREA -->
     <div class="main-area projects-page">
 
-        <!-- NAVBAR -->
-        <header class="navbar">
-            <div class="nav-left">
-                <h2>Project/Biddings</h2>
-                <p>Manage all projects and biddings</p>
-            </div>
-            <div class="nav-right">
-            </div>
-        </header>
-
-        <!-- MAIN CONTENT -->
-        <main class="dashboard-content">
-
-            <div class="welcome-text" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 18px;">
-                <div>
-                    <h1 class="title" style="font-size: 24px; font-weight: 600; color: #111827; margin-bottom: 6px;">Projects / Biddings</h1>
-                    <p class="subtitle" style="font-size: 14px;">
-                        Manage all procurement projects
-                    </p>
+        <!-- PAGE HEADER -->
+        <header class="page-header" style="padding: 24px; border-bottom: 1px solid #e5e7eb; background: #ffffff; margin-bottom: 0;">
+            <div style="max-width: 1400px; margin: 0 auto;">
+                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+                    <div>
+                        <div class="projects-title-row">
+                            <button type="button" class="dashboard-menu-toggle projects-menu-toggle" data-dashboard-sidebar-toggle aria-controls="dashboardSidebar" aria-expanded="false" aria-label="Open navigation menu">
+                                <i class="fas fa-bars" aria-hidden="true"></i>
+                            </button>
+                            <h1 style="font-size: 24px; font-weight: 700; color: #111827; margin: 0;">Project/Biddings</h1>
+                        </div>
+                        <p style="font-size: 14px; color: #6b7280; margin: 4px 0 0;">Manage all projects and biddings</p>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <a href="{{ route('admin.projects', ['status' => 'draft']) }}" style="height: 42px; padding: 0 16px; border-radius: 10px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; border: 1px solid {{ ($status ?? '') === 'draft' ? '#f59e0b' : '#e5e7eb' }}; background: {{ ($status ?? '') === 'draft' ? '#fff7ed' : '#ffffff' }}; color: {{ ($status ?? '') === 'draft' ? '#c2410c' : '#374151' }}; transition: all 0.2s;">
+                            <i class="fas fa-file-alt"></i>
+                            Drafts
+                            <span style="min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: {{ ($status ?? '') === 'draft' ? '#fed7aa' : '#f3f4f6' }}; color: {{ ($status ?? '') === 'draft' ? '#9a3412' : '#6b7280' }}; font-size: 11px; font-weight: 800;">{{ $draftProjectsCount ?? 0 }}</span>
+                        </a>
+                        <a href="{{ route('admin.projects.create') }}" style="height: 42px; padding: 0 18px; border-radius: 10px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; border: 1px solid #111827; background: #111827; color: #ffffff; box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14); transition: background 0.2s;" onmouseover="this.style.background='#374151'; this.style.borderColor='#374151';" onmouseout="this.style.background='#111827'; this.style.borderColor='#111827';">
+                            <i class="fas fa-plus"></i>
+                            Create Project
+                        </a>
+                    </div>
                 </div>
-                <button type="button" onclick="openProjectModal()" style="background: #1d4f91; color: white; padding: 11px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 500;">
-                    <i class="fas fa-plus" style="margin-right: 6px;"></i> New Project
-                </button>
-            </div>
 
-            @if(session('success'))
-            <div id="successAlert" style="position: fixed; top: 90px; right: 25px; background: #dcfce7; color: #166534; padding: 16px 20px; border-radius: 8px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; display: flex; align-items: center; gap: 10px; min-width: 280px;">
-                <i class="fas fa-check-circle" style="font-size: 18px;"></i>
-                <span>{{ session('success') }}</span>
-                <button onclick="closeSuccessAlert()" style="margin-left: auto; background: none; border: none; color: #166534; cursor: pointer; font-size: 16px;">&times;</button>
-            </div>
-            @endif
-
-            <div class="table-container" style="background: white; border-radius: 18px; overflow: hidden; border: 1px solid #e5edf6; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);">
-                <form method="GET" action="{{ route('admin.projects') }}" style="display: flex; gap: 12px; padding: 18px; border-bottom: 1px solid #edf2f7; background: #ffffff;">
-                    <div style="flex: 1;">
+                <!-- Filters row -->
+                <form method="GET" action="{{ route('admin.projects') }}" style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-top: 16px;">
+                    <div style="flex: 1; min-width: 200px;">
                         <input
                             type="text"
                             name="search"
                             value="{{ $search ?? '' }}"
-                            placeholder="Search projects..."
-                            style="width: 100%; height: 42px; padding: 0 15px; border: 1px solid #d7e0ea; border-radius: 10px; font-size: 13px; color: #1f2937; outline: none;"
+                            placeholder="Search projects by title, description..."
+                            style="width: 100%; height: 42px; padding: 0 15px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 13px; color: #111827; outline: none; background: #ffffff; transition: border-color 0.2s, box-shadow 0.2s;"
+                            onfocus="this.style.borderColor='#f59e0b'; this.style.boxShadow='0 0 0 3px rgba(245,158,11,0.1)';"
+                            onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none';"
                         >
                     </div>
-                    <div style="width: 150px;">
-                        <select name="status" onchange="this.form.submit()" style="width: 100%; height: 42px; padding: 0 14px; border: 1px solid #d7e0ea; border-radius: 10px; font-size: 13px; color: #1f2937; background: white;">
+                    <div style="width: 180px; position: relative; display: inline-block;">
+                        <select name="status" onchange="this.form.submit()" style="width: 100%; height: 42px; padding: 0 14px; padding-right: 36px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 13px; color: #111827; background: #ffffff; cursor: pointer; outline: none; appearance: none; transition: all 0.2s ease;" 
+                            onfocus="this.style.borderColor='#f59e0b'; this.style.boxShadow='0 0 0 3px rgba(245,158,11,0.1)';" 
+                            onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none';">
                             <option value="">All Status</option>
+                            <option value="draft" {{ ($status ?? '') === 'draft' ? 'selected' : '' }}>Draft</option>
                             <option value="approved_for_bidding" {{ ($status ?? '') === 'approved_for_bidding' ? 'selected' : '' }}>Approved for Bidding</option>
                             <option value="open" {{ ($status ?? '') === 'open' ? 'selected' : '' }}>Open</option>
                             <option value="closed" {{ ($status ?? '') === 'closed' ? 'selected' : '' }}>Closed</option>
                             <option value="awarded" {{ ($status ?? '') === 'awarded' ? 'selected' : '' }}>Awarded</option>
                         </select>
+                        <div style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </div>
+                        <style>
+                            select[name="status"]:hover {
+                                border-color: #f59e0b;
+                            }
+                        </style>
                     </div>
+                    <button type="submit" style="height: 42px; padding: 0 20px; background: #111827; color: white; border: none; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 0.2s;" onmouseover="this.style.background='#374151'" onmouseout="this.style.background='#111827'">
+                        <i class="fas fa-search" style="margin-right: 6px;"></i> Search
+                    </button>
                 </form>
+            </div>
+        </header>
 
+        <!-- MAIN CONTENT -->
+        <main class="dashboard-content" style="padding: 24px;">
+
+            @if(session('success'))
+            <div id="successAlert" style="position: fixed; top: 90px; right: 25px; background: #dcfce7; color: #166534; padding: 16px 20px; border-radius: 10px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; display: flex; align-items: center; gap: 10px; min-width: 280px; border: 1px solid #bbf7d0;">
+                <i class="fas fa-check-circle" style="font-size: 18px;"></i>
+                <span>{{ session('success') }}</span>
+                <button onclick="closeSuccessAlert()" style="margin-left: auto; background: none; border: none; color: #166534; cursor: pointer; font-size: 18px; padding: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">&times;</button>
+            </div>
+            @endif
+
+            <!-- PROJECTS CARD -->
+            <div class="content-card" style="background: #ffffff; border-radius: 16px; border: 1px solid #e5e7eb; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06); overflow: hidden;">
+
+                @if($projects->count() > 0)
                 <table style="width: 100%; border-collapse: collapse;">
                     <thead>
-                        <tr style="border-bottom: 1px solid #e9eef5; background: #ffffff;">
-                            <th style="text-align: left; padding: 14px 18px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Project Title</th>
-                            <th style="text-align: left; padding: 14px 18px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Budget</th>
-                            <th style="text-align: left; padding: 14px 18px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Deadline</th>
-                            <th style="text-align: left; padding: 14px 18px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Staff</th>
-                            <th style="text-align: left; padding: 14px 18px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Bids</th>
-                            <th style="text-align: left; padding: 14px 18px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Status</th>
-                            <th style="text-align: left; padding: 14px 18px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Actions</th>
+                        <tr style="background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+                            <th style="text-align: left; padding: 14px 20px; font-size: 11px; color: #6b7280; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Project Title</th>
+                            <th style="text-align: left; padding: 14px 20px; font-size: 11px; color: #6b7280; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Budget</th>
+                            <th style="text-align: left; padding: 14px 20px; font-size: 11px; color: #6b7280; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Deadline</th>
+                            <th style="text-align: left; padding: 14px 20px; font-size: 11px; color: #6b7280; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Staff</th>
+                            <th style="text-align: left; padding: 14px 20px; font-size: 11px; color: #6b7280; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Bids</th>
+                            <th style="text-align: left; padding: 14px 20px; font-size: 11px; color: #6b7280; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Status</th>
+                            <th style="text-align: left; padding: 14px 20px; font-size: 11px; color: #6b7280; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($projects as $project)
                         @php($projectStatusLabel = \Illuminate\Support\Str::headline($project->status))
                         @php($projectDocuments = $project->uploadedDocuments())
-                        <tr style="border-bottom: 1px solid #eef3f8;">
-                            <td style="padding: 18px; font-size: 13px; vertical-align: top;">
-                                <div style="font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 6px;">{{ $project->title }}</div>
-                                <div style="max-width: 320px; font-size: 12px; line-height: 1.5; color: #9ca3af;">
-                                    {{ \Illuminate\Support\Str::limit($project->description, 72) }}
+                        <tr style="border-bottom: 1px solid #e5e7eb; transition: background 0.15s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='#ffffff'">
+                            <td data-label="Project Title" style="padding: 18px 20px; font-size: 13px; vertical-align: top;">
+                                <div style="font-size: 14px; font-weight: 600; color: #111827; margin-bottom: 6px; line-height: 1.4;">{{ $project->title }}</div>
+                                <div style="max-width: 400px; font-size: 12px; line-height: 1.5; color: #6b7280;">
+                                    {{ \Illuminate\Support\Str::limit($project->description, 80) }}
                                 </div>
                                 @if($projectDocuments->isNotEmpty())
                                 <div style="margin-top: 10px;" data-project-files-wrap="{{ $project->id }}">
-                                    <button type="button" data-project-files-trigger="{{ $project->id }}" onclick="loadProjectFilesModal({{ $project->id }})" style="display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border: 1px solid #dbe7f5; border-radius: 999px; background: #f8fbff; color: #1d4ed8; font-size: 11px; font-weight: 600; cursor: pointer;">
-                                        <i class="fas fa-paperclip" style="font-size: 10px;"></i>
+                                    <button type="button" data-project-files-trigger="{{ $project->id }}" onclick="loadProjectFilesModal({{ $project->id }})" style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid #e5e7eb; border-radius: 999px; background: #f9fafb; color: #f59e0b; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                                        <i class="fas fa-paperclip" style="font-size: 9px;"></i>
                                         {{ $projectDocuments->count() }} {{ \Illuminate\Support\Str::plural('file', $projectDocuments->count()) }} attached
                                     </button>
                                 </div>
                                 @endif
                             </td>
-                            <td style="padding: 18px; font-size: 13px; font-weight: 500; color: #0f172a; vertical-align: top;">P{{ number_format((float) $project->budget, 2) }}</td>
-                            <td style="padding: 18px; font-size: 13px; font-weight: 400; color: #334155; vertical-align: top;">{{ $project->deadline ? $project->deadline->format('Y-m-d') : 'N/A' }}</td>
-                            <td style="padding: 18px; font-size: 13px; font-weight: 400; color: #0f172a; vertical-align: top;">{{ $project->assignments->first()?->staff?->name ?? 'Unassigned' }}</td>
-                            <td style="padding: 18px; vertical-align: top;">
-                                <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 28px; padding: 0 10px; border-radius: 999px; background: #fff5db; color: #b7791f; font-size: 12px; font-weight: 600;">
+                            <td data-label="Budget" style="padding: 18px 20px; font-size: 13px; font-weight: 600; color: #111827; vertical-align: top;">P{{ number_format((float) $project->budget, 2) }}</td>
+                            <td data-label="Deadline" style="padding: 18px 20px; font-size: 13px; font-weight: 400; color: #374151; vertical-align: top;">{{ $project->deadline ? $project->deadline->format('M d, Y') : 'N/A' }}</td>
+                            <td data-label="Staff" style="padding: 18px 20px; font-size: 13px; font-weight: 400; color: #111827; vertical-align: top;">{{ $project->assignments->first()?->staff?->name ?? '<span style=\"color:#9ca3af\">Unassigned</span>' }}</td>
+                            <td data-label="Bids" style="padding: 18px 20px; vertical-align: top;">
+                                <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 26px; padding: 0 10px; border-radius: 999px; background: #fef3c7; color: #b45309; font-size: 11px; font-weight: 700;">
                                     {{ $project->bids_count }}
                                 </span>
                             </td>
-                            <td style="padding: 18px; vertical-align: top;">
-                                <span style="display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 500;
-                                    @if($project->status == 'approved_for_bidding') background: #dbeafe; color: #1d4ed8;
+                            <td data-label="Status" style="padding: 18px 20px; vertical-align: top;">
+                                <span style="display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 600;
+                                    @if($project->status == 'draft') background: #fef3c7; color: #92400e;
+                                    @elseif($project->status == 'approved_for_bidding') background: #dbeafe; color: #1d4ed8;
                                     @elseif($project->status == 'open') background: #dcfce7; color: #166534;
                                     @elseif($project->status == 'awarded') background: #fef3c7; color: #b45309;
-                                    @elseif($project->status == 'closed') background: #e5e7eb; color: #475569;
+                                    @elseif($project->status == 'closed') background: #f3f4f6; color: #6b7280;
                                     @else background: #fef3c7; color: #92400e; @endif">
                                     {{ $projectStatusLabel }}
                                 </span>
                             </td>
-                            <td style="padding: 18px; vertical-align: top;">
+                            <td data-label="Actions" style="padding: 18px 20px; vertical-align: top;">
                                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                <button onclick="loadViewModal({{ $project->id }})" style="background: white; color: #334155; border: 1px solid #d6deea; padding: 8px 14px; border-radius: 9px; text-decoration: none; font-size: 12px; font-weight: 500; display: inline-block; cursor: pointer;">View</button>
-                                <button onclick="loadEditModal({{ $project->id }})" style="background: white; color: #334155; border: 1px solid #d6deea; padding: 8px 14px; border-radius: 9px; text-decoration: none; font-size: 12px; font-weight: 500; display: inline-block; cursor: pointer;">Edit</button>
-                                <form action="{{ route('admin.project.destroy', $project) }}" method="POST" style="display: inline;" onsubmit="return confirm('Delete this project? This will also remove its bids, awards, and staff assignments.');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" style="background: #dc2626; color: white; padding: 8px 14px; border-radius: 9px; border: none; font-size: 12px; font-weight: 500; display: inline-block; cursor: pointer;">Delete</button>
-                                </form>
+                                    <button onclick="loadViewModal({{ $project->id }})" class="action-btn view" style="background: #f9fafb; color: #374151; border: 1px solid #e5e7eb; padding: 7px 13px; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#f3f4f6'; this.style.borderColor='#d1d5db'" onmouseout="this.style.background='#f9fafb'; this.style.borderColor='#e5e7eb'">View</button>
+                                    <button onclick="loadEditModal({{ $project->id }})" class="action-btn edit" style="background: #f9fafb; color: #374151; border: 1px solid #e5e7eb; padding: 7px 13px; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#f3f4f6'; this.style.borderColor='#d1d5db'" onmouseout="this.style.background='#f9fafb'; this.style.borderColor='#e5e7eb'">Edit</button>
+                                    @if($project->status === 'draft')
+                                    <button onclick="publishDraft({{ $project->id }})" class="action-btn publish" style="background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; padding: 7px 13px; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#bfdbfe'; this.style.borderColor='#60a5fa'" onmouseout="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'">
+                                        <i class="fas fa-paper-plane" style="margin-right: 4px;"></i> Publish
+                                    </button>
+                                    @endif
+                                    <form action="{{ route('admin.project.destroy', $project) }}" method="POST" style="display: inline;" onsubmit="return confirm('Delete this project? This will also remove its bids, awards, and staff assignments.');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="action-btn delete" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 7px 13px; border-radius: 8px; border: none; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#fee2e2'; this.style.borderColor='#fca5a5'" onmouseout="this.style.background='#fef2f2'; this.style.borderColor='#fecaca'">Delete</button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="7" style="padding: 40px; text-align: center; color: #9ca3af;">
-                                <i class="fas fa-folder-open" style="font-size: 48px; margin-bottom: 10px; display: block;"></i>
-                                No projects found for this search/filter.
+                            <td colspan="7" style="padding: 60px 20px; text-align: center; color: #9ca3af; background: #fafafa;">
+                                <div style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
+                                    <i class="fas fa-folder-open" style="font-size: 56px; color: #d1d5db;"></i>
+                                    <div>
+                                        <p style="font-size: 15px; font-weight: 500; color: #6b7280; margin: 0 0 4px;">No projects found</p>
+                                        <p style="font-size: 13px; color: #9ca3af; margin: 0;">Try adjusting your search or filter criteria</p>
+                                    </div>
+                                </div>
                             </td>
                         </tr>
                         @endforelse
                     </tbody>
                 </table>
+                @else
+                <!-- Empty State -->
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 24px; text-align: center; background: #fafafa;">
+                    <div style="width: 72px; height: 72px; background: #fef3c7; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+                        <i class="fas fa-folder-open" style="font-size: 32px; color: #f59e0b;"></i>
+                    </div>
+                    <h3 style="font-size: 16px; font-weight: 600; color: #111827; margin: 0 0 6px;">No projects yet</h3>
+                    <p style="font-size: 13px; color: #6b7280; margin: 0 0 20px; max-width: 320px; line-height: 1.5;">Get started by creating your first procurement project.</p>
+                    <a href="{{ route('admin.projects.create') }}" class="btn-primary" style="background: #111827; color: white; padding: 10px 20px; border-radius: 10px; text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: background 0.2s;" onmouseover="this.style.background='#374151'" onmouseout="this.style.background='#111827'">
+                        <i class="fas fa-plus"></i> Create Project
+                    </a>
+                </div>
+                @endif
+
             </div>
 
+            <!-- PAGINATION (if needed) -->
+            @if(isset($projects) && $projects->hasPages())
+            <div style="margin-top: 20px; display: flex; justify-content: center;">
+                {{ $projects->links() }}
+            </div>
+            @endif
+
         </main>
-        </div>
+    </div>
 
 </div>
 
@@ -267,26 +286,22 @@
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px;">
-                <div>
-                    <label style="display: block; font-size: 12px; font-weight: 500; color: #374151; margin-bottom: 5px;">Status</label>
-                    <select name="status" required style="width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; background: white;">
-                        <option value="approved_for_bidding" {{ old('status', 'approved_for_bidding') == 'approved_for_bidding' ? 'selected' : '' }}>Approved for Bidding</option>
-                        <option value="open" {{ old('status') == 'open' ? 'selected' : '' }}>Open</option>
-                        <option value="closed" {{ old('status') == 'closed' ? 'selected' : '' }}>Closed</option>
-                        <option value="awarded" {{ old('status') == 'awarded' ? 'selected' : '' }}>Awarded</option>
-                    </select>
-                </div>
+            <div style="display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 18px;">
                 <div>
                     <label style="display: block; font-size: 12px; font-weight: 500; color: #374151; margin-bottom: 5px;">Deadline</label>
                     <input type="date" name="deadline" value="{{ old('deadline') }}" required style="width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px;">
                 </div>
             </div>
 
+            <input type="hidden" name="status" id="projectModalStatus" value="draft">
+
             <div style="display: flex; gap: 12px; justify-content: flex-end;">
                 <button type="button" onclick="closeProjectModal()" style="padding: 8px 16px; border: 1px solid #d1d5db; border-radius: 8px; color: #374151; background: white; cursor: pointer; font-size: 13px;">Cancel</button>
-                <button type="submit" style="padding: 8px 16px; background: #1a3cff; color: white; border: none; border-radius: 8px; font-size: 13px; cursor: pointer;">
-                    <i class="fas fa-save"></i> Create Project
+                <button type="button" onclick="document.getElementById('projectModalStatus').value='draft'; this.form.submit();" style="padding: 8px 16px; border: 1px solid #d1d5db; border-radius: 8px; color: #374151; background: white; cursor: pointer; font-size: 13px;">
+                    <i class="fas fa-file-alt"></i> Save as Draft
+                </button>
+                <button type="button" onclick="document.getElementById('projectModalStatus').value='open'; this.form.submit();" style="padding: 8px 16px; background: #1a3cff; color: white; border: none; border-radius: 8px; font-size: 13px; cursor: pointer;">
+                    <i class="fas fa-paper-plane"></i> Publish Project
                 </button>
             </div>
         </form>
@@ -764,4 +779,47 @@
     document.getElementById('declareWinnerModal').addEventListener('click', function(e) {
         if (e.target === this) closeDeclareWinnerModal();
     });
+
+    function publishDraft(projectId) {
+        if (!confirm('Publish this draft project? It will become available for bidding.')) {
+            return;
+        }
+
+        const button = event.target.closest('button');
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Publishing...';
+
+        fetch(`/admin/projects/${projectId}/publish`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            }
+        })
+        .then(async response => {
+            const data = await response.json();
+            return { ok: response.ok, data };
+        })
+        .then(result => {
+            if (result.ok && result.data.success) {
+                showTempMessage(result.data.message || 'Project published successfully!', 'success');
+                setTimeout(() => {
+                    window.location.href = '/admin/projects';
+                }, 1000);
+            } else {
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-paper-plane"></i> Publish';
+                showTempMessage(result.data.message || 'Failed to publish project.', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-paper-plane"></i> Publish';
+            showTempMessage('Failed to publish project.', 'error');
+        });
+    }
+
 </script>

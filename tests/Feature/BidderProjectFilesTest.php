@@ -72,8 +72,6 @@ it('shows attached project files on the bidder available projects page', functio
     $response->assertSee('target="_blank"', false);
     $response->assertSee(route('bidder.project.document.preview', ['project' => $project, 'document' => 0]), false);
     $response->assertSee(route('bidder.project.document.preview', ['project' => $project, 'document' => 1]), false);
-    $response->assertDontSee('Scan Project QR');
-    $response->assertDontSee('Project QR');
     $response->assertDontSee('data:image/svg+xml;base64,', false);
 });
 
@@ -95,8 +93,6 @@ it('shows attached project files on the bidder dashboard open projects table', f
     $response->assertSee('technical-specs.docx');
     $response->assertSee('target="_blank"', false);
     $response->assertSee(route('bidder.project.document.preview', ['project' => $project, 'document' => 0]), false);
-    $response->assertDontSee('Scan Project QR');
-    $response->assertDontSee('Scan QR');
     $response->assertDontSee('data:image/svg+xml;base64,', false);
 });
 

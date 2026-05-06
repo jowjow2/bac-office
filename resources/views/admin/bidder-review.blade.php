@@ -1,10 +1,12 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-@include('partials.dashboard-viewport')
-@vite(['resources/css/dashboard.css'])
+@php($isReviewModal = request()->boolean('modal'))
+@unless($isReviewModal)
+    @include('partials.dashboard-viewport')
+    @vite(['resources/css/dashboard.css'])
+@endunless
 
 <style>
-    .bidder-review-page,
-    .bidder-review-page * {
+    .bidder-review-page {
         font-family: 'Inter', sans-serif;
     }
 
@@ -199,41 +201,12 @@
     }
 </style>
 
-<div class="admin-dashboard bidder-review-page">
-    <aside class="sidebar">
-        <a href="{{ route('admin.dashboard') }}" class="sidebar-logo-link"><h2 class="sidebar-logo">BAC-Office</h2></a>
-        @include('partials.sidebar-profile')
-        <ul class="sidebar-menu">
-            <p class="menu-title">MAIN</p>
-            <li><a href="{{ route('admin.dashboard') }}"><span class="menu-icon-dashboard" aria-hidden="true"></span> Dashboard</a></li>
-            <li><a href="{{ route('admin.projects') }}"><i class="fas fa-folder-open"></i> Project/Biddings</a></li>
-            <li><a href="{{ route('admin.bids') }}"><span class="menu-icon-all-bids" aria-hidden="true"></span> All Bids</a></li>
-            <li><a href="{{ route('admin.awards') }}"><i class="fas fa-trophy"></i> Awards & Contracts</a></li>
+@unless($isReviewModal)
+    @include('partials.admin-sidebar')
+@endunless
 
-            <p class="menu-title">MANAGEMENT</p>
-            <li><a href="{{ route('admin.users') }}" class="active"><i class="fas fa-users-cog"></i> Manage Users</a></li>
-            <li><a href="{{ route('admin.assignments') }}"><i class="fas fa-tasks"></i> Staff Assignments</a></li>
-            <li><a href="{{ route('admin.reports') }}"><i class="fas fa-chart-bar"></i> Reports</a></li>
-
-            <p class="menu-title">SYSTEM</p>
-            <li>
-                <a href="{{ route('admin.notifications') }}">
-                    <i class="fas fa-bell"></i> Notifications
-                    @if(($unreadNotificationsCount ?? 0) > 0)
-                        <span class="notification-badge">{{ $unreadNotificationsCount }}</span>
-                    @endif
-                </a>
-            </li>
-            <li>
-                <form action="{{ route('logout') }}" method="POST" class="sidebar-form">
-                    @csrf
-                    <button type="submit" class="sidebar-logout"><i class="fas fa-sign-out-alt"></i> Logout</button>
-                </form>
-            </li>
-        </ul>
-    </aside>
-
-    <div class="main-area">
+<div class="{{ $isReviewModal ? 'bidder-review-page bidder-review-modal-content' : 'main-area bidder-review-page' }}">
+    @unless($isReviewModal)
         <header class="navbar">
             <div class="nav-left">
                 <div>
@@ -241,12 +214,14 @@
 <p>Review registration documents, approval status, and login activity.</p>
                 </div>
             </div>
-            <div class="nav-right">
+            <div class="nav-right review-inline-actions">
+                <a href="{{ route('admin.messages', ['user' => $user->id]) }}" class="review-primary"><i class="fas fa-comments"></i> Message Bidder</a>
                 <a href="{{ route('admin.users') }}" class="review-secondary"><i class="fas fa-arrow-left"></i> Back to Users</a>
             </div>
         </header>
+    @endunless
 
-        <main class="dashboard-content">
+        <main class="{{ $isReviewModal ? 'bidder-review-modal-body' : 'dashboard-content' }}">
             @if(session('success'))
                 <div class="success-alert" style="margin-bottom: 18px;">{{ session('success') }}</div>
             @endif
@@ -410,99 +385,6 @@
                         </form>
                     </section>
 
-<section class="review-card">
-                        <h3>QR Login Security</h3>
-                        <div class="review-list">
-                            @if(config('mail.default') === 'log')
-                                <div class="review-list-item" style="border-color:#fdba74; background:#fff7ed;">
-                                    <div>
-                                        <strong>Email delivery is in local log mode</strong>
-                                        <span>QR approval emails are currently written to <code>storage/logs/laravel.log</code> instead of being sent to Gmail. Switch the mailer to SMTP to deliver them externally.</span>
-                                    </div>
-                                </div>
-                            @endif
-                            @if($user->isApprovedBidder())
-                                <div class="review-list-item" style="align-items:flex-start;">
-                                    <div style="width:100%;">
-                                        <strong>Current QR code</strong>
-                                        <span>Use the buttons below to view or download the bidder QR code directly from the admin panel.</span>
-                                        @if($qrPreviewDataUri)
-                                            <div style="margin-top:14px; padding:18px; border-radius:18px; background:#ffffff; border:1px solid #e2e8f0; text-align:center;">
-                                                <img
-                                                    src="{{ $qrPreviewDataUri }}"
-                                                    alt="Bidder QR Code"
-                                                    style="width:220px; max-width:100%; height:auto; display:block; margin:0 auto 14px;"
-                                                >
-                                                <div class="review-inline-actions" style="justify-content:center;">
-                                                    <a href="{{ route('admin.users.qr.preview', $user) }}" target="_blank" class="review-secondary">
-                                                        <i class="fas fa-eye"></i> View QR
-                                                    </a>
-                                                    <a href="{{ route('admin.users.qr.download', $user) }}" class="review-primary">
-                                                        <i class="fas fa-download"></i> Download QR
-                                                    </a>
-                                                    <form action="{{ route('admin.users.qr.resend', $user) }}" method="POST" style="margin:0;">
-                                                        @csrf
-                                                        <button type="submit" class="review-secondary">
-                                                            <i class="fas fa-paper-plane"></i> Resend QR Email
-                                                        </button>
-                                                    </form>
-                                                </div>
-                                            </div>
-                                        @else
-                                            <div class="review-inline-actions" style="margin-top:14px;">
-                                                <a href="{{ route('admin.users.qr.preview', $user) }}" target="_blank" class="review-secondary">
-                                                    <i class="fas fa-eye"></i> View QR
-                                                </a>
-                                                <a href="{{ route('admin.users.qr.download', $user) }}" class="review-primary">
-                                                    <i class="fas fa-download"></i> Download QR
-                                                </a>
-                                                <form action="{{ route('admin.users.qr.resend', $user) }}" method="POST" style="margin:0;">
-                                                    @csrf
-                                                    <button type="submit" class="review-secondary">
-                                                        <i class="fas fa-paper-plane"></i> Resend QR Email
-                                                    </button>
-                                                </form>
-                                            </div>
-                                            <span style="display:block; margin-top:12px;">If this bidder was approved before QR storage was enabled, opening the QR will securely generate a fresh active code.</span>
-                                        @endif
-                                    </div>
-                                </div>
-                            @endif
-                            <div class="review-list-item">
-                                <div>
-                                    <strong>Latest QR login code</strong>
-                                    <span>
-                                        @if($latestQrToken)
-                                            {{ $latestQrToken->is_active ? 'Active' : 'Inactive' }}
-                                            @if($latestQrToken->expires_at)
-                                                • Expires {{ $latestQrToken->expires_at->format('M d, Y h:i A') }}
-                                            @endif
-                                        @else
-                                            No QR login code has been issued for this bidder yet.
-                                        @endif
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="review-list-item">
-                                <div>
-                                    <strong>Private storage</strong>
-                                    <span>Uploaded registration documents are stored through the configured uploads disk and are previewed only through protected server routes.</span>
-                                </div>
-                            </div>
-                            <div class="review-list-item">
-                                <div>
-                                    <strong>Password authentication</strong>
-                                    <span>Bidders sign in with their registered email/username and password.</span>
-                                </div>
-                            </div>
-                            <div class="review-list-item">
-                                <div>
-                                    <strong>Account approval required</strong>
-                                    <span>All bidder accounts require admin approval before accessing the dashboard.</span>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
                 </div>
             </div>
         </main>

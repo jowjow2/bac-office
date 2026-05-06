@@ -4,7 +4,7 @@
 
 <h2>Procurement List</h2>
 
-<a href="{{ route('procurements.create') }}">Create Procurement</a>
+ <a href="{{ route('admin.projects.create') }}">Create Procurement</a>
 
 <br><br>
 
@@ -19,7 +19,7 @@
 
 @foreach($procurements as $p)
 
-<tr>
+ <tr>
 
 <td>{{ $p->title }}</td>
 
@@ -29,15 +29,17 @@
 
 <td>
 
-<a href="{{ route('procurements.publish',$p->id) }}">
+<a href="{{ route('admin.project.publish', $p->id) }}">
 Publish
 </a>
 
 |
 
-<a href="{{ route('procurements.delete',$p->id) }}">
-Delete
-</a>
+<form action="{{ route('admin.project.destroy', $p) }}" method="POST" style="display: inline;" onsubmit="return confirm('Delete this project? This will also remove its bids, awards, and staff assignments.');">
+@csrf
+@method('DELETE')
+<button type="submit" style="background: none; border: none; color: #dc2626; padding: 0; font-size: 14px; cursor: pointer;">Delete</button>
+</form>
 
 </td>
 

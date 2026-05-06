@@ -32,3 +32,4 @@ Homestead.yaml
 Thumbs.db
 
 .vercel
+.env*.local

@@ -1,8 +1,11 @@
 <?php
 
+use App\Mail\LoginVerificationCodeMail;
+use App\Mail\PasswordResetCodeMail;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 
 uses(RefreshDatabase::class);
@@ -17,11 +20,7 @@ it('returns the home view for the landing page', function () {
     $response->assertOk();
     $response->assertViewIs('pages.home');
     $response->assertSee('id="registerForm"', false);
-    $response->assertSee('Bidder Quick Access');
-    $response->assertSee('Scan QR Code');
-    $response->assertSee('Upload QR Image');
-    $response->assertSee('Confirm QR Image');
-    $response->assertSee('Login Manually');
+    $response->assertSee('Sign In');
 });
 
 it('redirects the standalone login route back to the landing page modal', function () {
@@ -31,8 +30,9 @@ it('redirects the standalone login route back to the landing page modal', functi
     $response->assertSessionHas('auth_tab', 'login');
 });
 
-it('returns a role-based redirect when login credentials are valid', function () {
+it('sends a verification code before allowing bidder login', function () {
     $test = testCase();
+    Mail::fake();
 
     $user = User::create([
         'name' => 'Bidder User',
@@ -51,8 +51,27 @@ it('returns a role-based redirect when login credentials are valid', function ()
 
     $response->assertOk();
     $response->assertJsonPath('ok', true);
-    $response->assertJsonPath('message', 'Login successful.');
-    $response->assertJsonPath('redirect', route('bidder.dashboard'));
+    $response->assertJsonPath('tab', 'verify');
+    $response->assertJsonPath('requires_verification', true);
+    $response->assertJsonPath('email', 'user@example.com');
+
+    $test->assertGuest();
+
+    $code = null;
+    Mail::assertSent(LoginVerificationCodeMail::class, function (LoginVerificationCodeMail $mail) use ($user, &$code) {
+        $code = $mail->code;
+
+        return $mail->user->is($user);
+    });
+
+    $verifyResponse = $test->postJson('/login/verify-code', [
+        'code' => $code,
+    ]);
+
+    $verifyResponse->assertOk();
+    $verifyResponse->assertJsonPath('ok', true);
+    $verifyResponse->assertJsonPath('message', 'Login successful.');
+    $verifyResponse->assertJsonPath('redirect', route('bidder.dashboard'));
 
     $test->assertAuthenticatedAs($user);
 });
@@ -158,6 +177,125 @@ it('creates a new user with a hashed password and notifies admins when registrat
         'user_id' => $admin->id,
         'title' => 'New bidder registration',
         'type' => 'bidder_registration',
+    ]);
+});
+
+it('creates a pending staff account with an office selection', function () {
+    $test = testCase();
+
+    $admin = User::create([
+        'name' => 'Admin User',
+        'email' => 'admin-staff-registration@example.com',
+        'password' => Hash::make('password'),
+        'role' => 'admin',
+        'status' => 'active',
+    ]);
+
+    $response = $test->postJson('/register', [
+        'role' => 'staff',
+        'name' => 'Procurement Staff',
+        'email' => ' STAFF@EXAMPLE.COM ',
+        'password' => 'password123',
+        'office' => 'Procurement Office',
+    ]);
+
+    $response->assertOk();
+    $response->assertJsonPath('ok', true);
+    $response->assertJsonPath('tab', 'register');
+
+    $test->assertDatabaseHas('users', [
+        'name' => 'Procurement Staff',
+        'email' => 'staff@example.com',
+        'role' => 'staff',
+        'status' => 'pending',
+        'office' => 'Procurement Office',
+    ]);
+
+    $user = User::where('email', 'staff@example.com')->firstOrFail();
+
+    expect(Hash::check('password123', $user->password))->toBeTrue();
+
+    $test->assertDatabaseHas('user_notifications', [
+        'user_id' => $admin->id,
+        'title' => 'New staff registration',
+        'type' => 'staff_registration',
+    ]);
+});
+
+it('sends a password reset code before allowing a new password', function () {
+    $test = testCase();
+    Mail::fake();
+
+    $user = User::create([
+        'name' => 'Reset Bidder',
+        'email' => 'reset@example.com',
+        'password' => Hash::make('old-password'),
+        'role' => 'bidder',
+        'status' => 'active',
+        'company' => 'Reset Company',
+        'registration_no' => 'REG-RESET',
+    ]);
+
+    $response = $test->postJson('/forgot-password', [
+        'email' => ' RESET@EXAMPLE.COM ',
+    ]);
+
+    $response->assertOk();
+    $response->assertJsonPath('ok', true);
+    $response->assertJsonPath('tab', 'forgot_verify');
+    $response->assertJsonPath('requires_password_code', true);
+
+    $code = null;
+    Mail::assertSent(PasswordResetCodeMail::class, function (PasswordResetCodeMail $mail) use ($user, &$code) {
+        $code = $mail->code;
+
+        return $mail->user->is($user);
+    });
+
+    $verifyResponse = $test->postJson('/forgot-password/verify-code', [
+        'email' => 'reset@example.com',
+        'code' => $code,
+    ]);
+
+    $verifyResponse->assertOk();
+    $verifyResponse->assertJsonPath('ok', true);
+    $verifyResponse->assertJsonPath('tab', 'reset_password');
+    $verifyResponse->assertJsonPath('redirect', null);
+    $verifyResponse->assertJsonPath('password_reset_verified', true);
+    $verifyResponse->assertJsonPath('email', 'reset@example.com');
+
+    $resetResponse = $test->postJson('/reset-password', [
+        'email' => 'reset@example.com',
+        'password' => 'new-password',
+        'password_confirmation' => 'new-password',
+    ]);
+
+    $resetResponse->assertOk();
+    $resetResponse->assertJsonPath('ok', true);
+    $resetResponse->assertJsonPath('tab', 'login');
+
+    $user->refresh();
+    expect(Hash::check('new-password', $user->password))->toBeTrue();
+});
+
+it('requires an office selection when staff register', function () {
+    $test = testCase();
+
+    $response = $test->postJson('/register', [
+        'role' => 'staff',
+        'name' => 'Staff Without Office',
+        'email' => 'no.office.public.staff@example.com',
+        'password' => 'password123',
+        'office' => '',
+    ]);
+
+    $response->assertStatus(422);
+    $response->assertJsonPath('ok', false);
+    $response->assertJsonPath('tab', 'register');
+    $response->assertJsonPath('errors.office.0', 'Office is required for staff registration.');
+
+    $test->assertDatabaseMissing('users', [
+        'email' => 'no.office.public.staff@example.com',
     ]);
 });
 

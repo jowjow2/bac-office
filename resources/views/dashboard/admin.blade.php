@@ -1,41 +1,9 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 @include('partials.dashboard-viewport')
-<div class="admin-dashboard dashboard-home">
+<div class="admin-dashboard dashboard-home admin-dashboard-page">
     @vite(['resources/css/dashboard.css'])
 
-    <aside class="sidebar">
-        <a href="{{ route('admin.dashboard') }}" class="sidebar-logo-link"><h2 class="sidebar-logo">BAC-Office</h2></a>
-        @include('partials.sidebar-profile')
-        <ul class="sidebar-menu">
-            <p class="menu-title">MAIN</p>
-            <li><a href="{{ route('admin.dashboard') }}" class="active"><span class="menu-icon-dashboard" aria-hidden="true"></span> Dashboard</a></li>
-            <li><a href="{{ route('admin.projects') }}"><i class="fas fa-folder-open"></i> Project/Biddings</a></li>
-            <li><a href="{{ route('admin.bids') }}"><span class="menu-icon-all-bids" aria-hidden="true"></span> All Bids</a></li>
-            <li><a href="{{ route('admin.awards') }}"><i class="fas fa-trophy"></i> Awards & Contracts</a></li>
-
-            <p class="menu-title">MANAGEMENT</p>
-            <li><a href="{{ route('admin.users') }}"><i class="fas fa-users-cog"></i> Manage Users</a></li>
-            <li><a href="{{ route('admin.assignments') }}"><i class="fas fa-tasks"></i> Staff Assignments</a></li>
-            <li><a href="/admin/reports"><i class="fas fa-chart-bar"></i> Reports</a></li>
-
-            <p class="menu-title">SYSTEM</p>
-            <li>
-                <a href="{{ route('admin.notifications') }}">
-                    <i class="fas fa-bell"></i> Notifications
-                    @if(($unreadNotificationsCount ?? 0) > 0)
-                        <span class="notification-badge">{{ $unreadNotificationsCount }}</span>
-                    @endif
-                </a>
-            </li>
-
-            <li>
-                <form action="{{ route('logout') }}" method="POST" class="sidebar-form">
-                    @csrf
-                    <button type="submit" class="sidebar-logout"><i class="fas fa-sign-out-alt"></i> Logout</button>
-                </form>
-            </li>
-        </ul>
-    </aside>
+    @include('partials.admin-sidebar')
 
     <div class="main-area">
         <header class="navbar">
@@ -56,23 +24,36 @@
                             ->map(fn ($part) => strtoupper(substr($part, 0, 1)))
                             ->implode('');
                     @endphp
-                    <span id="realtimeDate"></span>
+                    <span class="nav-date-chip">
+                        <i class="far fa-clock" aria-hidden="true"></i>
+                        <span id="realtimeDate"></span>
+                    </span>
                     <div class="notification-menu">
                         <button type="button" class="notification-button" id="notificationToggle">
                             <i class="fas fa-bell"></i>
-                            @if($unreadNotificationsCount > 0)
-                                <span class="notification-badge">{{ $unreadNotificationsCount }}</span>
-                            @endif
+                            <span class="notification-badge" data-notification-badge @if($unreadNotificationsCount <= 0) hidden style="display:none" @endif>{{ $unreadNotificationsCount > 0 ? $unreadNotificationsCount : '' }}</span>
                         </button>
 
                         <div class="notification-dropdown" id="notificationDropdown">
                             <div class="notification-header">
                                 <strong>Notifications</strong>
-                                <span>{{ $unreadNotificationsCount }} unread</span>
+                                <span data-notification-unread-label>{{ $unreadNotificationsCount }} unread</span>
                             </div>
 
+                            <div data-notification-dropdown-list>
                             @forelse($adminNotifications as $notification)
-                                <a href="{{ route('admin.notifications') }}" class="notification-item">
+                                @php
+                                    $notificationId = $notification['id'] ?? null;
+                                    $notificationUrl = $notificationId
+                                        ? route('notifications.open', ['notification' => $notificationId])
+                                        : ($notification['url'] ?? route('admin.notifications'));
+                                @endphp
+                                <a
+                                    href="{{ $notificationUrl }}"
+                                    class="notification-item {{ $notification['is_read'] ? 'is-read' : 'is-unread' }}"
+                                    data-notification-row
+                                    @if($notificationId) data-notification-open data-notification-id="{{ $notificationId }}" @endif
+                                >
                                     <div class="notification-item-title">{{ $notification['title'] }}</div>
                                     <div class="notification-item-meta">
                                         {{ $notification['message'] }}
@@ -81,21 +62,26 @@
                                     </div>
                                 </a>
                             @empty
-                                <div class="notification-empty">No notifications right now.</div>
+                                <div class="notification-empty">No important notifications right now.</div>
                             @endforelse
+                            </div>
 
                             <a href="{{ route('admin.notifications') }}" class="notification-footer">Open Notifications</a>
                         </div>
+                    </div>
+                    <div class="navbar-profile-chip admin-navbar-profile">
+                        <span class="navbar-user-avatar">{{ $navbarInitials }}</span>
+                        <span class="navbar-profile-meta">
+                            <span class="navbar-profile-name">{{ $navbarName }}</span>
+                            <span class="navbar-profile-role">{{ $navbarRole }}</span>
+                        </span>
                     </div>
                 </div>
             </div>
         </header>
 
         <main class="dashboard-content dashboard-home-content">
-            <section class="dashboard-home-intro">
-                <h1 class="dashboard-home-title">Welcome back, Admin <span class="dashboard-wave">👋</span></h1>
-                <p class="dashboard-home-subtitle">Here's what's happening across all procurement projects.</p>
-            </section>
+        
 
             <section class="dashboard-summary-grid">
                 <article class="dashboard-summary-card">
@@ -391,7 +377,13 @@
         if (!dateElement) return;
 
         const now = new Date();
-        dateElement.textContent = now.toLocaleString('en-PH', {
+        const compact = window.innerWidth <= 560;
+        dateElement.textContent = now.toLocaleString('en-PH', compact ? {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+        } : {
             year: 'numeric',
             month: 'short',
             day: 'numeric',

@@ -1,4 +1,4 @@
-﻿<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 @include('partials.dashboard-viewport')
 <div class="admin-dashboard dashboard-home bidder-dashboard-page">
     @vite(['resources/css/dashboard.css'])
@@ -320,7 +320,7 @@
 
         @media (max-width: 768px) {
             .bidder-stats-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
             }
 
             .bidder-award-banner,
@@ -328,33 +328,59 @@
                 flex-direction: column;
                 align-items: flex-start;
             }
+
+            .bidder-stat-card {
+                padding: 16px;
+                gap: 12px;
+            }
+
+            .bidder-stat-icon {
+                width: 44px;
+                height: 44px;
+                border-radius: 12px;
+                font-size: 18px;
+            }
+
+            .bidder-stat-copy strong {
+                font-size: 24px;
+                margin-bottom: 4px;
+            }
+
+            .bidder-stat-copy h3 {
+                font-size: 13px;
+                margin-bottom: 3px;
+            }
+
+            .bidder-stat-copy p {
+                font-size: 11px;
+                line-height: 1.4;
+            }
+        }
+
+        @media (max-width: 560px) {
+            .bidder-stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .bidder-header-action {
+                width: 100%;
+            }
         }
     </style>
 
-    <aside class="sidebar">
-        <a href="{{ route('bidder.dashboard') }}" class="sidebar-logo-link"><h2 class="sidebar-logo">BAC-Office</h2></a>
-        @include('partials.sidebar-profile')
-        <ul class="sidebar-menu">
-            <p class="menu-title">MAIN</p>
-            <li><a href="{{ route('bidder.dashboard') }}" class="active"><span class="menu-icon-dashboard" aria-hidden="true"></span> Dashboard</a></li>
-            <li><a href="{{ route('bidder.available-projects') }}"><i class="fas fa-folder-open"></i> Available Projects</a></li>
-            <li><a href="{{ route('bidder.my-bids') }}"><i class="fas fa-file-signature"></i> My Bids</a></li>
-            <li><a href="{{ route('bidder.awarded-contracts') }}"><i class="fas fa-award"></i> Awarded Contracts</a></li>
-
-            <p class="menu-title">ACCOUNT</p>
-            <li><a href="{{ route('bidder.company-profile') }}"><i class="fas fa-building"></i> Company Profile</a></li>
-            <li><a href="{{ route('bidder.notifications') }}"><i class="fas fa-bell"></i> Notification @if(($bidderNotificationCount ?? 0) > 0)<span class="notification-badge bidder-sidebar-badge">{{ $bidderNotificationCount }}</span>@endif</a></li>
-
-            <li>
-                <form action="{{ route('logout') }}" method="POST" class="sidebar-form">
-                    @csrf
-                    <button type="submit" class="sidebar-logout"><i class="fas fa-sign-out-alt"></i> Logout</button>
-                </form>
-            </li>
-        </ul>
-    </aside>
+        @include('partials.bidder-sidebar')
 
     <div class="main-area">
+        @php
+            $bidderNavbarUser = auth()->user();
+            $bidderNavbarName = $bidderNavbarUser?->company ?: ($bidderNavbarUser?->name ?? 'Bidder');
+            $bidderNavbarRole = ucfirst($bidderNavbarUser?->role ?? 'bidder');
+            $bidderNavbarInitials = collect(preg_split('/\s+/', trim($bidderNavbarName)))
+                ->filter()
+                ->take(2)
+                ->map(fn ($part) => strtoupper(substr($part, 0, 1)))
+                ->implode('');
+        @endphp
         <header class="navbar">
             <div class="nav-left">
                 <h2>Bidder Dashboard</h2>
@@ -362,21 +388,30 @@
             </div>
 
             <div class="nav-right">
-                <div class="nav-date-chip"><span id="realtimeDate">{{ now()->format('M d, Y h:i A') }}</span></div>
-                <a href="{{ route('bidder.notifications') }}" class="notification-button" aria-label="Notifications">
-                    <i class="fas fa-bell"></i>
-                    @if(($bidderNotificationCount ?? 0) > 0)
-                        <span class="notification-badge">{{ $bidderNotificationCount }}</span>
-                    @endif
-                </a>
+                <div class="nav-icons">
+                    <div class="nav-date-chip">
+                        <i class="far fa-clock" aria-hidden="true"></i>
+                        <span id="realtimeDate">{{ now()->format('M d, Y h:i A') }}</span>
+                    </div>
+                    <a href="{{ route('bidder.notifications') }}" class="notification-button" aria-label="Notifications">
+                        <i class="fas fa-bell"></i>
+                        @if(($bidderNotificationCount ?? 0) > 0)
+                            <span class="notification-badge">{{ $bidderNotificationCount }}</span>
+                        @endif
+                    </a>
+                    <div class="navbar-profile-chip bidder-navbar-profile">
+                        <span class="navbar-user-avatar">{{ $bidderNavbarInitials }}</span>
+                        <span class="navbar-profile-meta">
+                            <span class="navbar-profile-name">{{ $bidderNavbarName }}</span>
+                            <span class="navbar-profile-role">{{ $bidderNavbarRole }}</span>
+                        </span>
+                    </div>
+                </div>
             </div>
         </header>
 
         <main class="dashboard-content dashboard-home-content">
-            <section class="dashboard-home-intro">
-                <h1 class="dashboard-home-title">Bidder Dashboard</h1>
-                <p class="dashboard-home-subtitle">Track your bids and available procurement opportunities.</p>
-            </section>
+
 
             @if($awardedProjects->isNotEmpty())
                 @php $latestAward = $awardedProjects->first(); @endphp
@@ -516,7 +551,13 @@
         if (!realtimeDate) return;
 
         function updateRealtimeDate() {
-            realtimeDate.textContent = new Date().toLocaleString('en-PH', {
+            const compact = window.innerWidth <= 560;
+            realtimeDate.textContent = new Date().toLocaleString('en-PH', compact ? {
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit'
+            } : {
                 month: 'short',
                 day: '2-digit',
                 year: 'numeric',
@@ -530,8 +571,5 @@
         setInterval(updateRealtimeDate, 1000);
     })();
 </script>
-
-
-
 
 

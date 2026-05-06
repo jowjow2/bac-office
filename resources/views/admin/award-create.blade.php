@@ -13,12 +13,11 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.awards.store') }}" method="POST" class="declare-award-form">
-        @csrf
-        <input type="hidden" name="project_id" value="{{ $project->id }}">
-        <input type="hidden" name="contract_amount" id="awardContractAmount" value="{{ $defaultAmount }}">
-        <input type="hidden" name="contract_date" value="{{ $defaultDate }}">
-        <input type="hidden" name="status" value="active">
+     <form action="{{ route('admin.awards.declare', $project) }}" method="POST" class="declare-award-form" enctype="multipart/form-data">
+         @csrf
+         <input type="hidden" name="project_id" value="{{ $project->id }}">
+         <input type="hidden" name="contract_amount" id="awardContractAmount" value="{{ $defaultAmount }}">
+         <input type="hidden" name="contract_date" value="{{ $defaultDate }}">
 
         <div class="declare-award-body">
             <div id="awardFormAlert" class="declare-award-error" style="display: none;"></div>
@@ -33,7 +32,7 @@
                 </div>
             @endif
 
-            <p class="declare-award-helper">Select the winning bidder from approved bids.</p>
+            <p class="declare-award-helper">Lowest approved/evaluated bidder is selected by default. Upload the authentic Certificate of Winner PDF before confirming.</p>
 
             <div class="declare-award-options">
                 @forelse($bids as $bid)
@@ -78,11 +77,19 @@
                 <textarea name="notes" rows="4" class="declare-award-textarea" placeholder="Lowest compliant bid with complete documentation.">{{ old('notes', 'Lowest compliant bid with complete documentation.') }}</textarea>
                 <p class="declare-award-field-error" data-error-for="notes"></p>
             </div>
+
+            <div class="declare-award-field">
+                <label for="certificateFile">Certificate PDF <span style="color:red">*</span></label>
+                <input type="file" name="certificate_file" id="certificateFile" class="declare-award-file" accept="application/pdf" required onchange="validateDeclareWinnerForm()">
+                <p class="declare-award-field-hint" style="font-size:11px; color:#6b7280; margin-top:4px;">Upload the authentic Certificate of Winner (PDF only, max 5MB).</p>
+                <p class="declare-award-field-error" data-error-for="certificate_file"></p>
+                <p id="certificateFileName" style="font-size:11px; color:#059669; margin-top:4px;"></p>
+            </div>
         </div>
 
         <div class="declare-award-actions">
             <button type="button" class="declare-award-secondary" onclick="closeDeclareWinnerModal()">Cancel</button>
-            <button type="submit" class="declare-award-primary" {{ $bids->isEmpty() ? 'disabled' : '' }}>Declare Winner</button>
+            <button type="submit" id="declareWinnerSubmitBtn" class="declare-award-primary" disabled>Confirm Declare Winner</button>
         </div>
     </form>
 </div>
@@ -364,3 +371,91 @@
         }
     }
 </style>
+
+<script>
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+    function validateCertificateFile() {
+        const fileInput = document.getElementById('certificateFile');
+        const fileNameSpan = document.getElementById('certificateFileName');
+        const errorSpan = document.querySelector('[data-error-for="certificate_file"]');
+        const submitBtn = document.getElementById('declareWinnerSubmitBtn');
+
+        // Clear previous error
+        if (errorSpan) {
+            errorSpan.textContent = '';
+        }
+        if (fileNameSpan) {
+            fileNameSpan.textContent = '';
+        }
+
+        const file = fileInput.files?.[0];
+
+        if (!file) {
+            submitBtn.disabled = true;
+            return;
+        }
+
+        let error = '';
+
+        // Check file type
+        if (file.type !== 'application/pdf') {
+            error = 'Only PDF files are allowed.';
+        }
+
+        // Check file size (5MB max)
+        if (!error && file.size > MAX_FILE_SIZE) {
+            error = `File size exceeds 5MB. Your file is ${(file.size / 1024 / 1024).toFixed(2)}MB.`;
+        }
+
+        if (error) {
+            if (errorSpan) {
+                errorSpan.textContent = error;
+            }
+            submitBtn.disabled = true;
+            fileInput.classList.add('input-error');
+        } else {
+            if (fileNameSpan) {
+                fileNameSpan.textContent = '✓ ' + file.name + ' (' + (file.size / 1024).toFixed(2) + ' KB)';
+            }
+            submitBtn.disabled = false;
+            fileInput.classList.remove('input-error');
+        }
+    }
+
+    // Validate bidder selection and certificate on form submit
+    document.querySelector('.declare-award-form')?.addEventListener('submit', function(e) {
+        const bidId = document.querySelector('input[name="bid_id"]:checked');
+        const certificateFile = document.getElementById('certificateFile');
+
+        let isValid = true;
+        const errorContainer = document.getElementById('awardFormAlert');
+
+        // Clear previous errors
+        errorContainer.style.display = 'none';
+        errorContainer.textContent = '';
+
+        // Validate bid selection
+        if (!bidId) {
+            e.preventDefault();
+            errorContainer.textContent = 'Please select a winning bidder.';
+            errorContainer.style.display = 'block';
+            isValid = false;
+        }
+
+        // Validate certificate
+        if (!certificateFile.files?.[0]) {
+            e.preventDefault();
+            errorContainer.textContent = 'Please upload a certificate PDF.';
+            errorContainer.style.display = 'block';
+            isValid = false;
+        }
+
+        if (!isValid) {
+            e.preventDefault();
+        }
+    });
+
+    // Initialize button state on load
+    document.addEventListener('DOMContentLoaded', validateCertificateFile);
+</script>

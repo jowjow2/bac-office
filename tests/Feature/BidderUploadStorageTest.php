@@ -66,6 +66,7 @@ it('stores bid proposals on the configured uploads disk', function () {
         ->actingAs($bidder)
         ->post(route('bidder.bids.store', $project), [
             'bid_amount' => 450000,
+            'eligibility_file' => UploadedFile::fake()->create('eligibility.pdf', 88, 'application/pdf'),
             'proposal_file' => UploadedFile::fake()->create('proposal.pdf', 96, 'application/pdf'),
             'notes' => 'Storage-backed upload test.',
         ]);
@@ -74,6 +75,8 @@ it('stores bid proposals on the configured uploads disk', function () {
 
     $bid = Bid::firstOrFail();
 
+    expect($bid->eligibility_file)->toStartWith('eligibility-documents/');
     expect($bid->proposal_file)->toStartWith('proposals/');
+    Storage::disk('public')->assertExists($bid->eligibility_file);
     Storage::disk('public')->assertExists($bid->proposal_file);
 });

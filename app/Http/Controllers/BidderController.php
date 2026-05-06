@@ -151,11 +151,19 @@ class BidderController extends Controller
 
         $validated = $request->validate([
             'bid_amount' => ['required', 'numeric', 'min:0'],
+            'eligibility_file' => ['required', 'file', 'mimes:pdf,doc,docx', 'max:20480'],
             'proposal_file' => ['required', 'file', 'mimes:pdf,doc,docx', 'max:20480'],
             'notes' => ['nullable', 'string'],
         ]);
 
+        $eligibilityPath = null;
         $proposalPath = null;
+
+        if ($request->hasFile('eligibility_file')) {
+            $file = $request->file('eligibility_file');
+            $filename = 'eligibility_' . Auth::id() . '_' . $project->id . '_' . now()->format('YmdHis') . '.' . $file->getClientOriginalExtension();
+            $eligibilityPath = Uploads::store($file, 'eligibility-documents', $filename);
+        }
 
         if ($request->hasFile('proposal_file')) {
             $file = $request->file('proposal_file');
@@ -171,6 +179,7 @@ class BidderController extends Controller
             [
                 'bid_amount' => $validated['bid_amount'],
                 'proposal_file' => $proposalPath,
+                'eligibility_file' => $eligibilityPath,
                 'status' => 'pending',
                 'notes' => trim((string) ($validated['notes'] ?? '')),
             ]
@@ -203,7 +212,7 @@ class BidderController extends Controller
         /** @var User $user */
         $user = Auth::user();
 
-        $availableProjects = Project::with(['documents'])
+        $availableProjects = Project::with(['documents', 'requirement'])
             ->withCount('bids')
             ->where('status', 'open')
             ->latest()
@@ -218,6 +227,7 @@ class BidderController extends Controller
             ->whereHas('bid', fn ($query) => $query->where('user_id', $user->id))
             ->latest()
             ->get();
+        $awardedProjects->each->ensureCertificateIdentity();
 
         $awaitingAwardBids = $myBids
             ->filter(function ($bid) {
@@ -239,16 +249,7 @@ class BidderController extends Controller
         $profileComplete = filled($user->company) && filled($user->registration_no);
 
         $bidderNotificationItems = SystemNotification::forUser($user->id, 30);
-        $bidderNotifications = $bidderNotificationItems
-            ->map(function ($notification) {
-                return [
-                    'title' => $notification->message,
-                    'meta' => $notification->title,
-                    'time' => $notification->created_at?->diffForHumans() ?? 'Just now',
-                    'is_read' => $notification->read_at !== null,
-                ];
-            })
-            ->values();
+        $bidderNotifications = SystemNotification::payloads($bidderNotificationItems, $user);
 
         return compact(
             'user',
@@ -304,7 +305,7 @@ class BidderController extends Controller
         return Pdf::loadView('admin.bid-document-pdf', [
             'preview' => $preview,
             'documentLabel' => $documentLabel,
-        ])->setPaper('a4')->stream($pdfFilename, ['Attachment' => false]);
+        ])->setPaper('a4')->stream($pdfFilename);
     }
 
     protected function pdfPreviewFilename(string $displayName): string
@@ -315,4 +316,3 @@ class BidderController extends Controller
         return ($safeName !== '' ? $safeName : 'document') . '.pdf';
     }
 }
-

@@ -66,6 +66,30 @@ class Uploads
         return $disk->download($path, $downloadName);
     }
 
+    public static function inline(string $path, ?string $displayName = null, ?string $contentType = null)
+    {
+        if (static::isLegacyPublicPath($path)) {
+            $fullPath = public_path($path);
+            abort_unless(is_file($fullPath), 404);
+
+            $contents = file_get_contents($fullPath);
+            abort_unless($contents !== false, 404);
+        } else {
+            $disk = static::disk();
+            abort_unless($disk->exists($path), 404);
+
+            $contents = $disk->get($path);
+        }
+
+        $safeName = str_replace(['"', "\r", "\n"], '', $displayName ?: basename($path));
+
+        return response($contents, 200, [
+            'Content-Type' => $contentType ?: 'application/octet-stream',
+            'Content-Disposition' => 'inline; filename="' . $safeName . '"',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     public static function contents(?string $path): ?string
     {
         if (! filled($path) || filter_var($path, FILTER_VALIDATE_URL)) {

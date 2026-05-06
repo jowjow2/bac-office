@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+﻿<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 @include('partials.dashboard-viewport')
 <div class="admin-dashboard dashboard-home bidder-available-page">
     @vite(['resources/css/dashboard.css'])
@@ -247,8 +247,10 @@
             display: none;
             align-items: center;
             justify-content: center;
-            padding: 24px;
-            background: rgba(15, 23, 42, 0.45);
+            padding: 28px;
+            background: rgba(15, 23, 42, 0.58);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
             z-index: 2000;
         }
 
@@ -257,12 +259,13 @@
         }
 
         .bidder-modal {
-            width: min(100%, 660px);
+            width: min(100%, 720px);
+            max-height: calc(100vh - 56px);
             background: #fff;
             border: 1px solid #dbe4f0;
-            border-radius: 18px;
-            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
-            overflow: hidden;
+            border-radius: 24px;
+            box-shadow: 0 28px 70px rgba(15, 23, 42, 0.3);
+            overflow: auto;
         }
 
         .bidder-modal-header {
@@ -270,60 +273,199 @@
             align-items: flex-start;
             justify-content: space-between;
             gap: 16px;
-            padding: 22px 24px 18px;
+            padding: 24px 30px 20px;
             border-bottom: 1px solid #e2e8f0;
         }
 
         .bidder-modal-title {
+            margin: 0 0 6px;
+            font-size: 24px;
+            font-weight: 800;
+            line-height: 1.2;
+            color: #0f172a;
+            letter-spacing: -0.01em;
+        }
+
+        .bidder-modal-subtitle {
             margin: 0;
-            font-size: 20px;
-            font-weight: 600;
-            line-height: 24px;
-            color: #1f2937;
+            color: #64748b;
+            font-size: 13px;
+            line-height: 1.5;
         }
 
         .bidder-modal-close {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 32px;
-            height: 32px;
+            width: 38px;
+            height: 38px;
             border: 0;
-            border-radius: 10px;
+            border-radius: 14px;
             background: #f1f5f9;
             color: #64748b;
             font-size: 17px;
             cursor: pointer;
         }
 
+        .bidder-modal-close:hover {
+            background: #e2e8f0;
+            color: #334155;
+        }
+
         .bidder-modal-body {
-            padding: 20px 24px;
+            padding: 24px 30px 22px;
         }
 
         .bidder-project-card {
-            margin-bottom: 18px;
-            padding: 16px;
-            border-radius: 12px;
-            background: #eef4ff;
+            margin-bottom: 22px;
+            padding: 18px;
+            border: 1px solid #dbeafe;
+            border-radius: 18px;
+            background: linear-gradient(135deg, #eff6ff 0%, #f8fbff 100%);
         }
 
         .bidder-project-card-title {
-            margin: 0 0 6px;
-            font-size: 15px;
-            font-weight: 600;
-            color: #111827;
+            margin: 0 0 12px;
+            font-size: 18px;
+            font-weight: 800;
+            color: #0f172a;
+            line-height: 1.3;
         }
 
-        .bidder-project-card-meta {
-            margin: 0;
+        .bidder-project-card-stats {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .bidder-project-stat {
+            padding: 10px 12px;
+            border: 1px solid #dbeafe;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.78);
+        }
+
+        .bidder-project-stat span {
+            display: block;
+            margin-bottom: 3px;
+            font-size: 10px;
+            font-weight: 800;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .bidder-project-stat strong {
+            display: block;
             font-size: 13px;
-            font-weight: 400;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .bidder-project-card-note {
+            margin: 0;
+            margin-top: 12px;
+            font-size: 12px;
+            line-height: 1.55;
             color: #6b7280;
+        }
+
+        .bidder-requirements-card {
+            margin-top: 14px;
+            padding: 14px;
+            border: 1px solid #fed7aa;
+            border-radius: 14px;
+            background: #fff7ed;
+        }
+
+        .bidder-requirements-heading {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .bidder-requirements-heading h4 {
+            margin: 0 0 3px;
+            font-size: 13px;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .bidder-requirements-heading p {
+            margin: 0;
+            font-size: 11px;
+            color: #9a3412;
+            line-height: 1.5;
+        }
+
+        .bidder-requirements-icon {
+            width: 34px;
+            height: 34px;
+            flex: 0 0 34px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #ffedd5;
+            color: #ea580c;
+        }
+
+        .bidder-required-docs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .bidder-required-doc {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 10px;
+            border-radius: 999px;
+            background: #ffffff;
+            border: 1px solid #fed7aa;
+            color: #9a3412;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .bidder-requirements-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .bidder-requirement-section {
+            padding: 11px 12px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.86);
+            border: 1px solid #fed7aa;
+        }
+
+        .bidder-requirement-section strong {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #c2410c;
+        }
+
+        .bidder-requirement-section p {
+            margin: 0;
+            font-size: 12px;
+            line-height: 1.55;
+            color: #475569;
+            white-space: pre-line;
         }
 
         .bidder-bid-form {
             display: grid;
-            gap: 18px;
+            gap: 20px;
         }
 
         .bidder-field {
@@ -340,15 +482,47 @@
             color: #6b7280;
         }
 
+        .bidder-field-hint {
+            margin-top: -2px;
+            font-size: 11px;
+            color: #94a3b8;
+        }
+
+        .bidder-money-input {
+            position: relative;
+        }
+
+        .bidder-money-prefix {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #64748b;
+            font-size: 14px;
+            font-weight: 800;
+            pointer-events: none;
+        }
+
         .bidder-input {
             width: 100%;
             border: 1px solid #cbd5e1;
-            border-radius: 10px;
+            border-radius: 14px;
             background: #fff;
             color: #111827;
             font-size: 14px;
             font-weight: 400;
-            padding: 12px 14px;
+            padding: 13px 15px;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .bidder-money-input .bidder-input {
+            padding-left: 34px;
+        }
+
+        .bidder-input:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+            outline: none;
         }
 
         .bidder-input::placeholder {
@@ -359,16 +533,17 @@
         .bidder-upload-box {
             position: relative;
             display: flex;
-            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            min-height: 136px;
-            padding: 18px;
-            border: 2px dashed #cfd8e6;
-            border-radius: 12px;
-            background: #fff;
-            text-align: center;
+            gap: 12px;
+            min-height: 58px;
+            padding: 11px 13px;
+            border: 1px dashed #bfdbfe;
+            border-radius: 14px;
+            background: #f8fbff;
+            text-align: left;
             overflow: hidden;
+            cursor: pointer;
+            transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
         }
 
         .bidder-upload-box input[type="file"] {
@@ -378,33 +553,66 @@
             cursor: pointer;
         }
 
+        .bidder-upload-box:hover,
+        .bidder-upload-box.has-file {
+            border-color: #2563eb;
+            background: #eff6ff;
+            box-shadow: 0 12px 28px rgba(37, 99, 235, 0.08);
+        }
+
         .bidder-upload-icon {
-            margin-bottom: 10px;
-            font-size: 28px;
-            color: #b8c1d1;
+            width: 36px;
+            height: 36px;
+            flex: 0 0 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            background: #ffffff;
+            color: #2563eb;
+            font-size: 16px;
+            box-shadow: 0 8px 18px rgba(37, 99, 235, 0.1);
+        }
+
+        .bidder-upload-copy {
+            min-width: 0;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
         }
 
         .bidder-upload-title {
-            font-size: 14px;
-            font-weight: 500;
-            color: #64748b;
+            font-size: 12px;
+            font-weight: 800;
+            color: #334155;
         }
 
         .bidder-upload-meta {
-            margin-top: 6px;
-            font-size: 12px;
+            font-size: 11px;
             color: #94a3b8;
         }
 
         .bidder-upload-selected {
-            margin-top: 8px;
-            font-size: 12px;
-            color: #475569;
-            word-break: break-all;
+            max-width: 220px;
+            flex: 0 1 auto;
+            padding: 7px 11px;
+            border-radius: 999px;
+            background: #ffffff;
+            font-size: 11px;
+            font-weight: 700;
+            color: #64748b;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .bidder-upload-box.has-file .bidder-upload-selected {
+            color: #1d4ed8;
         }
 
         .bidder-textarea {
-            min-height: 88px;
+            min-height: 104px;
             resize: vertical;
             line-height: 1.5;
         }
@@ -412,23 +620,28 @@
         .bidder-modal-footer {
             display: flex;
             justify-content: flex-end;
-            gap: 10px;
-            padding: 0 24px 24px;
+            gap: 12px;
+            padding: 0 30px 28px;
         }
 
         .bidder-cancel-btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-height: 40px;
-            padding: 0 18px;
-            border-radius: 10px;
+            min-height: 44px;
+            padding: 0 20px;
+            border-radius: 14px;
             border: 1px solid #cbd5e1;
             background: #fff;
             color: #334155;
             font-size: 14px;
             font-weight: 500;
             cursor: pointer;
+        }
+
+        .bidder-modal-footer .bidder-submit-btn,
+        .bidder-modal-footer .bidder-cancel-btn {
+            min-width: 120px;
         }
 
         .bidder-alert {
@@ -575,32 +788,47 @@
 
             .bidder-modal {
                 width: 100%;
+                max-height: calc(100vh - 32px);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .bidder-modal-overlay {
+                padding: 14px;
+                align-items: flex-end;
+            }
+
+            .bidder-modal {
+                border-radius: 22px 22px 0 0;
+            }
+
+            .bidder-modal-header,
+            .bidder-modal-body,
+            .bidder-modal-footer {
+                padding-left: 18px;
+                padding-right: 18px;
+            }
+
+            .bidder-project-card-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .bidder-requirements-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .bidder-modal-footer {
+                flex-direction: column-reverse;
+            }
+
+            .bidder-modal-footer .bidder-submit-btn,
+            .bidder-modal-footer .bidder-cancel-btn {
+                width: 100%;
             }
         }
     </style>
 
-    <aside class="sidebar">
-        <a href="{{ route('bidder.dashboard') }}" class="sidebar-logo-link"><h2 class="sidebar-logo">BAC-Office</h2></a>
-        @include('partials.sidebar-profile')
-        <ul class="sidebar-menu">
-            <p class="menu-title">MAIN</p>
-            <li><a href="{{ route('bidder.dashboard') }}"><span class="menu-icon-dashboard" aria-hidden="true"></span> Dashboard</a></li>
-            <li><a href="{{ route('bidder.available-projects') }}" class="active"><i class="fas fa-folder-open"></i> Available Projects</a></li>
-            <li><a href="{{ route('bidder.my-bids') }}"><i class="fas fa-file-signature"></i> My Bids</a></li>
-            <li><a href="{{ route('bidder.awarded-contracts') }}"><i class="fas fa-award"></i> Awarded Contracts</a></li>
-
-            <p class="menu-title">ACCOUNT</p>
-            <li><a href="{{ route('bidder.company-profile') }}"><i class="fas fa-building"></i> Company Profile</a></li>
-            <li><a href="{{ route('bidder.notifications') }}"><i class="fas fa-bell"></i> Notification @if(($bidderNotificationCount ?? 0) > 0)<span class="notification-badge bidder-sidebar-badge">{{ $bidderNotificationCount }}</span>@endif</a></li>
-
-            <li>
-                <form action="{{ route('logout') }}" method="POST" class="sidebar-form">
-                    @csrf
-                    <button type="submit" class="sidebar-logout"><i class="fas fa-sign-out-alt"></i> Logout</button>
-                </form>
-            </li>
-        </ul>
-    </aside>
+        @include('partials.bidder-sidebar')
 
     <div class="main-area">
         <header class="navbar">
@@ -621,10 +849,6 @@
         </header>
 
         <main class="dashboard-content dashboard-home-content">
-            <section class="page-intro">
-                <h1 class="page-title">Available Projects</h1>
-                <p class="page-subtitle">Browse and bid on open procurement projects</p>
-            </section>
 
             @if($errors->any())
                 <div class="bidder-alert bidder-alert-error">{{ $errors->first() }}</div>
@@ -646,7 +870,7 @@
                     <div class="bidder-available-header">
                         <div>
                             <h2>{{ $project->title }}</h2>
-                            <p class="bidder-available-meta">Approved Budget: P{{ number_format((float) $project->budget, 2) }} &middot; {{ $project->deadline && $project->deadline->isPast() ? 'Deadline passed' : 'Open for bidding' }}</p>
+                            <p class="bidder-available-meta">Approved Budget: ₱{{ number_format((float) $project->budget, 2) }} &middot; {{ $project->deadline && $project->deadline->isPast() ? 'Deadline passed' : 'Open for bidding' }}</p>
                         </div>
 
                         <div class="bidder-available-badges">
@@ -677,6 +901,7 @@
                             <div class="bidder-modal-header">
                                 <div>
                                     <h2 class="bidder-modal-title">Submit Bid Proposal</h2>
+                                    <p class="bidder-modal-subtitle">Review the project details, enter your offer, and attach your proposal document.</p>
                                 </div>
                                 <button type="button" class="bidder-modal-close" data-close-modal="bid-modal-{{ $project->id }}">
                                     <i class="fas fa-times"></i>
@@ -686,31 +911,62 @@
                             <div class="bidder-modal-body">
                                 <div class="bidder-project-card">
                                     <h3 class="bidder-project-card-title">{{ $project->title }}</h3>
-                                    <p class="bidder-project-card-meta">Approved Budget: P{{ number_format((float) $project->budget, 2) }} &middot; Deadline: {{ $project->deadline?->format('Y-m-d') ?? 'N/A' }}</p>
+                                    <div class="bidder-project-card-stats">
+                                        <div class="bidder-project-stat">
+                                            <span>Approved Budget</span>
+                                            <strong>₱{{ number_format((float) $project->budget, 2) }}</strong>
+                                        </div>
+                                        <div class="bidder-project-stat">
+                                            <span>Deadline</span>
+                                            <strong>{{ $project->deadline?->format('Y-m-d') ?? 'N/A' }}</strong>
+                                        </div>
+                                    </div>
 
                                     @include('bidder.partials.project-documents', ['project' => $project, 'compact' => true])
+                                    @include('bidder.partials.project-requirements', ['project' => $project])
                                 </div>
 
                                 <form method="POST" action="{{ route('bidder.bids.store', $project) }}" enctype="multipart/form-data" class="bidder-bid-form" id="bid-form-{{ $project->id }}">
                                     @csrf
                                     <div class="bidder-field">
-                                        <label>Bid Amount (P)</label>
-                                        <input type="number" step="0.01" min="0" name="bid_amount" class="bidder-input" value="{{ old('bid_amount') }}" placeholder="Enter your bid amount" required>
+                                        <label>Bid Amount (₱)</label>
+                                        <div class="bidder-money-input">
+                                            <span class="bidder-money-prefix">₱</span>
+                                            <input type="number" step="0.01" min="0" name="bid_amount" class="bidder-input" value="{{ old('bid_amount') }}" placeholder="Enter your bid amount" required>
+                                        </div>
+                                    </div>
+
+                                    <div class="bidder-field">
+                                        <label>Document of Eligibility</label>
+                                        <span class="bidder-field-hint">Upload your eligibility document for this bid.</span>
+                                        <label class="bidder-upload-box">
+                                            <input type="file" name="eligibility_file" accept=".pdf,.doc,.docx" data-upload-input required>
+                                            <i class="fas fa-upload bidder-upload-icon"></i>
+                                            <span class="bidder-upload-copy">
+                                                <span class="bidder-upload-title">Choose eligibility file</span>
+                                                <span class="bidder-upload-meta">PDF, DOC, DOCX up to 20MB</span>
+                                            </span>
+                                            <span class="bidder-upload-selected">No file selected</span>
+                                        </label>
                                     </div>
 
                                     <div class="bidder-field">
                                         <label>Bid Proposal Document</label>
+                                        <span class="bidder-field-hint">Upload the signed proposal file for this project.</span>
                                         <label class="bidder-upload-box">
-                                            <input type="file" name="proposal_file" accept=".pdf,.doc,.docx" data-upload-input>
-                                            <i class="fas fa-upload bidder-upload-icon"></i>
-                                            <span class="bidder-upload-title">Click to upload proposal file</span>
-                                            <span class="bidder-upload-meta">PDF, DOC, DOCX up to 20MB</span>
+                                            <input type="file" name="proposal_file" accept=".pdf,.doc,.docx" data-upload-input required>
+                                            <i class="fas fa-file-arrow-up bidder-upload-icon"></i>
+                                            <span class="bidder-upload-copy">
+                                                <span class="bidder-upload-title">Choose proposal file</span>
+                                                <span class="bidder-upload-meta">PDF, DOC, DOCX up to 20MB</span>
+                                            </span>
                                             <span class="bidder-upload-selected">No file selected</span>
                                         </label>
                                     </div>
 
                                     <div class="bidder-field">
                                         <label>Technical Proposal Summary</label>
+                                        <span class="bidder-field-hint">Optional summary for evaluators to review alongside your file.</span>
                                         <textarea name="notes" class="bidder-input bidder-textarea" placeholder="Brief overview of your technical approach and qualifications...">{{ old('notes') }}</textarea>
                                     </div>
                                 </form>
@@ -803,6 +1059,10 @@
                 selected.textContent = input.files && input.files.length
                     ? input.files[0].name
                     : 'No file selected';
+
+                if (uploadBox) {
+                    uploadBox.classList.toggle('has-file', Boolean(input.files && input.files.length));
+                }
             });
         });
     })();

@@ -4,15 +4,18 @@
     @php($staffOffices = \App\Models\User::staffOfficeOptions())
     @vite(['resources/css/dashboard.css'])
 
-    <style>
-        .users-page,
-        .users-page * {
-            font-family: 'Inter', sans-serif;
-        }
+     <style>
+         .users-page {
+             font-family: 'Inter', sans-serif;
+         }
 
-        .users-page {
-            font-size: 14px;
-        }
+         .users-page {
+             font-size: 14px;
+         }
+
+         .users-page {
+             font-size: 14px;
+         }
 
         .users-page .user-search-input::placeholder {
             color: #9ca3af;
@@ -156,14 +159,20 @@
         }
 
         .users-page .user-action-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 76px;
+            min-height: 38px;
             background: #ffffff;
             color: #374151;
             border: 1px solid #d1d5db;
-            padding: 7px 12px;
+            padding: 8px 13px;
             border-radius: 8px;
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 600;
             cursor: pointer;
+            text-decoration: none;
             transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
         }
 
@@ -171,6 +180,116 @@
             background: #f8fafc;
             border-color: #cbd5e1;
             color: #111827;
+        }
+
+        .users-page .user-actions-cell {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(76px, max-content));
+            gap: 10px;
+            align-items: center;
+        }
+
+        .users-page .user-actions-cell form {
+            margin: 0;
+        }
+
+        .users-page .user-action-remove {
+            min-height: 38px;
+            padding: 8px 10px !important;
+        }
+
+        .user-review-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            padding: 24px;
+            background: rgba(15, 23, 42, 0.5);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+            z-index: 10020;
+        }
+
+        .user-review-modal-card {
+            width: min(1120px, 100%);
+            max-height: min(88vh, 860px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border-radius: 22px;
+            background: #f6f8fc;
+            box-shadow: 0 28px 80px rgba(15, 23, 42, 0.28);
+        }
+
+        .user-review-modal-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 18px 22px;
+            border-bottom: 1px solid #e2e8f0;
+            background: #ffffff;
+        }
+
+        .user-review-modal-title h2 {
+            margin: 0;
+            color: #0f172a;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .user-review-modal-title p {
+            margin: 4px 0 0;
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        .user-review-modal-close {
+            width: 38px;
+            height: 38px;
+            border: 0;
+            border-radius: 12px;
+            background: #f1f5f9;
+            color: #475569;
+            cursor: pointer;
+            font-size: 22px;
+            line-height: 1;
+        }
+
+        .user-review-modal-body {
+            min-height: 260px;
+            overflow-y: auto;
+            padding: 22px;
+        }
+
+        .user-review-loading {
+            display: grid;
+            place-items: center;
+            min-height: 240px;
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        .user-review-modal .bidder-review-modal-body {
+            padding: 0;
+        }
+
+        .user-review-modal .welcome-text {
+            margin-bottom: 16px !important;
+        }
+
+        .user-review-modal .welcome-text .title {
+            font-size: 24px !important;
+        }
+
+        .user-review-modal .review-grid {
+            gap: 14px;
+        }
+
+        .user-review-modal .review-card {
+            border-radius: 16px;
+            padding: 18px;
         }
 
         @media (max-width: 720px) {
@@ -200,42 +319,34 @@
                 width: 100%;
                 justify-content: center;
             }
+
+            .users-page .user-actions-cell {
+                grid-template-columns: 1fr;
+                align-items: stretch;
+            }
+
+            .users-page .user-action-button,
+            .users-page .user-action-remove {
+                width: 100%;
+            }
+
+            .user-review-modal {
+                padding: 12px;
+            }
+
+            .user-review-modal-card {
+                max-height: calc(100vh - 24px);
+                border-radius: 18px;
+            }
+
+            .user-review-modal-top,
+            .user-review-modal-body {
+                padding: 16px;
+            }
         }
     </style>
 
-    <aside class="sidebar">
-        <a href="{{ route('admin.dashboard') }}" class="sidebar-logo-link"><h2 class="sidebar-logo">BAC-Office</h2></a>
-        @include('partials.sidebar-profile')
-        <ul class="sidebar-menu">
-            <p class="menu-title">MAIN</p>
-            <li><a href="{{ route('admin.dashboard') }}"><span class="menu-icon-dashboard" aria-hidden="true"></span> Dashboard</a></li>
-            <li><a href="{{ route('admin.projects') }}"><i class="fas fa-folder-open"></i> Project/Biddings</a></li>
-            <li><a href="{{ route('admin.bids') }}"><span class="menu-icon-all-bids" aria-hidden="true"></span> All Bids</a></li>
-            <li><a href="{{ route('admin.awards') }}"><i class="fas fa-trophy"></i> Awards & Contracts</a></li>
-
-            <p class="menu-title">MANAGEMENT</p>
-            <li><a href="{{ route('admin.users') }}" class="active"><i class="fas fa-users-cog"></i> Manage Users</a></li>
-            <li><a href="{{ route('admin.assignments') }}"><i class="fas fa-tasks"></i> Staff Assignments</a></li>
-            <li><a href="/admin/reports"><i class="fas fa-chart-bar"></i> Reports</a></li>
-
-            <p class="menu-title">SYSTEM</p>
-            <li>
-                <a href="{{ route('admin.notifications') }}">
-                    <i class="fas fa-bell"></i> Notifications
-                    @if(($unreadNotificationsCount ?? 0) > 0)
-                        <span class="notification-badge">{{ $unreadNotificationsCount }}</span>
-                    @endif
-                </a>
-            </li>
-
-            <li>
-                <form action="{{ route('logout') }}" method="POST" class="sidebar-form">
-                    @csrf
-                    <button type="submit" class="sidebar-logout"><i class="fas fa-sign-out-alt"></i> Logout</button>
-                </form>
-            </li>
-        </ul>
-    </aside>
+    @include('partials.admin-sidebar')
 
     <div class="main-area users-page">
         <header class="navbar">
@@ -250,10 +361,7 @@
 
         <main class="dashboard-content">
             <div class="welcome-text" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 18px;">
-                <div>
-                    <h1 class="title" style="font-size: 24px; font-weight: 600; color: #111827; margin-bottom: 6px;">User Management</h1>
-                    <p class="subtitle" style="font-size: 14px;">Manage admin, staff, and bidder accounts</p>
-                </div>
+
                 <button type="button" onclick="openCreateUserModal()" style="background: #1d4f91; color: white; padding: 11px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600;">
                     <i class="fas fa-plus" style="margin-right: 6px;"></i> Add User
                 </button>
@@ -379,10 +487,16 @@
                                 <td style="padding: 12px; font-size: 13px; color: #111827;">{{ $user->company ?: 'N/A' }}</td>
                                 <td style="padding: 12px; font-size: 13px; color: #111827;">{{ $user->registration_no ?: 'N/A' }}</td>
                                 <td style="padding: 12px; font-size: 13px; color: #6b7280;">{{ $user->created_at?->format('M d, Y') ?? 'N/A' }}</td>
-                                <td style="padding: 12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                                <td style="padding: 12px;" class="user-actions-cell">
                                     @if($user->role === 'bidder' && ($bidderApprovalAvailable ?? false))
-                                        <a href="{{ route('admin.users.review', $user) }}" class="user-action-button">
+                                        <a href="{{ route('admin.users.review', $user) }}" class="user-action-button" onclick="openUserReviewModal(event, this.href)">
                                             Review
+                                        </a>
+                                    @endif
+
+                                    @if($user->role === 'bidder')
+                                        <a href="{{ route('admin.messages', ['user' => $user->id]) }}" class="user-action-button">
+                                            Message
                                         </a>
                                     @endif
 
@@ -430,6 +544,7 @@
                                         @method('DELETE')
                                         <button
                                             type="submit"
+                                            class="user-action-remove"
                                             style="background: transparent; color: #6b7280; border: none; padding: 6px 4px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer;"
                                             {{ auth()->id() === $user->id ? 'disabled' : '' }}
                                         >
@@ -451,6 +566,21 @@
                 </div>
             </div>
         </main>
+    </div>
+</div>
+
+<div id="userReviewModal" class="user-review-modal" aria-hidden="true">
+    <div class="user-review-modal-card" role="dialog" aria-modal="true" aria-labelledby="userReviewModalTitle">
+        <div class="user-review-modal-top">
+            <div class="user-review-modal-title">
+                <h2 id="userReviewModalTitle">Bidder Review</h2>
+                <p>Review registration documents, approval status, and login activity.</p>
+            </div>
+            <button type="button" onclick="closeUserReviewModal()" class="user-review-modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div id="userReviewModalBody" class="user-review-modal-body">
+            <div class="user-review-loading">Loading bidder review...</div>
+        </div>
     </div>
 </div>
 
@@ -624,6 +754,61 @@
 </div>
 
 <script>
+    function openUserReviewModal(event, url) {
+        if (event) {
+            event.preventDefault();
+        }
+
+        const modal = document.getElementById('userReviewModal');
+        const body = document.getElementById('userReviewModalBody');
+
+        if (!modal || !body || !url) {
+            window.location.href = url;
+            return;
+        }
+
+        modal.style.display = 'flex';
+        modal.setAttribute('aria-hidden', 'false');
+        body.innerHTML = '<div class="user-review-loading">Loading bidder review...</div>';
+
+        const reviewUrl = new URL(url, window.location.origin);
+        reviewUrl.searchParams.set('modal', '1');
+
+        fetch(reviewUrl.toString(), {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'text/html'
+            }
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error('Unable to load review.');
+                }
+
+                return response.text();
+            })
+            .then((html) => {
+                body.innerHTML = html;
+            })
+            .catch(() => {
+                body.innerHTML = '<div class="user-review-loading" style="color:#b91c1c;">Unable to load bidder review. Please try again.</div>';
+            });
+    }
+
+    function closeUserReviewModal() {
+        const modal = document.getElementById('userReviewModal');
+        const body = document.getElementById('userReviewModalBody');
+
+        if (modal) {
+            modal.style.display = 'none';
+            modal.setAttribute('aria-hidden', 'true');
+        }
+
+        if (body) {
+            body.innerHTML = '<div class="user-review-loading">Loading bidder review...</div>';
+        }
+    }
+
     function openCreateUserModal() {
         document.getElementById('createUserModal').style.display = 'flex';
         toggleOfficeField('create_role', 'createOfficeField', 'create_office');
@@ -686,6 +871,18 @@
     document.getElementById('editUserModal').addEventListener('click', function (e) {
         if (e.target === this) {
             closeEditUserModal();
+        }
+    });
+
+    document.getElementById('userReviewModal').addEventListener('click', function (e) {
+        if (e.target === this) {
+            closeUserReviewModal();
+        }
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            closeUserReviewModal();
         }
     });
 

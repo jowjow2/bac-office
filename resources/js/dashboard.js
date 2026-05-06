@@ -7,7 +7,7 @@ function initDashboardSidebar() {
     const sidebar = document.querySelector('.sidebar');
     const navLeft = document.querySelector('.navbar .nav-left');
 
-    if (!sidebar || !navLeft || typeof window.matchMedia !== 'function') {
+    if (!sidebar || typeof window.matchMedia !== 'function') {
         return;
     }
 
@@ -18,6 +18,10 @@ function initDashboardSidebar() {
     let toggleButton = document.querySelector('[data-dashboard-sidebar-toggle]');
 
     if (!toggleButton) {
+        if (!navLeft) {
+            return;
+        }
+
         toggleButton = document.createElement('button');
         toggleButton.type = 'button';
         toggleButton.className = 'dashboard-menu-toggle';
