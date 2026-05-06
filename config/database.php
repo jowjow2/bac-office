@@ -22,6 +22,30 @@ $mariadbUrl = $firstEnv(['MARIADB_URL', 'MYSQL_URL', 'DB_URL', 'DATABASE_URL']);
 $pgsqlUrl = $firstEnv(['POSTGRES_URL', 'POSTGRES_URL_NON_POOLING', 'POSTGRES_PRISMA_URL', 'DB_URL', 'DATABASE_URL']);
 $sqlsrvUrl = $firstEnv(['SQLSERVER_URL', 'MSSQL_URL', 'DB_URL', 'DATABASE_URL']);
 
+$withNeonEndpoint = static function (mixed $host): mixed {
+    if (! is_string($host) || ! str_contains($host, 'neon.tech') || str_contains($host, 'options=')) {
+        return $host;
+    }
+
+    $urlHost = parse_url($host, PHP_URL_HOST);
+    $scheme = parse_url($host, PHP_URL_SCHEME);
+    $endpoint = strtok(is_string($urlHost) && $urlHost !== '' ? $urlHost : $host, '.');
+
+    if (! $endpoint) {
+        return $host;
+    }
+
+    if (is_string($scheme) && $scheme !== '') {
+        $separator = str_contains($host, '?') ? '&' : '?';
+
+        return $host . $separator . 'options=endpoint%3D' . $endpoint;
+    }
+
+    return $host . ";options='endpoint={$endpoint}'";
+};
+
+$pgsqlUrl = $withNeonEndpoint($pgsqlUrl);
+
 $defaultConnection = $firstEnv(['DB_CONNECTION']);
 
 if (! $defaultConnection) {
@@ -149,12 +173,12 @@ return [
 
         'pgsql' => [
             'driver' => 'pgsql',
-            'url' => $pgsqlUrl,
-            'host' => $firstEnv(['DB_HOST', 'POSTGRES_HOST', 'PGHOST'], '127.0.0.1'),
-            'port' => $firstEnv(['DB_PORT', 'POSTGRES_PORT', 'PGPORT'], '5432'),
-            'database' => $firstEnv(['DB_DATABASE', 'POSTGRES_DATABASE', 'PGDATABASE'], 'laravel'),
-            'username' => $firstEnv(['DB_USERNAME', 'POSTGRES_USER', 'PGUSER'], 'root'),
-            'password' => $firstEnv(['DB_PASSWORD', 'POSTGRES_PASSWORD', 'PGPASSWORD'], ''),
+            'url' => null,
+            'host' => $withNeonEndpoint($firstEnv(['POSTGRES_HOST', 'PGHOST', 'DB_HOST'], '127.0.0.1')),
+            'port' => $firstEnv(['POSTGRES_PORT', 'PGPORT', 'DB_PORT'], '5432'),
+            'database' => $firstEnv(['POSTGRES_DATABASE', 'PGDATABASE', 'DB_DATABASE'], 'laravel'),
+            'username' => $firstEnv(['POSTGRES_USER', 'PGUSER', 'DB_USERNAME'], 'root'),
+            'password' => $firstEnv(['POSTGRES_PASSWORD', 'PGPASSWORD', 'DB_PASSWORD'], ''),
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
