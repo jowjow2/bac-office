@@ -15,6 +15,7 @@ beforeEach(function () {
     testCase()->withoutVite();
     config()->set('filesystems.uploads_disk', 'public');
     Storage::fake('public');
+    Storage::fake('local');
 });
 
 it('stores bidder documents on the configured uploads disk', function () {
@@ -67,7 +68,7 @@ it('stores bid proposals on the configured uploads disk', function () {
         'electronic_submission_authorized_at' => now(),
     ]);
 
-    // One file per checklist requirement of this project (SVP below ₱50,000).
+    // One file per checklist requirement of this project (SVP below ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â±50,000).
     $response = testCase()
         ->actingAs($bidder)
         ->post(route('bidder.bids.store', $project), [
@@ -78,6 +79,8 @@ it('stores bid proposals on the configured uploads disk', function () {
                 'financial_bid_form' => UploadedFile::fake()->create('quotation.pdf', 96, 'application/pdf'),
             ],
             'notes' => 'Storage-backed upload test.',
+            'financial_password' => '482913',
+            'financial_password_confirmation' => '482913',
         ]);
 
     $response->assertRedirect(route('bidder.available-projects'));
@@ -86,7 +89,8 @@ it('stores bid proposals on the configured uploads disk', function () {
 
     expect($bid->documents)->toHaveCount(3);
     foreach ($bid->documents as $document) {
-        expect($document->file_path)->toStartWith("bid-submissions/{$project->id}/{$bid->id}/{$document->component}/");
-        Storage::disk('public')->assertExists($document->file_path);
+        $expectedPrefix = $document->component === 'financial' ? "bid-financial/{$project->id}/{$bid->id}/" : "bid-submissions/{$project->id}/{$bid->id}/{$document->component}/";
+        expect($document->file_path)->toStartWith($expectedPrefix);
+        Storage::disk($document->component === 'financial' ? 'local' : 'public')->assertExists($document->file_path);
     }
 });

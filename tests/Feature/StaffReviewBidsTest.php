@@ -126,16 +126,14 @@ it('shows proposal view and document eligibility controls on staff review bids',
     $response->assertSee(route('staff.bids.documents.pdf', ['bid' => $bid, 'document' => $businessPermit]), false);
 });
 
-it('streams a staff proposal preview inline instead of forcing download', function () {
+it('keeps the staff proposal preview sealed until financial opening', function () {
     ['staff' => $staff, 'bid' => $bid] = createStaffReviewFixture();
 
     $response = testCase()
         ->actingAs($staff)
         ->get(route('staff.bids.proposal.preview', $bid));
 
-    $response->assertOk();
-    $response->assertHeader('Content-Type', 'application/pdf');
-    $response->assertHeader('Content-Disposition', 'inline; filename="review-proposal.pdf"');
+    $response->assertForbidden();
 });
 
 it('streams a staff eligibility document preview inline', function () {

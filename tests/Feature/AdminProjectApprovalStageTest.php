@@ -358,7 +358,7 @@ it('publishes project wizard submissions as open projects with related records',
     ]);
 
     // RA 9184: 7-day posting, pre-bid conference 12+ days before the deadline
-    // (ABC >= ₱1M), bid opening immediately after the deadline the same day.
+    // (ABC >= PHP 1M), bid opening immediately after the deadline the same day.
     $submissionDeadline = workdayAt(20, 9, 0)->format('Y-m-d\TH:i');
     $openingDate = workdayAt(20, 9, 30)->format('Y-m-d\TH:i');
 
@@ -381,7 +381,7 @@ it('publishes project wizard submissions as open projects with related records',
             'bid_opening_venue' => 'BAC Conference Room, Municipal Hall',
             'electronic_submission_authority' => 'MIS Certification No. 2026-03',
             'date_posted' => now()->toDateString(),
-            'pre_bid_conference_date' => workdayAt(6, 10, 0)->format('Y-m-d\TH:i'),
+            'pre_bid_conference_date' => workdayAt(7, 10, 0)->format('Y-m-d\TH:i'),
             'bid_submission_deadline' => $submissionDeadline,
             'bid_opening_date' => $openingDate,
             'required_documents' => ['Business Permit', 'Technical Proposal'],

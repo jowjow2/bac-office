@@ -3,6 +3,7 @@
 use App\Models\Assignment;
 use App\Models\Award;
 use App\Models\Bid;
+use App\Models\BiddingFeePayment;
 use App\Models\Project;
 use App\Models\ProjectSchedule;
 use App\Models\ProcurementRequest;
@@ -34,6 +35,16 @@ beforeEach(function () {
 
     $this->pdf = fn (string $name) => UploadedFile::fake()->createWithContent($name, "%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF");
     $this->local = fn ($date) => $date->format('Y-m-d\TH:i');
+    $this->recordPayment = fn (Project $project, User $bidder) => BiddingFeePayment::create([
+        'project_id' => $project->id,
+        'user_id' => $bidder->id,
+        'amount' => $project->bidding_documents_fee,
+        'or_number' => 'OR-'.$bidder->id,
+        'status' => BiddingFeePayment::STATUS_VERIFIED,
+        'paid_at' => now()->toDateString(),
+        'verified_at' => now(),
+        'recorded_by' => $this->admin->id,
+    ]);
 
     $this->wizard = fn (array $overrides = []) => array_merge([
         'title' => 'Concreting of Brgy. Bubog Farm-to-Market Road',
@@ -48,7 +59,7 @@ beforeEach(function () {
         'philgeps_reference_no' => '12005566',
         'end_user_unit' => 'Municipal Engineering Office',
         'date_posted' => now()->toDateString(),
-        'pre_bid_conference_date' => ($this->local)(workdayAt(6, 10, 0)),
+        'pre_bid_conference_date' => ($this->local)(workdayAt(7, 10, 0)),
         'bid_submission_deadline' => ($this->local)(workdayAt(20, 9, 0)),
         'bid_opening_date' => ($this->local)(workdayAt(20, 9, 30)),
         'submission_mode' => 'electronic',
@@ -149,16 +160,20 @@ it('publishes a forwarded purchase request locally and enforces the bidder deadl
         ->all();
 
     $deadline = $project->bidSubmissionDeadline();
+    ($this->recordPayment)($project, $this->bidderA);
+    ($this->recordPayment)($project, $this->bidderB);
     $this->travelTo($deadline->copy()->subMinute());
     testCase()->actingAs($this->bidderA)->post(route('bidder.bids.store', $project), [
         'bid_amount' => '1400000',
         'documents' => $files,
+        'financial_password' => '482913', 'financial_password_confirmation' => '482913',
     ])->assertSessionHasNoErrors();
 
     $this->travelTo($deadline->copy()->addMinute());
     testCase()->actingAs($this->bidderB)->post(route('bidder.bids.store', $project), [
         'bid_amount' => '1450000',
         'documents' => $files,
+        'financial_password' => '482913', 'financial_password_confirmation' => '482913',
     ])->assertSessionHasErrors('deadline');
 });
 it('blocks failed bidding until the bids have been opened after the deadline', function () {
@@ -227,6 +242,9 @@ it('runs the full LGU procurement flow from posting to Notice to Proceed', funct
         ->and($project->submission_mode)->toBe(Project::SUBMISSION_ELECTRONIC)
         ->and($project->electronic_submission_authority)->toBe('BAC Resolution No. 2026-014');
     Assignment::create(['staff_id' => $this->staff->id, 'project_id' => $project->id, 'role_in_project' => 'BAC Secretariat']);
+    testCase()->actingAs($this->admin)->post(route('admin.project.bid-opening-rules', $project), [
+        'award_criterion' => 'lowest_calculated_bid', 'opening_documents_reference' => 'PBD-Infrastructure.pdf, Section III',
+    ])->assertSessionHasNoErrors();
 
     // Status shortcuts are not allowed.
     testCase()->actingAs($this->admin)->putJson(route('admin.project.update', $project), [
@@ -238,16 +256,18 @@ it('runs the full LGU procurement flow from posting to Notice to Proceed', funct
     expect($project->fresh()->status)->toBe('open');
 
     // 2. Bidding: both bidders see the notice and submit electronically.
+    ($this->recordPayment)($project, $this->bidderA);
+    ($this->recordPayment)($project, $this->bidderB);
     testCase()->actingAs($this->bidderA)->get(route('bidder.available-projects'))
         ->assertSee('SJ-BAC-'.now()->format('Y').'-I-001')
         ->assertSee('12005566')
         ->assertSee('ITB.pdf');
 
     $files = collect(BidSubmissionRequirements::for($project)->requiredKeys())->mapWithKeys(fn ($key) => [$key => ($this->pdf)($key.'.pdf')])->all();
-    testCase()->actingAs($this->bidderA)->post(route('bidder.bids.store', $project), ['project_id' => $project->id, 'bid_amount' => '149,500,000.00', 'documents' => $files])
+    testCase()->actingAs($this->bidderA)->post(route('bidder.bids.store', $project), ['project_id' => $project->id, 'bid_amount' => '149,500,000.00', 'documents' => $files, 'financial_password' => '482913', 'financial_password_confirmation' => '482913'])
         ->assertSessionHasNoErrors();
     $files = collect(BidSubmissionRequirements::for($project)->requiredKeys())->mapWithKeys(fn ($key) => [$key => ($this->pdf)($key.'.pdf')])->all();
-    testCase()->actingAs($this->bidderB)->post(route('bidder.bids.store', $project), ['project_id' => $project->id, 'bid_amount' => '149,900,000', 'documents' => $files])
+    testCase()->actingAs($this->bidderB)->post(route('bidder.bids.store', $project), ['project_id' => $project->id, 'bid_amount' => '149,900,000', 'documents' => $files, 'financial_password' => '482913', 'financial_password_confirmation' => '482913'])
         ->assertSessionHasNoErrors();
 
     $bidA = Bid::where('user_id', $this->bidderA->id)->firstOrFail();
@@ -264,6 +284,7 @@ it('runs the full LGU procurement flow from posting to Notice to Proceed', funct
     $keys = BidSubmissionRequirements::for($project)->requiredKeys();
     foreach ([$bidA, $bidB] as $bid) {
         ($this->decide)($bid, BidWorkflow::PASS_PRELIMINARY, ['verified_requirements' => $keys]);
+        testCase()->actingAs($this->admin)->post(route('admin.bid.open-financial', $bid), ['opening_password' => '482913'])->assertSessionHasNoErrors();
         ($this->decide)($bid, BidWorkflow::START_EVALUATION);
         ($this->decide)($bid, BidWorkflow::EVALUATE, ['evaluation_result' => 'responsive', 'evaluation_findings' => 'Responsive against the configured project criteria.']);
     }
@@ -277,8 +298,7 @@ it('runs the full LGU procurement flow from posting to Notice to Proceed', funct
 
     // 6. Notice of Award from the Awards page (signed NOA PDF).
     testCase()->actingAs($this->admin)->get(route('admin.awards.index'))
-        ->assertSee('Awaiting Notice of Award')
-        ->assertSee('Issue Notice of Award');
+        ->assertSee('Notice of Award pending');
     testCase()->actingAs($this->admin)->post(route('admin.awards.declare', $project), ['bid_id' => $bidA->id, 'certificate_file' => ($this->pdf)('NOA-signed.pdf')])
         ->assertSessionHasNoErrors();
 
@@ -335,17 +355,19 @@ it('closes bidding at the Philippine time typed in the wizard', function () {
     testCase()->actingAs($this->admin)->post(route('admin.projects.wizard.store'), ($this->wizard)());
     $project = Project::firstOrFail();
     expect($project->deadline->format('Y-m-d H:i'))->toBe($deadline->format('Y-m-d H:i'));
+    ($this->recordPayment)($project, $this->bidderA);
+    ($this->recordPayment)($project, $this->bidderB);
 
     $files = fn () => collect(BidSubmissionRequirements::for($project)->requiredKeys())->mapWithKeys(fn ($key) => [$key => ($this->pdf)($key.'.pdf')])->all();
 
     // 8:59 AM PST: still accepted.
     $this->travelTo($deadline->copy()->subMinute());
-    testCase()->actingAs($this->bidderA)->post(route('bidder.bids.store', $project), ['project_id' => $project->id, 'bid_amount' => '140000000', 'documents' => $files()])
+    testCase()->actingAs($this->bidderA)->post(route('bidder.bids.store', $project), ['project_id' => $project->id, 'bid_amount' => '140000000', 'documents' => $files(), 'financial_password' => '482913', 'financial_password_confirmation' => '482913'])
         ->assertSessionHasNoErrors();
 
     // 9:01 AM PST: late (previously accepted until 5:00 PM because of UTC).
     $this->travelTo($deadline->copy()->addMinute());
-    testCase()->actingAs($this->bidderB)->post(route('bidder.bids.store', $project), ['project_id' => $project->id, 'bid_amount' => '140000000', 'documents' => $files()])
+    testCase()->actingAs($this->bidderB)->post(route('bidder.bids.store', $project), ['project_id' => $project->id, 'bid_amount' => '140000000', 'documents' => $files(), 'financial_password' => '482913', 'financial_password_confirmation' => '482913'])
         ->assertSessionHasErrors('deadline');
 
     expect(Bid::where('user_id', $this->bidderA->id)->firstOrFail()->submitted_at->format('Y-m-d H:i'))->toBe($deadline->copy()->subMinute()->format('Y-m-d H:i'));
@@ -389,7 +411,7 @@ it('lets the BAC correct a draft schedule in the edit form and then publish it e
         ->assertJsonPath('errors.pre_bid_conference_date.0', fn ($message) => str_contains($message, 'pre-bid conference'))
         ->assertJsonMissingPath('errors.date_posted');
 
-    $edit(['pre_bid_conference_date' => ($this->local)(workdayAt(6, 10, 0))])->assertOk();
+    $edit(['pre_bid_conference_date' => ($this->local)(workdayAt(7, 10, 0))])->assertOk();
 
     testCase()->actingAs($this->admin)
         ->postJson(route('admin.project.publish', $project))

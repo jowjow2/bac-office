@@ -3,6 +3,7 @@
 use App\Models\Assignment;
 use App\Models\Award;
 use App\Models\Bid;
+use App\Models\BidDocument;
 use App\Models\BidTracking;
 use App\Models\Project;
 use App\Models\ProjectRequirement;
@@ -11,6 +12,7 @@ use App\Models\User;
 use App\Support\BidHistory;
 use App\Support\BidProgress;
 use App\Support\BidWorkflow;
+use App\Support\BidSubmissionRequirements;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
@@ -36,6 +38,8 @@ beforeEach(function () {
         'budget' => 1000000,
         'deadline' => now()->subDay(),
         'status' => 'open',
+        'award_criterion' => 'lowest_calculated_bid',
+        'opening_documents_reference' => 'Signed bidding documents',
     ]);
 
     // The project's own bidding requirements drive the preliminary checklist.
@@ -63,6 +67,7 @@ beforeEach(function () {
             'proposal_file' => 'proposals/'.$bidder->id.'.pdf',
             'status' => 'pending',
             'workflow_step' => Bid::STEP_SUBMITTED,
+            'financial_opening_password_hash' => Hash::make('Opening-password-2026'),
         ], $attributes));
     };
 
@@ -75,9 +80,14 @@ beforeEach(function () {
         ->actingAs($this->admin)
         ->post(route('admin.bid.decision', $bid), array_merge(['action' => $action], $extra));
 
-    $this->passPrelim = fn (Bid $bid) => ($this->decide)($bid, BidWorkflow::PASS_PRELIMINARY, [
-        'verified_requirements' => ['technical_proposal', 'financial_proposal'],
-    ])->assertSessionHasNoErrors();
+    $this->passPrelim = function (Bid $bid) {
+        ($this->decide)($bid, BidWorkflow::PASS_PRELIMINARY, [
+            'verified_requirements' => ['technical_proposal', 'financial_proposal'],
+        ])->assertSessionHasNoErrors();
+        testCase()->actingAs($this->admin)->post(route('admin.bid.open-financial', $bid), [
+            'opening_password' => 'Opening-password-2026',
+        ])->assertSessionHasNoErrors();
+    };
 
     $this->advanceToRecommended = function (Bid $bid) {
         ($this->passPrelim)($bid);
@@ -131,7 +141,7 @@ it('keeps bids sealed until the authorized bid opening', function () {
 
     $track = ($this->trackFor)($bidder);
     expect($track['current']['label'])->toBe('Under Preliminary Examination')
-        ->and(collect($track['history'])->pluck('title'))->toContain('Bids Opened');
+        ->and(collect($track['history'])->pluck('title'))->toContain('Technical Components Opened');
 
     ($this->passPrelim)($bid);
     testCase()->actingAs($this->admin)->get(route('admin.bids'))->assertSee('950,000.00');
@@ -149,6 +159,15 @@ it('refuses to open bids before the submission deadline', function () {
 it('requires every project requirement to be verified before passing preliminary examination', function () {
     $bidder = ($this->makeBidder)('verify');
     $bid = ($this->makeBid)($bidder);
+    $bid->update(['submission_channel' => Bid::CHANNEL_ELECTRONIC, 'submitted_at' => now()->subDays(2)]);
+    $technical = BidSubmissionRequirements::for($this->project)->technical()->where('required', true);
+    foreach ($technical as $item) {
+        BidDocument::create([
+            'bid_id' => $bid->id, 'requirement_key' => $item['key'], 'component' => BidDocument::COMPONENT_TECHNICAL,
+            'label' => $item['label'], 'file_path' => 'bids/'.$item['key'].'.pdf', 'original_name' => $item['key'].'.pdf', 'size' => 10,
+        ]);
+    }
+    $requiredKeys = $technical->pluck('key')->all();
     ($this->openBids)();
 
     // An uploaded file alone is not a pass.
@@ -157,11 +176,11 @@ it('requires every project requirement to be verified before passing preliminary
         ->assertSessionHasErrors('verified_requirements');
 
     // A missing required document blocks a pass even if ticked.
-    $missing = ($this->makeBid)(($this->makeBidder)('missing'), ['proposal_file' => null]);
-    ($this->decide)($missing, BidWorkflow::PASS_PRELIMINARY, ['verified_requirements' => ['technical_proposal', 'financial_proposal']])
+    $missing = ($this->makeBid)(($this->makeBidder)('missing'), ['proposal_file' => null, 'submission_channel' => Bid::CHANNEL_ELECTRONIC, 'submitted_at' => now()->subDays(2)]);
+    ($this->decide)($missing, BidWorkflow::PASS_PRELIMINARY, ['verified_requirements' => $requiredKeys])
         ->assertSessionHasErrors('verified_requirements');
 
-    ($this->passPrelim)($bid);
+    ($this->decide)($bid, BidWorkflow::PASS_PRELIMINARY, ['verified_requirements' => $requiredKeys])->assertSessionHasNoErrors();
 
     expect(($this->adminStage)($bid))->toBe('Bid Evaluation');
     $event = BidTracking::where('bid_id', $bid->id)->where('decision', 'passed')->first();
@@ -203,7 +222,7 @@ it('records a failed preliminary examination with a required, bidder-visible rea
     // The admin modal shows stage, decision, reason and the responsible user.
     testCase()->actingAs($this->admin)->get(route('admin.bid.view', $bid), ['X-Requested-With' => 'XMLHttpRequest'])
         ->assertOk()
-        ->assertSee('Bid Opening / Preliminary Examination · Failed')
+        ->assertSee('Failed Preliminary Examination')
         ->assertSee('Financial proposal is unsigned.')
         ->assertSee('BAC Admin (Admin)')
         ->assertSee('No further decision can be recorded');
@@ -300,7 +319,7 @@ it('walks the winning bidder through each authorized action and closes the other
     $track = ($this->trackFor)($winner);
     expect($track['current']['label'])->toBe('Notice to Proceed Issued')
         ->and(collect($track['stages'])->pluck('state')->unique()->values()->all())->toBe(['done'])
-        ->and(collect($track['history'])->pluck('title')->all())->toContain('Bids Opened', 'Passed Preliminary Examination', 'Recommended for Award', 'Award Approved', 'Notice of Award Issued', 'Contract Signed', 'Notice to Proceed Issued');
+        ->and(collect($track['history'])->pluck('title')->all())->toContain('Technical Components Opened', 'Passed Preliminary Examination', 'Recommended for Award', 'Award Approved', 'Notice of Award Issued', 'Contract Signed', 'Notice to Proceed Issued');
 });
 
 it('records a HoPE disapproval with a reason as not awarded, not disqualified', function () {
@@ -364,6 +383,8 @@ it('shows failed bidding on the admin table and the bidder track', function () {
         'budget' => 1000000,
         'deadline' => now()->addDays(10),
         'status' => 'open',
+        'award_criterion' => 'lowest_calculated_bid',
+        'opening_documents_reference' => 'Signed bidding documents',
     ]);
 
     testCase()->actingAs($this->admin)
@@ -416,13 +437,13 @@ it('maps legacy pending, approved, rejected and awarded records without inventin
     $approved->update(['approved_at' => now()->subDays(2), 'documents_validated_at' => now()->subDays(2)]);
     $awarded->update(['awarded_at' => now()->subDay()]);
 
-    // Legacy data carries evidence that the bids were opened (migration backfill).
+    // Legacy timestamps remain in history, while a sealed financial bid stays at the evaluation gate.
     $this->project->update(['bids_opened_at' => now()->subDays(3)]);
 
     expect(($this->adminStage)($pending))->toBe('Preliminary Examination')
         ->and(($this->adminStage)($approved))->toBe('Bid Evaluation')
         ->and(($this->adminStage)($rejected))->toBe('Disqualified')
-        ->and(($this->adminStage)($awarded))->toBe('Award Approval');
+        ->and(($this->adminStage)($awarded))->toBe('Bid Evaluation');
 
     // History comes only from recorded timestamps.
     $history = BidHistory::for(Bid::find($awarded->id))->forAdmin();
@@ -439,8 +460,8 @@ it('shows stage-appropriate actions instead of Approve and Reject in the Review 
 
     testCase()->actingAs($this->admin)->get(route('admin.bid.view', $bid), ['X-Requested-With' => 'XMLHttpRequest'])
         ->assertOk()
-        ->assertSee('Record bid opening for this project')
-        ->assertSee('Sealed until the bid opening is recorded')
+        ->assertSee('Submission sealed')
+        ->assertSee('Technical and eligibility files open automatically')
         ->assertDontSee('bid-proposal-preview', false)
         ->assertDontSee('data-review-target="approve"', false);
 
@@ -451,11 +472,11 @@ it('shows stage-appropriate actions instead of Approve and Reject in the Review 
         ->assertSee('Passed Preliminary Examination')
         ->assertSee('Failed Preliminary Examination')
         ->assertSee('name="verified_requirements[]" value="technical_proposal"', false)
-        ->assertSee('Reason shown to the bidder')
+        ->assertSee('Remarks to share with the bidder')
         ->assertDontSee(BidWorkflow::label(BidWorkflow::NOTICE_OF_AWARD))
         ->assertDontSee('> Approve</button>', false)
         ->assertSee('Activity History')
-        ->assertSee('Bids Opened');
+        ->assertSee('Technical Components Opened');
 
     // Bulk approval no longer exists.
     testCase()->actingAs($this->admin)->post(route('admin.bids.bulk'), ['action' => 'approve', 'ids' => [$bid->id]])
@@ -510,7 +531,7 @@ it('renders the bidder timeline with history and without the live-updating claim
         ->assertOk()
         ->assertSee('bt-timeline', false)
         ->assertSee('Activity history')
-        ->assertSee('Bids Opened')
+        ->assertSee('Technical Components Opened')
         ->assertSee('Checks for updates every minute')
         ->assertDontSee('live Updating')
         ->assertDontSee('LIVE UPDATING');

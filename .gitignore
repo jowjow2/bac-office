@@ -12,6 +12,7 @@
 /.qodo
 /.vscode
 /.vercel
+/.tmp/
 /.zed
 /auth.json
 /node_modules
@@ -27,6 +28,7 @@
 /tools/cloudflared.log
 /tools/cloudflared.out
 /vendor
+/tools/artisan-serve.out
 Homestead.json
 Homestead.yaml
 Thumbs.db

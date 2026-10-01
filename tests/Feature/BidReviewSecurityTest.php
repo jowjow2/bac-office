@@ -52,6 +52,8 @@ beforeEach(function () {
         'deadline' => now()->subHour(),
         'procurement_mode' => 'public_bidding',
         'legal_basis' => 'ra_12009',
+        'award_criterion' => 'lowest_calculated_bid',
+        'opening_documents_reference' => 'Signed bidding documents',
         'submission_mode' => Project::SUBMISSION_ELECTRONIC,
     ]);
 
@@ -77,6 +79,7 @@ beforeEach(function () {
         'submission_channel' => Bid::CHANNEL_MANUAL,
         'submitted_at' => now()->subMinutes(10),
         'receipt_no' => 'SJ-SEC-0001',
+        'financial_opening_password_hash' => Hash::make('Opening-password-2026'),
     ]);
 
     Assignment::create([
@@ -91,6 +94,7 @@ beforeEach(function () {
 });
 
 it('keeps sealed amounts, filenames, and files out of BAC screens and JSON', function () {
+    $this->project->schedule()->update(['bid_opening_date' => now()->addHour()]);
     $response = testCase()->actingAs($this->admin)->get(route('admin.bids'));
 
     $response->assertOk()
@@ -106,8 +110,8 @@ it('keeps sealed amounts, filenames, and files out of BAC screens and JSON', fun
         ->assertSee('Submission sealed')
         ->assertDontSee('812,345.67')
         ->assertDontSee('pcic-secret.pdf')
-        // The only action on a sealed bid is recording its actual opening.
-        ->assertSee(route('admin.project.open-bids', $this->project), false)
+        // Technical access starts at the scheduled opening, without a manual action.
+        ->assertDontSee(route('admin.project.open-bids', $this->project), false)
         ->assertDontSee('Internal Notes')
         ->assertDontSee(route('admin.bid.decision', $this->bid), false)
         ->assertDontSee(route('admin.bid.document.pdf', ['bid' => $this->bid, 'document' => 'proposal']), false);
@@ -255,6 +259,7 @@ it('enforces the complete Admin review sequence and keeps recommendation separat
 
     testCase()->actingAs($this->admin)->post(route('admin.bid.decision', $this->bid), ['action' => BidWorkflow::EVALUATE, 'evaluation_result' => 'responsive', 'evaluation_findings' => 'Too early.'])->assertSessionHasErrors('milestone');
     testCase()->actingAs($this->admin)->post(route('admin.bid.decision', $this->bid), ['action' => BidWorkflow::PASS_PRELIMINARY, 'verified_requirements' => $allChecklistKeys])->assertSessionHasNoErrors();
+    testCase()->actingAs($this->admin)->post(route('admin.bid.open-financial', $this->bid), ['opening_password' => 'Opening-password-2026'])->assertSessionHasNoErrors();
 
     testCase()->actingAs($this->admin)->post(route('admin.bid.decision', $this->bid), ['action' => BidWorkflow::EVALUATE, 'evaluation_result' => 'responsive', 'evaluation_findings' => 'Too early.'])->assertSessionHasErrors('milestone');
     testCase()->actingAs($this->admin)->post(route('admin.bid.decision', $this->bid), ['action' => BidWorkflow::START_EVALUATION])->assertSessionHasNoErrors();
@@ -283,13 +288,17 @@ it('enforces the complete Admin review sequence and keeps recommendation separat
 });
 
 
-it('uses the project-configured financial reveal stage instead of assuming one universal opening point', function () {
+it('requires password opening even when an older project is configured to reveal finance at opening', function () {
     $this->project->update(['financial_opening_stage' => 'at_opening']);
     testCase()->actingAs($this->admin)->post(route('admin.project.open-bids', $this->project))->assertSessionHasNoErrors();
+    expect($this->bid->fresh()->isFinancialSealed())->toBeTrue();
+    testCase()->actingAs($this->admin)->get(route('admin.bids'))->assertDontSee('812,345.67');
+
+    $this->bid->forceFill(['documents_validated_at' => now(), 'documents_validated_by' => $this->admin->id])->save();
+    testCase()->actingAs($this->admin)->post(route('admin.bid.open-financial', $this->bid), ['opening_password' => 'Opening-password-2026'])->assertSessionHasNoErrors();
     expect($this->bid->fresh()->isFinancialSealed())->toBeFalse();
     testCase()->actingAs($this->admin)->get(route('admin.bids'))->assertSee('812,345.67');
 
     $this->project->update(['financial_opening_stage' => 'after_evaluation_start']);
-    expect($this->bid->fresh()->isFinancialSealed())->toBeTrue();
-    testCase()->actingAs($this->admin)->get(route('admin.bids'))->assertDontSee('812,345.67');
+    expect($this->bid->fresh()->isFinancialSealed())->toBeFalse();
 });

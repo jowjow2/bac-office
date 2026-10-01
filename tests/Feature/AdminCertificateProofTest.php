@@ -229,7 +229,7 @@ it('shows uploaded approved bids on the admin dashboard and filters them in all 
 
     $bidsResponse->assertOk();
     $bidsResponse->assertSee('Approved Builders Co.');
-    $bidsResponse->assertSee('View proposal');
+    $bidsResponse->assertSee('Review bid');
     $bidsResponse->assertDontSee('Proposal: Missing');
     $bidsResponse->assertDontSee('Other Builders Co.');
     $bidsResponse->assertDontSee('Missing upload');
@@ -287,13 +287,13 @@ it('shows view docs and edit bid actions in the admin bid modal', function () {
 
     $modalResponse->assertOk();
     $modalResponse->assertSee('Documents');
-    $modalResponse->assertSee('Internal Notes');
-    $modalResponse->assertSee(route('admin.bid.edit', $bid), false);
+    $modalResponse->assertSee('Internal notes (not shown to bidder)');
+    $modalResponse->assertDontSee(route('admin.bid.edit', $bid), false);
     $modalResponse->assertSee('Submission sealed');
     $modalResponse->assertDontSee(route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'proposal']), false);
 });
 
-it('streams only the clicked bid document as an inline pdf', function () {
+it('keeps the legacy proposal preview sealed until financial opening', function () {
     $test = testCase();
 
     $admin = User::create([
@@ -346,14 +346,11 @@ it('streams only the clicked bid document as an inline pdf', function () {
         ->actingAs($admin)
         ->get(route('admin.bid.document.preview', ['bid' => $bid, 'document' => 'proposal']));
 
-    $redirectResponse->assertRedirect(route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'proposal']));
+    $redirectResponse->assertForbidden();
 
     $pdfResponse = $test
         ->actingAs($admin)
         ->get(route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'proposal']));
 
-    $pdfResponse->assertOk();
-    $pdfResponse->assertHeader('Content-Type', 'application/pdf');
-    expect($pdfResponse->headers->get('Content-Disposition'))->toContain('inline');
-    expect($pdfResponse->headers->get('Content-Disposition'))->not->toContain('attachment');
+    $pdfResponse->assertForbidden();
 });
