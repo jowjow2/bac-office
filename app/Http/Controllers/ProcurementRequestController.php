@@ -10,11 +10,14 @@ use App\Support\ProcurementPipeline;
 use App\Support\ProcurementTimeline;
 use App\Support\SystemNotification;
 use App\Support\Uploads;
+use App\Support\VercelBlob;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Procurement requests: filed by an end-user office, reviewed against the
@@ -329,8 +332,16 @@ class ProcurementRequestController extends Controller
 
         $message = $procurementRequest->end_user_office.' submitted '.$procurementRequest->reference_no.' ('.$procurementRequest->title.') for PPMP/APP and funds review.';
         $queue = ['tab' => 'review', 'q' => $procurementRequest->reference_no];
-        SystemNotification::createForRole('staff', 'Purchase request for PPMP/APP review', $message, 'procurement_request', ['url' => route('staff.requests', $queue)]);
-        SystemNotification::createForRole('admin', 'Purchase request for PPMP/APP review', $message, 'procurement_request', ['url' => route('admin.requests', $queue)]);
+        try {
+            SystemNotification::createForRole('staff', 'Purchase request for PPMP/APP review', $message, 'procurement_request', ['url' => route('staff.requests', $queue)]);
+            SystemNotification::createForRole('admin', 'Purchase request for PPMP/APP review', $message, 'procurement_request', ['url' => route('admin.requests', $queue)]);
+        } catch (Throwable $exception) {
+            // The request is already submitted; a notification error must not turn it into a failed form submission.
+            Log::warning('Purchase request submitted, but a review notification failed.', [
+                'request_id' => $procurementRequest->id,
+                'exception' => $exception::class,
+            ]);
+        }
     }
 
     /**
@@ -395,11 +406,11 @@ class ProcurementRequestController extends Controller
 
         foreach ($request->file('documents', []) as $index => $file) {
             $type = $types[$index] ?? 'other';
-            $path = Uploads::store(
-                $file,
-                'procurement-requests/'.$procurementRequest->id,
-                $type.'_'.bin2hex(random_bytes(6)).'.'.strtolower($file->getClientOriginalExtension())
-            );
+            $directory = 'procurement-requests/'.$procurementRequest->id;
+            $filename = $type.'_'.bin2hex(random_bytes(6)).'.'.strtolower($file->getClientOriginalExtension());
+            $path = VercelBlob::enabled()
+                ? VercelBlob::store($file, $directory, $filename)
+                : Uploads::store($file, $directory, $filename);
 
             $procurementRequest->documents()->create([
                 'document_type' => array_key_exists($type, ProcurementRequest::DOCUMENT_TYPES) ? $type : 'other',

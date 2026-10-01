@@ -4,7 +4,10 @@ use App\Models\ProcurementRequest;
 use App\Models\User;
 use App\Models\UserNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 
 uses(RefreshDatabase::class);
 
@@ -175,6 +178,54 @@ it('accepts an estimated total cost typed with thousands separators', function (
     testCase()->actingAs($office)
         ->post(route('end-user.requests.store'), array_merge($this->details, ['estimated_cost' => '1,2x0', 'action' => 'draft']))
         ->assertSessionHasErrors('estimated_cost');
+});
+
+it('submits a request with a private Blob attachment and serves it through the authorized file route', function () {
+    $office = User::create(['name' => 'MEO Account', 'email' => 'meo-blob@example.com', 'password' => Hash::make('password'), 'role' => 'end_user', 'status' => 'active', 'office' => 'Municipal Engineering Office']);
+    config()->set('services.vercel_blob', [
+        'enabled' => true,
+        'token' => 'vercel_blob_rw_SjfNUHhmSlUWvEhs_test',
+    ]);
+
+    Http::fake(function ($request) {
+        if ($request->method() === 'PUT') {
+            parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+
+            return Http::response([
+                'url' => 'https://sjfnuhhmsluwvehs.private.blob.vercel-storage.com/'.$query['pathname'],
+            ]);
+        }
+
+        return Http::response("%PDF-1.4\nattachment", 200, ['Content-Type' => 'application/pdf']);
+    });
+
+    testCase()->actingAs($office)->post(route('end-user.requests.store'), $this->details + [
+        'action' => 'submit',
+        'documents' => [UploadedFile::fake()->createWithContent('TOR.pdf', "%PDF-1.4\nattachment")],
+        'document_types' => ['tor'],
+    ])->assertSessionHasNoErrors()->assertRedirect();
+
+    $request = ProcurementRequest::firstOrFail();
+    $document = $request->documents()->firstOrFail();
+    expect($request->status)->toBe(ProcurementRequest::STATUS_SUBMITTED)
+        ->and($document->file_path)->toStartWith('https://sjfnuhhmsluwvehs.private.blob.vercel-storage.com/procurement-requests/');
+
+    Http::assertSent(fn ($request) => $request->method() === 'PUT'
+        && $request->hasHeader('x-vercel-blob-access', 'private')
+        && $request->hasHeader('Authorization', 'Bearer vercel_blob_rw_SjfNUHhmSlUWvEhs_test'));
+
+    testCase()->actingAs($office)->get(route('procurement.files.request', $document))
+        ->assertOk()->assertDownload('TOR.pdf');
+});
+
+it('keeps a submitted request when the review notification store is unavailable', function () {
+    $office = User::create(['name' => 'MEO Account', 'email' => 'meo-notification@example.com', 'password' => Hash::make('password'), 'role' => 'end_user', 'status' => 'active', 'office' => 'Municipal Engineering Office']);
+    Schema::drop('user_notifications');
+
+    testCase()->actingAs($office)->post(route('end-user.requests.store'), $this->details + ['action' => 'submit'])
+        ->assertRedirect()->assertSessionHasNoErrors();
+
+    expect(ProcurementRequest::firstOrFail()->status)->toBe(ProcurementRequest::STATUS_SUBMITTED);
 });
 
 it('points a search in the wrong queue to the queue that holds the request', function () {

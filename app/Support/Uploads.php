@@ -5,6 +5,7 @@ namespace App\Support;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\File;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Http\Response as LaravelResponse;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -51,8 +52,21 @@ class Uploads
         }
     }
 
-    public static function download(string $path, ?string $downloadName = null): BinaryFileResponse|StreamedResponse
+    public static function download(string $path, ?string $downloadName = null): BinaryFileResponse|StreamedResponse|LaravelResponse
     {
+        if (VercelBlob::isUrl($path)) {
+            $contents = VercelBlob::read($path);
+            abort_unless($contents !== null, 404);
+            $safeName = str_replace(['"', "\r", "\n"], '', $downloadName ?: basename(parse_url($path, PHP_URL_PATH) ?: $path));
+
+            return response($contents, 200, [
+                'Content-Type' => 'application/octet-stream',
+                'Content-Disposition' => 'attachment; filename="'.$safeName.'"',
+                'Cache-Control' => 'private, no-cache',
+                'X-Content-Type-Options' => 'nosniff',
+            ]);
+        }
+
         if (static::isLegacyPublicPath($path)) {
             $fullPath = public_path($path);
             abort_unless(is_file($fullPath), 404);
@@ -68,7 +82,10 @@ class Uploads
 
     public static function inline(string $path, ?string $displayName = null, ?string $contentType = null)
     {
-        if (static::isLegacyPublicPath($path)) {
+        if (VercelBlob::isUrl($path)) {
+            $contents = VercelBlob::read($path);
+            abort_unless($contents !== null, 404);
+        } elseif (static::isLegacyPublicPath($path)) {
             $fullPath = public_path($path);
             abort_unless(is_file($fullPath), 404);
 
@@ -87,11 +104,16 @@ class Uploads
             'Content-Type' => $contentType ?: 'application/octet-stream',
             'Content-Disposition' => 'inline; filename="' . $safeName . '"',
             'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'private, no-cache',
         ]);
     }
 
     public static function contents(?string $path): ?string
     {
+        if (VercelBlob::isUrl($path)) {
+            return VercelBlob::read($path);
+        }
+
         if (! filled($path) || filter_var($path, FILTER_VALIDATE_URL)) {
             return null;
         }
@@ -115,6 +137,10 @@ class Uploads
 
     public static function delete(?string $path): bool
     {
+        if (VercelBlob::isUrl($path)) {
+            return VercelBlob::delete($path);
+        }
+
         if (! filled($path) || filter_var($path, FILTER_VALIDATE_URL)) {
             return false;
         }
@@ -141,6 +167,10 @@ class Uploads
 
     public static function size(?string $path): ?int
     {
+        if (VercelBlob::isUrl($path)) {
+            return VercelBlob::size($path);
+        }
+
         if (! filled($path) || filter_var($path, FILTER_VALIDATE_URL)) {
             return null;
         }
