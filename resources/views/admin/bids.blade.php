@@ -1,20 +1,14 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 @include('partials.dashboard-viewport')
-<div class="admin-dashboard dashboard-home admin-dashboard-page admin-bids-page">
-    @vite(['resources/css/dashboard.css'])
+<div class="admin-dashboard admin-role-page dashboard-home admin-dashboard-page admin-bids-page">
+    @vite(['resources/css/dashboard.css', 'resources/css/bid-management.css', 'resources/js/bid-management.js'])
 
     @include('partials.admin-sidebar')
 
     <div class="main-area bids-page">
-        <header class="navbar">
-            <div class="nav-left">
-                <h2>Bid Management</h2>
-                <p>Review and evaluate all submitted bids</p>
-            </div>
-            <div class="nav-right"></div>
-        </header>
+        <x-page-header title="Bid management" subtitle="Review and evaluate all submitted bids" />
 
-        <main class="dashboard-content dashboard-home-content">
+        <main class="dashboard-content dashboard-home-content admin-bids-v2">
  
             @if(session('success'))
                 <div id="successAlert" style="position: fixed; top: 90px; right: 25px; background: #dcfce7; color: #166534; padding: 16px 20px; border-radius: 8px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; display: flex; align-items: center; gap: 10px; min-width: 280px;">
@@ -24,319 +18,145 @@
                 </div>
             @endif
 
-            <section class="admin-bids-shell">
+            @if($errors->any())
+                <div class="bid-error" role="alert">{{ $errors->first() }}</div>
+            @endif
+
+            <section class="bid-summary-grid" aria-label="Submission summary">
+                <div class="bid-summary-card"><span>Total in view</span><strong>{{ $summary['total'] ?? 0 }}</strong><small>Matches current filters</small></div>
+                <div class="bid-summary-card is-sealed"><span>Sealed submissions</span><strong>{{ $summary['sealed'] ?? 0 }}</strong><small>Opening must be recorded</small></div>
+                <div class="bid-summary-card is-ready"><span>Ready for examination</span><strong>{{ $summary['ready'] ?? 0 }}</strong><small>Opening/review available</small></div>
+                <div class="bid-summary-card is-progress"><span>In evaluation workflow</span><strong>{{ $summary['decided'] ?? 0 }}</strong><small>Evaluation or post-qualification</small></div>
+            </section>
+
+            <section id="bid-management" class="admin-bids-shell admin-bids-v2"
+                data-view-url="{{ route('admin.bid.view', ['bid' => '__BID__']) }}"
+                data-edit-url="{{ route('admin.bid.edit', ['bid' => '__BID__']) }}"
+                data-export-kind="bids"
+                data-export-url="{{ route('admin.bids.export') }}"
+                data-export-modal-id="bidExportModal"
+                data-export-rows-id="bidExportRows"
+                data-export-toast-id="bidExportToastRegion"
+                data-export-form-selector=".admin-bids-toolbar" data-register-stage="bac-review"
+                data-export-status-order="{{ implode(',', array_keys($statusOptions ?? [])) }}"
+                data-export-status-labels='@json($statusOptions ?? [])'>
                 <form method="GET" action="{{ route('admin.bids') }}" class="admin-bids-toolbar">
-                    <div class="admin-bids-toolbar-field admin-bids-toolbar-field-search">
-                        <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="Search bids..." class="admin-bids-input">
+                    <input type="hidden" name="per_page" value="{{ $bids->perPage() }}">
+                    <div class="admin-bids-filter-group">
+                        <div class="admin-bids-toolbar-field admin-bids-toolbar-field-search admin-search-field">
+                            <svg class="admin-bids-search-icon admin-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+                            <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="Search bids..." class="admin-bids-input" aria-label="Search bids">
+                        </div>
+                        <span class="admin-bids-filter-divider" aria-hidden="true"></span>
+                        <div class="admin-bids-toolbar-field">
+                            <select name="status" onchange="this.form.submit()" class="admin-bids-select" aria-label="Filter by stage">
+                                <option value="">All Stages</option>
+                                @foreach(($statusOptions ?? []) as $value => $label)
+                                    <option value="{{ $value }}" @selected(($status ?? '') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <span class="admin-bids-filter-divider" aria-hidden="true"></span>
+                        <div class="admin-bids-toolbar-field">
+                            <select name="project" onchange="this.form.submit()" class="admin-bids-select" aria-label="Filter by project">
+                                <option value="">All Projects</option>
+                                @foreach(($projects ?? collect()) as $project)
+                                    <option value="{{ $project->id }}" {{ (string) ($projectFilter ?? '') === (string) $project->id ? 'selected' : '' }}>{{ $project->title }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <span class="admin-bids-filter-divider" aria-hidden="true"></span>
+                        <div class="admin-bids-toolbar-field">
+                            <select name="mode" onchange="this.form.submit()" class="admin-bids-select" aria-label="Filter by procurement mode">
+                                <option value="">All Procurement Modes</option>
+                                @foreach(($modeOptions ?? []) as $value => $label)
+                                    <option value="{{ $value }}" @selected(($modeFilter ?? '') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <span class="admin-bids-filter-divider" aria-hidden="true"></span>
+                        <div class="admin-bids-toolbar-field">
+                            <select name="document_status" onchange="this.form.submit()" class="admin-bids-select" aria-label="Filter by document status">
+                                <option value="">All Document States</option>
+                                @foreach(($documentStatusOptions ?? []) as $value => $label)
+                                    <option value="{{ $value }}" @selected(($documentStatusFilter ?? '') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
-                    <div class="admin-bids-toolbar-field">
-                        <select name="status" onchange="this.form.submit()" class="admin-bids-select">
-                            <option value="">All Status</option>
-                            <option value="pending" {{ ($status ?? '') === 'pending' ? 'selected' : '' }}>Pending</option>
-                            <option value="approved" {{ ($status ?? '') === 'approved' ? 'selected' : '' }}>Approved</option>
-                            <option value="rejected" {{ ($status ?? '') === 'rejected' ? 'selected' : '' }}>Rejected</option>
-                        </select>
-                    </div>
-                    <div class="admin-bids-toolbar-field">
-                        <select name="project" onchange="this.form.submit()" class="admin-bids-select">
-                            <option value="">All Projects</option>
-                            @foreach(($projects ?? collect()) as $project)
-                                <option value="{{ $project->id }}" {{ (string) ($projectFilter ?? '') === (string) $project->id ? 'selected' : '' }}>{{ $project->title }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="admin-bids-toolbar-field">
-                        <select name="proposal" onchange="this.form.submit()" class="admin-bids-select">
-                            <option value="">All Uploads</option>
-                            <option value="uploaded" {{ ($proposalFilter ?? '') === 'uploaded' ? 'selected' : '' }}>Uploaded</option>
-                            <option value="missing" {{ ($proposalFilter ?? '') === 'missing' ? 'selected' : '' }}>Missing</option>
-                        </select>
+                    <div class="bid-export-toolbar-action">
+                        <button type="button" class="bid-control" data-open-export-modal>
+                            <i class="fas fa-file-export" aria-hidden="true"></i>
+                            <span>Export</span>
+                        </button>
                     </div>
                 </form>
-
-                <div class="admin-bids-table-wrap">
-                    <table class="dashboard-table admin-bids-table">
-                        <colgroup>
-                            <col class="admin-bids-col-bidder">
-                            <col class="admin-bids-col-project">
-                            <col class="admin-bids-col-amount">
-                            <col class="admin-bids-col-budget">
-                            <col class="admin-bids-col-variance">
-                            <col class="admin-bids-col-submitted">
-                            <col class="admin-bids-col-proposal">
-                            <col class="admin-bids-col-status">
-                            <col class="admin-bids-col-actions">
-                        </colgroup>
-                        <thead>
-                            <tr>
-                                <th>Bidder</th>
-                                <th>Project</th>
-                                <th>Bid Amount</th>
-                                <th>Budget</th>
-                                <th>Variance</th>
-                                <th>Submitted</th>
-                                <th>Proposal</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($bids as $bid)
-                            @php
-                                $budget = (float) ($bid->project?->budget ?? 0);
-                                $amount = (float) $bid->amount;
-                                $variance = $budget > 0 ? (($amount - $budget) / $budget) * 100 : null;
-                                $varianceColor = is_null($variance) ? '#64748b' : ($variance <= 0 ? '#047857' : '#dc2626');
-                                $bidderName = $bid->user?->company ?: ($bid->user?->name ?? 'N/A');
-                                $bidderEmail = $bid->user?->email ?? 'N/A';
-                                $statusValue = strtolower((string) ($bid->status ?? 'pending'));
-                                $statusLabel = match ($statusValue) {
-                                    'approved' => 'Approved',
-                                    'rejected' => 'Rejected',
-                                    'validated' => 'Validated',
-                                    default => 'Pending',
-                                };
-                                $statusClass = match ($statusValue) {
-                                    'approved' => 'is-approved',
-                                    'rejected' => 'is-rejected',
-                                    'validated' => 'is-validated',
-                                    'pending' => 'is-pending',
-                                    default => 'is-default',
-                                };
-                                $certificateProof = $bid->user?->philgepsCertificate;
-                                $certificateProofUrl = $certificateProof?->file_url
-                                    ? route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'certificate'])
-                                    : null;
-                            @endphp
-                            <tr>
-                                <td class="admin-bids-cell-top">
-                                    <div class="admin-bids-bidder-name">{{ $bidderName }}</div>
-                                    <div class="admin-bids-bidder-meta">{{ $bidderEmail }}</div>
-                                    @if($certificateProofUrl)
-                                        <a href="{{ $certificateProofUrl }}" target="_blank" rel="noopener" class="admin-bids-inline-link">View certificate proof</a>
-                                    @else
-                                        <div class="admin-bids-muted-copy">No certificate proof uploaded</div>
-                                    @endif
-                                </td>
-                                <td class="admin-bids-cell-top admin-bids-project-cell">{{ $bid->project?->title ?? 'N/A' }}</td>
-                                <td class="admin-bids-cell-top admin-bids-money nowrap">&#8369;{{ number_format($amount, 2) }}</td>
-                                <td class="admin-bids-cell-top admin-bids-money admin-bids-secondary-value nowrap">&#8369;{{ number_format($budget, 2) }}</td>
-                                <td class="admin-bids-cell-top admin-bids-variance nowrap" style="color: {{ $varianceColor }};">{{ is_null($variance) ? 'N/A' : number_format($variance, 1) . '%' }}</td>
-                                <td class="admin-bids-cell-top admin-bids-date-cell nowrap">{{ $bid->created_at?->format('Y-m-d') }}</td>
-                                <td class="admin-bids-cell-top admin-bids-proposal-cell">
-                                    @if($bid->proposal_url)
-                                        <a href="{{ route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'proposal']) }}" target="_blank" rel="noopener" class="admin-bids-inline-link admin-bids-proposal-link">
-                                            <i class="fas fa-file-lines" aria-hidden="true"></i>
-                                            <span>View proposal</span>
-                                        </a>
-                                    @else
-                                        <span class="admin-bids-muted-copy">No proposal uploaded</span>
-                                    @endif
-                                </td>
-                                <td class="admin-bids-cell-top admin-bids-status-cell">
-                                    <span class="admin-bids-status-pill {{ $statusClass }}">
-                                        {{ $statusLabel }}
-                                    </span>
-                                </td>
-                                <td class="admin-bids-cell-top">
-                                    <div class="admin-bids-actions">
-                                        <button type="button" onclick="loadBidViewModal({{ $bid->id }})" class="admin-bids-btn admin-bids-btn-secondary">
-                                            <i class="fas fa-eye" aria-hidden="true"></i>
-                                            <span>Details</span>
-                                        </button>
-                                        @if($bid->status === 'pending')
-                                            <form action="{{ route('admin.bid.approve', $bid) }}" method="POST">
-                                                @csrf
-                                                @method('PATCH')
-                                                <button type="submit" class="admin-bids-btn admin-bids-btn-approve">Approve</button>
-                                            </form>
-                                            <form action="{{ route('admin.bid.reject', $bid) }}" method="POST">
-                                                @csrf
-                                                @method('PATCH')
-                                                <button type="submit" class="admin-bids-btn admin-bids-btn-reject">Reject</button>
-                                            </form>
-                                        @endif
-                                    </div>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="9" class="admin-bids-empty">
-                                    <i class="fas fa-gavel"></i>
-                                    No bids found for this search/filter.
-                                </td>
-                            </tr>
-                        @endforelse
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="admin-bids-mobile-list">
-                    @forelse($bids as $bid)
-                            @php
-                                $budget = (float) ($bid->project?->budget ?? 0);
-                                $amount = (float) $bid->amount;
-                                $variance = $budget > 0 ? (($amount - $budget) / $budget) * 100 : null;
-                                $varianceColor = is_null($variance) ? '#64748b' : ($variance <= 0 ? '#047857' : '#dc2626');
-                                $bidderName = $bid->user?->company ?: ($bid->user?->name ?? 'N/A');
-                                $statusValue = strtolower((string) ($bid->status ?? 'pending'));
-                                $statusLabel = match ($statusValue) {
-                                    'approved' => 'Approved',
-                                    'rejected' => 'Rejected',
-                                    'validated' => 'Validated',
-                                    default => 'Pending',
-                                };
-                                $statusClass = match ($statusValue) {
-                                    'approved' => 'is-approved',
-                                    'rejected' => 'is-rejected',
-                                    'validated' => 'is-validated',
-                                    'pending' => 'is-pending',
-                                    default => 'is-default',
-                                };
-                                $certificateProof = $bid->user?->philgepsCertificate;
-                                $certificateProofUrl = $certificateProof?->file_url
-                                    ? route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'certificate'])
-                                    : null;
-                        @endphp
-                        <article class="admin-bids-mobile-card">
-                            <div class="admin-bids-mobile-head">
-                                <div>
-                                    <h3>{{ $bidderName }}</h3>
-                                    <p>{{ $bid->user?->email ?? 'N/A' }}</p>
-                                </div>
-                                <span class="admin-bids-status-pill {{ $statusClass }}">{{ $statusLabel }}</span>
-                            </div>
-
-                            <div class="admin-bids-mobile-project">{{ $bid->project?->title ?? 'N/A' }}</div>
-
-                            <div class="admin-bids-mobile-grid">
-                                <div class="admin-bids-mobile-item">
-                                    <span>Bid Amount</span>
-                                    <strong>&#8369;{{ number_format($amount, 2) }}</strong>
-                                </div>
-                                <div class="admin-bids-mobile-item">
-                                    <span>Budget</span>
-                                    <strong class="admin-bids-secondary-value">&#8369;{{ number_format($budget, 2) }}</strong>
-                                </div>
-                                <div class="admin-bids-mobile-item">
-                                    <span>Variance</span>
-                                    <strong style="color: {{ $varianceColor }};">{{ is_null($variance) ? 'N/A' : number_format($variance, 1) . '%' }}</strong>
-                                </div>
-                                <div class="admin-bids-mobile-item">
-                                    <span>Submitted</span>
-                                    <strong>{{ $bid->created_at?->format('Y-m-d') }}</strong>
-                                </div>
-                            </div>
-
-                            <div class="admin-bids-mobile-links">
-                                @if($bid->proposal_url)
-                                    <a href="{{ route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'proposal']) }}" target="_blank" rel="noopener" class="admin-bids-inline-link admin-bids-proposal-link">
-                                        <i class="fas fa-file-lines" aria-hidden="true"></i>
-                                        <span>View proposal</span>
-                                    </a>
-                                @else
-                                    <span class="admin-bids-muted-copy">No proposal uploaded</span>
-                                @endif
-
-                                @if($certificateProofUrl)
-                                    <a href="{{ $certificateProofUrl }}" target="_blank" rel="noopener" class="admin-bids-inline-link">View certificate proof</a>
-                                @else
-                                    <span class="admin-bids-muted-copy">No certificate proof uploaded</span>
-                                @endif
-                            </div>
-
-                            <div class="admin-bids-actions admin-bids-mobile-actions">
-                                <button type="button" onclick="loadBidViewModal({{ $bid->id }})" class="admin-bids-btn admin-bids-btn-secondary">
-                                    <i class="fas fa-eye" aria-hidden="true"></i>
-                                    <span>Details</span>
-                                </button>
-                                @if($bid->status === 'pending')
-                                    <form action="{{ route('admin.bid.approve', $bid) }}" method="POST">
-                                        @csrf
-                                        @method('PATCH')
-                                        <button type="submit" class="admin-bids-btn admin-bids-btn-approve">Approve</button>
-                                    </form>
-                                    <form action="{{ route('admin.bid.reject', $bid) }}" method="POST">
-                                        @csrf
-                                        @method('PATCH')
-                                        <button type="submit" class="admin-bids-btn admin-bids-btn-reject">Reject</button>
-                                    </form>
-                                @endif
-                            </div>
-                        </article>
-                    @empty
-                        <div class="admin-bids-empty admin-bids-empty-mobile">
-                            <i class="fas fa-gavel"></i>
-                            No bids found for this search/filter.
-                        </div>
-                    @endforelse
-                </div>
+                @if($rankedProject)
+                    @include('admin.partials.bid-ranking')
+                @endif
+                @include('admin.partials.bid-table')
             </section>
         </main>
     </div>
 </div>
 
 <div id="bidViewModal" class="admin-bid-modal-overlay" aria-hidden="true">
-    <div class="admin-bid-modal-dialog" role="dialog" aria-modal="true" aria-label="Bid details">
+    <div class="admin-bid-modal-dialog" role="dialog" aria-modal="true" aria-label="Bid submission details" tabindex="-1">
         <button type="button" onclick="closeBidViewModal()" class="admin-bid-modal-close" aria-label="Close bid details">&times;</button>
         <div id="bidViewModalBody"></div>
     </div>
 </div>
 
-<script>
-    function loadBidViewModal(id) {
-        const modal = document.getElementById('bidViewModal');
-        modal.classList.add('show');
-        modal.setAttribute('aria-hidden', 'false');
-        document.body.classList.add('admin-bid-modal-open');
-        document.getElementById('bidViewModalBody').innerHTML = '<div class="admin-bid-modal-loading">Loading bid details...</div>';
+<div id="bidExportModal" class="bid-export-modal-overlay" hidden aria-hidden="true">
+    <div class="bid-export-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="bidExportTitle" tabindex="-1">
+        <header class="bid-export-modal-header">
+            <div>
+                <p class="bid-export-eyebrow">Bid management</p>
+                <h2 id="bidExportTitle">Export bids</h2>
+            </div>
+            <button type="button" class="bid-export-close" data-close-export-modal aria-label="Close export dialog">&times;</button>
+        </header>
 
-        fetch(`/admin/bids/${id}`, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-            .then(response => response.text())
-            .then(html => {
-                document.getElementById('bidViewModalBody').innerHTML = html;
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                document.getElementById('bidViewModalBody').innerHTML = '<div class="admin-bid-modal-error">Error loading bid details.</div>';
-            });
-    }
+        <div class="bid-export-modal-body">
+            <p class="bid-export-total" data-export-total></p>
 
-    function closeBidViewModal() {
-        const modal = document.getElementById('bidViewModal');
-        modal.classList.remove('show');
-        modal.setAttribute('aria-hidden', 'true');
-        document.body.classList.remove('admin-bid-modal-open');
-        document.getElementById('bidViewModalBody').innerHTML = '';
-    }
+            <section class="bid-export-filter-section" aria-labelledby="bidExportFilterTitle">
+                <div class="bid-export-section-label-row">
+                    <h3 id="bidExportFilterTitle">Filter by status</h3>
+                    <span class="bid-export-filter-help">All selected</span>
+                </div>
+                <div class="bid-export-status-chips" data-export-status-chips role="group" aria-label="Export status filters"></div>
+            </section>
 
-    function closeSuccessAlert() {
-        const alert = document.getElementById('successAlert');
-        if (alert) {
-            alert.style.display = 'none';
-        }
-    }
+            <p class="bid-export-summary" data-export-summary aria-live="polite"></p>
+            <p class="bid-export-warning" data-export-warning role="status" hidden>
+                <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+                <span></span>
+            </p>
 
-    document.getElementById('bidViewModal').addEventListener('click', function(e) {
-        if (e.target === this) {
-            closeBidViewModal();
-        }
-    });
+            <section class="bid-export-preview-section" aria-labelledby="bidExportPreviewTitle">
+                <div class="bid-export-section-label-row">
+                    <h3 id="bidExportPreviewTitle">Preview</h3>
+                    <span class="bid-export-preview-count" data-export-preview-count></span>
+                </div>
+                <div class="bid-export-preview-frame">
+                    <table class="bid-export-preview-table">
+                        <thead>
+                            <tr><th scope="col">Bidder</th><th scope="col" class="is-numeric">Bid Amount</th><th scope="col">Status</th></tr>
+                        </thead>
+                        <tbody data-export-preview-body></tbody>
+                    </table>
+                    <p class="bid-export-empty" data-export-empty hidden>No bids match the selected statuses.</p>
+                </div>
+            </section>
+        </div>
 
-    document.addEventListener('DOMContentLoaded', function() {
-        const successAlert = document.getElementById('successAlert');
-        if (successAlert) {
-            setTimeout(function() {
-                successAlert.style.transition = 'opacity 0.5s ease';
-                successAlert.style.opacity = '0';
-                setTimeout(function() {
-                    successAlert.style.display = 'none';
-                }, 500);
-            }, 5000);
-        }
-    });
-</script>
+        <footer class="bid-export-modal-footer">
+            <button type="button" class="bid-export-button bid-export-button-secondary" data-close-export-modal>Cancel</button>
+            <button type="button" class="bid-export-button bid-export-button-primary" data-confirm-export disabled>Confirm export</button>
+        </footer>
+    </div>
+</div>
+
+<script type="application/json" id="bidExportRows">@json($exportRows ?? [])</script>
+<div id="bidExportToastRegion" class="bid-export-toast-region" aria-live="polite" aria-atomic="true"></div>

@@ -12,108 +12,58 @@
         <section
             class="home-page-hero"
             data-home-reveal="up"
-            style="background-image: linear-gradient(180deg, rgba(2, 6, 23, 0.15) 0%, rgba(2, 6, 23, 0.35) 50%, rgba(2, 6, 23, 0.6) 100%), radial-gradient(circle at 30% 50%, rgba(59, 130, 246, 0.12) 0%, transparent 50%), radial-gradient(circle at 70% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 50%), url('{{ asset('Images/image-background.png') }}');"
         >
             <div class="home-hero-copy">
-                <p class="home-hero-kicker">SAN JOSE Occidental Mindoro</p>
-                <h1>Bids and Awards Committee Portal</h1>
+                <p class="home-hero-republic">Republic of the Philippines</p>
+                <p class="home-hero-kicker">SAN JOSE, OCCIDENTAL MINDORO</p>
+                <h1>Bids and Awards Committee Procurement Portal</h1>
                 <p class="home-hero-lead">
-                    Ensuring transparency, accountability, and efficiency in public 
+                    Ensuring transparency, accountability, and efficiency in public procurement.
                 </p>
 
                 <div class="home-hero-actions">
                     <a href="{{ route('public.procurement') }}" class="btn">Browse Procurement</a>
                     <a href="{{ route('public.awards') }}" class="btn btn-outline">View Awards</a>
                 </div>
+
+                <dl class="home-hero-stats">
+                    <div class="home-hero-stat">
+                        <strong>{{ number_format($openProjectsCount ?? 0) }}</strong>
+                        <span>Open Biddings</span>
+                    </div>
+                    <div class="home-hero-stat">
+                        <strong>{{ number_format($awardedContractsCount ?? 0) }}</strong>
+                        <span>Awarded Contracts</span>
+                    </div>
+                    <div class="home-hero-stat">
+                        <strong>{{ number_format($publicProjectsCount ?? 0) }}</strong>
+                        <span>Published Projects</span>
+                    </div>
+                </dl>
             </div>
         </section>
 
         <div class="home-content-shell">
-            <section class="home-quick-links" data-home-reveal="up" aria-label="Quick links">
-                <a href="{{ route('public.procurement') }}" class="home-quick-link">
-                    <span>Procurement</span>
-                    <strong>Projects & bidding files</strong>
-                </a>
-
-                <a href="{{ route('public.awards') }}" class="home-quick-link">
-                    <span>Awards</span>
-                    <strong>Contracts and winning bidders</strong>
-                </a>
-
-                <a href="{{ url('/about') }}" class="home-quick-link">
-                    <span>About BAC</span>
-                    <strong>Mandate and legal basis</strong>
-                </a>
-
-                <a href="{{ url('/contact') }}" class="home-quick-link">
-                    <span>Contact</span>
-                    <strong>BAC Office assistance</strong>
-                </a>
-
-                <button type="button" class="home-quick-link home-quick-link-button" onclick="openLogin(); switchTab('register');">
-                    <span>Bidder Portal</span>
-                    <strong>Login or register</strong>
-                </button>
-            </section>
-
-            {{-- Rated BAC & Performance Feature --}}
-            <section class="home-section" data-home-reveal="up">
-                <div class="home-section-header">
+            <section class="public-detail-card home-slider-panel" data-home-reveal="up">
+                <div class="home-slider-header">
                     <div>
-                        <p class="public-page-kicker">Transparency & Performance</p>
-                        <h2>Rated BAC Metrics</h2>
-                        <p>Monitoring the integrity and efficiency of procurement activities through data-driven ratings.</p>
+                        <p class="public-page-kicker">Office Highlights</p>
+                        <h2>SJBAC activity slider</h2>
+                        <p>
+                            Browse documented office activity, procurement events, and SJBAC visual highlights.
+                        </p>
                     </div>
                 </div>
 
-                <div class="home-stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem;">
-                    <article class="home-stat-card">
-                        <span style="color: #64748b; font-weight: 600;">Committee Rating</span>
-                        <strong>4.9 / 5.0</strong>
-                        <div class="bac-rating-stars" style="color: #fbbf24; margin-top: 5px;">★★★★★</div>
-                        <p style="font-size: 0.85rem; margin-top: 8px; color: #cbd5e1;">Procurement Cycle Efficiency</p>
-                    </article>
+                <div class="carousel-container">
+                    <button type="button" class="carousel-btn left" aria-label="Previous slide">&lsaquo;</button>
 
-                    <article class="home-stat-card">
-                        <span style="color: #64748b; font-weight: 600;">Bidder Compliance</span>
-                        <strong>94.2%</strong>
-                        <p style="font-size: 0.85rem; margin-top: 8px; color: #cbd5e1;">Average Documentation Accuracy</p>
-                    </article>
+                    <div class="carousel-frame">
+                        <img id="carouselImage" src="{{ asset('Images/slider1.png') }}" alt="SJBAC activity highlights">
+                    </div>
 
-                    <article class="home-stat-card">
-                        <span style="color: #64748b; font-weight: 600;">Award Transparency</span>
-                        <strong>100%</strong>
-                        <p style="font-size: 0.85rem; margin-top: 8px; color: #cbd5e1;">Public Posting Compliance</p>
-                    </article>
-
-                    <article class="home-stat-card">
-                        <span style="color: #64748b; font-weight: 600;">Reliability Index</span>
-                        <strong>High</strong>
-                        <p style="font-size: 0.85rem; margin-top: 8px; color: #cbd5e1;">Verified Contract Completion</p>
-                    </article>
+                    <button type="button" class="carousel-btn right" aria-label="Next slide">&rsaquo;</button>
                 </div>
-            </section>
-
-            <section class="home-stats-grid" data-home-reveal="up" aria-label="Procurement summary">
-                <article class="home-stat-card">
-                    <span>Public Projects</span>
-                    <strong>{{ number_format($publicProjectsCount ?? 0) }}</strong>
-                </article>
-
-                <article class="home-stat-card">
-                    <span>Open Opportunities</span>
-                    <strong>{{ number_format($openProjectsCount ?? 0) }}</strong>
-                </article>
-
-                <article class="home-stat-card">
-                    <span>Awarded Contracts</span>
-                    <strong>{{ number_format($awardedContractsCount ?? 0) }}</strong>
-                </article>
-
-                <article class="home-stat-card">
-                    <span>Total Awarded Value</span>
-                    <strong>P{{ number_format((float) ($totalAwardedValue ?? 0), 2) }}</strong>
-                </article>
             </section>
 
             <section class="home-section" data-home-reveal="up">
@@ -130,7 +80,7 @@
                 <div class="home-procurement-grid">
                     @forelse(($latestProjects ?? collect()) as $project)
                         @php
-                            $projectDocuments = $project->uploadedDocuments();
+                            $projectDocuments = $project->publicDocuments();
                         @endphp
 
                         <article class="home-procurement-card">
@@ -205,7 +155,7 @@
                             @endphp
 
                             <div class="home-award-item">
-                                <span>{{ $award->contract_date?->format('M d, Y') ?? 'TBA' }}</span>
+                                <span>{{ $award->awardDate()?->format('M d, Y') ?? 'TBA' }}</span>
                                 <strong>{{ $award->project?->title ?? 'Untitled Project' }}</strong>
                                 <p>{{ $winner }} · P{{ number_format((float) $award->contract_amount, 2) }}</p>
                             </div>
@@ -271,33 +221,11 @@
                 </div>
             </section>
 
-            <section class="public-detail-card home-slider-panel" data-home-reveal="up">
-                <div class="home-slider-header">
-                    <div>
-                        <p class="public-page-kicker">Office Highlights</p>
-                        <h2>BAC-Office activity slider</h2>
-                        <p>
-                            Browse documented office activity, procurement events, and BAC-Office visual highlights.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="carousel-container">
-                    <button type="button" class="carousel-btn left" aria-label="Previous slide">&lsaquo;</button>
-
-                    <div class="carousel-frame">
-                        <img id="carouselImage" src="{{ asset('Images/slider1.png') }}" alt="BAC Office activity highlights">
-                    </div>
-
-                    <button type="button" class="carousel-btn right" aria-label="Next slide">&rsaquo;</button>
-                </div>
-            </section>
-
             <section class="home-contact-strip" data-home-reveal="up">
                 <div>
-                    <p class="public-page-kicker">Contact BAC Office</p>
+                    <p class="public-page-kicker">Contact SJBAC</p>
                     <h2>Need procurement assistance?</h2>
-                    <p>BAC Office, Municipal Government of San Jose, Occidental Mindoro</p>
+                    <p>SJBAC, Municipal Government of San Jose, Occidental Mindoro</p>
                 </div>
 
                 <div class="home-contact-actions">

@@ -139,6 +139,27 @@ class Uploads
         return filled($path) ? basename($path) : null;
     }
 
+    public static function size(?string $path): ?int
+    {
+        if (! filled($path) || filter_var($path, FILTER_VALIDATE_URL)) {
+            return null;
+        }
+
+        try {
+            if (static::isLegacyPublicPath($path)) {
+                $fullPath = public_path($path);
+
+                return is_file($fullPath) ? (int) filesize($fullPath) : null;
+            }
+
+            $disk = static::disk();
+
+            return $disk->exists($path) ? (int) $disk->size($path) : null;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
     public static function extension(?string $path, ?string $originalName = null): ?string
     {
         $source = filled($originalName) ? $originalName : $path;

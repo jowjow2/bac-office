@@ -4,8 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Mail\LoginVerificationCodeMail;
 use App\Mail\PasswordResetCodeMail;
+use App\Mail\BidderIncompleteRequirementsMail;
+use App\Models\BidderDocument;
+use App\Models\Project;
 use App\Models\User;
+use App\Support\BidderRegistrationRequirements;
 use App\Support\SystemNotification;
+use App\Support\Uploads;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,10 +22,13 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 use Throwable;
 
 class AuthController extends Controller
 {
+    protected const PASSWORD_RESET_CODE_TTL_SECONDS = 180;
+
     protected function authResponse(
         Request $request,
         bool $ok,
@@ -55,6 +63,31 @@ class AuthController extends Controller
 
     public function showLoginPage(Request $request)
     {
+        $scannedProjectId = $request->query('qr_project');
+        $project = $scannedProjectId && ctype_digit((string) $scannedProjectId) && Schema::hasTable('projects')
+            ? Project::query()->visibleToPublic()->find((int) $scannedProjectId)
+            : null;
+
+        // "Login to Participate" / project QR: a bidder goes to that project; anyone
+        // else (guest, or signed in as BAC/End-user) sees the login modal first.
+        if ($project) {
+            $user = Auth::user();
+
+            if ($user?->role === 'bidder') {
+                return redirect()->to($this->participationUrl($project));
+            }
+
+            $request->session()->put('participation_project_id', $project->id);
+
+            return redirect()
+                ->route('home')
+                ->with('auth_tab', 'login')
+                ->with('scanned_project_title', $project->title)
+                ->with('scanned_project_reference', $project->reference_no)
+                ->with('scanned_project_category', $project->category ? (string) Str::of($project->category)->replace('_', ' ')->title() : 'Uncategorized')
+                ->with('scanned_project_signed_in_as', $user ? $this->roleLabel($user) : null);
+        }
+
         if (Auth::check()) {
             return redirect()->to($this->redirectForUser(Auth::user()));
         }
@@ -62,6 +95,40 @@ class AuthController extends Controller
         return redirect()
             ->route('home')
             ->with('auth_tab', (string) $request->query('auth_tab', 'login'));
+    }
+
+    /** Where a bidder goes to take part in a scanned project: its bid page while it is open. */
+    protected function participationUrl(Project $project): string
+    {
+        return $project->status === 'open'
+            ? route('bidder.opportunities.show', $project)
+            : route('public.procurement.show', $project);
+    }
+
+    /** After login: a bidder who started from "Login to Participate" returns to that project. */
+    protected function redirectAfterLogin(Request $request, User $user): string
+    {
+        $projectId = $request->session()->pull('participation_project_id');
+
+        if ($user->role === 'bidder' && $projectId && Schema::hasTable('projects')) {
+            $project = Project::query()->visibleToPublic()->find($projectId);
+
+            if ($project) {
+                return $this->participationUrl($project);
+            }
+        }
+
+        return $this->redirectForUser($user);
+    }
+
+    protected function roleLabel(User $user): string
+    {
+        return match ($user->role) {
+            'admin' => 'BAC Admin',
+            'staff' => 'BAC Staff',
+            'end_user' => 'End-user office',
+            default => ucfirst((string) $user->role),
+        };
     }
 
     public function register(Request $request)
@@ -81,11 +148,42 @@ class AuthController extends Controller
             'role' => strtolower(trim((string) $request->input('role', 'bidder'))),
             'name' => trim((string) $request->name),
             'company' => trim((string) $request->company),
+            'contact_person' => trim((string) $request->contact_person),
+            'contact_number' => trim((string) $request->contact_number),
+            'business_address' => trim((string) $request->business_address),
             'office' => trim((string) $request->office),
             'registration_no' => trim((string) $request->registration_no),
         ]);
 
-        $validator = Validator::make($request->all(), [
+        $missingRegistrationRequirements = [];
+
+        if ($request->input('role') === 'bidder') {
+            foreach (BidderRegistrationRequirements::documents() as $key => $document) {
+                if (($document['required'] ?? false) && ! $request->hasFile("registration_documents.{$key}")) {
+                    $missingRegistrationRequirements[] = $document['label'];
+                }
+            }
+        }
+
+        $documentRules = [];
+        $documentMessages = [];
+
+        foreach (BidderRegistrationRequirements::documents() as $key => $document) {
+            $documentRules["registration_documents.{$key}"] = [
+                Rule::excludeIf($request->input('role') !== 'bidder'),
+                ($document['required'] ?? false) ? 'required' : 'nullable',
+                'file',
+                'mimes:' . BidderRegistrationRequirements::FILE_EXTENSIONS,
+                'max:20480',
+            ];
+
+            $documentMessages["registration_documents.{$key}.required"] = $document['label'] . ' must be uploaded.';
+            $documentMessages["registration_documents.{$key}.file"] = $document['label'] . ' must be a valid file.';
+            $documentMessages["registration_documents.{$key}.mimes"] = $document['label'] . ' must be a PDF, JPG, JPEG, or PNG file.';
+            $documentMessages["registration_documents.{$key}.max"] = $document['label'] . ' must not be larger than 20 MB.';
+        }
+
+        $validator = Validator::make($request->all(), array_merge([
             'role' => ['required', Rule::in(['bidder', 'staff'])],
             'name' => [
                 Rule::excludeIf($request->input('role') !== 'staff'),
@@ -99,8 +197,26 @@ class AuthController extends Controller
                 'string',
                 'max:255',
             ],
+            'contact_person' => [
+                Rule::excludeIf($request->input('role') !== 'bidder'),
+                'required',
+                'string',
+                'max:255',
+            ],
+            'contact_number' => [
+                Rule::excludeIf($request->input('role') !== 'bidder'),
+                'required',
+                'string',
+                'regex:/^[0-9+\-\s()]{7,15}$/',
+            ],
+            'business_address' => [
+                Rule::excludeIf($request->input('role') !== 'bidder'),
+                'required',
+                'string',
+                'max:1000',
+            ],
             'email' => ['required', 'email'],
-            'password' => ['required', 'min:6'],
+            'password' => ['required', 'string', PasswordRule::min(8)->mixedCase()->numbers()->symbols()],
             'office' => [
                 Rule::excludeIf($request->input('role') !== 'staff'),
                 'required',
@@ -114,21 +230,43 @@ class AuthController extends Controller
                 'string',
                 'max:255',
             ],
-        ], [
+        ], $documentRules), array_merge([
             'role.required' => 'Account type is required.',
             'role.in' => 'Please select a valid account type.',
             'name.required' => 'Name is required for staff registration.',
             'company.required' => 'Company is required.',
+            'contact_person.required' => 'Contact person is required.',
+            'contact_number.required' => 'Contact number is required.',
+            'contact_number.regex' => 'Enter a valid contact number (7-15 digits, e.g. 09171234567).',
+            'business_address.required' => 'Business address is required.',
             'email.required' => 'Email is required.',
             'email.email' => 'Please enter a valid email address.',
             'password.required' => 'Password is required.',
-            'password.min' => 'Password must be at least 6 characters.',
+            'password.min' => 'Password must be at least 8 characters.',
+            'password.mixed' => 'Password must include uppercase and lowercase letters.',
+            'password.numbers' => 'Password must include at least one number.',
+            'password.symbols' => 'Password must include at least one special character.',
             'office.required' => 'Office is required for staff registration.',
             'office.in' => 'Please select a valid staff office.',
             'registration_no.required' => 'Registration number is required.',
-        ]);
+        ], $documentMessages));
 
         if ($validator->fails()) {
+            $registrationRequirementIssues = $missingRegistrationRequirements;
+
+            if ($request->input('role') === 'bidder') {
+                foreach (BidderRegistrationRequirements::documents() as $key => $document) {
+                    if ($validator->errors()->has("registration_documents.{$key}")) {
+                        $registrationRequirementIssues[] = $document['label'];
+                    }
+                }
+            }
+
+            $this->sendIncompleteBidderRequirementsEmail(
+                $request,
+                array_values(array_unique($registrationRequirementIssues))
+            );
+
             return $this->authResponse(
                 $request,
                 false,
@@ -167,23 +305,95 @@ class AuthController extends Controller
                 ]
             );
         } else {
-            User::create([
-                'name' => $request->company,
-                'company' => $request->company,
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
-                'registration_no' => $request->registration_no,
-                'role' => 'bidder',
-                'status' => 'pending',
-            ]);
+            if (! Schema::hasTable('bidders') || ! Schema::hasTable('bidder_documents')) {
+                return $this->authResponse(
+                    $request,
+                    false,
+                    'Bidder registration is temporarily unavailable because the bidder review tables are not ready yet.',
+                    'register',
+                    503
+                );
+            }
 
-            SystemNotification::createForRole(
-                'admin',
-                'New bidder registration',
-                $request->company . ' registration is pending approval.',
-                'bidder_registration',
-                ['email' => $request->email]
-            );
+            $storedPaths = [];
+
+            try {
+                DB::beginTransaction();
+
+                $user = User::create([
+                    'name' => $request->contact_person,
+                    'company' => $request->company,
+                    'email' => $request->email,
+                    'password' => Hash::make($request->password),
+                    'registration_no' => $request->registration_no,
+                    'role' => 'bidder',
+                    'status' => 'pending',
+                ]);
+
+                $bidder = $user->bidderProfile()->create([
+                    'company_name' => $request->company,
+                    'contact_person' => $request->contact_person,
+                    'contact_number' => $request->contact_number,
+                    'business_address' => $request->business_address,
+                    'approval_status' => 'pending',
+                ]);
+
+                $primaryDocumentPath = null;
+
+                foreach (BidderRegistrationRequirements::documents() as $key => $document) {
+                    $file = $request->file("registration_documents.{$key}");
+
+                    if (! $file) {
+                        continue;
+                    }
+
+                    $filename = 'registration_' . $user->id . '_' . $key . '_' . Str::random(12) . '.' . strtolower($file->getClientOriginalExtension());
+                    $storedPath = Uploads::store($file, 'bidder-registration-documents/' . $user->id, $filename);
+                    $storedPaths[] = $storedPath;
+                    $primaryDocumentPath ??= $storedPath;
+
+                    BidderDocument::create([
+                        'user_id' => $user->id,
+                        'document_type' => $document['document_type'],
+                        'original_name' => $file->getClientOriginalName(),
+                        'file_path' => $storedPath,
+                        'status' => 'uploaded',
+                        'uploaded_at' => now(),
+                    ]);
+                }
+
+                if ($primaryDocumentPath) {
+                    $bidder->forceFill(['document_path' => $primaryDocumentPath])->save();
+                }
+
+                SystemNotification::createForRole(
+                    'admin',
+                    'New bidder registration',
+                    $request->company . ' registration is pending approval.',
+                    'bidder_registration',
+                    ['email' => $request->email, 'user_id' => $user->id]
+                );
+
+                DB::commit();
+            } catch (Throwable $e) {
+                if (DB::transactionLevel() > 0) {
+                    DB::rollBack();
+                }
+
+                foreach ($storedPaths as $path) {
+                    Uploads::delete($path);
+                }
+
+                report($e);
+
+                return $this->authResponse(
+                    $request,
+                    false,
+                    'Registration could not be completed. Please check the uploaded files and try again.',
+                    'register',
+                    500
+                );
+            }
         }
 
         return $this->authResponse(
@@ -224,7 +434,10 @@ class AuthController extends Controller
             return $this->authResponse($request, false, $validator->errors()->first(), 'login', 422, null, $validator->errors()->toArray());
         }
 
-        $user = User::where('email', $request->email)->first();
+        $user = User::query()
+            ->when(Schema::hasTable('bidders'), fn ($query) => $query->with('bidderProfile'))
+            ->where('email', $request->email)
+            ->first();
 
         if (! $user) {
             return $this->authResponse($request, false, 'No account found with that email. Please register first.', 'login', 422, null, [
@@ -238,8 +451,8 @@ class AuthController extends Controller
             ]);
         }
 
-        if ($user->status !== 'active') {
-            return $this->authResponse($request, false, 'Your account already exists but is not active yet. Please wait for admin approval.', 'login', 422);
+        if ($user->status === 'rejected' || ($user->role === 'bidder' && ! $user->canLoginAsBidder()) || ($user->role !== 'bidder' && $user->status !== 'active')) {
+            return $this->authResponse($request, false, $this->accountUnavailableMessage($user), 'login', 422);
         }
 
         if ($user->role === 'bidder') {
@@ -248,7 +461,7 @@ class AuthController extends Controller
             return $this->authResponse(
                 $request,
                 true,
-                'Verification code sent to your Gmail account. Please enter the code to continue.',
+                'Verification code sent to your email. Please enter the code to continue.',
                 'verify',
                 200,
                 null,
@@ -269,7 +482,7 @@ class AuthController extends Controller
             'Login successful.',
             'login',
             200,
-            $this->redirectForUser($user)
+            $this->redirectAfterLogin($request, $user)
         );
     }
 
@@ -281,9 +494,11 @@ class AuthController extends Controller
             return $this->authResponse($request, false, 'Please sign in again to request a new verification code.', 'login', 422);
         }
 
-        $user = User::find($pending['user_id']);
+        $user = User::query()
+            ->when(Schema::hasTable('bidders'), fn ($query) => $query->with('bidderProfile'))
+            ->find($pending['user_id']);
 
-        if (! $user || $user->role !== 'bidder' || $user->status !== 'active') {
+        if (! $user || $user->role !== 'bidder' || ! $user->canLoginAsBidder()) {
             $request->session()->forget('bidder_login_verification');
 
             return $this->authResponse($request, false, 'Your bidder account is not available for login.', 'login', 422);
@@ -294,7 +509,7 @@ class AuthController extends Controller
         return $this->authResponse(
             $request,
             true,
-            'New verification code sent to your Gmail account.',
+            'New verification code sent to your email.',
             'verify',
             200,
             null,
@@ -337,9 +552,11 @@ class AuthController extends Controller
             ]);
         }
 
-        $user = User::find($pending['user_id']);
+        $user = User::query()
+            ->when(Schema::hasTable('bidders'), fn ($query) => $query->with('bidderProfile'))
+            ->find($pending['user_id']);
 
-        if (! $user || $user->role !== 'bidder' || $user->status !== 'active') {
+        if (! $user || $user->role !== 'bidder' || ! $user->canLoginAsBidder()) {
             $request->session()->forget('bidder_login_verification');
 
             return $this->authResponse($request, false, 'Your bidder account is not available for login.', 'login', 422);
@@ -357,7 +574,7 @@ class AuthController extends Controller
             'Login successful.',
             'verify',
             200,
-            $this->redirectForUser($user)
+            $this->redirectAfterLogin($request, $user)
         );
     }
 
@@ -404,20 +621,56 @@ class AuthController extends Controller
 
         $code = (string) random_int(100000, 999999);
 
-        DB::table('password_reset_tokens')->updateOrInsert(
-            ['email' => $request->email],
-            [
-                'token' => Hash::make($code),
-                'created_at' => now(),
-            ]
-        );
+        try {
+            DB::table('password_reset_tokens')->updateOrInsert(
+                ['email' => $request->email],
+                [
+                    'token' => Hash::make($code),
+                    'created_at' => now(),
+                ]
+            );
+        } catch (Throwable $e) {
+            report($e);
 
-        Mail::to($user->email)->send(new PasswordResetCodeMail($user, $code));
+            return $this->authResponse($request, false, 'We could not prepare the password reset code right now. Please try again later or contact the SJBAC admin.', 'forgot', 503);
+        }
+
+        try {
+            Mail::to($user->email)->send(new PasswordResetCodeMail($user, $code, self::PASSWORD_RESET_CODE_TTL_SECONDS));
+        } catch (Throwable $e) {
+            if (app()->isLocal() || config('app.env') === 'local') {
+                return $this->authResponse(
+                    $request,
+                    true,
+                    'Password reset email could not be sent, so here is your local test code: ' . $code,
+                    'forgot_verify',
+                    200,
+                    null,
+                    [],
+                    [
+                        'requires_password_code' => true,
+                        'email' => $user->email,
+                        'password_code_expires_in' => self::PASSWORD_RESET_CODE_TTL_SECONDS,
+                        'dev_password_reset_code' => $code,
+                    ]
+                );
+            }
+
+            report($e);
+
+            try {
+                DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+            } catch (Throwable $cleanupError) {
+                report($cleanupError);
+            }
+
+            return $this->authResponse($request, false, 'We could not send the password reset code right now. Please try again later or contact the SJBAC admin.', 'forgot', 503);
+        }
 
         return $this->authResponse(
             $request,
             true,
-            'Password reset code sent to your Gmail account.',
+            'Password reset code sent to your email.',
             'forgot_verify',
             200,
             null,
@@ -425,6 +678,7 @@ class AuthController extends Controller
             [
                 'requires_password_code' => true,
                 'email' => $user->email,
+                'password_code_expires_in' => self::PASSWORD_RESET_CODE_TTL_SECONDS,
             ]
         );
     }
@@ -461,10 +715,14 @@ class AuthController extends Controller
             ]);
         }
 
-        if (! $reset->created_at || now()->diffInMinutes($reset->created_at) > 10) {
+        if (! $reset->created_at || \Illuminate\Support\Carbon::parse($reset->created_at)->addSeconds(self::PASSWORD_RESET_CODE_TTL_SECONDS)->isPast()) {
             DB::table('password_reset_tokens')->where('email', $request->email)->delete();
 
-            return $this->authResponse($request, false, 'Verification code expired. Please request a new code.', 'forgot', 422);
+            return $this->authResponse($request, false, 'Verification code expired. Please request a new code.', 'forgot_verify', 422, null, [
+                'code' => ['Verification code expired. Please request a new code.'],
+            ], [
+                'password_code_expired' => true,
+            ]);
         }
 
         $request->session()->put('verified_password_reset_email', $request->email);
@@ -615,6 +873,7 @@ class AuthController extends Controller
         return match ($user->role) {
             'admin' => route('admin.dashboard'),
             'staff' => route('staff.dashboard'),
+            'end_user' => route('end-user.dashboard'),
             default => route('bidder.dashboard'),
         };
     }
@@ -643,6 +902,56 @@ class AuthController extends Controller
         event(new PasswordReset($user));
     }
 
+    protected function accountUnavailableMessage(User $user): string
+    {
+        if ($user->role === 'bidder') {
+            $profile = null;
+
+            if (Schema::hasTable('bidders')) {
+                $profile = $user->relationLoaded('bidderProfile')
+                    ? $user->bidderProfile
+                    : $user->bidderProfile()->first();
+            }
+
+            if ($user->status === 'rejected' || $profile?->approval_status === 'rejected') {
+                $reason = trim((string) ($profile?->rejection_reason ?? ''));
+
+                return $reason !== ''
+                    ? 'Your bidder registration was rejected. Reason: ' . $reason
+                    : 'Your bidder registration was rejected by the SJBAC.';
+            }
+
+            return 'Your bidder registration is pending admin approval.';
+        }
+
+        if ($user->status === 'rejected') {
+            return 'Your account registration was rejected by the administrator.';
+        }
+
+        return 'Your account already exists but is not active yet. Please wait for admin approval.';
+    }
+
+
+    protected function sendIncompleteBidderRequirementsEmail(Request $request, array $missingRequirements): void
+    {
+        if (
+            $request->input('role') !== 'bidder'
+            || $missingRequirements === []
+            || ! filter_var($request->input('email'), FILTER_VALIDATE_EMAIL)
+        ) {
+            return;
+        }
+
+        try {
+            Mail::to($request->input('email'))->send(new BidderIncompleteRequirementsMail(
+                bidderName: (string) ($request->input('contact_person') ?: $request->input('company') ?: 'Bidder'),
+                companyName: (string) ($request->input('company') ?: 'your company'),
+                missingRequirements: $missingRequirements,
+            ));
+        } catch (Throwable $e) {
+            report($e);
+        }
+    }
 
     protected function authTablesAvailable(): bool
     {

@@ -83,11 +83,11 @@ it('shows certificate proof links on the admin dashboard', function () {
         ->actingAs($admin)
         ->get(route('admin.dashboard'));
 
+    // The overview lists registrations waiting for review with their PhilGEPS certificate;
+    // a bid's certificate proof is opened from bid review.
     $response->assertOk();
-    $response->assertSee('Certificate Proof');
-    $response->assertSee('View Proof');
+    $response->assertSee('Bidder registrations');
     $response->assertSee('View PhilGEPS certificate');
-    $response->assertSee(route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'certificate']), false);
     $response->assertSee('uploads/bidder-documents/pending-certificate.pdf', false);
 });
 
@@ -142,10 +142,19 @@ it('shows the bidder certificate proof in admin bid details', function () {
         ->actingAs($admin)
         ->get(route('admin.bid.view', $bid));
 
-    $response->assertOk();
-    $response->assertSee('Certificate Proof');
-    $response->assertSee('detail-certificate.pdf');
-    $response->assertSee(route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'certificate']), false);
+    // Direct navigation returns to the register, where the modal is opened by the
+    // client. The sealed certificate filename and URL stay out of the redirect.
+    $response->assertRedirect(route('admin.bids', ['view_bid' => $bid->id]));
+
+    $modalResponse = $test
+        ->actingAs($admin)
+        ->get(route('admin.bid.view', $bid), ['X-Requested-With' => 'XMLHttpRequest']);
+
+    $modalResponse->assertOk();
+    $modalResponse->assertSee('Certificate Proof');
+    $modalResponse->assertSee('Received &middot; sealed until bid opening', false);
+    $modalResponse->assertDontSee('detail-certificate.pdf');
+    $modalResponse->assertDontSee(route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'certificate']), false);
 });
 
 it('shows uploaded approved bids on the admin dashboard and filters them in all bids', function () {
@@ -183,8 +192,9 @@ it('shows uploaded approved bids on the admin dashboard and filters them in all 
         'title' => 'Bridge Expansion Project',
         'description' => 'Bridge widening and structural strengthening.',
         'budget' => 3200000,
-        'deadline' => now()->addDays(14),
-        'status' => 'open',
+        'deadline' => now()->subDay(),
+        'status' => 'closed',
+        'bids_opened_at' => now()->subHour(),
     ]);
 
     $approvedBid = Bid::create([
@@ -209,12 +219,9 @@ it('shows uploaded approved bids on the admin dashboard and filters them in all 
         ->actingAs($admin)
         ->get(route('admin.dashboard'));
 
+    // The project appears in the procurement register; its proposals are opened from bid review.
     $dashboardResponse->assertOk();
-    $dashboardResponse->assertSee('Uploaded Approved Bids');
-    $dashboardResponse->assertSee('Approved Builders Co.');
     $dashboardResponse->assertSee('Bridge Expansion Project');
-    $dashboardResponse->assertSee('View Proposal');
-    $dashboardResponse->assertSee(route('admin.bid.document.pdf', ['bid' => $approvedBid, 'document' => 'proposal']), false);
 
     $bidsResponse = $test
         ->actingAs($admin)
@@ -223,7 +230,7 @@ it('shows uploaded approved bids on the admin dashboard and filters them in all 
     $bidsResponse->assertOk();
     $bidsResponse->assertSee('Approved Builders Co.');
     $bidsResponse->assertSee('View proposal');
-    $bidsResponse->assertSee(route('admin.bid.document.pdf', ['bid' => $approvedBid, 'document' => 'proposal']), false);
+    $bidsResponse->assertDontSee('Proposal: Missing');
     $bidsResponse->assertDontSee('Other Builders Co.');
     $bidsResponse->assertDontSee('Missing upload');
 });
@@ -279,11 +286,11 @@ it('shows view docs and edit bid actions in the admin bid modal', function () {
         ->get(route('admin.bid.view', $bid), ['X-Requested-With' => 'XMLHttpRequest']);
 
     $modalResponse->assertOk();
-    $modalResponse->assertSee('View Docs');
-    $modalResponse->assertSee('Edit Bid');
-    $modalResponse->assertSee(route('admin.bid.view', $bid), false);
+    $modalResponse->assertSee('Documents');
+    $modalResponse->assertSee('Internal Notes');
     $modalResponse->assertSee(route('admin.bid.edit', $bid), false);
-    $modalResponse->assertSee(route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'proposal']), false);
+    $modalResponse->assertSee('Submission sealed');
+    $modalResponse->assertDontSee(route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'proposal']), false);
 });
 
 it('streams only the clicked bid document as an inline pdf', function () {
@@ -311,8 +318,10 @@ it('streams only the clicked bid document as an inline pdf', function () {
         'title' => 'Barangay Office Upgrade',
         'description' => 'Interior upgrade and fit-out works.',
         'budget' => 880000,
-        'deadline' => now()->addDays(9),
-        'status' => 'open',
+        // Proposals can be previewed only after the recorded bid opening.
+        'deadline' => now()->subDay(),
+        'status' => 'closed',
+        'bids_opened_at' => now()->subHour(),
     ]);
 
     $bid = Bid::create([

@@ -7,7 +7,7 @@
     <main class="login-page-shell">
         <div class="login-page-grid">
             <section class="login-page-panel">
-                <p class="login-page-kicker">BAC Office Secure Access</p>
+                <p class="login-page-kicker">SJBAC Secure Access</p>
                 <h1>Sign In</h1>
                 <p>Access your account to continue.</p>
 

@@ -173,7 +173,7 @@ return [
 
         'pgsql' => [
             'driver' => 'pgsql',
-            'url' => null,
+            'url' => $pgsqlUrl,
             'host' => $withNeonEndpoint($firstEnv(['POSTGRES_HOST', 'PGHOST', 'DB_HOST'], '127.0.0.1')),
             'port' => $firstEnv(['POSTGRES_PORT', 'PGPORT', 'DB_PORT'], '5432'),
             'database' => $firstEnv(['POSTGRES_DATABASE', 'PGDATABASE', 'DB_DATABASE'], 'laravel'),

@@ -5,16 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Staff Reports</title>
     <style>
-        body { font-family: Arial, sans-serif; color: #0f172a; margin: 32px; }
+        body { font-family: Arial, sans-serif; color: #1b2420; margin: 32px; }
         h1, h2 { margin: 0 0 10px; }
-        p { margin: 0 0 16px; color: #475569; }
+        p { margin: 0 0 16px; color: #4d5a54; }
         .meta { margin-bottom: 24px; font-size: 14px; }
         .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
         .card { border: 1px solid #dbe1ea; border-radius: 12px; padding: 16px; }
         .card strong { display: block; font-size: 24px; margin-bottom: 6px; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
         th, td { border: 1px solid #dbe1ea; padding: 10px 12px; text-align: left; font-size: 14px; }
-        th { background: #f8fafc; }
+        th { background: #faf8f3; }
         @media print { body { margin: 16px; } }
     </style>
 </head>

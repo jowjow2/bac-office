@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Message;
 use App\Models\UserNotification;
 use App\Support\SystemNotification;
 use Illuminate\Http\JsonResponse;
@@ -20,6 +21,7 @@ class NotificationController extends Controller
         return response()->json([
             'ok' => true,
             'unread_count' => SystemNotification::unreadCount($user?->id),
+            'unread_messages_count' => $this->unreadMessagesCount($user?->id),
             'notifications' => SystemNotification::payloads($notifications, $user),
         ]);
     }
@@ -64,5 +66,17 @@ class NotificationController extends Controller
     protected function ensureOwner(UserNotification $notification): void
     {
         abort_unless((int) $notification->user_id === (int) Auth::id(), 403);
+    }
+
+    protected function unreadMessagesCount(?int $userId): int
+    {
+        if (! $userId) {
+            return 0;
+        }
+
+        return Message::query()
+            ->where('recipient_id', $userId)
+            ->whereNull('read_at')
+            ->count();
     }
 }

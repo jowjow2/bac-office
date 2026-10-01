@@ -72,7 +72,26 @@ it('shows message shortcuts in the staff dashboard and sidebar', function () {
     $response->assertSee(route('staff.messages'), false);
     $response->assertSee('Messages');
     $response->assertSee('Contact admin and bidders');
-    $response->assertSee('Open Messages');
+    $response->assertSee('Open messages');
+});
+
+it('shows the staff unread message badge in the sidebar on staff pages', function () {
+    $staff = createMessagingStaff();
+    $admin = createMessagingAdmin();
+
+    Message::create([
+        'sender_id' => $admin->id,
+        'recipient_id' => $staff->id,
+        'body' => 'Please check the bidder response.',
+    ]);
+
+    $response = testCase()
+        ->actingAs($staff)
+        ->get(route('staff.dashboard'));
+
+    $response->assertOk();
+    $response->assertSee('data-message-badge', false);
+    $response->assertSee('>1</span>', false);
 });
 
 it('shows staff message tabs for admin and bidder conversations', function () {
@@ -96,6 +115,17 @@ it('shows staff message tabs for admin and bidder conversations', function () {
         ->get(route('staff.messages', ['tab' => 'bidders']))
         ->assertOk()
         ->assertSee('Message Bidder');
+});
+
+it('shows an empty chat state until a conversation is selected', function () {
+    $staff = createMessagingStaff();
+    createMessagingAdmin();
+
+    testCase()
+        ->actingAs($staff)
+        ->get(route('staff.messages', ['tab' => 'admin']))
+        ->assertOk()
+        ->assertSee('Select a conversation to start messaging.');
 });
 
 it('shows message shortcuts in the admin and bidder dashboards', function () {
@@ -124,7 +154,7 @@ it('shows message shortcuts in the admin and bidder dashboards', function () {
     $bidderResponse->assertSee(route('bidder.messages'), false);
 });
 
-it('lets admins send messages to bidders and creates a bidder notification', function () {
+it('lets admins send messages to bidders without creating a notification', function () {
     $admin = createMessagingAdmin();
     $bidder = createMessagingBidder();
 
@@ -143,9 +173,8 @@ it('lets admins send messages to bidders and creates a bidder notification', fun
         'body' => 'Your registration documents are now under review.',
     ]);
 
-    testCase()->assertDatabaseHas('user_notifications', [
+    testCase()->assertDatabaseMissing('user_notifications', [
         'user_id' => $bidder->id,
-        'title' => 'New message from BAC Office',
         'type' => 'message',
     ]);
 });
@@ -183,15 +212,13 @@ it('lets staff send messages to admins and bidders', function () {
         'body' => 'Please clarify your eligibility attachment.',
     ]);
 
-    testCase()->assertDatabaseHas('user_notifications', [
+    testCase()->assertDatabaseMissing('user_notifications', [
         'user_id' => $admin->id,
-        'title' => 'New staff message',
         'type' => 'message',
     ]);
 
-    testCase()->assertDatabaseHas('user_notifications', [
+    testCase()->assertDatabaseMissing('user_notifications', [
         'user_id' => $bidder->id,
-        'title' => 'New staff message',
         'type' => 'message',
     ]);
 });
@@ -262,9 +289,8 @@ it('lets bidders reply to admins and marks incoming admin messages as read when 
         'body' => 'We uploaded the new permit this afternoon.',
     ]);
 
-    testCase()->assertDatabaseHas('user_notifications', [
+    testCase()->assertDatabaseMissing('user_notifications', [
         'user_id' => $admin->id,
-        'title' => 'New bidder message',
         'type' => 'message',
     ]);
 });

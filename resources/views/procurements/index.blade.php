@@ -35,7 +35,7 @@ Publish
 
 |
 
-<form action="{{ route('admin.project.destroy', $p) }}" method="POST" style="display: inline;" onsubmit="return confirm('Delete this project? This will also remove its bids, awards, and staff assignments.');">
+<form action="{{ route('admin.project.destroy', $p) }}" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this project? This will also remove its bids, awards, and staff assignments. This action cannot be undone.');">
 @csrf
 @method('DELETE')
 <button type="submit" style="background: none; border: none; color: #dc2626; padding: 0; font-size: 14px; cursor: pointer;">Delete</button>

@@ -1,11 +1,11 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 @include('partials.dashboard-viewport')
-<div class="admin-dashboard">
+<div class="admin-dashboard admin-role-page">
     @vite(['resources/css/dashboard.css'])
 
      <style>
          .assignments-ui {
-             font-family: 'Inter', sans-serif;
+             font-family: var(--ui-font);
          }
 
          .assignments-ui .fas,
@@ -21,7 +21,7 @@
          .assignments-ui .far,
          .assignments-ui .fa-solid,
          .assignments-ui .fa-regular {
-             font-weight: 900 !important;
+             font-weight: 700 !important;
          }
 
          .assignments-ui {
@@ -31,23 +31,22 @@
         .assignments-ui .title {
             font-size: 24px;
             font-weight: 600;
-            color: #111827;
+            color: var(--ui-ink);
             margin-bottom: 6px;
         }
 
         .assignments-ui .subtitle,
-        .assignments-ui .nav-left p,
         .assignments-ui .assignment-staff-head p,
         .assignments-ui .assignment-modal-header p {
             font-size: 14px;
-            color: #6b7280;
+            color: var(--ui-muted);
         }
 
         .assignments-ui .assignment-staff-head h2,
         .assignments-ui .assignment-modal-header h3 {
             font-size: 14px;
             font-weight: 600;
-            color: #111827;
+            color: var(--ui-ink);
         }
 
         .assignments-ui .report-date,
@@ -59,9 +58,9 @@
         }
 
         .assignments-ui .field-group label {
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-            color: #6b7280;
+            letter-spacing: normal;
+            text-transform: none;
+            color: var(--ui-muted);
             font-size: 12px;
             font-weight: 600;
         }
@@ -100,60 +99,101 @@
             font-weight: 500;
         }
 
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-staff-head {
+            align-items: center !important;
+            padding: 20px 24px !important;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-staff-head h2 {
+            margin: 0 0 5px !important;
+            color: #0f2b57 !important;
+            font-size: 17px !important;
+            font-weight: 600 !important;
+            line-height: 1.3 !important;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-staff-head p {
+            margin: 0 !important;
+            color: var(--ui-muted) !important;
+            font-size: 13px !important;
+            line-height: 1.45 !important;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-project-strip {
+            min-height: 0 !important;
+            padding: 16px 24px 18px !important;
+            align-items: center !important;
+            background: var(--ui-surface-2) !important;
+            border-top-color: var(--ui-line) !important;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-chip {
+            min-height: 42px !important;
+            padding: 7px 10px 7px 14px !important;
+            border-color: var(--ui-line-strong) !important;
+            border-radius: 10px !important;
+            background: #ffffff !important;
+            box-shadow: 0 2px 6px rgba(27, 36, 32, 0.04) !important;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-chip-title {
+            color: var(--ui-primary-hover) !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-chip form {
+            margin: 0 !important;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-chip-remove {
+            width: 28px !important;
+            height: 28px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 0 !important;
+            border: 1px solid var(--ui-line-strong) !important;
+            border-radius: 999px !important;
+            background: var(--ui-surface-2) !important;
+            color: var(--ui-muted) !important;
+            -webkit-text-fill-color: var(--ui-muted) !important;
+            font-size: 11px !important;
+            line-height: 1 !important;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-chip-remove:hover,
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-chip-remove:focus-visible {
+            border-color: var(--ui-subtle) !important;
+            background: var(--ui-line) !important;
+            color: var(--ui-ink-2) !important;
+            -webkit-text-fill-color: var(--ui-ink-2) !important;
+        }
+
+        @media (max-width: 720px) {
+            body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-staff-head {
+                align-items: stretch !important;
+                flex-direction: column !important;
+                gap: 14px !important;
+            }
+
+            body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-open-btn {
+                width: 100% !important;
+            }
+
+            body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-project-strip {
+                padding: 14px 16px 16px !important;
+            }
+
+            body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-chip {
+                width: 100% !important;
+                justify-content: space-between !important;
+            }
+        }
+
         .assignments-ui .empty-state {
             font-size: 13px;
-            color: #9ca3af;
-        }
-
-        .assignments-ui .assignment-modal-dialog {
-            width: min(430px, calc(100vw - 32px));
-            padding: 0;
-            border-radius: 14px;
-            overflow: hidden;
-            background: #ffffff;
-            box-shadow: 0 18px 42px rgba(15, 23, 42, 0.18);
-        }
-
-        .assignments-ui .assignment-modal-header {
-            align-items: center;
-            margin-bottom: 0;
-            padding: 15px 16px;
-            border-bottom: 1px solid #edf2f7;
-        }
-
-        .assignments-ui .assignment-modal-close {
-            width: 28px;
-            height: 28px;
-            border: none;
-            border-radius: 8px;
-            background: #f1f5f9;
-            color: #7c8ba1;
-        }
-
-        .assignments-ui .assignment-modal-form {
-            padding: 14px 16px;
-        }
-
-        .assignments-ui .assignment-modal-form .form-select {
-            min-height: 36px;
-            border-radius: 8px;
-            border: 1px solid #d6dfeb;
-            font-size: 12px;
-        }
-
-        .assignments-ui .assignment-modal {
-            display: none;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .assignments-ui .assignment-modal.show {
-            display: flex;
-        }
-
-        .assignments-ui .assignment-modal-actions {
-            justify-content: center;
-            gap: 10px;
+            color: var(--ui-subtle);
         }
 
         .assignments-ui #assignmentSuccessAlert {
@@ -166,10 +206,10 @@
             gap: 10px;
             min-width: 280px;
             padding: 14px 18px;
-            border-radius: 10px;
+            border-radius: var(--ui-radius-lg);
             background: #dcfce7;
             color: #166534;
-            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+            box-shadow: 0 12px 28px rgba(27, 36, 32, 0.12);
             opacity: 1;
             transition: opacity 0.4s ease, transform 0.4s ease;
         }
@@ -178,28 +218,170 @@
             opacity: 0;
             transform: translateY(-10px);
         }
+
+        /* assignment-modal-final-fix */
+        .assignments-ui .assignment-modal {
+            padding: 24px !important;
+            background: rgba(27, 36, 32, 0.58) !important;
+            backdrop-filter: blur(6px) !important;
+            -webkit-backdrop-filter: blur(6px) !important;
+            z-index: 1200 !important;
+        }
+
+        .assignments-ui .assignment-modal.show {
+            display: flex !important;
+        }
+
+        .assignments-ui .assignment-modal-backdrop {
+            position: absolute !important;
+            inset: 0 !important;
+            background: transparent !important;
+        }
+
+        .assignments-ui .assignment-modal-dialog {
+            width: min(560px, calc(100vw - 32px)) !important;
+            max-width: 560px !important;
+            max-height: calc(100dvh - 48px) !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            border: 1px solid var(--ui-line) !important;
+            border-radius: var(--ui-radius-lg) !important;
+            background: #ffffff !important;
+            color: var(--ui-ink) !important;
+            box-shadow: 0 24px 60px rgba(27, 36, 32, 0.26) !important;
+        }
+
+        .assignments-ui .assignment-modal-header {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: 16px !important;
+            min-height: 92px !important;
+            margin: 0 !important;
+            padding: 20px 22px !important;
+            border-bottom: 1px solid var(--ui-line) !important;
+            background: #ffffff !important;
+        }
+
+        .assignments-ui .assignment-modal-header > div {
+            min-width: 0 !important;
+        }
+
+        .assignments-ui .assignment-modal-header h3 {
+            margin: 0 0 6px !important;
+            color: var(--ui-ink) !important;
+            -webkit-text-fill-color: var(--ui-ink) !important;
+            font-size: 18px !important;
+            font-weight: 700 !important;
+            line-height: 1.2 !important;
+        }
+
+        .assignments-ui .assignment-modal-header p {
+            margin: 0 !important;
+            overflow: hidden !important;
+            color: var(--ui-muted) !important;
+            -webkit-text-fill-color: var(--ui-muted) !important;
+            font-size: 13px !important;
+            line-height: 1.4 !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+        }
+
+        .assignments-ui .assignment-modal-close {
+            width: 38px !important;
+            height: 38px !important;
+            flex: 0 0 38px !important;
+            border: 1px solid var(--ui-line-strong) !important;
+            border-radius: var(--ui-radius-lg) !important;
+            background: #ffffff !important;
+            color: var(--ui-ink-2) !important;
+            -webkit-text-fill-color: var(--ui-ink-2) !important;
+        }
+
+        .assignments-ui .assignment-modal-close:hover,
+        .assignments-ui .assignment-modal-close:focus-visible {
+            background: var(--ui-surface-2) !important;
+            color: var(--ui-ink) !important;
+            -webkit-text-fill-color: var(--ui-ink) !important;
+        }
+
+        .assignments-ui .assignment-modal-form {
+            padding: 24px 26px 26px !important;
+            background: #ffffff !important;
+            color: var(--ui-ink) !important;
+        }
+
+        .assignments-ui .assignment-modal-form .field-group label {
+            margin-bottom: 10px !important;
+            color: var(--ui-ink-2) !important;
+            -webkit-text-fill-color: var(--ui-ink-2) !important;
+            font-size: 12px !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.04em !important;
+        }
+
+        .assignments-ui .assignment-modal-form .form-select {
+            width: 100% !important;
+            min-height: 36px !important;
+            padding: 0 16px !important;
+            border: 1px solid var(--ui-line-strong) !important;
+            border-radius: var(--ui-radius) !important;
+            background: #ffffff !important;
+            color: var(--ui-ink) !important;
+            -webkit-text-fill-color: var(--ui-ink) !important;
+            font-size: 13px !important;
+        }
+
+        .assignments-ui .assignment-modal-actions {
+            display: flex !important;
+            justify-content: flex-end !important;
+            gap: 12px !important;
+            margin-top: 16px !important;
+            padding-top: 20px !important;
+            border-top: 1px solid var(--ui-line) !important;
+            background: #ffffff !important;
+        }
+
+        .assignments-ui .assignment-modal-actions .btn-secondary,
+        .assignments-ui .assignment-modal-actions .btn-primary {
+            min-width: 96px !important;
+            height: 36px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 0 18px !important;
+            border-radius: var(--ui-radius) !important;
+            font-size: 12.5px !important;
+            font-weight: 600 !important;
+            line-height: 1 !important;
+        }
+
+        .assignments-ui .assignment-modal-actions .btn-secondary {
+            border: 1px solid var(--ui-line-strong) !important;
+            background: #ffffff !important;
+            color: var(--ui-ink) !important;
+            -webkit-text-fill-color: var(--ui-ink) !important;
+        }
+
+        .assignments-ui .assignment-modal-actions .btn-primary {
+            border: 1px solid #0ea5e9 !important;
+            background: #0ea5e9 !important;
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
+        }
+
+        .assignments-ui .assignment-modal-actions .btn-primary:hover,
+        .assignments-ui .assignment-modal-actions .btn-primary:focus-visible {
+            border-color: var(--ui-info) !important;
+            background: var(--ui-info) !important;
+        }
     </style>
 
     @include('partials.admin-sidebar')
 
     <div class="main-area assignments-ui">
-        <header class="navbar">
-            <div class="nav-left">
-                <h2>Staff Assignments</h2>
-                <p>Assign staff to projects</p>
-            </div>
-
-            <div class="nav-right">
-                <div class="report-toolbar">
-                    <a href="{{ route('admin.notifications') }}" class="notification-button" aria-label="Notifications">
-                        <i class="fas fa-bell"></i>
-                        @if(($unreadNotificationsCount ?? 0) > 0)
-                            <span class="notification-badge">{{ $unreadNotificationsCount }}</span>
-                        @endif
-                    </a>
-                </div>
-            </div>
-        </header>
+        <x-page-header title="Staff assignments" subtitle="Assign staff to projects" />
 
         <main class="dashboard-content assignments-page">
 
@@ -255,7 +437,7 @@
                                         </span>
                                     </div>
 
-                                    <form action="{{ route('admin.assignments.destroy', $assignment) }}" method="POST" onsubmit="return confirm('Remove this assignment?');">
+                                    <form action="{{ route('admin.assignments.destroy', $assignment) }}" method="POST" onsubmit="return confirm('Are you sure you want to remove this assignment? This action cannot be undone.');">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="assignment-chip-remove" aria-label="Remove assignment">

@@ -8,13 +8,7 @@
     <!-- MAIN AREA -->
     <div class="main-area">
 
-        <!-- NAVBAR -->
-        <header class="navbar">
-            <div class="nav-left">
-                <h2>Create Procurement</h2>
-                <p>Add new procurement project</p>
-            </div>
-        </header>
+        <x-page-header title="Create procurement" subtitle="Add new procurement project" />
 
         <!-- MAIN CONTENT -->
         <main class="dashboard-content">

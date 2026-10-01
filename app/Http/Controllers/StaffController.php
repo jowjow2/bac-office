@@ -3,23 +3,41 @@
 namespace App\Http\Controllers;
 
 use Barryvdh\DomPDF\Facade\Pdf;
-use App\Events\BidWorkflowUpdated;
 use App\Models\Assignment;
 use App\Models\Bid;
-use App\Models\BidTracking;
 use App\Models\Project;
+use App\Support\BidHistory;
+use App\Support\BidWorkflow;
+use App\Support\ProcurementPipeline;
 use App\Support\SystemNotification;
 use App\Support\Uploads;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use App\Models\BidderDocument;
 
 class StaffController extends Controller
 {
-    public function index()
+    /**
+     * The Secretariat's overview: the projects assigned to this staff member
+     * and the shared purchase request queue.
+     */
+    public function index(Request $request)
     {
-        return view('dashboard.staff', $this->staffPageData());
+        $projectIds = Assignment::where('staff_id', Auth::id())->pluck('project_id')->filter()->unique()->values();
+        $pipeline = ProcurementPipeline::forStaff($projectIds);
+        $filters = ProcurementPipeline::filtersFrom($request);
+
+        return view('dashboard.office', [
+            'role' => 'staff',
+            'filters' => $filters,
+            'rows' => $pipeline->paginate($filters, 12),
+            'kpis' => $pipeline->kpis(),
+            'buckets' => $pipeline->bucketCounts($filters),
+            'upcoming' => $pipeline->upcoming(),
+            'assignedCount' => $projectIds->count(),
+        ]);
     }
 
     public function assignProjects()
@@ -101,7 +119,10 @@ class StaffController extends Controller
 
     public function downloadBidProposal(Bid $bid)
     {
+        app(\App\Support\BidOpening::class)->openScheduledTechnical($bid->project()->with('schedule')->firstOrFail());
         $this->ensureAssignedProject($bid->project_id);
+        $this->ensureBidOpened($bid);
+        abort_if($bid->isFinancialSealed(), 403, 'The financial component is sealed.');
 
         abort_unless(filled($bid->proposal_file), 404);
 
@@ -125,13 +146,25 @@ class StaffController extends Controller
     {
         $this->ensureAssignedProject($project->id);
 
+        // Closed / awarded are set by bid opening, failed bidding and the
+        // Notice of Award, never by hand.
         $validated = $request->validate([
-            'status' => ['required', 'in:approved_for_bidding,open,closed,awarded'],
+            'status' => ['required', 'in:approved_for_bidding,open'],
         ]);
+        $publicationAt = now(config('app.timezone', 'Asia/Manila'));
 
-        $project->update([
-            'status' => $validated['status'],
-        ]);
+        if ($validated['status'] === 'open' && $project->status !== 'open') {
+            $project->loadMissing(['schedule', 'documents']);
+            if ($blockers = $project->publicationBlockers(now(config('app.timezone', 'Asia/Manila')), $publicationAt)) {
+                return redirect()->back()->withErrors(['status' => 'Not ready for posting: ' . implode(' ', $blockers)]);
+            }
+        }
+
+        if ($validated['status'] === 'open') {
+            app(\App\Support\ProjectPublication::class)->publish($project, Auth::user(), $publicationAt);
+        } else {
+            $project->update(['status' => $validated['status']]);
+        }
 
         SystemNotification::createForRole(
             'admin',
@@ -147,26 +180,40 @@ class StaffController extends Controller
     }
 
 
+    /**
+     * Record the public bid opening for an assigned project (after the
+     * deadline and the scheduled opening). This closes bidding.
+     */
+    public function openProjectBids(Project $project)
+    {
+        abort_unless(Auth::user()?->role === 'admin', 403, 'Only BAC Admin may record the bid-opening event.');
+        $this->ensureAssignedProject($project->id);
+
+        app(BidWorkflow::class)->openBids($project, Auth::user());
+
+        return redirect()->back()->with('success', 'Bid opening recorded for ' . $project->title . '.');
+    }
+
     public function recommendBid(Request $request, Bid $bid)
     {
         $this->ensureAssignedProject($bid->project_id);
 
         $validated = $request->validate([
             'notes' => ['nullable', 'string'],
+            'bac_resolution_no' => ['required', 'string', 'max:100'],
+            'bac_resolution_date' => ['required', 'date', 'before_or_equal:today'],
+            'supporting_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:10240'],
+        ], [
+            'bac_resolution_no.required' => 'Enter the number of the BAC resolution recommending the award.',
         ]);
 
-        $recommendationNote = 'Recommended by staff on ' . now()->format('M d, Y h:i A');
-        $notes = trim((string) ($validated['notes'] ?? ''));
-
-        $bid->update([
-            'status' => 'approved',
-            'notes' => $notes !== '' ? $notes . PHP_EOL . $recommendationNote : $recommendationNote,
+        // Only a post-qualified bidder can be recommended; BidWorkflow enforces it.
+        app(BidWorkflow::class)->apply($bid, BidWorkflow::RECOMMEND, Auth::user(), [
+            'bac_resolution_no' => $validated['bac_resolution_no'],
+            'bac_resolution_date' => $validated['bac_resolution_date'],
+            'supporting_document' => $request->file('supporting_document'),
         ]);
-
-        // Update project status to closed (ready for award)
-        if ($bid->project && $bid->project->status !== 'awarded') {
-            $bid->project->update(['status' => 'closed']);
-        }
+        $this->appendInternalNote($bid, trim((string) ($validated['notes'] ?? '')));
 
         SystemNotification::createForRole(
             'admin',
@@ -185,58 +232,71 @@ class StaffController extends Controller
     {
         $this->ensureAssignedProject($bid->project_id);
 
-        $bid->load(['project', 'user.bidderDocuments', 'tracking']);
+        $bid->load(['project.awards', 'project.requirement', 'award', 'user.bidderDocuments', 'trackings.creator']);
 
         return response()->json([
             'ok' => true,
             'bid' => $this->bidReviewPayload($bid),
-            'eligible_for_validation' => $bid->canBeValidatedByStaff(),
+            'eligible_for_validation' => app(BidWorkflow::class)->guardError($bid, BidWorkflow::PASS_PRELIMINARY, Auth::user()) === null,
         ]);
     }
 
     protected function bidReviewPayload(Bid $bid): array
     {
-        $bid->loadMissing(['project', 'user.bidderDocuments', 'tracking']);
-        $statusLabel = match ($bid->status) {
-            'approved' => 'Validated',
-            'rejected' => 'Rejected',
-            default => 'Pending',
-        };
+        $bid->loadMissing(['project.awards', 'project.requirement', 'award', 'user.bidderDocuments', 'trackings.creator']);
+        $workflow = app(BidWorkflow::class);
+        $status = $bid->progress()->adminStatus();
+        $sealed = $bid->isSealed();
+        $canFailPrelim = $workflow->guardError($bid, BidWorkflow::FAIL_PRELIMINARY, Auth::user()) === null;
+        $checklist = $bid->reviewChecklist();
 
         return [
             'id' => $bid->id,
             'bidder_name' => $bid->user?->company ?: ($bid->user?->name ?? 'N/A'),
             'bidder_email' => $bid->user?->email ?? 'N/A',
             'project_title' => $bid->project?->title ?? 'N/A',
-            'bid_amount' => (float) $bid->bid_amount,
-            'status' => $bid->status,
-            'status_label' => $statusLabel,
+            // The financial offer stays sealed until the bid opening.
+            'bid_amount' => $bid->isFinancialSealed() ? null : (float) $bid->bid_amount,
+            'sealed' => $sealed,
+            'financial_sealed' => $bid->isFinancialSealed(),
+            'financial_opened_at' => $bid->financial_opened_at?->timezone('Asia/Manila')->toIso8601String(),
+            'financial_opened_by' => $bid->financial_opened_by,
+            'status' => $status['key'],
+            'status_label' => $status['label'],
             'proposal_file' => filled($bid->proposal_file),
-            'proposal_url' => filled($bid->proposal_file) ? route('staff.bids.proposal.preview', $bid) : null,
-            'proposal_download_url' => filled($bid->proposal_file) ? route('staff.bids.proposal.download', $bid) : null,
+            'proposal_url' => ! $bid->isFinancialSealed() && filled($bid->proposal_file) ? route('staff.bids.proposal.preview', $bid) : null,
+            'proposal_download_url' => ! $bid->isFinancialSealed() && filled($bid->proposal_file) ? route('staff.bids.proposal.download', $bid) : null,
             'eligibility_file' => filled($bid->eligibility_file),
-            'eligibility_url' => filled($bid->eligibility_file) ? route('staff.bids.eligibility.preview', $bid) : null,
-            'eligibility_download_url' => filled($bid->eligibility_file) ? route('staff.bids.eligibility.download', $bid) : null,
+            'eligibility_url' => ! $sealed && filled($bid->eligibility_file) ? route('staff.bids.eligibility.preview', $bid) : null,
+            'eligibility_download_url' => ! $sealed && filled($bid->eligibility_file) ? route('staff.bids.eligibility.download', $bid) : null,
             'eligibility_status' => $bid->eligibility_status,
             'eligibility_status_label' => $bid->eligibility_status_label,
-            'workflow_step' => $bid->effective_workflow_step,
-            'workflow_step_label' => Bid::WORKFLOW_STEPS[$bid->effective_workflow_step] ?? $bid->workflow_step_label,
+            'workflow_step' => $status['key'],
+            'workflow_step_label' => $status['label'],
             'notes' => $bid->notes,
             'rejection_reason' => $bid->rejection_reason,
             'created_at' => $bid->created_at?->toISOString(),
-            'submitted_at' => $bid->created_at?->format('M d, Y h:i A'),
+            'submitted_at' => ($bid->submitted_at ?? $bid->created_at)?->timezone(config('bac-office.display_timezone'))->format('M d, Y h:i A'),
             'documents_validated_at' => $bid->documents_validated_at?->format('M d, Y h:i A'),
             'disqualified_at' => $bid->disqualified_at?->format('M d, Y h:i A'),
-            'can_validate' => $bid->status === 'pending' && $bid->canBeValidatedByStaff(),
-            'can_reject' => $bid->status === 'pending',
-            'document_checklist' => $bid->documentChecklist(),
+            'can_validate' => $workflow->guardError($bid, BidWorkflow::PASS_PRELIMINARY, Auth::user()) === null && $bid->documentsAreComplete(),
+            'can_reject' => $canFailPrelim || $workflow->guardError($bid, BidWorkflow::DISQUALIFY, Auth::user()) === null,
+            'can_decide' => Auth::user()?->role === 'admin',
+            'available_actions' => $workflow->availableActions($bid, Auth::user()),
+            'document_checklist' => $checklist,
+            'document_status' => $bid->submissionDocumentStatus(),
+            'receipt_no' => $bid->receipt_no,
+            'opening_at' => $bid->project?->bids_opened_at?->timezone(config('bac-office.display_timezone'))->toIso8601String(),
+            'opening_actor' => $bid->project?->bidsOpenedByUser?->name,
             'workflow_timeline_steps' => $bid->workflow_timeline_steps,
+            'history' => BidHistory::for($bid)->forAdmin(),
         ];
     }
 
     protected function bidActionResponse(Request $request, Bid $bid, string $message)
     {
-        $bid->refresh()->load(['project', 'user.bidderDocuments', 'tracking']);
+        $bid->refresh();
+        $bid->unsetRelation('trackings');
 
         if ($request->expectsJson() || $request->wantsJson()) {
             return response()->json([
@@ -265,9 +325,42 @@ class StaffController extends Controller
             ->with('warning', $message);
     }
 
+    /**
+     * Run one BidWorkflow action and answer in the format the staff screens expect.
+     */
+    protected function runWorkflowAction(Request $request, Bid $bid, string $action, array $input, string $successMessage)
+    {
+        abort_unless(Auth::user()?->role === 'admin', 403, 'BAC Staff may prepare and view reviews but cannot record workflow decisions.');
+        try {
+            app(BidWorkflow::class)->apply($bid, $action, Auth::user(), $input);
+        } catch (ValidationException $exception) {
+            return $this->bidActionErrorResponse($request, collect($exception->errors())->flatten()->first() ?? 'Unable to record this decision.');
+        }
+
+        return $this->bidActionResponse($request, $bid, $successMessage);
+    }
+
+    protected function appendInternalNote(Bid $bid, string $note): void
+    {
+        if ($note === '') {
+            return;
+        }
+
+        $existingNotes = trim((string) $bid->fresh()->notes);
+        $bid->update(['notes' => $existingNotes !== '' ? $existingNotes . PHP_EOL . $note : $note]);
+    }
+
+    protected function ensureBidOpened(Bid $bid): void
+    {
+        abort_if($bid->isSealed(), 403, 'This bid is sealed until the bid opening is recorded.');
+    }
+
     public function previewBidProposal(Bid $bid)
     {
+        app(\App\Support\BidOpening::class)->openScheduledTechnical($bid->project()->with('schedule')->firstOrFail());
         $this->ensureAssignedProject($bid->project_id);
+        $this->ensureBidOpened($bid);
+        abort_if($bid->isFinancialSealed(), 403, 'The financial component is sealed.');
 
         abort_unless(filled($bid->proposal_file), 404);
 
@@ -277,6 +370,7 @@ class StaffController extends Controller
     public function downloadBidEligibility(Bid $bid)
     {
         $this->ensureAssignedProject($bid->project_id);
+        $this->ensureBidOpened($bid);
 
         abort_unless(filled($bid->eligibility_file), 404);
 
@@ -291,6 +385,7 @@ class StaffController extends Controller
     public function previewBidEligibility(Bid $bid)
     {
         $this->ensureAssignedProject($bid->project_id);
+        $this->ensureBidOpened($bid);
 
         abort_unless(filled($bid->eligibility_file), 404);
 
@@ -300,116 +395,43 @@ class StaffController extends Controller
     public function streamBidderDocumentPdf(Bid $bid, BidderDocument $document)
     {
         $this->ensureAssignedProject($bid->project_id);
+        $this->ensureBidOpened($bid);
 
         abort_unless($document->user_id === $bid->user_id, 403);
 
         return Uploads::inline($document->file_path, $document->display_name, 'application/pdf');
     }
 
+    /**
+     * Passed preliminary examination. Requires every project requirement to
+     * be verified (verified_requirements[]); an uploaded file alone is not a pass.
+     */
     public function validateBidDocuments(Request $request, Bid $bid)
     {
         $this->ensureAssignedProject($bid->project_id);
 
-        if (!$bid->canBeValidatedByStaff()) {
-            return $this->bidActionErrorResponse(
-                $request,
-                'Cannot validate bid. Please ensure documents are complete and eligibility is valid.'
-            );
-        }
-
-        $bid->update([
-            'status' => 'approved',
-            'workflow_step' => Bid::STEP_DOCUMENTS_VALIDATED,
-            'workflow_step_updated_at' => now(),
-            'workflow_step_updated_by' => Auth::id(),
-            'documents_validated_at' => now(),
-            'documents_validated_by' => Auth::id(),
+        $validated = $request->validate([
+            'verified_requirements' => ['nullable', 'array'],
+            'verified_requirements.*' => ['string', 'max:100'],
         ]);
 
-        BidTracking::create([
-            'bid_id' => $bid->id,
-            'bidder_id' => $bid->user_id,
-            'project_id' => $bid->project_id,
-            'status_title' => 'Documents Validated by Staff',
-            'status_description' => 'Your submitted bid documents were validated and forwarded for BAC evaluation.',
-            'status_type' => 'validated',
-            'created_by' => Auth::id(),
-        ]);
-
-        SystemNotification::createForUser(
-            $bid->user_id,
-            'Bid documents validated',
-            'Your bid documents for ' . ($bid->project->title ?? 'the project') . ' were validated by staff. Workflow advanced to: Documents Validated.',
-            'documents_validated',
-            ['project_id' => $bid->project_id, 'bid_id' => $bid->id]
-        );
-
-        BidWorkflowUpdated::dispatch($bid);
-
-        return $this->bidActionResponse(
-            $request,
-            $bid,
-            'Bid documents marked as validated. Workflow advanced to Documents Validated.'
-        );
+        return $this->runWorkflowAction($request, $bid, BidWorkflow::PASS_PRELIMINARY, $validated, 'Passed preliminary examination recorded.');
     }
 
-    public function updateBidEligibility(Bid $bid)
+    public function updateBidEligibility(Request $request, Bid $bid)
     {
         $this->ensureAssignedProject($bid->project_id);
 
-        $validated = request()->validate([
+        $validated = $request->validate([
             'eligibility_status' => ['required', 'in:valid,invalid'],
+            'reason' => ['required_if:eligibility_status,invalid', 'nullable', 'string', 'max:2000'],
+            'verified_requirements' => ['nullable', 'array'],
+            'verified_requirements.*' => ['string', 'max:100'],
         ]);
 
-        $bid->update([
-            'eligibility_status' => $validated['eligibility_status'],
-            'eligibility_reviewed_at' => now(),
-            'eligibility_reviewed_by' => Auth::id(),
-            'workflow_step' => $validated['eligibility_status'] === 'valid' ? Bid::STEP_DOCUMENTS_VALIDATED : $bid->workflow_step,
-            'workflow_step_updated_at' => now(),
-            'workflow_step_updated_by' => Auth::id(),
-        ]);
-
-        $statusLabel = $validated['eligibility_status'] === 'valid' ? 'Valid' : 'Invalid';
-
-        BidTracking::create([
-            'bid_id' => $bid->id,
-            'bidder_id' => $bid->user_id,
-            'project_id' => $bid->project_id,
-            'status_title' => 'Eligibility Marked as ' . $statusLabel,
-            'status_description' => 'Eligibility status set to: ' . $statusLabel,
-            'status_type' => $validated['eligibility_status'] === 'valid' ? 'validated' : 'rejected',
-            'created_by' => Auth::id(),
-        ]);
-
-        if ($validated['eligibility_status'] === 'valid') {
-            $bid->load(['project', 'user', 'tracking']);
-            SystemNotification::createForUser(
-                $bid->user_id,
-                'Eligibility confirmed valid',
-                'Your bid eligibility for ' . ($bid->project->title ?? 'the project') . ' has been confirmed valid. Your bid has moved to Documents Validated.',
-                'eligibility_valid',
-                ['project_id' => $bid->project_id, 'bid_id' => $bid->id]
-            );
-
-            BidWorkflowUpdated::dispatch($bid);
-
-            return redirect()
-                ->back()
-                ->with('success', 'Eligibility confirmed valid. Your bid has moved to Documents Validated.');
-        }
-
-        SystemNotification::createForUser(
-            $bid->user_id,
-            'Eligibility marked invalid',
-            'Your bid eligibility for ' . ($bid->project->title ?? 'the project') . ' has been marked invalid.',
-            'eligibility_invalid',
-            ['project_id' => $bid->project_id, 'bid_id' => $bid->id]
-        );
-
-        return redirect()
-            ->back()
-            ->with('success', 'Eligibility marked as invalid.');
+        return $validated['eligibility_status'] === 'valid'
+            ? $this->runWorkflowAction($request, $bid, BidWorkflow::PASS_PRELIMINARY, $validated, 'Passed preliminary examination recorded.')
+            : $this->runWorkflowAction($request, $bid, BidWorkflow::FAIL_PRELIMINARY, $validated, 'Failed preliminary examination recorded.');
     }
 
     public function evaluateBid(Request $request, Bid $bid)
@@ -420,71 +442,38 @@ class StaffController extends Controller
             'evaluation_status' => ['required', 'in:documents_validated,for_bac_evaluation,approved,disqualified'],
             'remarks' => ['nullable', 'string'],
             'action' => ['sometimes', 'in:save,reject'],
+            'verified_requirements' => ['nullable', 'array'],
+            'verified_requirements.*' => ['string', 'max:100'],
         ]);
-
-        $action = $validated['action'] ?? 'save';
-        $evaluationStatus = $validated['evaluation_status'];
-
-        if ($action === 'reject' && empty(trim((string) ($validated['remarks'] ?? '')))) {
-            return response()->json([
-                'ok' => false,
-                'message' => 'Remarks are required to reject a bid.',
-            ], 422);
-        }
-
-        $workflowStepMap = [
-            'documents_validated' => Bid::STEP_DOCUMENTS_VALIDATED,
-            'for_bac_evaluation' => Bid::STEP_FOR_BAC_EVALUATION,
-            'approved' => Bid::STEP_APPROVED,
-            'disqualified' => Bid::STEP_DISQUALIFIED,
-        ];
-
-        $bid->update([
-            'workflow_step' => $workflowStepMap[$evaluationStatus],
-            'workflow_step_updated_at' => now(),
-            'workflow_step_updated_by' => Auth::id(),
-            'documents_validated_at' => $evaluationStatus === 'documents_validated' ? now() : $bid->documents_validated_at,
-            'documents_validated_by' => $evaluationStatus === 'documents_validated' ? Auth::id() : $bid->documents_validated_by,
-            'bac_evaluation_at' => $evaluationStatus === 'for_bac_evaluation' ? now() : $bid->bac_evaluation_at,
-            'bac_evaluation_by' => $evaluationStatus === 'for_bac_evaluation' ? Auth::id() : $bid->bac_evaluation_by,
-            'approved_at' => $evaluationStatus === 'approved' ? now() : $bid->approved_at,
-            'approved_by' => $evaluationStatus === 'approved' ? Auth::id() : $bid->approved_by,
-            'disqualified_at' => $evaluationStatus === 'disqualified' ? now() : $bid->disqualified_at,
-            'disqualified_by' => $evaluationStatus === 'disqualified' ? Auth::id() : $bid->disqualified_by,
-        ]);
-
-        // Update project status to closed (ready for award) when bid is approved
-        if ($evaluationStatus === 'approved' && $bid->project && $bid->project->status !== 'awarded') {
-            $bid->project->update(['status' => 'closed']);
-        }
 
         $remarks = trim((string) ($validated['remarks'] ?? ''));
-        $existingNotes = trim((string) $bid->notes);
-        $newNotes = $existingNotes !== '' ? $existingNotes . PHP_EOL . $remarks : $remarks;
-        
-        if ($remarks !== '') {
-            $bid->update(['notes' => $newNotes]);
+        $isAdverse = $validated['evaluation_status'] === 'disqualified' || ($validated['action'] ?? 'save') === 'reject';
+
+        if ($isAdverse && $remarks === '') {
+            return response()->json(['ok' => false, 'message' => 'Remarks are required to reject a bid.'], 422);
         }
 
-        $statusLabel = $workflowStepMap[$evaluationStatus];
+        // Existing modal values mapped onto workflow actions. "approved" means
+        // the evaluation was completed - never an award approval.
+        $action = match (true) {
+            $isAdverse => $bid->progress()->facts()['prelim_passed'] ? BidWorkflow::DISQUALIFY : BidWorkflow::FAIL_PRELIMINARY,
+            $validated['evaluation_status'] === 'documents_validated' => BidWorkflow::PASS_PRELIMINARY,
+            $validated['evaluation_status'] === 'for_bac_evaluation' => BidWorkflow::START_EVALUATION,
+            default => BidWorkflow::EVALUATE,
+        };
 
-        BidTracking::create([
-            'bid_id' => $bid->id,
-            'bidder_id' => $bid->user_id,
-            'project_id' => $bid->project_id,
-            'status_title' => 'BAC Evaluation ' . ($action === 'reject' ? 'Rejected' : 'Saved'),
-            'status_description' => 'Workflow step set to: ' . Bid::WORKFLOW_STEPS[$workflowStepMap[$evaluationStatus]] . ($remarks ? ' | Remarks: ' . $remarks : ''),
-            'status_type' => $action === 'reject' ? 'rejected' : 'evaluation',
-            'created_by' => Auth::id(),
-        ]);
+        $request->headers->set('Accept', 'application/json');
+        $response = $this->runWorkflowAction($request, $bid, $action, [
+            // For adverse decisions the remarks are the bidder-visible reason.
+            'reason' => $isAdverse ? $remarks : null,
+            'verified_requirements' => $validated['verified_requirements'] ?? [],
+        ], 'Bid evaluation saved successfully.');
 
-        BidWorkflowUpdated::dispatch($bid);
+        if ($response->getStatusCode() === 200 && ! $isAdverse) {
+            $this->appendInternalNote($bid, $remarks);
+        }
 
-        return response()->json([
-            'ok' => true,
-            'bid' => $bid,
-            'message' => 'Bid evaluation saved successfully.',
-        ]);
+        return $response;
     }
 
     public function rejectBid(Request $request, Bid $bid)
@@ -495,44 +484,9 @@ class StaffController extends Controller
             'rejection_reason' => ['required', 'string', 'min:3'],
         ]);
 
-        $existingNotes = trim((string) $bid->notes);
-        $rejectionNote = 'Rejected by staff on ' . now()->format('M d, Y h:i A');
-        $reason = trim($validated['rejection_reason']);
+        $action = $bid->progress()->facts()['prelim_passed'] ? BidWorkflow::DISQUALIFY : BidWorkflow::FAIL_PRELIMINARY;
 
-        $bid->update([
-            'status' => 'rejected',
-            'workflow_step' => Bid::STEP_DISQUALIFIED,
-            'workflow_step_updated_at' => now(),
-            'workflow_step_updated_by' => Auth::id(),
-            'disqualified_at' => now(),
-            'disqualified_by' => Auth::id(),
-            'notes' => $existingNotes !== ''
-                ? $existingNotes . PHP_EOL . $rejectionNote . PHP_EOL . 'Reason: ' . $reason
-                : $rejectionNote . PHP_EOL . 'Reason: ' . $reason,
-            'rejection_reason' => $reason,
-        ]);
-
-        BidTracking::create([
-            'bid_id' => $bid->id,
-            'bidder_id' => $bid->user_id,
-            'project_id' => $bid->project_id,
-            'status_title' => 'Documents Rejected by Staff',
-            'status_description' => $reason,
-            'status_type' => 'rejected',
-            'created_by' => Auth::id(),
-        ]);
-
-        SystemNotification::createForUser(
-            $bid->user_id,
-            'Bid documents rejected',
-            'Your bid documents for ' . ($bid->project->title ?? 'the project') . ' were rejected by staff.',
-            'documents_rejected',
-            ['project_id' => $bid->project_id, 'bid_id' => $bid->id]
-        );
-
-        BidWorkflowUpdated::dispatch($bid);
-
-        return $this->bidActionResponse($request, $bid, 'Bid marked as rejected.');
+        return $this->runWorkflowAction($request, $bid, $action, ['reason' => $validated['rejection_reason']], 'Bid marked as disqualified.');
     }
 
     public function requestBidClarification(Bid $bid)
@@ -602,7 +556,7 @@ class StaffController extends Controller
         $pendingBids = $allAssignedBids->where('status', 'pending')->count();
         $validatedDocuments = $allAssignedBids->filter(fn ($bid) => filled($bid->proposal_file))->count();
         $recommendedBids = $allAssignedBids->where('status', 'approved')->count();
-        $totalBidAmount = (float) $allAssignedBids->sum('bid_amount');
+        $totalBidAmount = (float) $allAssignedBids->filter(fn ($bid) => ! $bid->isFinancialSealed())->sum('bid_amount');
         $totalBudgetAllocated = (float) $assignedProjects->sum(fn ($project) => (float) $project->budget);
         $totalAwardedAmount = (float) $assignedProjects
             ->where('status', 'awarded')

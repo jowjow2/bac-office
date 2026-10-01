@@ -12,6 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->web(prepend: [
+            \App\Http\Middleware\ApplyProcurementClock::class,
+        ]);
+
         $middleware->web(append: [
             \App\Http\Middleware\TouchUserPresence::class,
         ]);
@@ -30,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'staff' => \App\Http\Middleware\StaffMiddleware::class,
             'bidder' => \App\Http\Middleware\BidderMiddleware::class,
             'approved.bidder' => \App\Http\Middleware\ApprovedBidderMiddleware::class,
+            'end_user' => \App\Http\Middleware\EndUserMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -1,17 +1,12 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 @include('partials.dashboard-viewport')
-<div class="admin-dashboard">
+<div class="admin-dashboard admin-role-page">
     @vite(['resources/css/dashboard.css'])
 
     @include('partials.admin-sidebar')
 
     <div class="main-area">
-        <header class="navbar">
-            <div class="nav-left">
-                <h2>Notifications</h2>
-                <p>System alerts and updates</p>
-            </div>
-        </header>
+        <x-page-header title="Notifications" subtitle="System alerts and updates" />
 
         <main class="dashboard-content">
 

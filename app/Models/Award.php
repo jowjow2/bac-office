@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\MasksFutureProcurementEvents;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -11,7 +13,12 @@ use Illuminate\Support\Facades\Storage;
 class Award extends Model
 {
     use HasFactory;
+    use MasksFutureProcurementEvents;
 
+    protected function futureProcurementEventFields(): array
+    {
+        return ['created_at', 'certificate_uploaded_at', 'certificate_revoked_at', 'award_approved_at', 'cancelled_at', 'notice_of_award_date', 'contract_date'];
+    }
     protected $fillable = [
         'verification_token',
         'certificate_number',
@@ -20,6 +27,7 @@ class Award extends Model
         'bidder_id',
         'contract_amount',
         'contract_date',
+        'notice_of_award_date',
         'status',
         'notes',
         'certificate_file_path',
@@ -28,19 +36,103 @@ class Award extends Model
         'certificate_uploaded_at',
         'certificate_revoked_at',
         'certificate_revoked_by',
+        'award_approved_at',
+        'award_approved_by',
+        'cancelled_at',
+        'cancelled_by',
+        'cancellation_reference',
+        'cancellation_reason',
     ];
 
     protected $casts = [
         'contract_date' => 'date',
+        'notice_of_award_date' => 'date',
         'contract_amount' => 'decimal:2',
         'certificate_uploaded_at' => 'datetime',
         'certificate_revoked_at' => 'datetime',
+        'award_approved_at' => 'datetime',
+        'cancelled_at' => 'datetime',
     ];
 
     // Certificate status constants
     public const STATUS_VALID = 'valid';
     public const STATUS_REVOKED = 'revoked';
     public const STATUS_EXPIRED = 'expired';
+
+    /**
+     * Certificate status of an award the HoPE approved whose Notice of Award is
+     * not issued yet: listed in Awards & Contracts, never posted publicly.
+     */
+    public const CERTIFICATE_PENDING_NOTICE = 'pending';
+
+    /** Approved, Notice of Award not issued yet. */
+    public function awaitsNoticeOfAward(): bool
+    {
+        return ! $this->isCancelled() && $this->certificate_status === self::CERTIFICATE_PENDING_NOTICE;
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->cancelled_at !== null;
+    }
+
+    /**
+     * Awards posted to the public: Notice of Award issued, not revoked or
+     * cancelled, and its date reached by the server clock in Philippine time
+     * (a date without a time is posted at 12:00 AM of that date).
+     */
+    public function scopePubliclyPosted($query, ?\Carbon\CarbonInterface $at = null)
+    {
+        $today = ($at ?? now())->copy()->timezone(config('app.timezone', 'Asia/Manila'))->toDateString();
+
+        return $query->whereNull('cancelled_at')
+            ->where(fn ($builder) => $builder->whereNull('certificate_status')->orWhereNotIn('certificate_status', [self::STATUS_REVOKED, self::CERTIFICATE_PENDING_NOTICE]))
+            ->where(fn ($builder) => $builder->whereNull('status')->orWhere('status', '!=', self::STATUS_REVOKED))
+            ->where(fn ($builder) => $builder->whereDate('notice_of_award_date', '<=', $today)
+                ->orWhere(fn ($legacy) => $legacy->whereNull('notice_of_award_date')
+                    ->where(fn ($contract) => $contract->whereNull('contract_date')->orWhereDate('contract_date', '<=', $today))));
+    }
+
+    /** 12:00 AM Philippine time of the award (NOA) date: when the award may be posted publicly. */
+    public function publicationTime(): ?\Carbon\CarbonInterface
+    {
+        $date = $this->awardDate();
+
+        return $date ? \Illuminate\Support\Carbon::parse($date->toDateString(), config('app.timezone', 'Asia/Manila'))->startOfDay() : null;
+    }
+
+    /** Issued but dated ahead: hidden from the public, shown to the BAC as Scheduled. */
+    public function isScheduledForPublication(?\Carbon\CarbonInterface $at = null): bool
+    {
+        $time = $this->publicationTime();
+
+        return ! $this->isCancelled() && ! $this->awaitsNoticeOfAward() && $time !== null && $time->isAfter($at ?? now());
+    }
+
+    /** Listed, searchable, verifiable and downloadable by the public now. */
+    public function isPubliclyVisible(?\Carbon\CarbonInterface $at = null): bool
+    {
+        return ! $this->isCancelled()
+            && ! $this->awaitsNoticeOfAward()
+            && ! $this->isRevoked()
+            && ! $this->isScheduledForPublication($at);
+    }
+
+    /** An award still in force: not cancelled or revoked. */
+    public function scopeActive($query)
+    {
+        return $query->whereNull('cancelled_at')->whereIn('status', [self::STATUS_VALID, 'active']);
+    }
+
+    public function approver()
+    {
+        return $this->belongsTo(User::class, 'award_approved_by');
+    }
+
+    public function canceller()
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
+    }
 
     public static function getValidStatuses(): array
     {
@@ -54,6 +146,10 @@ class Award extends Model
 
     protected static function booted(): void
     {
+        static::addGlobalScope('known_as_of_procurement_clock', function (Builder $query): void {
+            $query->where('created_at', '<=', app(\App\Support\ProcurementClock::class)->now());
+        });
+
         static::creating(function (Award $award) {
             if (Schema::hasColumn($award->getTable(), 'verification_token') && blank($award->verification_token)) {
                 $award->verification_token = self::newVerificationToken();
@@ -132,6 +228,16 @@ class Award extends Model
         }
     }
 
+    /**
+     * Date of award = date the Notice of Award was issued. Older records only
+     * have contract_date, which held the declaration date.
+     */
+    public function awardDate(): ?\Carbon\CarbonInterface
+    {
+        $noa = $this->getRawOriginal('notice_of_award_date');
+        $contract = $this->getRawOriginal('contract_date');
+        return $noa ? \Illuminate\Support\Carbon::parse($noa) : ($contract ? \Illuminate\Support\Carbon::parse($contract) : null);
+    }
     public function auditLogs()
     {
         return $this->morphMany(AuditLog::class, 'auditable');
@@ -199,6 +305,20 @@ class Award extends Model
     }
 
     /**
+     * Public, read-only award verification URL.
+     */
+    public function verificationUrl(): ?string
+    {
+        if (! $this->exists) {
+            return null;
+        }
+
+        return route('certificate.verify', [
+            'award' => $this->getKey(),
+        ]);
+    }
+
+    /**
      * Token-based QR code URL
      */
     public function tokenQrUrl(): ?string
@@ -241,5 +361,10 @@ class Award extends Model
     public function bidder()
     {
         return $this->belongsTo(User::class, 'bidder_id');
+    }
+
+    public function contractImplementation()
+    {
+        return $this->hasOne(ContractImplementation::class);
     }
 }

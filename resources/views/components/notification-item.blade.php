@@ -30,13 +30,13 @@
         }
     } elseif (strpos($titleLower, 'project') !== false || strpos($messageLower, 'project') !== false) {
         $iconClass = 'fa-briefcase';
-        $iconColor = 'notification-icon-warning';
+        $iconColor = 'notification-icon-info';
     } elseif (strpos($titleLower, 'message') !== false || strpos($messageLower, 'message') !== false) {
         $iconClass = 'fa-envelope';
         $iconColor = 'notification-icon-info';
     } elseif (strpos($titleLower, 'award') !== false || strpos($messageLower, 'award') !== false) {
         $iconClass = 'fa-trophy';
-        $iconColor = 'notification-icon-warning';
+        $iconColor = 'notification-icon-info';
     } elseif (strpos($titleLower, 'assign') !== false || strpos($messageLower, 'assign') !== false) {
         $iconClass = 'fa-tasks';
         $iconColor = 'notification-icon-primary';

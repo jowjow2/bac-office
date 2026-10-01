@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Mail\BidderRejectedMail;
+use App\Mail\BidderIncompleteRequirementsMail;
+use App\Mail\BidderRequirementsActionMail;
 use App\Mail\WelcomeMail;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Award;
@@ -10,10 +12,17 @@ use App\Models\Assignment;
 use App\Models\AuditLog;
 use App\Models\Bid;
 use App\Models\Bidder;
+use App\Models\BidderSanction;
 use App\Models\BidderDocument;
+use App\Models\BidderRequirementRequest;
 use App\Models\Project;
 use App\Models\User;
+use App\Support\BidderRegistrationRequirements;
+use App\Support\BidHistory;
+use App\Support\BidProgress;
+use App\Support\BidWorkflow;
 use App\Support\DocumentPreview;
+use App\Support\ProcurementPipeline;
 use App\Support\Uploads;
 use App\Support\SystemNotification;
 use Illuminate\Http\Request;
@@ -23,29 +32,21 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class AdminController extends Controller
 {
-    public function dashboard()
+    /**
+     * Procurement overview: KPIs, the pipeline by stage, the searchable
+     * register of every purchase request and project, upcoming activities
+     * and bidder registrations waiting for review.
+     */
+    public function dashboard(Request $request)
     {
-        $totalUsers = User::count();
-        $totalProjects = Project::count();
-        $totalBids = Bid::count();
-        $activeProjects = Project::where('status', 'open')->count();
-        $awardedProjects = Award::count();
-        $registeredBidders = User::where('role', 'bidder')->count();
-        $staffMembers = User::where('role', 'staff')->count();
-        $adminUsers = User::where('role', 'admin')->count();
-        $pendingBids = Bid::where('status', 'pending')->count();
-        $approvedBids = Bid::where('status', 'approved')->count();
-        $rejectedBids = Bid::where('status', 'rejected')->count();
-        $approvedForBiddingProjects = Project::where('status', 'approved_for_bidding')->count();
-        $closedProjects = Project::where('status', 'closed')->count();
-        $pendingRegistrationsCount = User::where('role', 'bidder')
-            ->where('status', 'pending')
-            ->count();
+        $pipeline = ProcurementPipeline::forAdmin();
+        $filters = ProcurementPipeline::filtersFrom($request);
 
         $pendingRegistrations = User::where('role', 'bidder')
             ->where('status', 'pending')
@@ -54,64 +55,117 @@ class AdminController extends Controller
             ->take(5)
             ->get();
 
-        $notificationItems = SystemNotification::forUser(Auth::id(), 5);
-        $unreadNotificationsCount = SystemNotification::unreadCount(Auth::id());
-        $adminNotifications = SystemNotification::payloads($notificationItems, Auth::user());
-
-        $totalAwardedAmount = (float) Award::sum('contract_amount');
-        $totalBudgetAllocated = (float) Project::sum('budget');
-
-        $latestBids = Bid::with(['project', 'user.philgepsCertificate'])
-            ->latest()
-            ->take(5)
-            ->get();
-
-        $uploadedApprovedBids = Bid::with(['project', 'user'])
-            ->where('status', 'approved')
-            ->whereNotNull('proposal_file')
-            ->where('proposal_file', '!=', '')
-            ->latest()
-            ->take(5)
-            ->get();
-
-        $recentProjects = Project::withCount('bids')
-            ->latest()
-            ->take(5)
-            ->get();
-
-        return view('dashboard.admin', compact(
-            'totalUsers',
-            'totalProjects',
-            'totalBids',
-            'activeProjects',
-            'awardedProjects',
-            'registeredBidders',
-            'staffMembers',
-            'adminUsers',
-            'pendingBids',
-            'approvedBids',
-            'rejectedBids',
-            'approvedForBiddingProjects',
-            'closedProjects',
-            'pendingRegistrationsCount',
-            'pendingRegistrations',
-            'adminNotifications',
-            'unreadNotificationsCount',
-            'totalAwardedAmount',
-            'totalBudgetAllocated',
-            'latestBids',
-            'uploadedApprovedBids',
-            'recentProjects'
-        ));
+        return view('dashboard.office', [
+            'role' => 'admin',
+            'filters' => $filters,
+            'rows' => $pipeline->paginate($filters, 12),
+            'kpis' => $pipeline->kpis(),
+            'buckets' => $pipeline->bucketCounts($filters),
+            'upcoming' => $pipeline->upcoming(),
+            'pendingRegistrations' => $pendingRegistrations,
+            'pendingRegistrationsCount' => User::where('role', 'bidder')->where('status', 'pending')->count(),
+        ]);
     }
 
     public function projects(Request $request)
     {
-        $search = trim((string) $request->query('search', ''));
-        $status = trim((string) $request->query('status', ''));
+        $search = $this->requestString($request, 'search');
+        $status = $this->requestString($request, 'status');
+        $showArchived = $request->boolean('archived');
 
-        $projects = Project::withCount('bids')
-            ->with(['assignments.staff', 'documents'])
+        $projectStatusCounts = Project::query()
+            ->whereNull('archived_at')
+            ->select('status', DB::raw('COUNT(*) as total'))
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $projectTotals = [
+            'all' => Project::whereNull('archived_at')->count(),
+            'draft' => (int) $projectStatusCounts->get('draft', 0),
+            'approved_for_bidding' => (int) $projectStatusCounts->get('approved_for_bidding', 0),
+            'open' => (int) $projectStatusCounts->get('open', 0),
+            'closed' => (int) $projectStatusCounts->get('closed', 0),
+            'awarded' => (int) $projectStatusCounts->get('awarded', 0),
+        ];
+
+        $projectsQuery = $this->filteredProjectsQuery($search, $status, $showArchived);
+        $exportRows = $this->exportRowsForProjects((clone $projectsQuery)->latest()->get());
+        $projects = $projectsQuery
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('admin.projects', compact(
+            'projects',
+            'search',
+            'status',
+            'projectTotals',
+            'showArchived',
+            'exportRows'
+        ));
+    }
+
+    public function exportProjects(Request $request)
+    {
+        $search = $this->requestString($request, 'search');
+        $status = $this->requestString($request, 'status');
+        $showArchived = $request->boolean('archived');
+        $selectedStatuses = collect($request->input('statuses', []))
+            ->map(fn ($value) => trim((string) $value))
+            ->filter(fn ($value) => in_array($value, ['draft', 'approved_for_bidding', 'open', 'closed', 'awarded'], true))
+            ->values()
+            ->all();
+
+
+        $projects = $this->filteredProjectsQuery($search, $status, $showArchived)
+            ->latest()
+            ->get();
+
+        if ($request->has('statuses')) {
+            $projects = $projects
+                ->filter(fn (Project $project) => in_array($this->projectExportStatus($project)['key'], $selectedStatuses, true))
+                ->values();
+        }
+
+        return response()->streamDownload(function () use ($projects) {
+            $stream = fopen('php://output', 'w');
+            $safeText = static fn ($value) => preg_match('/^[\s]*[=+@-]|^[\t\r\n]/u', (string) $value)
+                ? "'".(string) $value : (string) $value;
+            fputcsv($stream, ['Project', 'Budget (PHP)', 'Deadline', 'Staff', 'Bids', 'Status'], ',', '"', '');
+            foreach ($projects as $project) {
+                $staff = $project->assignments->first()?->staff?->name ?? 'Unassigned';
+                $status = $this->projectExportStatus($project);
+                fputcsv($stream, [
+                    $safeText($project->title),
+                    number_format((float) $project->budget, 2, '.', ''),
+                    $project->deadline?->format('Y-m-d') ?? '',
+                    $safeText($staff),
+                    (int) $project->bids_count,
+                    $safeText($status['label']),
+                ], ',', '"', '');
+            }
+            fclose($stream);
+        }, 'projects-'.now()->format('Y-m-d_H-i-s').'.csv', [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    private function requestString(Request $request, string $key, ?string $default = null): string
+    {
+        $value = $request->input($key, $default);
+
+        return is_scalar($value) ? trim((string) $value) : (string) $default;
+    }
+
+    private function filteredProjectsQuery(string $search, string $status, bool $showArchived)
+    {
+        return Project::withCount('bids')
+            ->with(['assignments.staff', 'documents', 'bids:id,project_id,bid_amount'])
+            ->when($showArchived, function ($query) {
+                $query->whereNotNull('archived_at');
+            }, function ($query) {
+                $query->whereNull('archived_at');
+            })
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($subQuery) use ($search) {
                     $subQuery
@@ -121,17 +175,88 @@ class AdminController extends Controller
             })
             ->when(in_array($status, ['approved_for_bidding', 'open', 'closed', 'awarded', 'draft'], true), function ($query) use ($status) {
                 $query->where('status', $status);
-            })
-            ->latest()
-            ->paginate(10)
-            ->withQueryString();
-
-        return view('admin.projects', compact('projects', 'search', 'status'));
+            });
     }
 
-    public function createProject()
+    private function exportRowsForProjects(Collection $projects): array
     {
-        return view('admin.projects-wizard');
+        return $projects->map(function (Project $project): array {
+            $status = $this->projectExportStatus($project);
+
+            return [
+                'title' => $project->title,
+                'budget_label' => 'PHP '.number_format((float) $project->budget, 2),
+                'status' => $status['key'],
+                'status_label' => $status['label'],
+                'status_class' => $status['class'],
+            ];
+        })->values()->all();
+    }
+
+    private function projectExportStatus(Project $project): array
+    {
+        $status = in_array($project->status, ['draft', 'approved_for_bidding', 'open', 'closed', 'awarded'], true)
+            ? $project->status
+            : 'draft';
+
+        return [
+            'key' => $status,
+            'label' => Str::headline($status),
+            'class' => str_replace('_', '-', $status),
+        ];
+    }
+
+    public function createProject(Request $request)
+    {
+        $procurementRequest = null;
+
+        if ($request->filled('request')) {
+            $procurementRequest = \App\Models\ProcurementRequest::find($request->integer('request'));
+            abort_unless($procurementRequest && $procurementRequest->awaitsBac() && ! $procurementRequest->project()->exists(), 404);
+
+            // Start the wizard from the request unless the form is being redisplayed after an error.
+            if (old('procurement_request_id') === null) {
+                session()->now('_old_input', [
+                    'procurement_request_id' => $procurementRequest->id,
+                    'title' => $procurementRequest->title,
+                    'description' => $procurementRequest->specifications
+                        .($procurementRequest->justification ? "\n\nPurpose: ".$procurementRequest->justification : ''),
+                    'category' => $procurementRequest->category,
+                    'end_user_unit' => $procurementRequest->end_user_office,
+                    'source_of_fund' => $procurementRequest->fund_source,
+                    'contract_duration' => $procurementRequest->delivery_period,
+                    'budget' => number_format((float) $procurementRequest->estimated_cost, 2, '.', ''),
+                ]);
+            }
+        }
+
+        return view('admin.projects-wizard', ['procurementRequest' => $procurementRequest]);
+    }
+
+    /**
+     * Award-related Invitation to Bid details, normalized: weighted criteria
+     * only for MEARB/MARB, the quality-price ratio only for MEARB, the
+     * evaluation procedure only for consulting services, and the opening
+     * venue only for competitive bidding.
+     *
+     * @return array{evaluation_criteria:?array,quality_price_ratio:?int,evaluation_procedure:?string,bid_opening_venue:?string}
+     */
+    private static function invitationDetails(array $validated, bool $competitive): array
+    {
+        $criterion = $validated['award_criterion'] ?? null;
+        $weighted = $competitive && in_array($criterion, ['mearb', 'marb'], true);
+        $rows = collect($validated['evaluation_criteria'] ?? [])
+            ->filter(fn ($row) => is_array($row) && filled($row['name'] ?? null))
+            ->map(fn (array $row) => ['name' => trim($row['name']), 'weight' => round((float) ($row['weight'] ?? 0), 2)])
+            ->values()
+            ->all();
+
+        return [
+            'evaluation_criteria' => $weighted && $rows !== [] ? $rows : null,
+            'quality_price_ratio' => $weighted && $criterion === 'mearb' && filled($validated['quality_price_ratio'] ?? null) ? (int) $validated['quality_price_ratio'] : null,
+            'evaluation_procedure' => $competitive && ($validated['category'] ?? null) === 'consultancy' ? ($validated['evaluation_procedure'] ?? null) : null,
+            'bid_opening_venue' => $competitive && filled($validated['bid_opening_venue'] ?? null) ? trim($validated['bid_opening_venue']) : null,
+        ];
     }
 
     // Original store method (kept for backward compatibility / modal form)
@@ -143,20 +268,30 @@ class AdminController extends Controller
             'category' => 'nullable|string|max:255',
             'document_files' => 'nullable|array',
             'document_files.*' => 'file|mimes:pdf,doc,docx,jpg,jpeg,png|max:20480',
+            'document_type' => ['nullable', Rule::in(['invitation_to_bid', 'bidding_documents', 'terms_of_reference', 'technical_specifications', 'bill_of_quantities', 'project_plans', 'supplemental_bulletin', 'other'])],
             'document_file' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:20480',
             'budget' => 'required|numeric|min:0|lte:9999999999999.99',
-            'status' => 'required|in:draft,approved_for_bidding,open,closed,awarded',
+            'award_criterion' => ['nullable', Rule::in(array_keys(Project::AWARD_CRITERIA))],
+            // Posting for bidding goes through Publish (RA 9184 posting checks);
+            // closed/awarded come only from bid opening and the Notice of Award.
+            'status' => 'required|in:draft,approved_for_bidding',
             'deadline' => 'required|date|after:today',
         ], [
             'budget.lte' => 'Budget must not exceed 9,999,999,999,999.99.',
+            'status.in' => 'Create the project as Draft or Approved for Bidding, then publish it once it is ready for posting.',
         ]);
+
+        $documentType = $validated['document_type'] ?? null;
+        unset($validated['document_type']);
 
         $documentFiles = $this->extractProjectDocumentFiles($request);
         unset($validated['document_files']);
         unset($validated['document_file']);
 
-        $project = Project::create($validated);
-        $this->storeProjectDocuments($project, $documentFiles);
+        $project = Project::create($validated + ['reference_no' => Project::nextReferenceNo($validated['category'] ?? null)]);
+        // Competitive bidding starts at the ABC schedule's maximum fee.
+        $project->forceFill(\App\Support\BiddingDocumentsFee::resolve($project, ['bidding_fee_mode' => \App\Support\BiddingDocumentsFee::MODE_SCHEDULE]))->save();
+        $this->storeProjectDocuments($project, $documentFiles, $documentType);
 
         $redirectUrl = $validated['status'] === 'draft'
             ? route('admin.projects') . '?status=draft'
@@ -167,21 +302,41 @@ class AdminController extends Controller
 
     public function storeProjectWizard(Request $request)
     {
+        $status = $request->input('status') === 'open' ? 'open' : 'draft';
+        $publishRule = $status === 'open' ? 'required' : 'nullable';
+        // Only competitive bidding has a public bid opening that must be
+        // scheduled; RFQ-based modes open quotations after their deadline.
+        $competitive = \App\Support\ProcurementMode::familyOf($request->input('procurement_mode')) === \App\Support\ProcurementMode::FAMILY_COMPETITIVE;
+        $openingRule = $status === 'open' && $competitive ? 'required' : 'nullable';
+        $confirmationRule = $status === 'open' ? 'accepted' : 'nullable';
+
         $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'required|string',
-            'category' => 'required|string|in:goods,services,infrastructure,consultancy',
-            'location' => 'required|string|max:255',
-            'procurement_mode' => 'required|string|in:public_bidding,negotiated_procurement,shopping,small_value_procurement,direct_contracting,electronic_procurement',
-            'source_of_fund' => 'required|string|max:255',
-            'contract_duration' => 'required|string|max:255',
-            'budget' => 'required|numeric|min:0|lte:9999999999999.99',
+            'title' => "{$publishRule}|string|max:255",
+            'description' => "{$publishRule}|string",
+            'category' => "{$publishRule}|string|in:goods,services,infrastructure,consultancy",
+            'location' => "{$publishRule}|string|max:255",
+            'procurement_mode' => [$publishRule, 'string', Rule::in(\App\Support\ProcurementMode::keys())],
+            'award_criterion' => ['nullable', Rule::in(array_keys(Project::AWARD_CRITERIA))],
+            'evaluation_procedure' => ['nullable', Rule::in(array_keys(Project::EVALUATION_PROCEDURES))],
+            'evaluation_criteria' => 'nullable|array|max:20',
+            'evaluation_criteria.*.name' => 'nullable|string|max:255',
+            'evaluation_criteria.*.weight' => 'nullable|numeric|min:0|max:100',
+            'quality_price_ratio' => 'nullable|integer|min:1|max:99',
+            'bid_opening_venue' => 'nullable|string|max:500',
+            // Held before the Invitation to Bid (RA 12009 IRR Sec. 49.1); recorded with the project.
+            'pre_procurement_conference_at' => 'nullable|date|before_or_equal:now',
+            'pre_procurement_reference' => 'nullable|string|max:100',
+            'negotiation_ground' => ['nullable', Rule::in(array_keys(\App\Support\ProcurementMode::NEGOTIATION_GROUNDS))],
+            'source_of_fund' => "{$publishRule}|string|max:255",
+            'contract_duration' => "{$publishRule}|string|max:255",
+            'budget' => "{$publishRule}|numeric|min:0|lte:9999999999999.99",
             'status' => 'required|in:draft,open',
+            'confirm_correct' => $confirmationRule,
             'date_posted' => 'nullable|date',
             'pre_bid_conference_date' => 'nullable|date',
             'clarification_deadline' => 'nullable|date',
-            'bid_submission_deadline' => 'required|date',
-            'bid_opening_date' => 'required|date',
+            'bid_submission_deadline' => "{$publishRule}|date",
+            'bid_opening_date' => "{$openingRule}|date",
             'evaluation_start_date' => 'nullable|date',
             'expected_award_date' => 'nullable|date',
             'eligibility_requirements' => 'nullable|string',
@@ -193,27 +348,130 @@ class AdminController extends Controller
             'special_instructions' => 'nullable|string',
             'project_documents' => 'nullable|array',
             'project_documents.*' => 'file|mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png|max:20480',
+            // Notice details (Invitation to Bid / PhilGEPS posting).
+            'philgeps_reference_no' => 'nullable|string|max:100',
+            'end_user_unit' => 'nullable|string|max:255',
+            // How bids are submitted per the notice; the bidding documents fee is paid at the BAC.
+            'submission_mode' => ['nullable', Rule::in([Project::SUBMISSION_MANUAL, Project::SUBMISSION_ELECTRONIC])],
+            'submission_venue' => 'nullable|string|max:255',
+            'bidding_documents_fee' => 'nullable|numeric|min:0|lte:9999999999999.99',
+            'bidding_fee_mode' => ['nullable', Rule::in(\App\Support\BiddingDocumentsFee::MODES)],
+            'bidding_fee_reason' => 'nullable|string|max:2000',
+            'payment_venue' => 'nullable|string|max:255',
+            'electronic_submission_authority' => 'nullable|string|max:255',
+            'legal_basis' => ['nullable', Rule::in(array_keys(Project::LEGAL_BASES))],
+            'philgeps_url' => 'nullable|url|max:500',
+            'bid_security_required' => 'nullable|boolean',
+            'bid_security_notes' => 'nullable|string|max:2000',
+            'procurement_request_id' => ['nullable', 'integer', Rule::exists('procurement_requests', 'id')],
         ], [
             'budget.lte' => 'Budget must not exceed 9,999,999,999,999.99.',
+            'bidding_documents_fee.lte' => 'Bidding documents fee must not exceed 9,999,999,999,999.99.',
         ]);
 
+        if ($status === 'open') {
+            $submissionDeadline = \Carbon\Carbon::parse($validated['bid_submission_deadline']);
+            $openingDate = filled($validated['bid_opening_date'] ?? null) ? \Carbon\Carbon::parse($validated['bid_opening_date']) : null;
+            $scheduleErrors = [];
+
+            if ($openingDate !== null && $openingDate->lessThanOrEqualTo($submissionDeadline)) {
+                $scheduleErrors['bid_opening_date'] = $competitive
+                    ? 'Bid opening must be after the bid submission deadline.'
+                    : 'The opening of quotations must be after the quotation deadline.';
+            }
+            $openingDate ??= $submissionDeadline;
+
+            foreach ([
+                'clarification_deadline' => 'Clarification deadline must be before the bid submission deadline.',
+                'pre_bid_conference_date' => 'Pre-bid conference must be before the bid submission deadline.',
+            ] as $field => $message) {
+                if (!empty($validated[$field]) && \Carbon\Carbon::parse($validated[$field])->greaterThanOrEqualTo($submissionDeadline)) {
+                    $scheduleErrors[$field] = $message;
+                }
+            }
+
+            if (!empty($validated['evaluation_start_date']) && \Carbon\Carbon::parse($validated['evaluation_start_date'])->lessThan($openingDate)) {
+                $scheduleErrors['evaluation_start_date'] = 'Evaluation must start on or after bid opening.';
+            }
+
+            if (!empty($validated['expected_award_date'])) {
+                $minimumAwardDate = !empty($validated['evaluation_start_date'])
+                    ? \Carbon\Carbon::parse($validated['evaluation_start_date'])
+                    : $openingDate;
+                if (\Carbon\Carbon::parse($validated['expected_award_date'])->lessThan($minimumAwardDate)) {
+                    $scheduleErrors['expected_award_date'] = 'Expected award date must be on or after evaluation.';
+                }
+            }
+
+            if ($scheduleErrors !== []) {
+                return back()->withInput()->withErrors($scheduleErrors);
+            }
+        }
         $projectDocumentFiles = $request->file('project_documents', []);
+
+        $procurementRequest = null;
+        if (! empty($validated['procurement_request_id'])) {
+            $procurementRequest = \App\Models\ProcurementRequest::findOrFail($validated['procurement_request_id']);
+            if (! $procurementRequest->awaitsBac() || $procurementRequest->project()->exists()) {
+                return back()->withInput()->withErrors([
+                    'procurement_request_id' => 'Only a request forwarded to the BAC that has no project yet can be used.',
+                ]);
+            }
+        }
+
+        if (filled($validated['bid_security_notes'] ?? null) && ! ($validated['bid_security_required'] ?? false)) {
+            $validated['bid_security_notes'] = null;
+        }
+
+        // Invitation to Bid details kept only where they apply (IRR Sec. 50.2(e)-(h)).
+        $invitation = self::invitationDetails($validated, $competitive);
+
+        // Bidding documents fee: the ABC schedule's maximum unless the BAC lowers or waives it.
+        $feeProbe = (new Project)->forceFill([
+            'procurement_mode' => $validated['procurement_mode'] ?? null,
+            'legal_basis' => $validated['legal_basis'] ?? 'ra_12009',
+            'budget' => $validated['budget'] ?? 0,
+        ]);
+        $feeAttributes = \App\Support\BiddingDocumentsFee::resolve(
+            $feeProbe,
+            $request->only(['bidding_fee_mode', 'bidding_documents_fee', 'bidding_fee_reason']) + ['bidding_fee_mode' => null]
+        );
 
         DB::beginTransaction();
         try {
             $project = Project::create([
-                'title' => $validated['title'],
-                'description' => $validated['description'],
-                'category' => $validated['category'],
-                'location' => $validated['location'],
-                'procurement_mode' => $validated['procurement_mode'],
-                'source_of_fund' => $validated['source_of_fund'],
-                'contract_duration' => $validated['contract_duration'],
-                'budget' => $validated['budget'],
-                'status' => $validated['status'],
+                'title' => $validated['title'] ?? 'Untitled Draft Project',
+                'description' => $validated['description'] ?? '',
+                'category' => $validated['category'] ?? null,
+                'location' => $validated['location'] ?? null,
+                'procurement_mode' => $validated['procurement_mode'] ?? null,
+                'award_criterion' => $validated['award_criterion'] ?? null,
+                'negotiation_ground' => ($validated['procurement_mode'] ?? null) === 'negotiated_procurement' ? ($validated['negotiation_ground'] ?? null) : null,
+                'source_of_fund' => $validated['source_of_fund'] ?? null,
+                'contract_duration' => $validated['contract_duration'] ?? null,
+                'budget' => $validated['budget'] ?? 0,
+                // Posted only after the posting checks of its mode and legal basis pass.
+                'status' => 'draft',
                 'created_by' => Auth::id(),
-                'deadline' => $validated['bid_submission_deadline'],
-            ]);
+                'deadline' => $validated['bid_submission_deadline'] ?? null,
+                'reference_no' => Project::nextReferenceNo($validated['category'] ?? null),
+                'philgeps_reference_no' => $validated['philgeps_reference_no'] ?? null,
+                'end_user_unit' => $validated['end_user_unit'] ?? null,
+                'procurement_request_id' => $procurementRequest?->id,
+                'legal_basis' => $validated['legal_basis'] ?? 'ra_12009',
+                'philgeps_url' => $validated['philgeps_url'] ?? null,
+                'bid_security_required' => (bool) ($validated['bid_security_required'] ?? false),
+                'bid_security_notes' => $validated['bid_security_notes'] ?? null,
+                'submission_mode' => $validated['submission_mode'] ?? Project::SUBMISSION_ELECTRONIC,
+                'submission_venue' => $validated['submission_venue'] ?? null,
+                'bidding_documents_fee' => $feeAttributes['bidding_documents_fee'] ?? null,
+                'bidding_fee_mode' => $feeAttributes['bidding_fee_mode'] ?? null,
+                'bidding_fee_reason' => $feeAttributes['bidding_fee_reason'] ?? null,
+                'payment_venue' => filled($validated['payment_venue'] ?? null) ? trim($validated['payment_venue']) : null,
+                'electronic_submission_authority' => filled($validated['electronic_submission_authority'] ?? null) ? trim($validated['electronic_submission_authority']) : null,
+                'electronic_submission_authorized_at' => filled($validated['electronic_submission_authority'] ?? null) ? now() : null,
+                'electronic_submission_authorized_by' => filled($validated['electronic_submission_authority'] ?? null) ? Auth::id() : null,
+            ] + $invitation);
 
             $project->requirement()->create([
                 'eligibility_requirements' => $validated['eligibility_requirements'] ?? null,
@@ -225,14 +483,22 @@ class AdminController extends Controller
             ]);
 
             $project->schedule()->create([
-                'date_posted' => $validated['date_posted'] ?? now()->format('Y-m-d'),
+                'date_posted' => $validated['date_posted'] ?? null,
                 'pre_bid_conference_date' => $validated['pre_bid_conference_date'] ?? null,
                 'clarification_deadline' => $validated['clarification_deadline'] ?? null,
-                'bid_submission_deadline' => $validated['bid_submission_deadline'],
-                'bid_opening_date' => $validated['bid_opening_date'],
+                'bid_submission_deadline' => $validated['bid_submission_deadline'] ?? null,
+                'bid_opening_date' => $validated['bid_opening_date'] ?? null,
                 'evaluation_start_date' => $validated['evaluation_start_date'] ?? null,
                 'expected_award_date' => $validated['expected_award_date'] ?? null,
             ]);
+
+            if ($procurementRequest) {
+                $procurementRequest->update(['status' => \App\Models\ProcurementRequest::STATUS_IN_PROCUREMENT]);
+                AuditLog::log('procurement_request_converted', $procurementRequest, ['status' => \App\Models\ProcurementRequest::STATUS_FORWARDED], [
+                    'status' => \App\Models\ProcurementRequest::STATUS_IN_PROCUREMENT,
+                    'project_id' => $project->id,
+                ]);
+            }
 
             $documentTypes = $request->input('document_type', []);
             foreach ($projectDocumentFiles as $index => $file) {
@@ -247,17 +513,41 @@ class AdminController extends Controller
                 ]);
             }
 
+            if ($competitive && filled($validated['pre_procurement_conference_at'] ?? null)) {
+                app(\App\Support\ProcurementLifecycle::class)->recordProceeding($project, Auth::user(), [
+                    'type' => \App\Models\ProjectProceeding::TYPE_PRE_PROCUREMENT,
+                    'title' => 'Pre-procurement conference',
+                    'occurred_at' => \Carbon\Carbon::parse($validated['pre_procurement_conference_at'], config('app.timezone', 'Asia/Manila')),
+                    'reference_no' => $validated['pre_procurement_reference'] ?? null,
+                ], null);
+            }
+
+            $blockers = [];
+            if ($status === 'open') {
+                $project->load(['schedule', 'documents']);
+                $publicationAt = now(config('app.timezone', 'Asia/Manila'));
+                $blockers = $project->publicationBlockers(now(config('app.timezone', 'Asia/Manila')), $publicationAt);
+                if ($blockers === []) {
+                    app(\App\Support\ProjectPublication::class)->publish($project, Auth::user(), $publicationAt);
+                }
+            }
+
             DB::commit();
 
             SystemNotification::createForUser(
                 Auth::id(),
                 'Project Created',
-                'Project "' . $project->title . '" has been created with status: ' . $validated['status'],
+                'Project "' . $project->title . '" (' . $project->reference_no . ') has been created with status: ' . $project->status,
                 'project_created',
                 ['project_id' => $project->id]
             );
 
-            $redirectUrl = $validated['status'] === 'draft'
+            if ($blockers !== []) {
+                return redirect(route('admin.projects') . '?status=draft')
+                    ->with('error', 'Saved as draft (' . $project->reference_no . '), not yet published in the BAC system: ' . implode(' ', $blockers));
+            }
+
+            $redirectUrl = $project->status === 'draft'
                 ? route('admin.projects') . '?status=draft'
                 : route('admin.projects');
 
@@ -265,18 +555,115 @@ class AdminController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Failed to create project from wizard.', [
+                'status' => $status,
+                'admin_id' => Auth::id(),
+                'error' => $e->getMessage(),
+            ]);
+
             return back()->withInput()->withErrors(['error' => 'Failed to create project: ' . $e->getMessage()]);
         }
     }
-
     public function allBids(Request $request)
     {
-        $search = trim((string) $request->query('search', ''));
-        $status = trim((string) $request->query('status', ''));
-        $projectFilter = trim((string) $request->query('project', ''));
-        $proposalFilter = trim((string) $request->query('proposal', ''));
+        $search = $this->requestString($request, 'search');
+        $status = $this->requestString($request, 'status');
+        $projectFilter = $this->requestString($request, 'project');
+        $modeFilter = $this->requestString($request, 'mode');
+        // `proposal` is retained as a backwards-compatible query alias.
+        $documentStatusFilter = $this->requestString($request, 'document_status') ?: $this->requestString($request, 'proposal');
+        $perPage = (int) $request->query('per_page', 10);
+        $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 10;
 
-        $bids = Bid::with(['project', 'user.philgepsCertificate', 'award'])
+        $allBids = $this->bidsForStatusFilter(
+            $this->filteredBidsQuery($search, $projectFilter, $modeFilter)->latest()->orderByDesc('id')->get(),
+            $status
+        );
+        $allBids = $this->bidsForDocumentStatusFilter($allBids, $documentStatusFilter);
+
+        $page = max(1, (int) $request->query('page', 1));
+        $bids = new \Illuminate\Pagination\LengthAwarePaginator(
+            $allBids->forPage($page, $perPage)->values(),
+            $allBids->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        if ($bids->currentPage() > $bids->lastPage()) {
+            return redirect()->route('admin.bids', array_merge($request->except('page'), ['page' => $bids->lastPage()]));
+        }
+
+        // Abstract-of-bids ranking per project, computed over all of the project's bids.
+        $rankedProject = $projectFilter !== '' && ctype_digit($projectFilter) ? Project::find((int) $projectFilter) : null;
+        $rankings = app(\App\Support\BidRanking::class)->forProjects(
+            collect($bids->items())->pluck('project_id')->push($rankedProject?->id)
+        );
+        $projectRanking = $rankedProject
+            ? Bid::with('user')->where('project_id', $rankedProject->id)->get()
+                ->filter(fn (Bid $bid) => ($rankings[$bid->id]['status'] ?? null) === \App\Support\BidRanking::RANKED)
+                ->sortBy(fn (Bid $bid) => $rankings[$bid->id]['rank'])->values()
+            : collect();
+
+        $exportRows = $this->exportRowsForBids($allBids);
+        $projects = Project::orderBy('title')->get(['id', 'reference_no', 'title', 'procurement_mode']);
+        $modeOptions = collect(\App\Support\ProcurementMode::MODES)
+            ->mapWithKeys(fn (array $mode, string $key) => [$key => $mode['label']])
+            ->all();
+        $documentStatusOptions = [
+            'complete' => 'Complete',
+            'incomplete' => 'Incomplete',
+            'sealed' => 'Received / sealed',
+            'manual' => 'Manual envelope',
+            'draft' => 'Draft only',
+        ];
+        $statusOptions = BidProgress::ADMIN_STAGES;
+        $summary = [
+            'total' => $allBids->count(),
+            'sealed' => $allBids->filter(fn (Bid $bid) => $bid->isSealed())->count(),
+            'ready' => $allBids->filter(fn (Bid $bid) => ! $bid->isSealed() && $bid->progress()->adminStage() === BidProgress::STAGE_PRELIMINARY)->count(),
+            'decided' => $allBids->filter(fn (Bid $bid) => in_array($bid->progress()->adminStage(), [BidProgress::STAGE_EVALUATION, BidProgress::STAGE_POST_QUALIFICATION, BidProgress::STAGE_RECOMMENDATION], true))->count(),
+        ];
+
+        return view('admin.bids', compact(
+            'bids', 'projects', 'search', 'status', 'projectFilter', 'modeFilter',
+            'documentStatusFilter', 'exportRows', 'statusOptions', 'modeOptions',
+            'documentStatusOptions', 'summary', 'rankings', 'rankedProject', 'projectRanking'
+        ));
+    }
+
+    public function exportBids(Request $request)
+    {
+        $search = $this->requestString($request, 'search');
+        $status = $this->requestString($request, 'status');
+
+        $projectFilter = $this->requestString($request, 'project');
+        $modeFilter = $this->requestString($request, 'mode');
+        $documentStatusFilter = $this->requestString($request, 'document_status') ?: $this->requestString($request, 'proposal');
+        $selectedStatuses = collect($request->input('statuses', []))
+            ->map(fn ($value) => trim((string) $value))
+            ->filter(fn ($value) => array_key_exists($value, BidProgress::ADMIN_STAGES))
+            ->values()
+            ->all();
+
+        $bids = $this->bidsForStatusFilter(
+            $this->filteredBidsQuery($search, $projectFilter, $modeFilter)->latest()->orderByDesc('id')->get(),
+            $status
+        );
+        $bids = $this->bidsForDocumentStatusFilter($bids, $documentStatusFilter);
+
+        if ($request->has('statuses')) {
+            $bids = $bids
+                ->filter(fn (Bid $bid) => in_array($bid->progress()->adminStage(), $selectedStatuses, true))
+                ->values();
+        }
+
+        return $this->streamBidsCsv($bids);
+    }
+
+    private function filteredBidsQuery(string $search, string $projectFilter, string $modeFilter)
+    {
+        return Bid::with(['project.awards', 'project.rebidProject', 'project.schedule', 'project.requirement', 'award', 'user.philgepsCertificate', 'documents'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($subQuery) use ($search) {
                     $subQuery
@@ -291,38 +678,153 @@ class AdminController extends Controller
                         });
                 });
             })
-            ->when(in_array($status, ['pending', 'approved', 'rejected'], true), function ($query) use ($status) {
-                $query->where('status', $status);
-            })
             ->when($projectFilter !== '' && ctype_digit($projectFilter), function ($query) use ($projectFilter) {
                 $query->where('project_id', (int) $projectFilter);
             })
-            ->when($proposalFilter === 'uploaded', function ($query) {
-                $query->whereNotNull('proposal_file')->where('proposal_file', '!=', '');
-            })
-            ->when($proposalFilter === 'missing', function ($query) {
-                $query->where(function ($subQuery) {
-                    $subQuery->whereNull('proposal_file')->orWhere('proposal_file', '');
-                });
-            })
-            ->latest()
+            ->when($modeFilter !== '' && array_key_exists($modeFilter, \App\Support\ProcurementMode::MODES), function ($query) use ($modeFilter) {
+                $query->whereHas('project', fn ($projectQuery) => $projectQuery->where('procurement_mode', $modeFilter));
+            });
+    }
+
+    private function bidsForDocumentStatusFilter(Collection $bids, string $filter): Collection
+    {
+        if ($filter === '') {
+            return $bids->values();
+        }
+
+        return $bids->filter(function (Bid $bid) use ($filter): bool {
+            $status = $bid->submissionDocumentStatus()['key'];
+
+            return match ($filter) {
+                'uploaded' => filled($bid->proposal_file),
+                'missing' => blank($bid->proposal_file),
+                'complete' => in_array($status, ['complete', 'received_sealed'], true),
+                'incomplete' => $status === 'incomplete',
+                'sealed' => $status === 'received_sealed',
+                'manual' => $status === 'sealed_envelope',
+                'draft' => $status === 'draft',
+                default => true,
+            };
+        })->values();
+    }
+
+    /**
+     * Keep only bids whose current stage matches the ?status= filter. Old
+     * values (pending/approved/rejected/awarded) map onto the stages they covered.
+     */
+    private function bidsForStatusFilter(Collection $bids, string $status): Collection
+    {
+        $stages = BidProgress::stagesForFilter($status);
+
+        return $stages === null
+            ? $bids->values()
+            : $bids->filter(fn (Bid $bid) => in_array($bid->progress()->adminStage(), $stages, true))->values();
+    }
+
+    private function exportRowsForBids(Collection $bids): array
+    {
+        return $bids->map(function (Bid $bid): array {
+            $status = $bid->progress()->adminStatus();
+
+            $documentStatus = $bid->submissionDocumentStatus();
+
+            return [
+                'bidder' => $bid->user?->company ?: ($bid->user?->name ?? 'N/A'),
+                'amount_label' => $bid->isFinancialSealed() ? 'Sealed' : 'PHP ' . number_format((float) $bid->amount, 2),
+                'status' => $status['key'],
+                'status_label' => $status['label'],
+                'status_class' => $status['class'],
+                'has_proposal' => in_array($documentStatus['key'], ['complete', 'received_sealed'], true),
+                'mode_label' => $bid->project?->mode()->label() ?? 'Not specified',
+                'document_status_label' => $documentStatus['label'],
+                'receipt_no' => $bid->receipt_no ?: '—',
+                'submitted_at' => ($bid->submitted_at ?? $bid->created_at)?->timezone(config('bac-office.display_timezone'))->format('Y-m-d H:i:s'),
+            ];
+        })->values()->all();
+    }
+
+    /**
+     * CSV of bids. Amounts of bids that are still sealed are not exported.
+     */
+    private function streamBidsCsv(Collection $bids)
+    {
+        return response()->streamDownload(function () use ($bids) {
+            $stream = fopen('php://output', 'w');
+            // Prevent user-controlled spreadsheet cells from becoming formulas.
+            $safeText = static fn ($value) => preg_match('/^[\s]*[=+@-]|^[\t\r\n]/u', (string) $value)
+                ? "'".(string) $value : (string) $value;
+            fputcsv($stream, ['Bid ID', 'Bidder', 'Email', 'Project', 'Bid Amount (PHP)', 'Budget (PHP)', 'Variance (%)', 'Submitted', 'Status', 'Project Reference', 'Procurement Mode', 'Receipt / Reference No.', 'Document Status'], ',', '"', '');
+            foreach ($bids as $bid) {
+                $budget = (float) ($bid->project?->budget ?? 0);
+                $sealed = $bid->isFinancialSealed();
+                $variance = ! $sealed && $budget > 0 ? round(((float) $bid->amount - $budget) / $budget * 100, 1) : '';
+                fputcsv($stream, [
+                    $bid->id,
+                    $safeText($bid->user?->company ?: $bid->user?->name),
+                    $safeText($bid->user?->email),
+                    $safeText($bid->project?->title),
+                    $sealed ? 'Sealed' : $bid->amount,
+                    $budget,
+                    $variance,
+                    $bid->created_at?->toDateTimeString(),
+                    $bid->progress()->adminStatus()['label'],
+                    $safeText($bid->project?->reference_no),
+                    $safeText($bid->project?->mode()->label()),
+                    $safeText($bid->receipt_no),
+                    $safeText($bid->submissionDocumentStatus()['label']),
+                ], ',', '"', '');
+            }
+            fclose($stream);
+        }, 'selected-bids.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * Bulk actions are limited to export: decisions are recorded one bid at a
+     * time, because each needs its own document verification and reason.
+     */
+    public function bulkBids(Request $request)
+    {
+        $data = $request->validate([
+            'action' => ['required', Rule::in(['export'])],
+            'ids' => ['required', 'array', 'min:1', 'max:100'],
+            'ids.*' => ['required', 'integer', 'distinct', 'exists:bids,id'],
+        ]);
+
+        $bids = Bid::with(['project.awards', 'project.rebidProject', 'award', 'user'])
+            ->whereIn('id', $data['ids'])
+            ->orderBy('id')
             ->get();
 
-        $projects = Project::orderBy('title')->get(['id', 'title']);
-
-        return view('admin.bids', compact('bids', 'projects', 'search', 'status', 'projectFilter', 'proposalFilter'));
+        return $this->streamBidsCsv($bids);
     }
+
     public function users(Request $request)
     {
-        $search = trim((string) $request->query('search', ''));
-        $filter = trim((string) $request->query('filter', 'all'));
+        $search = $this->requestString($request, 'search');
+        $filter = $this->requestString($request, 'filter', 'all');
         $bidderApprovalAvailable = Schema::hasTable('bidders');
+        $bidderSanctionsAvailable = Schema::hasTable('bidder_sanctions');
 
         $users = User::query()
+            ->when($bidderApprovalAvailable, function ($query) use ($bidderSanctionsAvailable) {
+                $query->with([
+                    'bidderProfile' => function ($profileQuery) use ($bidderSanctionsAvailable) {
+                        if ($bidderSanctionsAvailable) {
+                            $profileQuery->with(['activeSanction.creator', 'sanctions.creator']);
+                        }
+                    },
+                ]);
+            })
             ->when($filter === 'admin', fn ($query) => $query->where('role', 'admin'))
             ->when($filter === 'staff', fn ($query) => $query->where('role', 'staff'))
+            ->when($filter === 'end_user', fn ($query) => $query->where('role', 'end_user'))
             ->when($filter === 'bidder', fn ($query) => $query->where('role', 'bidder'))
-            ->when($filter === 'pending', fn ($query) => $query->where('status', 'pending'))
+            ->when($filter === 'pending' && $bidderApprovalAvailable, fn ($query) => $query->where('role', 'bidder')->whereHas('bidderProfile', fn ($profileQuery) => $profileQuery->where('approval_status', 'pending')))
+            ->when($filter === 'pending' && ! $bidderApprovalAvailable, fn ($query) => $query->where('status', 'pending'))
+            ->when(in_array($filter, [BidderSanction::TYPE_SUSPENDED, BidderSanction::TYPE_BLACKLISTED], true) && $bidderSanctionsAvailable, function ($query) use ($filter) {
+                $query->where('role', 'bidder')
+                    ->whereHas('bidderProfile.activeSanction', fn ($sanctionQuery) => $sanctionQuery->where('type', $filter));
+            })
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($subQuery) use ($search) {
                 $subQuery
@@ -348,9 +850,11 @@ class AdminController extends Controller
             'active' => User::where('status', 'active')->count(),
             'pending' => User::where('status', 'pending')->count(),
             'rejected' => User::where('status', 'rejected')->count(),
+            'suspended' => $bidderSanctionsAvailable ? BidderSanction::active()->where('type', BidderSanction::TYPE_SUSPENDED)->count() : 0,
+            'blacklisted' => $bidderSanctionsAvailable ? BidderSanction::active()->where('type', BidderSanction::TYPE_BLACKLISTED)->count() : 0,
         ];
 
-        return view('admin.users', compact('users', 'search', 'filter', 'roleCounts', 'statusCounts', 'bidderApprovalAvailable'));
+        return view('admin.users', compact('users', 'search', 'filter', 'roleCounts', 'statusCounts', 'bidderApprovalAvailable', 'bidderSanctionsAvailable'));
     }
 
     public function reviewUser(User $user)
@@ -358,45 +862,87 @@ class AdminController extends Controller
         abort_unless($user->role === 'bidder', 404);
 
         $user->load([
+            'bidderDocuments',
+            'loginLogs' => fn ($query) => $query->latest('created_at')->take(10),
             'bidderProfile.approver',
-            'registrationDocuments',
-            'bidderDocuments' => fn ($query) => $query->orderBy('document_type'),
+            'bidderProfile.reviewer',
         ]);
 
-        $registrationDocuments = $user->registrationDocuments;
-        $supportingDocuments = $user->bidderDocuments
-            ->reject(fn (BidderDocument $document) => str_starts_with($document->document_type, 'Registration Requirement '))
+        if (Schema::hasTable('bidder_sanctions')) {
+            $user->load(['bidderProfile.activeSanction.creator', 'bidderProfile.sanctions.creator', 'bidderProfile.sanctions.lifter']);
+        }
+
+        $bidder = $user->bidderProfile;
+        if ($user->status === 'pending' && $bidder && in_array($bidder->review_status, [null, 'new'], true)) {
+            $bidder->forceFill([
+                'review_status' => 'under_review',
+                'reviewed_at' => now(),
+                'reviewed_by' => Auth::id(),
+            ])->save();
+            AuditLog::log('bidder_review_started', $bidder, ['review_status' => 'new'], ['review_status' => 'under_review'], ['ip_address' => request()->ip(), 'user_agent' => request()->userAgent()]);
+        }
+        $registrationDocumentTypes = BidderRegistrationRequirements::documentTypes();
+        $registrationDocuments = $user->bidderDocuments
+            ->filter(fn (BidderDocument $document): bool => ($document->is_current ?? true)
+                && (in_array($document->document_type, $registrationDocumentTypes, true)
+                    || str_starts_with($document->document_type, 'Registration Requirement ')))
+            ->sortBy('document_type')
             ->values();
+        $supportingDocuments = $user->bidderDocuments
+            ->reject(fn (BidderDocument $document) => ! ($document->is_current ?? true)
+                || str_starts_with($document->document_type, 'Registration Requirement ')
+                || in_array($document->document_type, $registrationDocumentTypes, true))
+            ->sortBy('document_type')
+            ->values();
+        $missingRegistrationRequirements = $this->missingBidderRegistrationRequirements($registrationDocuments);
+        $registrationRequirementsComplete = $missingRegistrationRequirements === [];
+        $bidder = $user->bidderProfile;
+        $openRequirementRequests = $bidder
+            ? $bidder->requirementRequests()->where('status', 'open')->latest()->get()
+            : collect();
+        $registrationRequirementOptions = collect(BidderRegistrationRequirements::documents())
+            ->map(fn (array $document, string $key): array => $document + ['key' => $key])
+            ->values()
+            ->all();
 
         return view('admin.bidder-review', compact(
             'user',
             'registrationDocuments',
             'supportingDocuments',
+            'missingRegistrationRequirements',
+            'registrationRequirementsComplete',
+            'openRequirementRequests',
+            'registrationRequirementOptions',
         ));
     }
 
-     public function previewUserQr(User $user)
-     {
-         // QR code functionality removed
-         return redirect()->route('admin.users.review', $user)
-             ->with('warning', 'QR code feature has been disabled.');
-     }
+    protected function missingBidderRegistrationRequirements(Collection $registrationDocuments): array
+    {
+        $uploadedTypes = $registrationDocuments
+            ->pluck('document_type')
+            ->filter()
+            ->unique()
+            ->values();
 
-     public function downloadUserQr(User $user)
-     {
-         // QR code functionality removed
-         return redirect()->route('admin.users.review', $user)
-             ->with('warning', 'QR code feature has been disabled.');
-     }
+        return collect(BidderRegistrationRequirements::documents())
+            ->filter(fn (array $document): bool => ($document['required'] ?? false)
+                && ! $uploadedTypes->contains($document['document_type']))
+            ->pluck('label')
+            ->values()
+            ->all();
+    }
 
-     public function resendUserQrEmail(User $user)
-     {
-         // QR code functionality removed
-         return redirect()
-             ->route('admin.users.review', $user)
-             ->with('warning', 'QR code functionality has been disabled.');
-     }
+    public function userLoginActivity(User $user)
+    {
+        abort_unless($user->role === 'bidder', 404);
 
+        $loginLogs = $user->loginLogs()
+            ->latest('created_at')
+            ->take(10)
+            ->get();
+
+        return view('admin.partials.bidder-login-activity-rows', compact('loginLogs'));
+    }
      public function previewBidderDocument(User $user, BidderDocument $document)
     {
         abort_unless($user->role === 'bidder', 404);
@@ -435,12 +981,21 @@ class AdminController extends Controller
              unset($validated['password']);
          }
 
+         $oldStatus = $user->status;
+
          // Check if user status is changing from pending to active
          $wasPending = $user->status === 'pending';
          $becomingActive = $validated['status'] === 'active';
 
          $user->update($validated);
          $this->syncBidderProfile($user);
+
+         if ($oldStatus !== $user->status) {
+             AuditLog::log('user_status_changed', $user, ['status' => $oldStatus], ['status' => $user->status], [
+                 'ip_address' => $request->ip(),
+                 'user_agent' => $request->userAgent(),
+             ]);
+         }
 
          // Send welcome email if user is activated from pending
          if ($wasPending && $becomingActive) {
@@ -457,95 +1012,518 @@ class AdminController extends Controller
          return redirect()->route('admin.users')->with('success', 'User updated successfully.');
      }
 
- public function approveUser(User $user)
-     {
-         abort_unless($user->role === 'bidder', 404);
+    public function approveUser(Request $request, User $user)
+    {
+        abort_unless($user->role === 'bidder', 404);
 
-         DB::transaction(function () use ($user): void {
-             $bidder = $this->ensureBidderProfile($user);
+        $approvedNow = DB::transaction(function () use ($user, $request): bool {
+            $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $bidder = $this->ensureBidderProfile($lockedUser);
 
-             $user->forceFill([
-                 'status' => 'active',
-                 'company' => $bidder->company_name,
-             ])->save();
+            if ($lockedUser->status === 'active' && $bidder->approval_status === 'approved') {
+                return false;
+            }
 
-             $bidder->forceFill([
-                 'approval_status' => 'approved',
-                 'approved_at' => now(),
-                 'approved_by' => Auth::id(),
-             ])->save();
-         });
+            if (Schema::hasTable('bidder_sanctions') && $bidder->hasActiveProcurementSanction()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'bidder_status' => 'Lift the active procurement sanction before approving this bidder.',
+                ]);
+            }
 
-         $user->refresh()->load('bidderProfile');
+            $currentDocuments = BidderDocument::where('user_id', $lockedUser->id)
+                ->where('is_current', true)
+                ->get();
+            $missing = $this->missingBidderRegistrationRequirements($currentDocuments);
+            $needsAction = $currentDocuments->filter(fn (BidderDocument $document): bool => $document->review_status === 'needs_action');
+            if ($missing !== [] || $needsAction->isNotEmpty()) {
+                $message = $missing !== []
+                    ? 'This bidder cannot be approved until all required documents are present: '.implode(', ', $missing)
+                    : 'This bidder cannot be approved while one or more documents are marked for correction.';
+                throw \Illuminate\Validation\ValidationException::withMessages(['requirements' => $message]);
+            }
+
+            $oldStatus = $lockedUser->bidderProcurementStatus();
+            $lockedUser->forceFill([
+                'status' => 'active',
+                'company' => $bidder->company_name,
+            ])->save();
+            $bidder->forceFill([
+                'approval_status' => 'approved',
+                'review_status' => null,
+                'review_message' => null,
+                'reviewed_at' => now(),
+                'reviewed_by' => Auth::id(),
+                'review_requested_at' => null,
+                'review_requested_by' => null,
+                'rejection_reason' => null,
+                'approved_at' => now(),
+                'approved_by' => Auth::id(),
+            ])->save();
+            $bidder->requirementRequests()
+                ->whereIn('status', ['open', 'submitted'])
+                ->update(['status' => 'resolved', 'resolved_at' => now(), 'resolved_by' => Auth::id()]);
+
+            AuditLog::log('bidder_approved', $bidder, ['approval_status' => $oldStatus], [
+                'approval_status' => 'approved',
+                'approved_by' => Auth::id(),
+                'approved_at' => now()->toISOString(),
+            ], ['ip_address' => $request->ip(), 'user_agent' => $request->userAgent()]);
+
+            return true;
+        });
+
+        $user->refresh()->load('bidderProfile');
+        if ($approvedNow) {
+            SystemNotification::createForUser($user->id, 'Account approved', 'Your bidder account has been approved. You can now access the full SJBAC Portal.', 'account_approved');
+            try {
+                Mail::to($user->email)->send(new WelcomeMail($user));
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        }
+
+        if ($request->ajax() || $request->expectsJson()) {
+            return response()->json(['ok' => true, 'message' => $approvedNow ? 'Bidder approved successfully.' : 'Bidder is already approved.', 'user' => ['id' => $user->id, 'status' => 'approved', 'status_label' => 'Approved']]);
+        }
+
+        return redirect()->route(Auth::user()?->role === 'staff' ? 'staff.users.review' : 'admin.users.review', $user)->with('success', $approvedNow ? 'Bidder approved successfully.' : 'Bidder is already approved.');
+    }
+
+    public function requestBidderRequirements(Request $request, User $user)
+    {
+        abort_unless($user->role === 'bidder', 404);
+        $validated = $request->validate([
+            'document_types' => ['required', 'array', 'min:1'],
+            'document_types.*' => ['required', Rule::in(BidderRegistrationRequirements::documentTypes())],
+            'reason' => ['required', 'string', 'max:5000'],
+        ]);
+        $types = array_values(array_unique($validated['document_types']));
+        $reason = trim($validated['reason']);
+
+        $changed = DB::transaction(function () use ($user, $request, $types, $reason): bool {
+            $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedUser->status === 'pending', 409, 'Only pending bidder registrations can be sent back for corrections.');
+            $bidder = $this->ensureBidderProfile($lockedUser);
+            $currentDocuments = BidderDocument::where('user_id', $lockedUser->id)->where('is_current', true)->get()->keyBy('document_type');
+            $existing = $bidder->requirementRequests()->where('status', 'open')->get()->keyBy('document_type');
+            $selectedTypes = collect($types)->sort()->values()->all();
+            $existingTypes = $existing->keys()->sort()->values()->all();
+            $hasChange = $existingTypes !== $selectedTypes;
+
+            foreach ($existing as $existingType => $existingRequest) {
+                if (! in_array($existingType, $types, true)) {
+                    $existingRequest->forceFill(['status' => 'resolved', 'resolved_at' => now(), 'resolved_by' => Auth::id()])->save();
+                }
+            }
+
+            foreach ($types as $documentType) {
+                $requestRow = $existing->get($documentType);
+                if ($requestRow && trim((string) $requestRow->reason) === $reason) {
+                    continue;
+                }
+                $hasChange = true;
+                $requestRow = $requestRow ?: new BidderRequirementRequest();
+                $requestRow->forceFill([
+                    'bidder_id' => $bidder->id,
+                    'document_type' => $documentType,
+                    'document_id' => $currentDocuments->get($documentType)?->id,
+                    'reason' => $reason,
+                    'status' => 'open',
+                    'requested_by' => Auth::id(),
+                    'requested_at' => now(),
+                ])->save();
+                if ($currentDocuments->get($documentType)) {
+                    $currentDocuments->get($documentType)->forceFill(['review_status' => 'needs_action', 'review_note' => $reason, 'reviewed_at' => now(), 'reviewed_by' => Auth::id()])->save();
+                }
+            }
+            if (! $hasChange) {
+                return false;
+            }
+            $bidder->forceFill([
+                'approval_status' => 'pending',
+                'review_status' => 'needs_action',
+                'review_message' => $reason,
+                'reviewed_at' => now(),
+                'reviewed_by' => Auth::id(),
+                'review_requested_at' => now(),
+                'review_requested_by' => Auth::id(),
+            ])->save();
+            AuditLog::log('bidder_requirements_requested', $bidder, ['review_status' => $bidder->getOriginal('review_status')], ['document_types' => $types, 'reason' => $reason, 'review_status' => 'needs_action'], ['ip_address' => $request->ip(), 'user_agent' => $request->userAgent()]);
+            return true;
+        });
+
+        $user->refresh()->load('bidderProfile');
+        $mailSent = null;
+        $mailError = null;
+        if ($changed) {
+            $name = $user->bidderProfile?->contact_person ?: ($user->name ?: 'Bidder');
+            $company = $user->bidderProfile?->company_name ?: ($user->company ?: 'your company');
+            $labels = collect(BidderRegistrationRequirements::documents())->filter(fn (array $document) => in_array($document['document_type'], $types, true))->pluck('label')->values()->all();
+
+            [$mailSent, $mailError] = $this->sendBidderRequirementsActionEmail($user, $name, $company, $labels, $reason, $user->bidderProfile?->review_requested_at);
+
+            AuditLog::log('bidder_requirements_notification_'.($mailSent ? 'sent' : 'failed'), $user->bidderProfile, null, [
+                'requested_by' => Auth::id(),
+                'bidder_id' => $user->id,
+                'document_types' => $types,
+                'reason' => $reason,
+                'email_to' => $user->email,
+                'email_sent' => $mailSent,
+                'email_error' => $mailError,
+            ], ['ip_address' => $request->ip(), 'user_agent' => $request->userAgent()]);
+
+            SystemNotification::createForUser($user->id, 'Registration requirements need action', 'Please log in to the SJBAC Portal to correct: '.implode(', ', $labels).'.', 'bidder_requirements_action', ['reason' => $reason, 'document_types' => $types]);
+        }
+
+        if ($changed && ! $mailSent) {
+            $message = 'Requirements were saved, but the notification email could not be sent to the bidder. You can retry sending it below.';
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => true,
+                    'mail_sent' => false,
+                    'message' => $message,
+                    'retry_url' => route(Auth::user()?->role === 'staff' ? 'staff.users.requirements.resend' : 'admin.users.requirements.resend', $user),
+                ]);
+            }
+            return redirect()->route(Auth::user()?->role === 'staff' ? 'staff.users.review' : 'admin.users.review', $user)->with('warning', $message);
+        }
+
+        $message = $changed ? 'Requirements request sent to the bidder.' : 'The same requirements request was already sent.';
+        if ($request->expectsJson()) return response()->json(['ok' => true, 'mail_sent' => $mailSent, 'message' => $message]);
+        return redirect()->route(Auth::user()?->role === 'staff' ? 'staff.users.review' : 'admin.users.review', $user)->with('success', $message);
+    }
+
+    /**
+     * Resend the "needs action" notification email for a bidder's currently open
+     * requirement requests, without re-validating or changing the request itself.
+     * Used as the safe retry path when the original send attempt failed.
+     */
+    public function resendBidderRequirementsNotification(Request $request, User $user)
+    {
+        abort_unless($user->role === 'bidder', 404);
+
+        $user->load('bidderProfile');
+        $bidder = $user->bidderProfile;
+        abort_unless($bidder, 404);
+
+        $openTypes = $bidder->requirementRequests()->where('status', 'open')->pluck('document_type')->values()->all();
+        if ($openTypes === []) {
+            $message = 'This bidder does not have an open requirements request to resend.';
+            if ($request->expectsJson()) return response()->json(['ok' => false, 'message' => $message], 422);
+            return redirect()->route(Auth::user()?->role === 'staff' ? 'staff.users.review' : 'admin.users.review', $user)->with('warning', $message);
+        }
+
+        $reason = trim((string) $bidder->review_message) ?: 'Please review and correct the flagged requirements.';
+        $labels = collect(BidderRegistrationRequirements::documents())->filter(fn (array $document) => in_array($document['document_type'], $openTypes, true))->pluck('label')->values()->all();
+        $name = $bidder->contact_person ?: ($user->name ?: 'Bidder');
+        $company = $bidder->company_name ?: ($user->company ?: 'your company');
+
+        [$mailSent, $mailError] = $this->sendBidderRequirementsActionEmail($user, $name, $company, $labels, $reason, $bidder->review_requested_at);
+
+        AuditLog::log('bidder_requirements_notification_'.($mailSent ? 'resent' : 'resend_failed'), $bidder, null, [
+            'requested_by' => Auth::id(),
+            'bidder_id' => $user->id,
+            'document_types' => $openTypes,
+            'reason' => $reason,
+            'email_to' => $user->email,
+            'email_sent' => $mailSent,
+            'email_error' => $mailError,
+        ], ['ip_address' => $request->ip(), 'user_agent' => $request->userAgent()]);
+
+        $message = $mailSent
+            ? 'Notification email resent to the bidder.'
+            : 'Unable to resend the notification email. Please check the mail configuration and try again.';
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => $mailSent,
+                'mail_sent' => $mailSent,
+                'message' => $message,
+                'retry_url' => $mailSent ? null : route(Auth::user()?->role === 'staff' ? 'staff.users.requirements.resend' : 'admin.users.requirements.resend', $user),
+            ], $mailSent ? 200 : 422);
+        }
+
+        return redirect()->route(Auth::user()?->role === 'staff' ? 'staff.users.review' : 'admin.users.review', $user)->with($mailSent ? 'success' : 'warning', $message);
+    }
+
+    /**
+     * Send the bidder "needs action" requirements email, catching and logging
+     * any transport failure instead of letting it bubble up as a 500.
+     *
+     * @return array{0: bool, 1: string|null} [sent, errorMessage]
+     */
+    private function sendBidderRequirementsActionEmail(User $user, string $name, string $company, array $labels, string $reason, ?\DateTimeInterface $requestedAt): array
+    {
+        try {
+            Mail::to($user->email)->send(new BidderRequirementsActionMail(
+                $name,
+                $company,
+                $labels,
+                $reason,
+                $requestedAt instanceof \Carbon\Carbon ? $requestedAt : now(),
+                Auth::user()?->email,
+                route('bidder.company-profile'),
+            ));
+
+            return [true, null];
+        } catch (\Throwable $exception) {
+            report($exception);
+            Log::error('Failed to send bidder requirements action email.', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return [false, $exception->getMessage()];
+        }
+    }
+
+    public function sendIncompleteRequirementsEmail(Request $request, User $user)
+ {
+     abort_unless($user->role === 'bidder', 404);
+
+     $user->load(['registrationDocuments', 'bidderProfile']);
+     $missingRequirements = $this->missingBidderRegistrationRequirements($user->registrationDocuments);
+
+     if ($missingRequirements === []) {
+         $message = 'All required bidder requirements are already complete.';
+
+         if ($request->expectsJson()) {
+             return response()->json([
+                 'ok' => false,
+                 'message' => $message,
+             ], 422);
+         }
+
+         return redirect()
+             ->route('admin.users.review', $user)
+             ->with('warning', $message);
+     }
+
+     try {
+         $companyName = $user->bidderProfile?->company_name ?: ($user->company ?: 'your company');
+         $bidderName = $user->bidderProfile?->contact_person ?: ($user->name ?: $companyName);
+
+         Mail::to($user->email)->send(new BidderIncompleteRequirementsMail(
+             $bidderName,
+             $companyName,
+             $missingRequirements,
+         ));
 
          SystemNotification::createForUser(
              $user->id,
-             'Account approved',
-             'Your bidder account has been approved. You can now access your account.',
-             'account_approved'
+             'Incomplete registration requirements',
+             'The SJBAC sent you a list of missing registration requirements. Please check your email.',
+             'bidder_requirements_incomplete'
          );
+     } catch (\Throwable $exception) {
+         report($exception);
+         $message = 'The incomplete requirements email could not be sent. Please check the mail configuration.';
 
-         // Send welcome email
-         Mail::to($user->email)->send(new WelcomeMail($user));
-
-         $redirect = redirect()
-            ->route('admin.users.review', $user)
-            ->with('success', 'Bidder approved successfully.');
-
-        if (config('mail.default') === 'log') {
-            $redirect->with(
-                'warning',
-                'QR email delivery is currently set to log mode. The message was written to storage/logs/laravel.log instead of being sent to the bidder inbox.'
-            );
-        }
-
-        return $redirect;
-    }
-
-public function rejectUser(Request $request, User $user)
-    {
-        if ((int) $user->id === (int) Auth::id()) {
-            return redirect()
-                ->route('admin.users')
-                ->withErrors(['status' => 'You cannot reject your own signed-in account.']);
-        }
-
-         abort_unless($user->role === 'bidder', 404);
-
-         if (! Schema::hasTable('bidders')) {
-             return redirect()
-                 ->route('admin.users')
-                 ->with('warning', 'Bidder rejection is unavailable because the bidders table is missing in the current database.');
+         if ($request->expectsJson()) {
+             return response()->json([
+                 'ok' => false,
+                 'message' => $message,
+             ], 503);
          }
 
-        $reason = trim((string) $request->input('rejection_reason'));
-        $bidder = $this->ensureBidderProfile($user);
+         return redirect()
+             ->route('admin.users.review', $user)
+             ->with('warning', $message);
+     }
 
-        DB::transaction(function () use ($user, $bidder): void {
-            $user->forceFill([
-                'status' => 'rejected',
-            ])->save();
+     $message = 'Incomplete requirements email sent to the bidder.';
 
+     if ($request->expectsJson()) {
+         return response()->json([
+             'ok' => true,
+             'message' => $message,
+             'user' => [
+                 'id' => $user->id,
+                 'status' => $user->status,
+                 'status_label' => ucfirst((string) $user->status),
+             ],
+         ]);
+     }
+
+     return redirect()
+         ->route('admin.users.review', $user)
+         ->with('success', $message);
+ }
+
+    public function rejectUser(Request $request, User $user)
+    {
+        if ((int) $user->id === (int) Auth::id()) {
+            return redirect()->route('admin.users')->withErrors(['status' => 'You cannot reject your own signed-in account.']);
+        }
+        abort_unless($user->role === 'bidder', 404);
+        abort_unless(Schema::hasTable('bidders'), 503, 'Bidder rejection is unavailable because the bidders table is missing.');
+
+        $validated = $request->validate(['rejection_reason' => ['required', 'string', 'max:5000']]);
+        $reason = trim($validated['rejection_reason']);
+        $rejectedNow = DB::transaction(function () use ($user, $reason, $request): bool {
+            $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $bidder = $this->ensureBidderProfile($lockedUser);
+            if ($lockedUser->status === 'rejected' && $bidder->approval_status === 'rejected' && $bidder->rejection_reason === $reason) {
+                return false;
+            }
+            $oldStatus = $lockedUser->bidderProcurementStatus();
+            $lockedUser->forceFill(['status' => 'rejected'])->save();
             $bidder->forceFill([
                 'approval_status' => 'rejected',
+                'review_status' => null,
+                'review_message' => null,
+                'reviewed_at' => now(),
+                'reviewed_by' => Auth::id(),
                 'approved_at' => null,
-                'approved_by' => Auth::id(),
+                'approved_by' => null,
+                'rejection_reason' => $reason,
             ])->save();
+            AuditLog::log('bidder_rejected', $bidder, ['approval_status' => $oldStatus], ['approval_status' => 'rejected', 'rejection_reason' => $reason], ['ip_address' => $request->ip(), 'user_agent' => $request->userAgent()]);
+            return true;
         });
-        Mail::to($user->email)->send(new BidderRejectedMail($user, $bidder, $reason !== '' ? $reason : null));
+
+        $user->refresh()->load('bidderProfile');
+        if ($rejectedNow) {
+            try { Mail::to($user->email)->send(new BidderRejectedMail($user, $user->bidderProfile, $reason)); } catch (\Throwable $exception) { report($exception); }
+            SystemNotification::createForUser($user->id, 'Account rejected', 'Your bidder registration was rejected. Please check the reason sent to your registered email.', 'account_rejected');
+        }
+        if ($request->ajax() || $request->expectsJson()) {
+            return response()->json(['ok' => true, 'message' => $rejectedNow ? 'Bidder registration rejected.' : 'Bidder is already rejected.', 'user' => ['id' => $user->id, 'status' => 'rejected', 'status_label' => 'Rejected', 'rejection_reason' => $reason]]);
+        }
+        return redirect()->route(Auth::user()?->role === 'staff' ? 'staff.users.review' : 'admin.users.review', $user)->with('success', $rejectedNow ? 'Bidder registration rejected and email notification sent.' : 'Bidder is already rejected.');
+    }
+    public function sanctionUser(Request $request, User $user)
+    {
+        abort_unless($user->role === 'bidder', 404);
+
+        if (! Schema::hasTable('bidders') || ! Schema::hasTable('bidder_sanctions')) {
+            return redirect()
+                ->route('admin.users')
+                ->with('warning', 'Bidder sanctions are unavailable because the required database table is missing.');
+        }
+
+        $validated = $request->validate([
+            'type' => ['required', Rule::in([BidderSanction::TYPE_SUSPENDED, BidderSanction::TYPE_BLACKLISTED])],
+            'reason' => ['required', 'string', 'max:5000'],
+            'reference_number' => ['required', 'string', 'max:255'],
+            'effective_date' => ['required', 'date'],
+            'end_date' => ['nullable', 'date', 'after_or_equal:effective_date'],
+            'authorized_by' => ['required', 'string', 'max:255'],
+        ]);
+
+        $sanction = null;
+
+        DB::transaction(function () use ($user, $validated, &$sanction): void {
+            $bidder = $this->ensureBidderProfile($user);
+            $oldStatus = $user->bidderProcurementStatus();
+            $oldSanctions = $bidder->sanctions()->whereNull('lifted_at')->get();
+
+            foreach ($oldSanctions as $oldSanction) {
+                $oldSanction->forceFill([
+                    'lifted_at' => now(),
+                    'lifted_by' => Auth::id(),
+                ])->save();
+            }
+
+            $sanction = $bidder->sanctions()->create([
+                'type' => $validated['type'],
+                'previous_approval_status' => $bidder->approval_status,
+                'reason' => trim($validated['reason']),
+                'reference_number' => trim($validated['reference_number']),
+                'effective_date' => $validated['effective_date'],
+                'end_date' => $validated['end_date'] ?? null,
+                'authorized_by' => trim($validated['authorized_by']),
+                'created_by' => Auth::id(),
+            ]);
+            AuditLog::log('bidder_status_changed', $bidder, [
+                'approval_status' => $oldStatus,
+                'active_sanctions' => $oldSanctions->map->only(['id', 'type', 'reference_number'])->values()->all(),
+            ], [
+                'approval_status' => $validated['type'],
+                'sanction_id' => $sanction->id,
+                'reason' => $sanction->reason,
+                'reference_number' => $sanction->reference_number,
+                'effective_date' => $sanction->effective_date?->toDateString(),
+                'end_date' => $sanction->end_date?->toDateString(),
+                'authorized_by' => $sanction->authorized_by,
+            ]);
+        });
+
+        $label = $validated['type'] === BidderSanction::TYPE_BLACKLISTED ? 'blacklisted' : 'suspended';
 
         SystemNotification::createForUser(
             $user->id,
-            'Account rejected',
-            'Your bidder account registration was rejected. Please check your email for the BAC Office update.',
-            'account_rejected'
+            'Procurement status updated',
+            'Your bidder account has been ' . $label . ' for procurement participation. Reference: ' . $validated['reference_number'] . '.',
+            'bidder_sanction',
+            ['sanction_id' => $sanction?->id, 'type' => $validated['type']]
         );
 
         return redirect()
-            ->route('admin.users.review', $user)
-            ->with('success', 'Bidder registration rejected and email notification sent.');
+            ->route('admin.users', ['filter' => $validated['type']])
+            ->with('success', 'Bidder ' . $label . ' with sanction record saved.');
     }
 
+    public function liftBidderSanction(Request $request, User $user)
+    {
+        abort_unless($user->role === 'bidder', 404);
+
+        if (! Schema::hasTable('bidders') || ! Schema::hasTable('bidder_sanctions')) {
+            return redirect()
+                ->route('admin.users')
+                ->with('warning', 'Bidder sanctions are unavailable because the required database table is missing.');
+        }
+
+        $bidder = $this->ensureBidderProfile($user);
+        $sanction = $bidder->activeSanction()->first();
+
+        if (! $sanction) {
+            return redirect()
+                ->route('admin.users')
+                ->with('warning', 'This bidder has no active procurement sanction to lift.');
+        }
+
+        DB::transaction(function () use ($user, $bidder, $sanction): void {
+            $oldStatus = $user->bidderProcurementStatus();
+
+            $sanction->forceFill([
+                'lifted_at' => now(),
+                'lifted_by' => Auth::id(),
+            ])->save();
+
+            $restoredStatus = $sanction->previous_approval_status ?: ($user->status === 'active' ? 'approved' : 'pending');
+
+            if (in_array($restoredStatus, [BidderSanction::TYPE_SUSPENDED, BidderSanction::TYPE_BLACKLISTED], true)) {
+                $restoredStatus = $user->status === 'active' ? 'approved' : 'pending';
+            }
+
+            $bidder->forceFill([
+                'approval_status' => $restoredStatus,
+            ])->save();
+
+            AuditLog::log('bidder_status_changed', $bidder, [
+                'approval_status' => $oldStatus,
+                'sanction_id' => $sanction->id,
+            ], [
+                'approval_status' => $restoredStatus,
+                'sanction_id' => $sanction->id,
+                'lifted_at' => $sanction->lifted_at?->toDateTimeString(),
+            ]);
+        });
+
+        SystemNotification::createForUser(
+            $user->id,
+            'Procurement sanction lifted',
+            'Your bidder procurement sanction has been lifted by the SJBAC.',
+            'bidder_sanction_lifted',
+            ['sanction_id' => $sanction->id]
+        );
+
+        return redirect()
+            ->route('admin.users', ['filter' => 'bidder'])
+            ->with('success', 'Bidder procurement sanction lifted.');
+    }
 public function destroyUser(User $user)
     {
         if ((int) $user->id === (int) Auth::id()) {
@@ -640,6 +1618,14 @@ public function destroyUser(User $user)
             ]
         );
 
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Staff assigned successfully.',
+                'staff_name' => $staff->name,
+            ]);
+        }
+
         return redirect()->route('admin.assignments')->with('success', 'Staff assigned successfully.');
     }
 
@@ -652,19 +1638,38 @@ public function destroyUser(User $user)
 
     public function viewBid(Request $request, Bid $bid)
     {
-        $bid->load(['project', 'user.philgepsCertificate', 'award']);
+        app(\App\Support\BidOpening::class)->openScheduledTechnical($bid->project()->with('schedule')->firstOrFail());
+        $bid->load([
+            'project.awards', 'project.rebidProject', 'project.requirement', 'project.schedule', 'project.bidsOpenedByUser',
+            'user.philgepsCertificate', 'user.bidderDocuments', 'award', 'trackings.creator', 'documents.reviewEvents.actor',
+        ]);
 
         if ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
-            return view('admin.bid-view-modal', compact('bid'));
+            $workflow = $this->bidWorkflow();
+
+            return view('admin.bid-view-modal', [
+                'bid' => $bid,
+                'status' => $bid->progress()->adminStatus(),
+                'actions' => $workflow->availableActions($bid, Auth::user()),
+                // Masks file names/IDs of any component that is still sealed.
+                'checklist' => $bid->reviewChecklist(),
+                'evaluationCriteria' => $workflow->evaluationCriteria($bid),
+                'history' => BidHistory::for($bid)->forAdmin(),
+                'openingBlocker' => $bid->project?->bidOpeningBlocker(),
+                'ranking' => app(\App\Support\BidRanking::class)->forProjects([$bid->project_id])[$bid->id] ?? null,
+            ]);
         }
 
-        return view('admin.bid-view', compact('bid'));
+        return redirect()->route('admin.bids', ['view_bid' => $bid->id]);
     }
 
     public function previewBidDocument(Bid $bid, string $document)
     {
-        $bid->loadMissing('user.philgepsCertificate');
+        app(\App\Support\BidOpening::class)->openScheduledTechnical($bid->project()->with('schedule')->firstOrFail());
+        $bid->loadMissing(['project', 'user.philgepsCertificate']);
         $documentMeta = $this->bidDocumentMeta($bid, $document);
+        abort_if($bid->isSealed(), 403, 'This bid is sealed until the authorized bid opening is recorded.');
+        abort_if($document === 'proposal' && $bid->isFinancialSealed(), 403, 'The financial component is sealed until its opening is recorded.');
 
         abort_unless(filled($documentMeta['path']), 404);
 
@@ -673,10 +1678,18 @@ public function destroyUser(User $user)
 
     public function streamBidDocumentPdf(Bid $bid, string $document)
     {
+        app(\App\Support\BidOpening::class)->openScheduledTechnical($bid->project()->with('schedule')->firstOrFail());
         $bid->loadMissing(['project', 'user.philgepsCertificate']);
         $documentMeta = $this->bidDocumentMeta($bid, $document);
 
         abort_unless(filled($documentMeta['path']), 404);
+        // Every bid-submission file is gated server-side by its own component:
+        // the proposal (price offer) is financial, the certificate is technical.
+        abort_if($bid->isSealed(), 403, 'This bid is sealed until the authorized bid opening is recorded.');
+        abort_if($document === 'proposal' && $bid->isFinancialSealed(), 403, 'The financial component is sealed until its opening is recorded.');
+        if ($document === 'proposal' && $bid->proposal_file_encrypted_at) {
+            return app(\App\Support\FinancialBidFile::class)->response($bid->proposal_file, $bid->proposal_filename, $bid->proposal_file_encrypted_at);
+        }
 
         return $this->streamDocumentPdfPreview(
             $documentMeta['path'],
@@ -699,252 +1712,315 @@ public function destroyUser(User $user)
         );
     }
 
-    public function editBid(Bid $bid)
+    public function editBid(Request $request, Bid $bid)
     {
-        $bid->load(['project', 'user']);
+        $bid->load(['project.awards', 'project.rebidProject', 'user', 'award']);
 
-        return view('admin.bid-edit', compact('bid'));
+        if ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+            return view('admin.bid-edit-modal', compact('bid'));
+        }
+
+        return redirect()->route('admin.bids', ['edit_bid' => $bid->id]);
     }
 
     public function updateBid(Request $request, Bid $bid)
     {
+        // Only internal notes are editable. The submitted amount is the bidder's
+        // financial offer, and stage/status changes go through recordBidDecision
+        // so the event history and the bidder track stay consistent.
         $validated = $request->validate([
-            'bid_amount' => 'required|numeric|min:0',
-            'status' => 'required|in:pending,approved,rejected',
-            'workflow_step' => 'sometimes|in:submitted,pending_validation,documents_validated,for_bac_evaluation,approved,disqualified,awarded,not_awarded,notice_of_award,notice_to_proceed,project_completed',
             'notes' => 'nullable|string',
         ]);
 
-        $updateData = [
-            'bid_amount' => $validated['bid_amount'],
-            'status' => $validated['status'],
-            'notes' => $validated['notes'] ?? null,
-        ];
+        $bid->update(['notes' => $validated['notes'] ?? null]);
 
-        // Handle workflow step update if provided
-        if ($request->has('workflow_step') && $request->input('workflow_step') !== $bid->workflow_step) {
-            $newStep = $request->input('workflow_step');
-            $updateData['workflow_step'] = $newStep;
-            $updateData['workflow_step_updated_at'] = now();
-            $updateData['workflow_step_updated_by'] = Auth::id();
-
-            // Set specific timestamps and user references based on step
-            switch ($newStep) {
-                case Bid::STEP_DOCUMENTS_VALIDATED:
-                    $updateData['documents_validated_at'] = now();
-                    $updateData['documents_validated_by'] = Auth::id();
-                    break;
-                case Bid::STEP_FOR_BAC_EVALUATION:
-                    $updateData['bac_evaluation_at'] = now();
-                    $updateData['bac_evaluation_by'] = Auth::id();
-                    break;
-                case Bid::STEP_APPROVED:
-                    $updateData['approved_at'] = now();
-                    $updateData['approved_by'] = Auth::id();
-                    // Also update status for backward compatibility
-                    $updateData['status'] = 'approved';
-                    break;
-                case Bid::STEP_DISQUALIFIED:
-                    $updateData['disqualified_at'] = now();
-                    $updateData['disqualified_by'] = Auth::id();
-                    $updateData['status'] = 'rejected';
-                    break;
-                case Bid::STEP_AWARDED:
-                    $updateData['awarded_at'] = now();
-                    $updateData['awarded_by'] = Auth::id();
-                    break;
-                case Bid::STEP_NOTICE_OF_AWARD:
-                    $updateData['notice_of_award_at'] = now();
-                    $updateData['notice_of_award_by'] = Auth::id();
-                    break;
-                case Bid::STEP_NOTICE_TO_PROCEED:
-                    $updateData['notice_to_proceed_at'] = now();
-                    $updateData['notice_to_proceed_by'] = Auth::id();
-                    break;
-                case Bid::STEP_PROJECT_COMPLETED:
-                    $updateData['project_completed_at'] = now();
-                    $updateData['project_completed_by'] = Auth::id();
-                    break;
-            }
-
-            // Send notification to bidder
-            $stepLabel = Bid::WORKFLOW_STEPS[$newStep] ?? $newStep;
-            $notificationType = match ($newStep) {
-                Bid::STEP_DOCUMENTS_VALIDATED => 'documents_validated',
-                Bid::STEP_FOR_BAC_EVALUATION => 'bac_evaluation_started',
-                Bid::STEP_APPROVED => 'bid_approved',
-                Bid::STEP_DISQUALIFIED => 'bid_disqualified',
-                Bid::STEP_AWARDED => 'bid_awarded',
-                Bid::STEP_NOTICE_OF_AWARD => 'notice_of_award',
-                Bid::STEP_NOTICE_TO_PROCEED => 'notice_to_proceed',
-                Bid::STEP_PROJECT_COMPLETED => 'project_completed',
-                default => 'workflow_update',
-            };
-
-            SystemNotification::createForUser(
-                $bid->user_id,
-                'Bid Status Update: ' . $stepLabel,
-                'Your bid for ' . ($bid->project->title ?? 'the project') . ' has moved to: ' . $stepLabel . '.',
-                $notificationType,
-                ['project_id' => $bid->project_id, 'bid_id' => $bid->id, 'workflow_step' => $newStep]
-            );
-
-            event(new \App\Events\BidWorkflowUpdated($bid));
-        }
-
-        $bid->update($updateData);
-
-        return redirect()->route('admin.bid.edit', $bid)->with('success', 'Bid updated successfully!');
+        return redirect()->route('admin.bids')->with('success', 'Internal notes saved.');
     }
 
-    public function updateBidWorkflow(Request $request, Bid $bid)
+    /**
+     * Record one stage decision from the Review Bid modal.
+     */
+    public function recordBidDecision(Request $request, Bid $bid)
     {
         $validated = $request->validate([
-            'workflow_step' => ['required', 'in:submitted,pending_validation,documents_validated,for_bac_evaluation,approved,disqualified,awarded,not_awarded,notice_of_award,notice_to_proceed,project_completed'],
-            'notes' => ['nullable', 'string'],
+            'action' => ['required', Rule::in(array_keys(BidWorkflow::ACTION_DEFINITIONS))],
+            'reason' => 'nullable|string|max:2000',
+            'verified_requirements' => 'nullable|array',
+            'verified_requirements.*' => 'string|max:100',
+            'failed_requirements' => 'nullable|array',
+            'failed_requirements.*' => 'string|max:100',
+            'performance_security_at' => 'nullable|date|before_or_equal:today',
+            // Manual submission receipt (BAC Secretariat logbook).
+            'receipt_no' => 'nullable|string|max:60',
+            'received_at' => 'nullable|date',
+            // BAC resolution recommending the award.
+            'bac_resolution_no' => 'nullable|string|max:100',
+            'bac_resolution_date' => 'nullable|date|before_or_equal:today',
+            // Report, minutes or resolution supporting the decision.
+            'supporting_document' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:10240',
+            // Notice of Award (signed PDF) and contract signing date.
+            'notice_file' => 'nullable|file|mimes:pdf|max:5120',
+            'contract_date' => 'nullable|date|before_or_equal:today',
+            'evaluation_result' => 'nullable|in:responsive,nonresponsive',
+            'evaluation_findings' => 'nullable|string|max:5000',
+            'criterion_results' => 'nullable|array',
+            'criterion_results.*' => 'nullable|string|max:1000',
+            'post_qualification_findings' => 'nullable|string|max:5000',
+            'notes' => 'nullable|string|max:2000',
         ]);
 
-        $oldStep = $bid->workflow_step;
-        $newStep = $validated['workflow_step'];
+        $validated['notice_file'] = $request->file('notice_file');
+        $validated['supporting_document'] = $request->file('supporting_document');
 
-        // Update workflow step and relevant timestamps
-        $updateData = [
-            'workflow_step' => $newStep,
-            'workflow_step_updated_at' => now(),
-            'workflow_step_updated_by' => Auth::id(),
-        ];
-
-        // Set specific timestamps based on step
-        switch ($newStep) {
-            case Bid::STEP_DOCUMENTS_VALIDATED:
-                $updateData['documents_validated_at'] = now();
-                $updateData['documents_validated_by'] = Auth::id();
-                break;
-            case Bid::STEP_FOR_BAC_EVALUATION:
-                $updateData['bac_evaluation_at'] = now();
-                $updateData['bac_evaluation_by'] = Auth::id();
-                break;
-            case Bid::STEP_APPROVED:
-                $updateData['approved_at'] = now();
-                $updateData['approved_by'] = Auth::id();
-                break;
-            case Bid::STEP_DISQUALIFIED:
-                $updateData['disqualified_at'] = now();
-                $updateData['disqualified_by'] = Auth::id();
-                break;
-            case Bid::STEP_AWARDED:
-                $updateData['awarded_at'] = now();
-                $updateData['awarded_by'] = Auth::id();
-                break;
-            case Bid::STEP_NOTICE_OF_AWARD:
-                $updateData['notice_of_award_at'] = now();
-                $updateData['notice_of_award_by'] = Auth::id();
-                break;
-            case Bid::STEP_NOTICE_TO_PROCEED:
-                $updateData['notice_to_proceed_at'] = now();
-                $updateData['notice_to_proceed_by'] = Auth::id();
-                break;
-            case Bid::STEP_PROJECT_COMPLETED:
-                $updateData['project_completed_at'] = now();
-                $updateData['project_completed_by'] = Auth::id();
-                break;
+        if (filled($validated['received_at'] ?? null)) {
+            // datetime-local input is in the BAC's local time.
+            $validated['received_at'] = \Illuminate\Support\Carbon::parse($validated['received_at'], config('bac-office.display_timezone'))
+                ->timezone(config('app.timezone'))
+                ->toDateTimeString();
         }
 
-        // Update bid
-        $bid->update($updateData);
+        $this->bidWorkflow()->apply($bid, $validated['action'], Auth::user(), $validated);
 
-        // Also update main status field for backward compatibility
-        $statusUpdate = match ($newStep) {
-            Bid::STEP_APPROVED => 'approved',
-            Bid::STEP_DISQUALIFIED => 'rejected',
-            Bid::STEP_AWARDED => 'approved',
-            default => $bid->status,
-        };
-        if ($statusUpdate) {
-            $bid->update(['status' => $statusUpdate]);
-        }
-
-        // Send notification to bidder
-        $stepLabel = Bid::WORKFLOW_STEPS[$newStep] ?? $newStep;
-        $notificationType = match ($newStep) {
-            Bid::STEP_DOCUMENTS_VALIDATED => 'documents_validated',
-            Bid::STEP_FOR_BAC_EVALUATION => 'bac_evaluation_started',
-            Bid::STEP_APPROVED => 'bid_approved',
-            Bid::STEP_DISQUALIFIED => 'bid_disqualified',
-            Bid::STEP_AWARDED => 'bid_awarded',
-            Bid::STEP_NOTICE_OF_AWARD => 'notice_of_award',
-            Bid::STEP_NOTICE_TO_PROCEED => 'notice_to_proceed',
-            Bid::STEP_PROJECT_COMPLETED => 'project_completed',
-            default => 'workflow_update',
-        };
-
-        SystemNotification::createForUser(
-            $bid->user_id,
-            'Bid Status Update: ' . $stepLabel,
-            'Your bid for ' . ($bid->project->title ?? 'the project') . ' has moved to: ' . $stepLabel . '.',
-            $notificationType,
-            ['project_id' => $bid->project_id, 'bid_id' => $bid->id, 'workflow_step' => $newStep]
-        );
-
-        // Broadcast real-time update (for bidding track page)
-        event(new \App\Events\BidWorkflowUpdated($bid));
-
-        return redirect()->route('admin.bid.edit', $bid)->with('success', 'Workflow step updated to: ' . $stepLabel);
+        return redirect()
+            ->route('admin.bids', ['view_bid' => $bid->id])
+            ->with('success', 'Recorded: ' . BidWorkflow::label($validated['action']) . '.');
     }
 
-     public function approveBid(Bid $bid)
-     {
-         $bid->update([
-             'status' => 'approved',
-             'workflow_step' => Bid::STEP_APPROVED,
-             'workflow_step_updated_at' => now(),
-             'workflow_step_updated_by' => Auth::id(),
-             'documents_validated_at' => $bid->documents_validated_at ?? now(),
-             'documents_validated_by' => $bid->documents_validated_by ?? Auth::id(),
-             'approved_at' => now(),
-             'approved_by' => Auth::id(),
-         ]);
+    /**
+     * Record the authorized bid opening for the bid's project.
+     */
+    public function openProjectBids(Request $request, Project $project)
+    {
+        $this->bidWorkflow()->openBids($project, Auth::user());
 
-         if ($bid->project && $bid->project->status !== 'awarded') {
-             $bid->project->update(['status' => 'closed']);
-         }
+        return redirect()
+            ->route('admin.bids', array_filter(['view_bid' => $request->integer('bid') ?: null]))
+            ->with('success', 'Bid opening recorded for ' . $project->title . '.');
+    }
 
-         event(new \App\Events\BidWorkflowUpdated($bid));
+    /** Award criterion and opening rules from the project's bidding documents. */
+    public function configureBidOpening(Request $request, Project $project)
+    {
+        app(\App\Support\BidOpening::class)->configure($project, Auth::user(), $request->only([
+            'award_criterion', 'opening_documents_reference', 'minimum_technical_score',
+        ]));
 
-         SystemNotification::createForUser(
-             $bid->user_id,
-             'Bid approved',
-             'Your bid for ' . ($bid->project->title ?? 'the project') . ' has been approved for evaluation.',
-             'bid_approved',
-             ['project_id' => $bid->project_id, 'bid_id' => $bid->id]
-         );
+        return redirect()
+            ->route('admin.bids', array_filter(['view_bid' => $request->integer('bid') ?: null]))
+            ->with('success', 'Opening rules recorded for ' . $project->title . '.');
+    }
 
-         return redirect()->route('admin.bids')->with('success', 'Bid approved successfully.');
-     }
+    /** MEARB/MARB technical score, recorded once before the financial opening. */
+    public function recordBidTechnicalScore(Request $request, Bid $bid)
+    {
+        app(\App\Support\BidOpening::class)->recordScore($bid, Auth::user(), $request->only(['technical_score', 'technical_score_basis']));
+        event(new \App\Events\BidWorkflowUpdated($bid->fresh()));
 
-     public function rejectBid(Bid $bid)
-     {
-         $bid->update(['status' => 'rejected']);
+        return redirect()->route('admin.bids', ['view_bid' => $bid->id])->with('success', 'Technical score recorded.');
+    }
 
-         event(new \App\Events\BidWorkflowUpdated($bid));
+    /** The actual financial opening of one bid, recorded by the BAC Admin. */
+    public function openBidFinancial(Request $request, Bid $bid)
+    {
+        $password = $request->input('opening_password');
+        // Never let Laravel flash or log the submitted secret.
+        $request->request->remove('opening_password');
+        $request->query->remove('opening_password');
+        $request->json()->remove('opening_password');
+        app(\App\Support\BidOpening::class)->openFinancial(
+            $bid, Auth::user(), is_string($password) ? $password : null
+        );
+        event(new \App\Events\BidWorkflowUpdated($bid->fresh()));
 
-         SystemNotification::createForUser(
-             $bid->user_id,
-             'Bid rejected',
-             'Your bid for ' . ($bid->project->title ?? 'the project') . ' has been rejected.',
-             'bid_rejected',
-             ['project_id' => $bid->project_id, 'bid_id' => $bid->id]
-         );
+        return redirect()->route('admin.bids', ['view_bid' => $bid->id])->with('success', 'Financial component opening recorded.');
+    }
 
-         return redirect()->route('admin.bids')->with('success', 'Bid rejected successfully.');
-     }
+    public function declareFailedBidding(Request $request, Project $project)
+    {
+        $validated = $request->validate([
+            'failed_bidding_reason' => 'required|string|min:5|max:2000',
+            'rebid_project_id' => ['nullable', 'integer', Rule::exists('projects', 'id')],
+        ]);
+
+        $this->bidWorkflow()->declareFailedBidding(
+            $project,
+            Auth::id(),
+            $validated['failed_bidding_reason'],
+            isset($validated['rebid_project_id']) ? (int) $validated['rebid_project_id'] : null
+        );
+
+        AuditLog::log('failed_bidding_declared', $project, [], [
+            'reason' => $validated['failed_bidding_reason'],
+            'rebid_project_id' => $validated['rebid_project_id'] ?? null,
+        ]);
+
+        return redirect()->route('admin.projects')->with('success', 'Failure of bidding recorded for ' . $project->title . '.');
+    }
+
+    /**
+     * Online submission settings: the bidding documents fee bidders pay at the
+     * BAC office before submitting, where they pay it, and the optional LGU
+     * authority reference. The fee is fixed once a payment is recorded or the
+     * submission deadline has passed.
+     */
+    /**
+     * Why the bidding documents fee can no longer change: bidders already paid
+     * it, or the submission deadline has passed. Null while it can change.
+     */
+    public static function feeLockReason(Project $project): ?string
+    {
+        $deadline = $project->bidSubmissionDeadline();
+
+        return match (true) {
+            $project->biddingFeePayments()->exists() => 'Payments were already recorded for this project, so the bidding documents fee can no longer be changed.',
+            $deadline !== null && $deadline->isPast() => 'The bidding documents fee cannot be changed after the submission deadline.',
+            default => null,
+        };
+    }
+
+    public function updateSubmissionSettings(Request $request, Project $project)
+    {
+        $validated = $request->validate([
+            'submission_mode' => ['nullable', Rule::in([Project::SUBMISSION_MANUAL, Project::SUBMISSION_ELECTRONIC])],
+            'submission_venue' => 'nullable|string|max:255',
+            'bidding_documents_fee' => 'nullable|numeric|min:0|lte:9999999999999.99',
+            'payment_venue' => 'nullable|string|max:255',
+            'philgeps_reference_no' => 'nullable|string|max:100',
+            'philgeps_url' => 'nullable|url|max:500',
+            'electronic_submission_authority' => 'nullable|string|max:255',
+            'legal_basis' => ['nullable', Rule::in(array_keys(Project::LEGAL_BASES))],
+            'bid_security_required' => 'nullable|boolean',
+            'bid_security_notes' => 'nullable|string|max:2000',
+            'bidding_fee_mode' => ['nullable', Rule::in(\App\Support\BiddingDocumentsFee::MODES)],
+            'bidding_fee_reason' => 'nullable|string|max:2000',
+            'bidding_fee_amendment_reference' => 'nullable|string|max:255',
+            'bidding_fee_amendment_reason' => 'nullable|string|max:2000',
+        ], [
+            'bidding_documents_fee.lte' => 'Bidding documents fee must not exceed 9,999,999,999,999.99.',
+        ]);
+
+        // Same fee rules as the project form; a request without the fee leaves it unchanged.
+        $feeAttributes = \App\Support\BiddingDocumentsFee::resolve($project, $request->only(['bidding_fee_mode', 'bidding_documents_fee', 'bidding_fee_reason']));
+        $feeAmendment = \App\Support\BiddingDocumentsFee::assertAmendable($project, $feeAttributes, $request->all(), self::feeLockReason($project));
+        $feeBefore = $project->only(['bidding_documents_fee', 'bidding_fee_mode']);
+
+        // Fields left out of the request keep their current value.
+        $mode = $validated['submission_mode'] ?? $project->submission_mode ?? Project::SUBMISSION_ELECTRONIC;
+        $deadline = $project->bidSubmissionDeadline();
+        if ($mode !== $project->submission_mode && $deadline !== null && $deadline->isPast()) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'submission_mode' => 'The submission method cannot be changed after the submission deadline.',
+            ]);
+        }
+
+        $bidSecurityRequired = $request->has('bid_security_required')
+            ? (bool) ($validated['bid_security_required'] ?? false)
+            : (bool) $project->bid_security_required;
+
+        $authority = filled($validated['electronic_submission_authority'] ?? null) ? trim($validated['electronic_submission_authority']) : null;
+        $authorityChanged = $authority !== $project->electronic_submission_authority;
+        $before = $project->only(['submission_mode', 'submission_venue', 'bidding_documents_fee', 'payment_venue', 'philgeps_reference_no', 'philgeps_url', 'electronic_submission_authority', 'legal_basis', 'bid_security_required', 'bid_security_notes']);
+
+        $project->update([
+            'submission_mode' => $mode,
+            'submission_venue' => $request->has('submission_venue') ? ($validated['submission_venue'] ?? null) : $project->submission_venue,
+            'philgeps_url' => $request->has('philgeps_url') ? ($validated['philgeps_url'] ?? null) : $project->philgeps_url,
+            'legal_basis' => $validated['legal_basis'] ?? $project->legal_basis,
+            'bid_security_required' => $bidSecurityRequired,
+            'bid_security_notes' => $bidSecurityRequired
+                ? ($request->has('bid_security_notes') ? ($validated['bid_security_notes'] ?? null) : $project->bid_security_notes)
+                : null,
+            'payment_venue' => $request->has('payment_venue')
+                ? (filled($validated['payment_venue'] ?? null) ? trim($validated['payment_venue']) : null)
+                : $project->payment_venue,
+            'philgeps_reference_no' => $validated['philgeps_reference_no'] ?? null,
+            'electronic_submission_authority' => $authority,
+            'electronic_submission_authorized_at' => $authority === null ? null : ($authorityChanged ? now() : $project->electronic_submission_authorized_at),
+            'electronic_submission_authorized_by' => $authority === null ? null : ($authorityChanged ? Auth::id() : $project->electronic_submission_authorized_by),
+        ] + $feeAttributes);
+        if ($feeAmendment !== null) {
+            \App\Support\BiddingDocumentsFee::recordAmendment($project, $feeBefore, $feeAmendment, Auth::user());
+        }
+
+        AuditLog::log('bid_submission_settings_updated', $project, $before, $project->only(array_keys($before)));
+
+        return redirect()->route('admin.projects')->with('success', 'Submission settings saved for ' . $project->title . '.');
+    }
+
+    /**
+     * One file of a bid's technical or financial component. The technical
+     * component opens at the recorded bid opening; the financial component
+     * only for a bid that passed preliminary examination.
+     */
+    public function streamBidComponentFile(Bid $bid, \App\Models\BidDocument $bidDocument)
+    {
+        app(\App\Support\BidOpening::class)->openScheduledTechnical($bid->project()->with('schedule')->firstOrFail());
+        abort_unless($bidDocument->bid_id === $bid->id, 404);
+        $bid->loadMissing(['project.awards', 'award']);
+
+        $sealed = $bidDocument->component === \App\Models\BidDocument::COMPONENT_FINANCIAL
+            ? $bid->isFinancialSealed()
+            : $bid->isSealed();
+        abort_if($sealed, 403, 'This component is sealed.');
+
+        if ($bidDocument->component === \App\Models\BidDocument::COMPONENT_FINANCIAL) {
+            return app(\App\Support\FinancialBidFile::class)->response($bidDocument);
+        }
+
+        return $this->streamDocumentPdfPreview($bidDocument->file_path, $bidDocument->original_name, $bidDocument->label);
+    }
+
+    /**
+     * Manual status changes may not skip the procurement steps: "open" needs
+     * the posting checks, "closed" is set by bid opening or failed bidding,
+     * and "awarded" only exists once a Notice of Award was issued.
+     */
+    protected function projectStatusChangeError(Project $project, string $status, ?string $deadline = null, ?\App\Models\ProjectSchedule $schedule = null): ?string
+    {
+        if ($status === $project->status) {
+            return null;
+        }
+
+        return match ($status) {
+            'awarded' => $project->awards()->exists()
+                ? null
+                : 'A project becomes Awarded only when the Notice of Award is issued.',
+            'open' => (function () use ($project, $deadline, $schedule) {
+                $candidate = $project->replicate()->forceFill(['deadline' => $deadline ?? $project->deadline]);
+                $candidate->id = $project->id;
+                $candidate->setRelation('schedule', $schedule ?? $project->schedule()->first());
+                $blockers = $candidate->publicationBlockers();
+
+                return $blockers === [] ? null : 'Not ready for posting: ' . implode(' ', $blockers);
+            })(),
+            default => null,
+        };
+    }
+
+    protected function bidWorkflow(): BidWorkflow
+    {
+        return app(BidWorkflow::class);
+    }
 
     public function viewProject(Project $project)
     {
         $project->loadCount('bids');
-        $project->load(['assignments.staff', 'documents']);
+        $project->load(['assignments.staff', 'documents', 'bids:id,project_id,bid_amount', 'rebidProject:id,title']);
 
-        return view('admin.project-view', compact('project'));
+        $staffMembers = User::where('role', 'staff')
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        // Candidate projects to link as the new bidding round after a failure.
+        $rebidCandidates = Project::whereKeyNot($project->id)
+            ->whereNull('archived_at')
+            ->whereNull('failed_bidding_at')
+            ->latest()
+            ->limit(50)
+            ->get(['id', 'title', 'reference_no']);
+
+        return view('admin.project-view', compact('project', 'staffMembers', 'rebidCandidates'));
     }
 
     public function projectFiles(Project $project)
@@ -975,7 +2051,7 @@ public function destroyUser(User $user)
     public function editProject(Project $project)
     {
         $project->loadCount('bids');
-        $project->load(['assignments', 'documents']);
+        $project->load(['assignments', 'documents', 'schedule']);
 
         $staffMembers = User::where('role', 'staff')
             ->where('status', 'active')
@@ -989,28 +2065,128 @@ public function destroyUser(User $user)
 
     public function updateProject(Request $request, Project $project)
     {
+        // The edit form shows peso amounts with thousands separators (e.g. 2,500,000.00).
+        foreach (['budget', 'bidding_documents_fee'] as $amount) {
+            if (is_string($request->input($amount))) {
+                $request->merge([$amount => str_replace([',', '₱', ' '], '', $request->input($amount))]);
+            }
+        }
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'document_files' => 'nullable|array',
             'document_files.*' => 'file|mimes:pdf,doc,docx,jpg,jpeg,png|max:20480',
+            'document_type' => ['nullable', Rule::in(['invitation_to_bid', 'bidding_documents', 'terms_of_reference', 'technical_specifications', 'bill_of_quantities', 'project_plans', 'supplemental_bulletin', 'other'])],
             'document_file' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:20480',
             'budget' => 'required|numeric|min:0|lte:9999999999999.99',
+            'award_criterion' => ['nullable', Rule::in(array_keys(Project::AWARD_CRITERIA))],
+            'source_of_fund' => 'nullable|string|max:255',
+            'contract_duration' => 'nullable|string|max:255',
             'status' => 'required|in:draft,approved_for_bidding,open,closed,awarded',
             'deadline' => 'required|date',
             'staff_id' => 'nullable|exists:users,id',
+            // Schedule (Philippine time): lets a draft be corrected before posting.
+            'date_posted' => 'nullable|date',
+            'pre_bid_conference_date' => 'nullable|date',
+            'bid_opening_date' => 'nullable|date',
+            // Invitation to Bid details (RA 12009 IRR Sec. 50.2, 50.3.3).
+            'bid_opening_venue' => 'nullable|string|max:500',
+            'evaluation_procedure' => ['nullable', Rule::in(array_keys(Project::EVALUATION_PROCEDURES))],
+            'evaluation_criteria' => 'nullable|array|max:20',
+            'evaluation_criteria.*.name' => 'nullable|string|max:255',
+            'evaluation_criteria.*.weight' => 'nullable|numeric|min:0|max:100',
+            'quality_price_ratio' => 'nullable|integer|min:1|max:99',
+            'electronic_submission_authority' => 'nullable|string|max:255',
+            'bidding_documents_fee' => 'nullable|numeric|min:0|lte:9999999999999.99',
+            'bidding_fee_mode' => ['nullable', Rule::in(\App\Support\BiddingDocumentsFee::MODES)],
+            'bidding_fee_reason' => 'nullable|string|max:2000',
+            'bidding_fee_amendment_reference' => 'nullable|string|max:255',
+            'bidding_fee_amendment_reason' => 'nullable|string|max:2000',
+            'payment_venue' => 'nullable|string|max:255',
         ], [
             'budget.lte' => 'Budget must not exceed 9,999,999,999,999.99.',
+            'bidding_documents_fee.lte' => 'Bidding documents fee must not exceed 9,999,999,999,999.99.',
         ]);
 
+        // The fee: the ABC schedule's maximum (following a draft's ABC), or lower / waived
+        // with a reason; after publication only through a recorded amendment.
+        unset($validated['bidding_documents_fee'], $validated['bidding_fee_mode'], $validated['bidding_fee_reason'], $validated['payment_venue'],
+            $validated['bidding_fee_amendment_reference'], $validated['bidding_fee_amendment_reason']);
+        $feeAttributes = \App\Support\BiddingDocumentsFee::resolve(
+            $project,
+            $request->only(['bidding_fee_mode', 'bidding_documents_fee', 'bidding_fee_reason']),
+            $validated['budget']
+        );
+        $feeAmendment = \App\Support\BiddingDocumentsFee::assertAmendable($project, $feeAttributes, $request->all(), self::feeLockReason($project));
+        $feeBefore = $project->only(['bidding_documents_fee', 'bidding_fee_mode']);
+        $validated += $feeAttributes;
+        if ($request->has('bidding_documents_fee') || $request->has('bidding_fee_mode')) {
+            $validated['payment_venue'] = filled($request->input('payment_venue')) ? trim($request->input('payment_venue')) : $project->payment_venue;
+        }
+
+        // Only when the edit form sends them, so other callers keep the stored values.
+        $invitationFields = ['bid_opening_venue', 'evaluation_procedure', 'evaluation_criteria', 'quality_price_ratio', 'electronic_submission_authority'];
+        $sendsInvitation = $request->has('bid_opening_venue');
+        foreach ($invitationFields as $field) {
+            unset($validated[$field]);
+        }
+        if ($sendsInvitation) {
+            $details = self::invitationDetails($request->only($invitationFields) + [
+                'award_criterion' => $validated['award_criterion'] ?? $project->award_criterion,
+                'category' => $project->category,
+            ], $project->mode()->isCompetitive());
+            $validated += $details;
+            if ($request->has('electronic_submission_authority')) {
+                $authority = trim((string) $request->input('electronic_submission_authority'));
+                if ($authority !== (string) $project->electronic_submission_authority) {
+                    $validated += [
+                        'electronic_submission_authority' => $authority !== '' ? $authority : null,
+                        'electronic_submission_authorized_at' => $authority !== '' ? now() : null,
+                        'electronic_submission_authorized_by' => $authority !== '' ? Auth::id() : null,
+                    ];
+                }
+            }
+        }
+
         $staffId = $validated['staff_id'] ?? null;
+        $documentType = $validated['document_type'] ?? null;
         $documentFiles = $this->extractProjectDocumentFiles($request);
-        unset($validated['staff_id']);
+        unset($validated['staff_id'], $validated['document_type']);
         unset($validated['document_files']);
         unset($validated['document_file']);
 
+        // Keep the schedule in step with the project; fields not sent stay as they are.
+        $schedule = $project->schedule()->firstOrNew();
+        $scheduleData = ['bid_submission_deadline' => $validated['deadline']];
+        foreach (['date_posted', 'pre_bid_conference_date', 'bid_opening_date'] as $field) {
+            if ($request->has($field)) {
+                $scheduleData[$field] = $validated[$field] ?? null;
+            }
+        }
+        $schedule->fill($scheduleData);
+        unset($validated['date_posted'], $validated['pre_bid_conference_date'], $validated['bid_opening_date']);
+
+        $statusError = ($validated['status'] === 'open' && $project->status !== 'open')
+            ? 'Use the Publish to BAC System action to make a draft visible to bidders.'
+            : $this->projectStatusChangeError($project, $validated['status'], $validated['deadline'], $schedule);
+
+        if ($statusError) {
+            if ($request->ajax() || $request->expectsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+                return response()->json(['success' => false, 'message' => $statusError, 'errors' => ['status' => [$statusError]]], 422);
+            }
+
+            return back()->withInput()->withErrors(['status' => $statusError]);
+        }
+
         $project->update($validated);
-        $this->storeProjectDocuments($project, $documentFiles);
+        if ($feeAmendment !== null) {
+            \App\Support\BiddingDocumentsFee::recordAmendment($project, $feeBefore, $feeAmendment, Auth::user());
+        }
+
+        $schedule->project_id = $project->id;
+        $schedule->save();
+        $this->storeProjectDocuments($project, $documentFiles, $documentType);
 
         if ($staffId) {
             Assignment::updateOrCreate(
@@ -1021,7 +2197,7 @@ public function destroyUser(User $user)
             Assignment::where('project_id', $project->id)->delete();
         }
 
-        if ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+        if ($request->ajax() || $request->expectsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
             return response()->json(['success' => true, 'message' => 'Project updated successfully!']);
         }
 
@@ -1030,17 +2206,29 @@ public function destroyUser(User $user)
 
     public function publishProject(Request $request, Project $project)
     {
-        if ($project->status !== 'draft') {
+        if (! in_array($project->status, ['draft', 'approved_for_bidding'], true)) {
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Only draft projects can be published.',
+                    'message' => 'Only draft or approved-for-bidding projects can be published.',
                 ], 422);
             }
-            return redirect()->route('admin.projects')->with('error', 'Only draft projects can be published.');
+            return redirect()->route('admin.projects')->with('error', 'Only draft or approved-for-bidding projects can be published.');
         }
 
-$project->update(['status' => 'approved_for_bidding']);
+        $project->loadMissing(['schedule', 'documents']);
+        $publicationAt = now(config('app.timezone', 'Asia/Manila'));
+        $blockers = $project->publicationBlockers(now(config('app.timezone', 'Asia/Manila')), $publicationAt);
+        if ($blockers !== []) {
+            $message = 'Not yet ready for local BAC publication: ' . implode(' ', $blockers);
+            $errors = array_map(static fn ($error) => [$error], $blockers);
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $message, 'errors' => $errors], 422);
+            }
+            return redirect()->route('admin.projects')->withErrors($blockers)->with('error', $message);
+        }
+
+        app(\App\Support\ProjectPublication::class)->publish($project, Auth::user(), $publicationAt);
 
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
@@ -1054,34 +2242,92 @@ $project->update(['status' => 'approved_for_bidding']);
 
     public function destroyProject(Request $request, Project $project)
     {
-        $project->delete();
+        $project->loadMissing('procurementRequest');
+        $procurementRequest = $project->procurementRequest;
+        $requestReturnedToBac = $procurementRequest?->status === \App\Models\ProcurementRequest::STATUS_IN_PROCUREMENT;
+
+        DB::transaction(function () use ($project, $procurementRequest, $requestReturnedToBac): void {
+            if ($requestReturnedToBac && $procurementRequest) {
+                $before = $procurementRequest->only(['status']);
+                $procurementRequest->update(['status' => \App\Models\ProcurementRequest::STATUS_FORWARDED]);
+                AuditLog::log('procurement_project_deleted', $procurementRequest, $before, [
+                    'status' => \App\Models\ProcurementRequest::STATUS_FORWARDED,
+                    'deleted_project_id' => $project->id,
+                    'deleted_project_title' => $project->title,
+                ]);
+            }
+
+            $project->delete();
+        });
+
+        $message = $requestReturnedToBac
+            ? 'Project deleted successfully. Its purchase request was returned to the Forwarded to BAC queue.'
+            : 'Project deleted successfully.';
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => $message]);
+        }
+
+        return redirect()->route('admin.projects')->with('success', $message);
+    }
+
+    public function archiveProject(Request $request, Project $project)
+    {
+        if ($project->archived_at) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Project is already archived.',
+                ], 422);
+            }
+
+            return redirect()->route('admin.projects')->with('error', 'Project is already archived.');
+        }
+
+        $project->forceFill(['archived_at' => now()])->save();
 
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Project deleted successfully.',
+                'message' => 'Project archived successfully.',
             ]);
         }
 
-        return redirect()->route('admin.projects')->with('success', 'Project deleted successfully.');
+        return redirect()->route('admin.projects')->with('success', 'Project archived successfully.');
     }
 
     public function awards()
     {
-        $awards = Award::with(['project', 'bidder', 'bid'])->latest()->get();
+        // Bids the HoPE approved before the hand-off existed get their award record now (idempotent).
+        Bid::awaitingAwardRecord()->whereDoesntHave('award')->get()->each(function (Bid $bid) {
+            try {
+                $this->bidWorkflow()->handOffApprovedAward($bid);
+            } catch (\Illuminate\Validation\ValidationException) {
+                // Another bidder's award is in force; the BAC resolves that through a cancellation.
+            }
+        });
+
+        $awards = Award::with(['project', 'bidder', 'approver', 'canceller', 'bid.user', 'bid.project', 'contractImplementation.events.actor'])->latest()->get();
+        $implementationWorkflow = app(\App\Support\ContractImplementationWorkflow::class);
+        $awards->each(function ($award) use ($implementationWorkflow) {
+            if ($implementationWorkflow->eligible($award)) {
+                $award->setRelation('contractImplementation', $implementationWorkflow->ensure($award)->load('events.actor'));
+            }
+        });
         
+        // Ready for the award record once the HoPE approved the BAC-recommended
+        // bid; the lowest bid alone is not a recommendation or an approval.
         $readyProjects = Project::with([
                 'bids' => function ($query) {
-                    $query->with('user')
-                        ->whereIn('status', ['approved', 'evaluated'])
-                        ->orderBy('bid_amount');
+                    $query->with('user')->awaitingAwardRecord();
                 },
             ])
+            ->withCount(['bids as evaluated_bids_count' => fn ($query) => $query->whereNotNull('evaluated_at')])
             ->where('status', '!=', 'awarded')
-            ->whereDoesntHave('awards')
-            ->whereHas('bids', function ($query) {
-                $query->whereIn('status', ['approved', 'evaluated']);
-            })
+            ->whereNull('failed_bidding_at')
+            // Approvals already handed off are listed as awards; this lists only what could not be.
+            ->whereDoesntHave('awards', fn ($query) => $query->whereNull('cancelled_at'))
+            ->whereHas('bids', fn ($query) => $query->awaitingAwardRecord())
             ->latest('updated_at')
             ->get();
 
@@ -1098,64 +2344,91 @@ $project->update(['status' => 'approved_for_bidding']);
 
         return view('admin.award-view', compact('award'));
     }
-    public function reports()
+    public function reports(Request $request)
     {
-        return view('admin.reports', $this->buildReportsData());
+        return view('admin.reports', $this->buildReportsData($request));
     }
 
-    public function exportReportsCsv()
+    public function exportReportsCsv(Request $request)
     {
-        $report = $this->buildReportsData();
+        $report = $this->buildReportsData($request);
         $filename = 'bac-office-reports-' . now()->format('Y-m-d') . '.csv';
 
         return response()->streamDownload(function () use ($report) {
             $handle = fopen('php://output', 'w');
 
-            fputcsv($handle, ['BAC Office Reports & Analytics']);
+            fputcsv($handle, ['SJBAC Report Analytics']);
             fputcsv($handle, ['Generated At', now()->format('M d, Y h:i A')]);
+            fputcsv($handle, ['Date From', $report['filters']['date_from'] ?: 'All dates']);
+            fputcsv($handle, ['Date To', $report['filters']['date_to'] ?: 'All dates']);
+            fputcsv($handle, ['Status', $report['filters']['status_label']]);
+            fputcsv($handle, ['Procurement Type', $report['filters']['procurement_type_label']]);
             fputcsv($handle, []);
 
-            fputcsv($handle, ['KPI Summary']);
+            fputcsv($handle, ['Analytics Summary']);
             fputcsv($handle, ['Metric', 'Value']);
-            fputcsv($handle, ['Total Budget Allocated', $report['totalBudgetAllocated']]);
-            fputcsv($handle, ['Total Awarded', $report['totalAwardedAmount']]);
-            fputcsv($handle, ['Government Savings', $report['governmentSavings']]);
-            fputcsv($handle, ['Bid Participation', $report['bidParticipation']]);
-            fputcsv($handle, []);
-
-            fputcsv($handle, ['Project Summary Report']);
-            fputcsv($handle, ['Project', 'Budget', 'Bids', 'Awarded', 'Status']);
-            foreach ($report['projectSummary'] as $project) {
-                fputcsv($handle, [
-                    $project->title,
-                    $project->budget,
-                    $project->bids_count,
-                    $project->awarded_amount ?: 0,
-                    $project->status,
-                ]);
+            foreach ($report['summaryCards'] as $card) {
+                fputcsv($handle, [$card['label'], $card['value']]);
             }
             fputcsv($handle, []);
 
-            fputcsv($handle, ['Bidder Performance']);
-            fputcsv($handle, ['Bidder', 'Total Bids', 'Approved', 'Won']);
-            foreach ($report['bidderPerformance'] as $bidder) {
-                fputcsv($handle, [
-                    $bidder->bidder_name,
-                    $bidder->total_bids,
-                    $bidder->approved_bids,
-                    $bidder->won_bids,
-                ]);
+            fputcsv($handle, ['Procurement Status Distribution']);
+            fputcsv($handle, ['Status', 'Projects']);
+            foreach ($report['procurementStatusDistribution'] as $row) {
+                fputcsv($handle, [$row['label'], $row['value']]);
             }
+            fputcsv($handle, []);
+
+            fputcsv($handle, ['Monthly Procurement Activity']);
+            fputcsv($handle, ['Month', 'Projects', 'Bids', 'Awards']);
+            foreach ($report['monthlyActivity'] as $row) {
+                fputcsv($handle, [$row['label'], $row['projects'], $row['bids'], $row['awards']]);
+            }
+            fputcsv($handle, []);
+
+            fputcsv($handle, ['Bids per Project']);
+            fputcsv($handle, ['Project', 'Bids']);
+            foreach ($report['bidsPerProject'] as $row) {
+                fputcsv($handle, [$row['label'], $row['value']]);
+            }
+            fputcsv($handle, []);
+
+            fputcsv($handle, ['ABC vs Winning Bid Amount']);
+            fputcsv($handle, ['Project', 'ABC', 'Winning Bid']);
+            foreach ($report['abcVsWinning'] as $row) {
+                fputcsv($handle, [$row['label'], $row['abc'], $row['winning']]);
+            }
+            fputcsv($handle, []);
+
+            fputcsv($handle, ['Bid Result Distribution']);
+            fputcsv($handle, ['Result', 'Bids']);
+            foreach ($report['bidResultDistribution'] as $row) {
+                fputcsv($handle, [$row['label'], $row['value']]);
+            }
+            fputcsv($handle, []);
+
+            fputcsv($handle, ['Bidder Participation']);
+            fputcsv($handle, ['Bidder', 'Bids']);
+            foreach ($report['bidderParticipation'] as $row) {
+                fputcsv($handle, [$row['label'], $row['value']]);
+            }
+            fputcsv($handle, []);
+
+            fputcsv($handle, ['Monitoring']);
+            fputcsv($handle, ['Upcoming Deadlines', $report['monitoring']['upcoming_deadlines']['count']]);
+            fputcsv($handle, ['Overdue Projects', $report['monitoring']['overdue_projects']['count']]);
+            fputcsv($handle, ['Pending Bidder Validations', $report['monitoring']['pending_bidder_validations']['count']]);
+            fputcsv($handle, ['Projects Awaiting BAC Evaluation', $report['monitoring']['awaiting_bac_evaluation']['count']]);
 
             fclose($handle);
         }, $filename, [
-            'Content-Type' => 'text/csv',
+            'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }
 
-    public function printReports()
+    public function printReports(Request $request)
     {
-        return Pdf::loadView('admin.reports-print', $this->buildReportsData())
+        return Pdf::loadView('admin.reports-print', $this->buildReportsData($request))
             ->setPaper('a4')
             ->download('admin-reports-' . now()->format('Y-m-d') . '.pdf');
     }
@@ -1187,11 +2460,10 @@ $project->update(['status' => 'approved_for_bidding']);
 
     public function createAward(Request $request, Project $project)
     {
-        $project->load('bids.user');
-        $bids = $project->bids
-            ->whereIn('status', ['approved', 'evaluated'])
-            ->sortBy('bid_amount')
-            ->values();
+        $bids = $project->bids()
+            ->with('user')
+            ->awaitingAwardRecord()
+            ->get();
         $selectedBidId = $request->integer('bid');
 
         return view('admin.award-create', compact('project', 'bids', 'selectedBidId'));
@@ -1204,193 +2476,66 @@ $project->update(['status' => 'approved_for_bidding']);
         return $this->declareWinner($request, $project);
     }
 
+    /**
+     * Issue the Notice of Award from the Awards page: the HoPE-approved bid
+     * receives the signed NOA, which creates the award record. Same action as
+     * "Issue Notice of Award" in the Review Bid modal (BidWorkflow).
+     */
     public function declareWinner(Request $request, Project $project)
     {
         $validated = $request->validate([
-            'bid_id' => 'nullable|exists:bids,id',
+            'bid_id' => ['required', 'integer', 'exists:bids,id'],
             'notes' => 'nullable|string',
-            'certificate_file' => [
-                'required',
-                'file',
-                'mimes:pdf',
-                'mimetypes:application/pdf,application/x-pdf',
-                'max:5120',
-                function (string $attribute, mixed $value, \Closure $fail): void {
-                    $extension = strtolower((string) $value->getClientOriginalExtension());
-                    if ($extension !== 'pdf') {
-                        $fail('The certificate must be a PDF file.');
-                        return;
-                    }
-
-                    $handle = @fopen($value->getRealPath(), 'rb');
-                    $signature = $handle ? fread($handle, 4) : '';
-                    if ($handle) {
-                        fclose($handle);
-                    }
-
-                    if ($signature !== '%PDF') {
-                        $fail('The certificate file is not a valid PDF document.');
-                    }
-                },
-            ],
+            'certificate_file' => ['required', 'file', 'mimes:pdf', 'max:5120'],
+        ], [
+            'certificate_file.required' => 'Attach the signed Notice of Award (PDF).',
         ]);
 
-        $storedPath = null;
+        $bid = Bid::where('project_id', $project->id)->findOrFail($validated['bid_id']);
 
         try {
-            DB::beginTransaction();
-
-            $project = Project::with([
-                'bids' => function ($query) {
-                    $query->with('user')
-                        ->whereIn('status', ['approved', 'evaluated'])
-                        ->orderBy('bid_amount');
-                },
-            ])->lockForUpdate()->findOrFail($project->id);
-
-            if ($project->status === 'awarded' || Award::where('project_id', $project->id)->exists()) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'project_id' => 'This project already has an award record.',
-                ]);
-            }
-
-            $winningBid = $project->bids->first();
-
-            if (! $winningBid) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'bid_id' => 'No approved or evaluated bid is available for this project.',
-                ]);
-            }
-
-            $certificateFile = $request->file('certificate_file');
-            $storedPath = $certificateFile->storeAs(
-                'certificates/' . $project->id,
-                Str::random(40) . '.pdf',
-                'local'
-            );
-
-            if (! $storedPath || ! Storage::disk('local')->exists($storedPath)) {
-                throw new \RuntimeException('The certificate PDF could not be stored.');
-            }
-
-            $qrToken = Award::newQrToken();
-
-            $award = Award::create([
-                'project_id' => $project->id,
-                'bid_id' => $winningBid->id,
-                'bidder_id' => $winningBid->user_id,
-                'contract_amount' => $winningBid->bid_amount,
-                'contract_date' => now()->toDateString(),
-                'status' => Award::STATUS_VALID,
+            $this->bidWorkflow()->apply($bid, BidWorkflow::NOTICE_OF_AWARD, Auth::user(), [
+                'notice_file' => $request->file('certificate_file'),
                 'notes' => $validated['notes'] ?? null,
-                'certificate_file_path' => $storedPath,
-                'qr_token' => $qrToken,
-                'certificate_status' => Award::STATUS_VALID,
-                'certificate_uploaded_at' => now(),
             ]);
-
-            $winningBid->update([
-                'status' => 'awarded',
-                'workflow_step' => Bid::STEP_AWARDED,
-                'workflow_step_updated_at' => now(),
-                'workflow_step_updated_by' => Auth::id(),
-                'awarded_at' => now(),
-                'awarded_by' => Auth::id(),
-            ]);
-
-            $project->update(['status' => 'awarded']);
-
-            Bid::where('project_id', $project->id)
-                ->whereKeyNot($winningBid->id)
-                ->where('status', 'pending')
-                ->update(['status' => 'rejected']);
-
-            SystemNotification::createForUser(
-                $winningBid->user_id,
-                'Contract awarded',
-                'Congratulations! Your bid for ' . $project->title . ' has been declared the winning bid.',
-                'award_won',
-                ['project_id' => $project->id, 'bid_id' => $winningBid->id, 'award_id' => $award->id]
-            );
-
-            $otherBidderIds = Bid::where('project_id', $project->id)
-                ->whereKeyNot($winningBid->id)
-                ->pluck('user_id');
-
-            SystemNotification::createForUsers(
-                $otherBidderIds,
-                'Award decision released',
-                'The project ' . $project->title . ' has already been awarded to another bidder.',
-                'award_decision',
-                ['project_id' => $project->id]
-            );
-
-            AuditLog::log('winner_declared', $award, [], [
-                'project_id' => $project->id,
-                'bid_id' => $winningBid->id,
-                'bidder_id' => $winningBid->user_id,
-                'contract_amount' => $winningBid->bid_amount,
-            ]);
-
-            AuditLog::log('certificate_uploaded', $award, [], [
-                'file_path' => $storedPath,
-                'file_size' => $certificateFile->getSize(),
-                'qr_token' => $qrToken,
-            ]);
-
-            DB::commit();
-
-            if ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Award declared successfully! Certificate stored securely.',
-                    'redirect' => route('admin.awards.index'),
-                ]);
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            $errors = $exception->errors();
+            if (isset($errors['milestone'])) {
+                // Keep the field the award form shows errors under.
+                $errors['bid_id'] = $errors['milestone'];
             }
 
-            return redirect()->route('admin.awards.index')->with('success', 'Award declared successfully! Certificate stored securely.');
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            if (DB::transactionLevel() > 0) {
-                DB::rollBack();
-            }
-
-            if ($storedPath && Storage::disk('local')->exists($storedPath)) {
-                Storage::disk('local')->delete($storedPath);
-            }
-
-            throw $e;
-        } catch (\Throwable $e) {
-            if (DB::transactionLevel() > 0) {
-                DB::rollBack();
-            }
-
-            if ($storedPath && Storage::disk('local')->exists($storedPath)) {
-                Storage::disk('local')->delete($storedPath);
-            }
-
-            Log::error('Award creation failed', [
-                'project_id' => $project->id ?? null,
-                'bid_id' => $validated['bid_id'] ?? null,
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            if ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to declare award. Please try again or contact support.',
-                    'error' => config('app.debug') ? $e->getMessage() : null,
-                ], 500);
-            }
-
-            return back()
-                ->withInput()
-                ->withErrors(['award' => 'Failed to declare award. Please try again or contact support.'])
-                ->with('error', 'Failed to declare award. Please try again or contact support.');
+            throw \Illuminate\Validation\ValidationException::withMessages($errors);
         }
+
+        $message = 'Notice of Award issued. The award record and QR-verifiable document were created.';
+
+        if ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+            return response()->json(['success' => true, 'message' => $message, 'redirect' => route('admin.awards.index')]);
+        }
+
+        return redirect()->route('admin.awards.index')->with('success', $message);
+    }
+
+    /**
+     * Cancel an award before contract signing, by the HoPE, with the reason and
+     * authority on record (BidWorkflow::cancelAward). Never deletes the award.
+     */
+    public function cancelAward(Request $request, Award $award)
+    {
+        $validated = $request->validate([
+            'cancellation_reason' => ['required', 'string', 'max:2000'],
+            'cancellation_reference' => ['required', 'string', 'max:255'],
+            'supporting_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:10240'],
+        ], [
+            'cancellation_reason.required' => 'Enter why the award is cancelled; the winning bidder sees this reason.',
+            'cancellation_reference.required' => 'Enter the HoPE memorandum or BAC resolution that authorizes the cancellation.',
+        ]);
+
+        $this->bidWorkflow()->cancelAward($award, Auth::user(), $validated['cancellation_reason'], $validated['cancellation_reference'], $request->file('supporting_document'));
+
+        return redirect()->route('admin.awards.index')
+            ->with('success', 'Award cancelled for '.($award->project?->title ?? 'the project').'. The project is back with the BAC for its next decision.');
     }
 
     public function uploadCertificate(Request $request, Award $award)
@@ -1435,6 +2580,9 @@ $project->update(['status' => 'approved_for_bidding']);
                 'certificate_revoked_by' => null,
             ])->save();
 
+            $award = app(\App\Services\AwardCertificateService::class)
+                ->ensureForValidAward($award);
+
             if ($oldPath && Storage::disk('local')->exists($oldPath)) {
                 Storage::disk('local')->delete($oldPath);
             }
@@ -1463,7 +2611,9 @@ $project->update(['status' => 'approved_for_bidding']);
 
             Log::error('Certificate replacement failed', [
                 'award_id' => $award->id,
+                'exception' => $e::class,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             if ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
@@ -1507,7 +2657,9 @@ $project->update(['status' => 'approved_for_bidding']);
         } catch (\Throwable $e) {
             Log::error('Certificate revocation failed', [
                 'award_id' => $award->id,
+                'exception' => $e::class,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             if ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
@@ -1545,7 +2697,9 @@ $project->update(['status' => 'approved_for_bidding']);
         } catch (\Throwable $e) {
             Log::error('QR token regeneration failed', [
                 'award_id' => $award->id,
+                'exception' => $e::class,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             if ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
@@ -1566,18 +2720,28 @@ $project->update(['status' => 'approved_for_bidding']);
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user?->id)],
             'username' => ['nullable', 'string', 'min:4', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', Rule::unique('users', 'username')->ignore($user?->id)],
-            'role' => ['required', Rule::in(['admin', 'staff', 'bidder'])],
+            'role' => ['required', Rule::in(['admin', 'staff', 'end_user', 'bidder'])],
             'status' => ['required', Rule::in(['active', 'pending', 'rejected'])],
             'office' => [
-                Rule::excludeIf($request->input('role') !== 'staff'),
+                Rule::excludeIf(! in_array($request->input('role'), ['staff', 'end_user'], true)),
                 'required',
                 'string',
                 'max:255',
-                Rule::in(User::staffOfficeOptions()),
+                Rule::in($request->input('role') === 'end_user' ? User::endUserOfficeOptions() : User::staffOfficeOptions()),
             ],
             'password' => $passwordRule,
-            'company' => ['nullable', 'string', 'max:255'],
-            'registration_no' => ['nullable', 'string', 'max:255'],
+            'company' => [
+                Rule::excludeIf($request->input('role') !== 'bidder'),
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'registration_no' => [
+                Rule::excludeIf($request->input('role') !== 'bidder'),
+                'nullable',
+                'string',
+                'max:255',
+            ],
         ], [
             'username.regex' => 'Username may only contain letters, numbers, dots, dashes, and underscores.',
         ]);
@@ -1692,10 +2856,14 @@ $project->update(['status' => 'approved_for_bidding']);
             ['user_id' => $user->id],
             [
                 'company_name' => $user->company ?: $user->name,
+                'contact_person' => $user->name,
                 'contact_number' => 'Not provided',
                 'business_address' => 'Not provided',
                 'document_path' => $registrationDocumentPath,
                 'approval_status' => $user->status === 'active' ? 'approved' : 'pending',
+                'review_status' => $user->status === 'active' ? null : 'new',
+                'review_message' => null,
+                'rejection_reason' => null,
                 'approved_at' => $user->status === 'active' ? now() : null,
                 'approved_by' => $user->status === 'active' ? Auth::id() : null,
             ]
@@ -1709,20 +2877,329 @@ $project->update(['status' => 'approved_for_bidding']);
          }
 
         $bidder = $this->ensureBidderProfile($user);
-
-        $bidder->forceFill([
+        $updates = [
             'company_name' => $user->company ?: $bidder->company_name ?: $user->name,
-            'approval_status' => $user->status === 'active'
+            'contact_person' => $bidder->contact_person ?: $user->name,
+        ];
+
+        $hasActiveSanction = Schema::hasTable('bidder_sanctions')
+            && $bidder->activeSanction()->exists();
+
+        if (! $hasActiveSanction) {
+            $updates['approval_status'] = $user->status === 'active'
                 ? 'approved'
-                : ($user->status === 'rejected' ? 'rejected' : 'pending'),
-        ])->save();
+                : ($user->status === 'rejected' ? 'rejected' : 'pending');
+        }
+
+        $bidder->forceFill($updates)->save();
     }
 
 
 
 
 
-    protected function buildReportsData(): array
+    protected function parseReportDate(mixed $value): ?\Carbon\Carbon
+    {
+        if (! is_string($value) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return null;
+        }
+
+        try {
+            return \Carbon\Carbon::createFromFormat('!Y-m-d', $value);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    protected function buildReportsData(Request $request): array
+    {
+        $statusLabels = [
+            'draft' => 'Draft',
+            'approved_for_bidding' => 'Approved for bidding',
+            'open' => 'Open',
+            'closed' => 'Closed',
+            'awarded' => 'Awarded',
+        ];
+        $procurementTypeLabels = [
+            'public_bidding' => 'Public bidding',
+            'negotiated_procurement' => 'Negotiated procurement',
+            'shopping' => 'Shopping',
+            'small_value_procurement' => 'Small value procurement',
+            'direct_contracting' => 'Direct contracting',
+            'electronic_procurement' => 'Electronic procurement',
+        ];
+
+        $dateFrom = $this->parseReportDate($request->input('date_from'));
+        $dateTo = $this->parseReportDate($request->input('date_to'));
+        if ($dateFrom && $dateTo && $dateFrom->greaterThan($dateTo)) {
+            [$dateFrom, $dateTo] = [$dateTo, $dateFrom];
+        }
+
+        $requestedStatus = $request->input('status');
+        $selectedStatus = is_string($requestedStatus) && array_key_exists($requestedStatus, $statusLabels)
+            ? $requestedStatus
+            : null;
+        $requestedProcurementType = $request->input('procurement_type');
+        $selectedProcurementType = is_string($requestedProcurementType) && array_key_exists($requestedProcurementType, $procurementTypeLabels)
+            ? $requestedProcurementType
+            : null;
+
+        $projects = Project::query()
+            ->with(['bids.user', 'awards.bid', 'schedule'])
+            ->when($dateFrom, fn ($query) => $query->where('created_at', '>=', $dateFrom->copy()->startOfDay()))
+            ->when($dateTo, fn ($query) => $query->where('created_at', '<=', $dateTo->copy()->endOfDay()))
+            ->when($selectedStatus, fn ($query) => $query->where('status', $selectedStatus))
+            ->when($selectedProcurementType, fn ($query) => $query->where('procurement_mode', $selectedProcurementType))
+            ->orderByDesc('created_at')
+            ->get();
+
+        $bids = $projects->flatMap(fn ($project) => $project->bids)->values();
+        $awards = $projects->flatMap(fn ($project) => $project->awards)->values();
+        $bidderUsers = User::query()
+            ->where('role', 'bidder')
+            ->with(['bidderProfile.activeSanction'])
+            ->when($dateFrom, fn ($query) => $query->where('created_at', '>=', $dateFrom->copy()->startOfDay()))
+            ->when($dateTo, fn ($query) => $query->where('created_at', '<=', $dateTo->copy()->endOfDay()))
+            ->orderBy('name')
+            ->get();
+
+        $blacklistedBidders = $bidderUsers->filter(
+            fn ($user) => $user->bidderProfile?->activeSanction?->type === BidderSanction::TYPE_BLACKLISTED
+        )->values();
+        $pendingBidders = $bidderUsers->filter(
+            fn ($user) => $user->bidderProfile?->approval_status === 'pending'
+        )->values();
+        $activeProjects = $projects->whereIn('status', ['approved_for_bidding', 'open'])->count();
+        $awardedProjects = $projects->filter(
+            fn ($project) => $project->status === 'awarded' || $project->awards->isNotEmpty()
+        )->count();
+
+        $summaryCards = [
+            ['label' => 'Total Projects', 'value' => $projects->count(), 'note' => 'Selected procurement records', 'icon' => 'fa-folder-open', 'tone' => 'blue'],
+            ['label' => 'Active Projects', 'value' => $activeProjects, 'note' => 'Open or approved for bidding', 'icon' => 'fa-bolt', 'tone' => 'green'],
+            ['label' => 'Total Bids', 'value' => $bids->count(), 'note' => 'Submitted bid records', 'icon' => 'fa-gavel', 'tone' => 'violet'],
+            ['label' => 'Awarded Projects', 'value' => $awardedProjects, 'note' => 'Projects with a winning award', 'icon' => 'fa-trophy', 'tone' => 'gold'],
+            ['label' => 'Registered Bidders', 'value' => $bidderUsers->count(), 'note' => 'Bidder accounts in range', 'icon' => 'fa-users', 'tone' => 'sky'],
+            ['label' => 'Blacklisted Bidders', 'value' => $blacklistedBidders->count(), 'note' => 'Active procurement sanctions', 'icon' => 'fa-user-slash', 'tone' => 'red'],
+        ];
+
+        $charts = $this->buildReportCharts($projects, $bids, $awards, $dateFrom, $dateTo);
+        $monitoring = $this->buildReportMonitoring($projects, $pendingBidders);
+        $filters = [
+            'date_from' => $dateFrom?->format('Y-m-d') ?: '',
+            'date_to' => $dateTo?->format('Y-m-d') ?: '',
+            'status' => $selectedStatus ?: '',
+            'status_label' => $selectedStatus ? $statusLabels[$selectedStatus] : 'All statuses',
+            'procurement_type' => $selectedProcurementType ?: '',
+            'procurement_type_label' => $selectedProcurementType ? $procurementTypeLabels[$selectedProcurementType] : 'All procurement types',
+        ];
+
+        return [
+            'filters' => $filters,
+            'filterQuery' => array_filter([
+                'date_from' => $filters['date_from'],
+                'date_to' => $filters['date_to'],
+                'status' => $filters['status'],
+                'procurement_type' => $filters['procurement_type'],
+            ], fn ($value) => $value !== ''),
+            'statusOptions' => $statusLabels,
+            'procurementTypeOptions' => $procurementTypeLabels,
+            'summaryCards' => $summaryCards,
+            'monitoring' => $monitoring,
+        ] + $charts;
+    }
+
+    protected function buildReportCharts(Collection $projects, Collection $bids, Collection $awards, ?\Carbon\Carbon $dateFrom, ?\Carbon\Carbon $dateTo): array
+    {
+        $projectCharts = $this->buildReportProjectCharts($projects, $bids, $awards, $dateFrom, $dateTo);
+        $bidCharts = $this->buildReportBidCharts($bids);
+        $chartMaxima = [
+            'status' => max(1, (int) (collect($projectCharts['procurementStatusDistribution'])->max('value') ?: 0)),
+            'activity' => max(1, (int) (collect($projectCharts['monthlyActivity'])->flatMap(fn ($row) => [$row['projects'], $row['bids'], $row['awards']])->max() ?: 0)),
+            'bids_per_project' => max(1, (int) (collect($projectCharts['bidsPerProject'])->max('value') ?: 0)),
+            'abc' => max(1, (int) (collect($projectCharts['abcVsWinning'])->map(fn ($row) => max($row['abc'], $row['winning']))->max() ?: 0)),
+            'bid_result' => max(1, (int) (collect($bidCharts['bidResultDistribution'])->max('value') ?: 0)),
+            'bidder' => max(1, (int) (collect($bidCharts['bidderParticipation'])->max('value') ?: 0)),
+        ];
+
+        return $projectCharts + $bidCharts + ['chartMaxima' => $chartMaxima];
+    }
+
+    protected function buildReportProjectCharts(Collection $projects, Collection $bids, Collection $awards, ?\Carbon\Carbon $dateFrom, ?\Carbon\Carbon $dateTo): array
+    {
+        $statusLabels = [
+            'draft' => 'Draft',
+            'approved_for_bidding' => 'Approved for bidding',
+            'open' => 'Open',
+            'closed' => 'Closed',
+            'awarded' => 'Awarded',
+        ];
+        $statusColors = [
+            'draft' => '#94a3b8',
+            'approved_for_bidding' => '#8b5cf6',
+            'open' => '#10b981',
+            'closed' => '#64748b',
+            'awarded' => '#f59e0b',
+        ];
+        $procurementStatusDistribution = collect($statusLabels)->map(function ($label, $status) use ($projects, $statusColors) {
+            return [
+                'key' => $status,
+                'label' => $label,
+                'value' => $projects->where('status', $status)->count(),
+                'color' => $statusColors[$status],
+            ];
+        })->values()->all();
+
+        $activityEnd = ($dateTo ?: now())->copy()->endOfMonth();
+        $activityStart = ($dateFrom ?: $activityEnd->copy()->subMonths(11))->copy()->startOfMonth();
+        if ($activityStart->diffInMonths($activityEnd) > 11) {
+            $activityStart = $activityEnd->copy()->subMonths(11)->startOfMonth();
+        }
+        $monthlyActivity = [];
+        for ($cursor = $activityStart->copy(); $cursor->lessThanOrEqualTo($activityEnd); $cursor->addMonth()) {
+            $key = $cursor->format('Y-m');
+            $monthlyActivity[] = [
+                'key' => $key,
+                'label' => $cursor->format('M Y'),
+                'projects' => $projects->filter(fn ($project) => $project->created_at?->format('Y-m') === $key)->count(),
+                'bids' => $bids->filter(fn ($bid) => $bid->created_at?->format('Y-m') === $key)->count(),
+                'awards' => $awards->filter(function ($award) use ($key) {
+                    $date = $award->contract_date ?: $award->created_at;
+                    return $date?->format('Y-m') === $key;
+                })->count(),
+            ];
+        }
+
+        $bidsPerProject = $projects
+            ->map(fn ($project) => [
+                'label' => Str::limit((string) $project->title, 34),
+                'full_label' => $project->title,
+                'value' => $project->bids->count(),
+            ])
+            ->filter(fn ($row) => $row['value'] > 0)
+            ->sortByDesc('value')
+            ->take(8)
+            ->values()
+            ->all();
+
+        $abcVsWinning = $projects->map(function ($project) {
+            $award = $project->awards->sortByDesc('contract_date')->first();
+            $winningBid = $award?->bid ?: $project->bids->first(
+                fn ($bid) => $bid->status === 'awarded' || $bid->workflow_step === Bid::STEP_AWARDED
+            );
+            $winningAmount = $award?->contract_amount ?? $winningBid?->bid_amount;
+            if ($project->budget === null || $winningAmount === null) {
+                return null;
+            }
+
+            return [
+                'label' => Str::limit((string) $project->title, 28),
+                'full_label' => $project->title,
+                'abc' => (float) $project->budget,
+                'winning' => (float) $winningAmount,
+            ];
+        })->filter()->sortByDesc('abc')->take(8)->values()->all();
+
+        return compact('procurementStatusDistribution', 'monthlyActivity', 'bidsPerProject', 'abcVsWinning');
+    }
+
+    protected function buildReportBidCharts(Collection $bids): array
+    {
+        $resultLabels = [
+            'awarded' => 'Awarded',
+            'approved' => 'Approved',
+            'pending' => 'Pending review',
+            'rejected' => 'Rejected',
+            'disqualified' => 'Disqualified',
+        ];
+        $resultCounts = array_fill_keys(array_keys($resultLabels), 0);
+        foreach ($bids as $bid) {
+            $workflow = $bid->workflow_step ?: $bid->status;
+            $result = match (true) {
+                $workflow === Bid::STEP_AWARDED || $bid->status === 'awarded' => 'awarded',
+                $workflow === Bid::STEP_DISQUALIFIED || $bid->status === 'rejected' => 'disqualified',
+                $bid->status === 'approved' => 'approved',
+                default => 'pending',
+            };
+            $resultCounts[$result]++;
+        }
+        $bidResultDistribution = collect($resultLabels)->map(function ($label, $key) use ($resultCounts) {
+            return [
+                'key' => $key,
+                'label' => $label,
+                'value' => $resultCounts[$key],
+                'color' => match ($key) {
+                    'awarded' => '#f59e0b',
+                    'approved' => '#10b981',
+                    'rejected', 'disqualified' => '#ef4444',
+                    default => '#94a3b8',
+                },
+            ];
+        })->values()->all();
+
+        $bidderParticipation = $bids
+            ->groupBy('user_id')
+            ->map(function ($bidGroup) {
+                $bidder = $bidGroup->first()?->user;
+                $label = $bidder?->company ?: ($bidder?->name ?: 'Unknown bidder');
+                return [
+                    'label' => Str::limit($label, 30),
+                    'full_label' => $label,
+                    'value' => $bidGroup->count(),
+                ];
+            })
+            ->sortByDesc('value')
+            ->take(8)
+            ->values()
+            ->all();
+
+        return compact('bidResultDistribution', 'bidderParticipation');
+    }
+
+    protected function buildReportMonitoring(Collection $projects, Collection $pendingBidders): array
+    {
+        $projectDeadline = fn ($project) => $project->deadline ?: $project->schedule?->bid_submission_deadline;
+        $monitoringProjects = $projects->filter(fn ($project) => ! in_array($project->status, ['closed', 'awarded'], true));
+        $upcomingDeadlines = $monitoringProjects
+            ->map(fn ($project) => ['project' => $project, 'deadline' => $projectDeadline($project)])
+            ->filter(fn ($row) => $row['deadline'] && $row['deadline']->greaterThanOrEqualTo(today()) && $row['deadline']->lessThanOrEqualTo(today()->addDays(30)))
+            ->sortBy(fn ($row) => $row['deadline'])
+            ->values();
+        $overdueProjects = $monitoringProjects
+            ->map(fn ($project) => ['project' => $project, 'deadline' => $projectDeadline($project)])
+            ->filter(fn ($row) => $row['deadline'] && $row['deadline']->isPast())
+            ->sortByDesc(fn ($row) => $row['deadline'])
+            ->values();
+        $awaitingEvaluation = $projects
+            ->map(function ($project) {
+                $evaluationBids = $project->bids->filter(fn ($bid) => $bid->workflow_step === Bid::STEP_FOR_BAC_EVALUATION);
+                return ['project' => $project, 'bids' => $evaluationBids->count()];
+            })
+            ->filter(fn ($row) => $row['bids'] > 0)
+            ->sortByDesc('bids')
+            ->values();
+
+        return [
+            'upcoming_deadlines' => [
+                'count' => $upcomingDeadlines->count(),
+                'items' => $upcomingDeadlines->take(6),
+            ],
+            'overdue_projects' => [
+                'count' => $overdueProjects->count(),
+                'items' => $overdueProjects->take(6),
+            ],
+            'pending_bidder_validations' => [
+                'count' => $pendingBidders->count(),
+                'items' => $pendingBidders->take(6)->values(),
+            ],
+            'awaiting_bac_evaluation' => [
+                'count' => $awaitingEvaluation->count(),
+                'items' => $awaitingEvaluation->take(6),
+            ],
+        ];
+    }
+
+    protected function legacyBuildReportsData(): array
     {
         $totalUsers = User::count();
         $totalProjects = Project::count();
@@ -1848,7 +3325,7 @@ $project->update(['status' => 'approved_for_bidding']);
         return $files;
     }
 
-    private function storeProjectDocuments(Project $project, array $files): void
+    private function storeProjectDocuments(Project $project, array $files, ?string $documentType = null): void
     {
         if ($files === []) {
             return;
@@ -1865,6 +3342,7 @@ $project->update(['status' => 'approved_for_bidding']);
             $document = [
                 'original_name' => $file->getClientOriginalName(),
                 'file_path' => $storedPath,
+                'document_type' => $documentType ?: 'other',
                 'created_at' => $timestamp,
                 'updated_at' => $timestamp,
             ];

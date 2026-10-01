@@ -21,7 +21,7 @@ class WelcomeMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Welcome to BAC Office - ' . ucfirst($this->user->role),
+            subject: 'Welcome to SJBAC - ' . ucfirst($this->user->role),
         );
     }
 

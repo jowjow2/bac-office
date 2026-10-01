@@ -1,1808 +1,692 @@
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-@include('partials.dashboard-viewport')
-<div class="admin-dashboard admin-projects-wizard-page">
-    @vite(['resources/css/dashboard.css', 'resources/js/app.js'])
-    @include('partials.admin-sidebar')
+{{--
+    Create procurement project â€” five-step wizard (Project info, Requirements,
+    Documents, Dates, Review). Posts to admin.projects.wizard.store with the
+    same field names as before: status=draft saves a draft project; status=open
+    asks the server to publish it in this BAC system (it stays a draft, with the
+    reasons, when a publication check fails). Behaviour: resources/js/project-wizard.js.
+--}}
+@extends('layouts.portal')
 
-    <!-- MAIN AREA -->
-    <div class="main-area">
-        <!-- NAVBAR -->
-        <header class="navbar">
-            <div class="nav-left">
-                <h2>Create New Procurement Project</h2>
-                <p>Add procurement project</p>
+@use('App\Support\ProcurementMode')
+
+@php
+    /** @var \App\Models\ProcurementRequest|null $procurementRequest */
+    $pr = $procurementRequest ?? null;
+    $err = fn (string $field) => $errors->first($field);
+    $invalid = fn (string $field) => $errors->has($field) ? 'true' : 'false';
+    $tz = config('bac-office.display_timezone');
+
+    $categories = ['goods' => 'Goods', 'services' => 'Goods â€” general support services', 'infrastructure' => 'Infrastructure', 'consultancy' => 'Consulting services'];
+
+    $sourceOfFundOptions = ['General Fund', 'Special Education Fund (SEF)', '20% Development Fund', 'Local Disaster Risk Reduction and Management Fund (LDRRMF)', 'Trust Fund', 'National Government Grant / Transfer', 'Loan / Grant', 'Other'];
+    $sourceOfFund = old('source_of_fund');
+    $sourceOfFundChoice = in_array($sourceOfFund, $sourceOfFundOptions, true) ? $sourceOfFund : (filled($sourceOfFund) ? 'Other' : '');
+    $sourceOfFundOther = $sourceOfFundChoice === 'Other' && ! in_array($sourceOfFund, $sourceOfFundOptions, true) ? $sourceOfFund : '';
+
+    $durationOptions = ['30 Calendar Days', '60 Calendar Days', '90 Calendar Days', '120 Calendar Days', '180 Calendar Days', '1 Year', 'Custom'];
+    $duration = old('contract_duration');
+    $durationChoice = in_array($duration, $durationOptions, true) ? $duration : (filled($duration) ? 'Custom' : '');
+    $durationCustom = $durationChoice === 'Custom' && ! in_array($duration, $durationOptions, true) ? $duration : '';
+
+    $budget = old('budget');
+    $budgetDisplay = filled($budget) && is_numeric($budget) ? number_format((float) $budget, 2, '.', ',') : '';
+    $fee = old('bidding_documents_fee');
+    $feeDisplay = filled($fee) && is_numeric($fee) ? number_format((float) $fee, 2, '.', ',') : '';
+    $feeMode = old('bidding_fee_mode', \App\Support\BiddingDocumentsFee::MODE_SCHEDULE);
+
+    // Required documents: the standard checklist, grouped; anything else the BAC typed is an extra row.
+    // No legal and eligibility group: the bidder's PhilGEPS Platinum certificate stands for its permits,
+    // registration and tax clearance (RA 12009 IRR Sec. 52.1, 54.2), which are verified at registration
+    // and post-qualification (Sec. 63.2); the per-bid forms are added from the mode and category.
+    $requirementGroups = [
+        'Technical' => ['Technical Proposal'],
+        'Financial' => ['Financial Proposal'],
+        'Other' => ['Other BAC Required Documents'],
+    ];
+    $standardRequirements = collect($requirementGroups)->flatten()->all();
+    $selectedRequirements = (array) old('required_documents', []);
+    $extraRequirements = array_values(array_filter($selectedRequirements, fn ($item) => filled($item) && ! in_array($item, $standardRequirements, true)));
+
+    $documentTypes = [
+        'invitation_to_bid' => 'Invitation to Bid',
+        'bidding_documents' => 'Bidding Documents',
+        'terms_of_reference' => 'Terms of Reference',
+        'technical_specifications' => 'Technical Specifications',
+        'bill_of_quantities' => 'Bill of Quantities',
+        'project_plans' => 'Project Plans / Drawings',
+        'supplemental_bulletin' => 'Supplemental Bid Bulletin',
+        'other' => 'Other',
+    ];
+
+    $steps = [1 => 'Project info', 2 => 'Requirements', 3 => 'Documents', 4 => 'Dates', 5 => 'Review'];
+
+    // Which step holds each field, to reopen the right step after a server error.
+    $fieldSteps = [
+        1 => ['title', 'description', 'category', 'location', 'procurement_mode', 'award_criterion', 'evaluation_procedure', 'negotiation_ground', 'legal_basis', 'end_user_unit', 'source_of_fund', 'contract_duration', 'budget', 'philgeps_reference_no', 'philgeps_url', 'procurement_request_id'],
+        2 => ['required_documents', 'eligibility_requirements', 'technical_requirements', 'financial_requirements', 'qualification_notes', 'special_instructions', 'evaluation_criteria', 'quality_price_ratio', 'submission_mode', 'submission_venue', 'bidding_documents_fee', 'bidding_fee_mode', 'bidding_fee_reason', 'payment_venue', 'bid_security_required', 'bid_security_notes', 'electronic_submission_authority'],
+        3 => ['project_documents', 'document_type'],
+        4 => ['pre_procurement_conference_at', 'pre_procurement_reference', 'date_posted', 'pre_bid_conference_date', 'clarification_deadline', 'bid_submission_deadline', 'bid_opening_date', 'bid_opening_venue', 'evaluation_start_date', 'expected_award_date'],
+        5 => ['confirm_correct', 'status', 'error'],
+    ];
+    $firstErrorStep = 1;
+    if ($errors->any()) {
+        foreach ($fieldSteps as $step => $fields) {
+            foreach (array_keys($errors->getMessages()) as $key) {
+                if (in_array(explode('.', $key)[0], $fields, true)) {
+                    $firstErrorStep = $step;
+                    break 2;
+                }
+            }
+        }
+    }
+
+    $today = now($tz);
+@endphp
+
+@section('title', 'Create procurement project')
+@section('subtitle', 'Prepare the project, then save it as a draft or publish it in this BAC system.')
+
+@push('head')
+    @vite('resources/css/project-wizard.css')
+@endpush
+
+@section('content')
+<div class="pw-backdrop">
+    <div class="pw" role="dialog" aria-modal="true" aria-labelledby="pw-title" data-pw data-first-step="{{ $firstErrorStep }}">
+        <header class="pw__header">
+            <div class="pw__heading">
+                <div>
+                    <h2 class="pw__title" id="pw-title">Create procurement project</h2>
+                    <p class="pw__subtitle">Fields marked <span class="ui-required" aria-hidden="true">*</span><span class="sr-only">with an asterisk</span> are needed to publish. A draft can be saved at any step.</p>
+                </div>
+                <a href="{{ route('admin.projects') }}" class="pw__close" data-pw-exit aria-label="Close and return to projects"><i class="fas fa-xmark" aria-hidden="true"></i></a>
             </div>
+
+            <ol class="pw-steps" aria-label="Steps">
+                @foreach($steps as $number => $label)
+                    <li class="pw-steps__item" data-pw-marker="{{ $number }}">
+                        <button type="button" class="pw-steps__button" data-pw-go="{{ $number }}">
+                            <span class="pw-steps__number" aria-hidden="true">{{ $number }}</span>
+                            <span class="pw-steps__label">{{ $label }}</span>
+                            <span class="sr-only" data-pw-marker-state></span>
+                        </button>
+                    </li>
+                @endforeach
+            </ol>
         </header>
 
-        <!-- MAIN CONTENT - Only the modal overlay -->
-        <main class="dashboard-content wizard-modal-host">
-            <!-- Modal Overlay -->
-            <div id="wizardModalOverlay" class="wizard-modal-overlay">
-                <div class="wizard-container modal-wizard">
+        <form id="projectWizardForm" class="pw__form" action="{{ route('admin.projects.wizard.store') }}" method="POST" enctype="multipart/form-data" novalidate>
+            @csrf
+            <input type="hidden" name="status" id="projectStatus" value="draft">
+            @if(old('procurement_request_id') || $pr)
+                <input type="hidden" name="procurement_request_id" value="{{ old('procurement_request_id', $pr?->id) }}">
+            @endif
 
-                    <!-- Close Button -->
-                    <a href="{{ route('admin.projects') }}" class="wizard-close-button" aria-label="Close">
-                        <i class="fas fa-times"></i>
-                    </a>
-
-                    <!-- Modal Header -->
-                    <div class="wizard-modal-header">
-                        <div class="wizard-title-row">
-                            <div class="wizard-title-dot"></div>
-                            <h2>Create New Procurement Project</h2>
-                        </div>
-                        <p>Complete all steps to publish the project for bidding.</p>
-                    </div>
-
-                    <!-- Stepper -->
-                    <div class="wizard-steps">
-                        <div class="wizard-step active" data-step="1" aria-current="step">
-                            <div class="step-number">1</div>
-                            <div class="step-label">Project Info</div>
-                        </div>
-                        <div class="wizard-step" data-step="2">
-                            <div class="step-number">2</div>
-                            <div class="step-label">Requirements</div>
-                        </div>
-                        <div class="wizard-step" data-step="3">
-                            <div class="step-number">3</div>
-                            <div class="step-label">Documents</div>
-                        </div>
-                        <div class="wizard-step" data-step="4">
-                            <div class="step-number">4</div>
-                            <div class="step-label">Dates</div>
-                        </div>
-                        <div class="wizard-step" data-step="5">
-                            <div class="step-number">5</div>
-                            <div class="step-label">Review</div>
+            <div class="pw__body" data-pw-body tabindex="-1">
+                @if($errors->any())
+                    <div class="ui-alert ui-alert--danger pw-summary" role="alert" data-pw-server-errors>
+                        <i class="fas fa-circle-exclamation" aria-hidden="true"></i>
+                        <div>
+                            <strong>The project was not saved.</strong> Correct the fields below, then try again. Files you had selected are not kept after a failed save; attach them again in Documents.
+                            <ul>@foreach($errors->all() as $message)<li>{{ $message }}</li>@endforeach</ul>
                         </div>
                     </div>
+                @endif
 
-                    <!-- Wizard Form -->
-                    <form id="projectWizardForm" class="wizard-form" action="{{ route('admin.projects.wizard.store') }}" method="POST" enctype="multipart/form-data">
-                        @csrf
-                        <input type="hidden" name="status" id="projectStatus" value="draft">
+                {{-- ============================== Step 1 ============================== --}}
+                <section class="pw-step" data-pw-step="1" aria-labelledby="pw-step1-title">
+                    <h3 class="pw-step__title" id="pw-step1-title">Project info</h3>
 
-                        <!-- Wizard Body - scrollable -->
-                        <div class="wizard-body">
+                    @if($pr)
+                        <div class="pw-pr" aria-label="Linked purchase request">
+                            <div class="pw-pr__main">
+                                <span class="pw-pr__eyebrow">Linked purchase request</span>
+                                <strong class="pw-pr__ref ui-mono">{{ $pr->reference_no }}</strong>
+                                <span class="pw-pr__office">{{ $pr->end_user_office }}</span>
+                            </div>
+                            <dl class="pw-pr__facts">
+                                <div><dt>Status</dt><dd><span class="ui-badge ui-badge--{{ $pr->statusTone() }}">{{ $pr->statusLabel() }}</span></dd></div>
+                                <div><dt>Estimated cost</dt><dd class="ui-num">â‚±{{ number_format((float) $pr->estimated_cost, 2) }}</dd></div>
+                                <div><dt>PPMP / APP</dt><dd>{{ $pr->ppmp_reference ?: 'â€”' }} / {{ $pr->app_reference ?: 'â€”' }}</dd></div>
+                            </dl>
+                            <p class="pw-pr__note">Preparing bidding from {{ $pr->reference_no }}. Fields marked <span class="pw-chip">From PR</span> were copied from the request; changing them here does not change the request. <a class="ui-link" href="{{ route('admin.requests', ['tab' => 'bac', 'q' => $pr->reference_no]) }}">Open the request</a></p>
+                        </div>
+                    @endif
 
-                            <!-- Step 1: Project Information -->
-                            <div class="wizard-step-content active" data-step-content="1">
-                                <div class="wizard-step-panel">
-                                    <h3 class="form-section-title">Step 1: Project Information</h3>
-                                    <div class="form-grid">
-                                        <div class="form-group">
-                                            <label for="title">Project Title *</label>
-                                            <input type="text" id="title" name="title" value="{{ old('title') }}" required>
-                                            @error('title') <small class="error-message">{{ $message }}</small> @enderror
-                                        </div>
-                                        <div class="form-group full-width">
-                                            <label for="description">Project Description *</label>
-                                            <textarea id="description" name="description" rows="4" required>{{ old('description') }}</textarea>
-                                            @error('description') <small class="error-message">{{ $message }}</small> @enderror
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="category">Category *</label>
-                                            <select id="category" name="category" required>
-                                                <option value="">Select Category</option>
-                                                <option value="goods" {{ old('category') == 'goods' ? 'selected' : '' }}>Goods</option>
-                                                <option value="services" {{ old('category') == 'services' ? 'selected' : '' }}>Services</option>
-                                                <option value="infrastructure" {{ old('category') == 'infrastructure' ? 'selected' : '' }}>Infrastructure</option>
-                                                <option value="consultancy" {{ old('category') == 'consultancy' ? 'selected' : '' }}>Consultancy</option>
-                                            </select>
-                                            @error('category') <small class="error-message">{{ $message }}</small> @enderror
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="location">Project Location *</label>
-                                            <input type="text" id="location" name="location" value="{{ old('location') }}" placeholder="e.g., City Hall, Manila" required>
-                                            @error('location') <small class="error-message">{{ $message }}</small> @enderror
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="procurement_mode">Procurement Mode *</label>
-                                            <select id="procurement_mode" name="procurement_mode" required>
-                                                <option value="">Select Mode</option>
-                                                <option value="public_bidding" {{ old('procurement_mode') == 'public_bidding' ? 'selected' : '' }}>Public Bidding</option>
-                                                <option value="negotiated_procurement" {{ old('procurement_mode') == 'negotiated_procurement' ? 'selected' : '' }}>Negotiated Procurement</option>
-                                                <option value="shopping" {{ old('procurement_mode') == 'shopping' ? 'selected' : '' }}>Shopping</option>
-                                                <option value="small_value_procurement" {{ old('procurement_mode') == 'small_value_procurement' ? 'selected' : '' }}>Small Value Procurement</option>
-                                                <option value="direct_contracting" {{ old('procurement_mode') == 'direct_contracting' ? 'selected' : '' }}>Direct Contracting</option>
-                                                <option value="electronic_procurement" {{ old('procurement_mode') == 'electronic_procurement' ? 'selected' : '' }}>Electronic Procurement</option>
-                                            </select>
-                                            @error('procurement_mode') <small class="error-message">{{ $message }}</small> @enderror
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="source_of_fund">Source of Fund *</label>
-                                            <input type="text" id="source_of_fund" name="source_of_fund" value="{{ old('source_of_fund') }}" placeholder="e.g., General Fund, GAA" required>
-                                            @error('source_of_fund') <small class="error-message">{{ $message }}</small> @enderror
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="contract_duration">Contract Duration *</label>
-                                            <input type="text" id="contract_duration" name="contract_duration" value="{{ old('contract_duration') }}" placeholder="e.g., 6 months, 1 year" required>
-                                            @error('contract_duration') <small class="error-message">{{ $message }}</small> @enderror
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="budget">Approved Budget for the Contract (ABC) *</label>
-                                            <input type="number" id="budget" name="budget" value="{{ old('budget') }}" min="0" step="0.01" required>
-                                            @error('budget') <small class="error-message">{{ $message }}</small> @enderror
-                                        </div>
+                    <fieldset class="pw-section">
+                        <legend class="pw-section__title">Project</legend>
+                        <div class="pw-grid">
+                            <div class="ui-field ui-field--wide">
+                                <label class="ui-label" for="title">Project title <span class="ui-required" aria-hidden="true">*</span> @if($pr)<span class="pw-chip">From PR</span>@endif</label>
+                                <input type="text" id="title" name="title" class="ui-input" value="{{ old('title') }}" maxlength="255" required data-review-label="Title" aria-invalid="{{ $invalid('title') }}" aria-describedby="title-error">
+                                <span class="ui-error" id="title-error" data-pw-error @unless($err('title')) hidden @endunless>{{ $err('title') }}</span>
+                            </div>
+                            <div class="ui-field ui-field--wide">
+                                <label class="ui-label" for="description">Description <span class="ui-required" aria-hidden="true">*</span> @if($pr)<span class="pw-chip">From PR</span>@endif</label>
+                                <textarea id="description" name="description" class="ui-input" rows="4" required aria-invalid="{{ $invalid('description') }}" aria-describedby="description-hint description-error">{{ old('description') }}</textarea>
+                                <span class="ui-hint" id="description-hint">Scope, quantities and key specifications. <span data-pw-count="description">0</span> characters.</span>
+                                <span class="ui-error" id="description-error" data-pw-error @unless($err('description')) hidden @endunless>{{ $err('description') }}</span>
+                            </div>
+                            <div class="ui-field">
+                                <label class="ui-label" for="category">Category <span class="ui-required" aria-hidden="true">*</span> @if($pr)<span class="pw-chip">From PR</span>@endif</label>
+                                <select id="category" name="category" class="ui-input" required aria-invalid="{{ $invalid('category') }}" aria-describedby="category-error">
+                                    <option value="">Select a category</option>
+                                    @foreach($categories as $value => $label)
+                                        <option value="{{ $value }}" @selected(old('category') === $value)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                                <span class="ui-error" id="category-error" data-pw-error @unless($err('category')) hidden @endunless>{{ $err('category') }}</span>
+                            </div>
+                            <div class="ui-field">
+                                <label class="ui-label" for="location">Location <span class="ui-required" aria-hidden="true">*</span></label>
+                                <input type="text" id="location" name="location" class="ui-input" value="{{ old('location') }}" maxlength="255" placeholder="e.g. Brgy. Bubog, San Jose" required aria-invalid="{{ $invalid('location') }}" aria-describedby="location-error">
+                                <span class="ui-error" id="location-error" data-pw-error @unless($err('location')) hidden @endunless>{{ $err('location') }}</span>
+                            </div>
+                            <div class="ui-field ui-field--wide">
+                                <label class="ui-label" for="end_user_unit">End-user office @if($pr)<span class="pw-chip">From PR</span>@endif</label>
+                                <input type="text" id="end_user_unit" name="end_user_unit" class="ui-input" value="{{ old('end_user_unit') }}" maxlength="255" placeholder="e.g. Municipal Engineering Office" aria-invalid="{{ $invalid('end_user_unit') }}" aria-describedby="end_user_unit-error">
+                                <span class="ui-error" id="end_user_unit-error" data-pw-error @unless($err('end_user_unit')) hidden @endunless>{{ $err('end_user_unit') }}</span>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="pw-section">
+                        <legend class="pw-section__title">Procurement method</legend>
+                        <div class="pw-grid">
+                            <div class="ui-field">
+                                <label class="ui-label" for="legal_basis">Legal basis</label>
+                                <select id="legal_basis" name="legal_basis" class="ui-input" aria-describedby="legal_basis-hint legal_basis-error">
+                                    @foreach(\App\Models\Project::LEGAL_BASES as $key => $label)
+                                        <option value="{{ $key }}" @selected(old('legal_basis', 'ra_12009') === $key)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                                <span class="ui-hint" id="legal_basis-hint">Keep RA 9184 only for procurement started under it.</span>
+                                <span class="ui-error" id="legal_basis-error" data-pw-error @unless($err('legal_basis')) hidden @endunless>{{ $err('legal_basis') }}</span>
+                            </div>
+                            <div class="ui-field">
+                                <label class="ui-label" for="procurement_mode">Mode of procurement <span class="ui-required" aria-hidden="true">*</span></label>
+                                <select id="procurement_mode" name="procurement_mode" class="ui-input" required aria-invalid="{{ $invalid('procurement_mode') }}" aria-describedby="procurement_mode-error">
+                                    <option value="">Select a mode</option>
+                                    @foreach(ProcurementMode::MODES as $modeKey => $mode)
+                                        @continue($mode['legacy'] ?? false)
+                                        <option value="{{ $modeKey }}" data-family="{{ $mode['family'] }}" data-bases="{{ implode(' ', $mode['bases']) }}" @selected(old('procurement_mode') === $modeKey)>{{ $mode['label'] }}</option>
+                                    @endforeach
+                                </select>
+                                <span class="ui-error" id="procurement_mode-error" data-pw-error @unless($err('procurement_mode')) hidden @endunless>{{ $err('procurement_mode') }}</span>
+                            </div>
+                            <div class="ui-field ui-field--wide">
+                                <div class="pw-grid">
+                                    <div class="ui-field" data-pw-award>
+                                        <label class="ui-label" for="award_criterion">Award criterion <span class="ui-required" aria-hidden="true">*</span></label>
+                                        <select id="award_criterion" name="award_criterion" class="ui-input" data-pw-criterion data-old="{{ old('award_criterion') }}" aria-describedby="award_criterion-hint award_criterion-error">
+                                            <option value="">Select the criterion in the bidding documents</option>
+                                            @foreach(\App\Models\Project::AWARD_CRITERIA as $criterionKey => $criterionLabel)
+                                                <option value="{{ $criterionKey }}" @selected(old('award_criterion') === $criterionKey)>{{ $criterionLabel }}</option>
+                                            @endforeach
+                                        </select>
+                                        <span class="ui-hint" id="award_criterion-hint">Stated in the Invitation to Bid (IRR Sec. 50.2(d)). It never selects a winner automatically.</span>
+                                        <span class="ui-error" id="award_criterion-error" data-pw-error @unless($err('award_criterion')) hidden @endunless>{{ $err('award_criterion') }}</span>
+                                    </div>
+                                    <div class="ui-field" data-pw-consulting hidden>
+                                        <label class="ui-label" for="evaluation_procedure">Evaluation procedure <span class="ui-required" aria-hidden="true">*</span></label>
+                                        <select id="evaluation_procedure" name="evaluation_procedure" class="ui-input" aria-describedby="evaluation_procedure-hint evaluation_procedure-error">
+                                            <option value="">Select QBE or QCBE</option>
+                                            @foreach(\App\Models\Project::EVALUATION_PROCEDURES as $procedureKey => $procedureLabel)
+                                                <option value="{{ $procedureKey }}" @selected(old('evaluation_procedure') === $procedureKey)>{{ $procedureLabel }}</option>
+                                            @endforeach
+                                        </select>
+                                        <span class="ui-hint" id="evaluation_procedure-hint">Consulting services (IRR Sec. 50.2(g)).</span>
+                                        <span class="ui-error" id="evaluation_procedure-error" data-pw-error @unless($err('evaluation_procedure')) hidden @endunless>{{ $err('evaluation_procedure') }}</span>
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- Step 2: Bidding Requirements -->
-                            <div class="wizard-step-content" data-step-content="2">
-                                <div class="wizard-step-panel">
-                                    <h3 class="form-section-title">Step 2: Bidding Requirements</h3>
-                                    <div class="form-grid">
-                                        <div class="form-group full-width">
-                                            <label>Required Documents Checklist</label>
-                                            <div class="requirements-checklist">
-                                                @php
-                                                    $docOptions = [
-                                                        'Business Permit',
-                                                        'PhilGEPS Registration',
-                                                        'DTI/SEC Registration',
-                                                        'Tax Clearance',
-                                                        'Omnibus Sworn Statement',
-                                                        'Technical Proposal',
-                                                        'Financial Proposal',
-                                                        'Company Profile',
-                                                        'PCAB License',
-                                                        'Other BAC Required Documents'
-                                                    ];
-                                                    $oldDocs = old('required_documents', []);
-                                                @endphp
-                                                @foreach($docOptions as $doc)
-                                                    <label class="checkbox-item">
-                                                        <input type="checkbox" name="required_documents[]" value="{{ $doc }}" {{ in_array($doc, $oldDocs) ? 'checked' : '' }}>
-                                                        <span>{{ $doc }}</span>
-                                                    </label>
-                                                @endforeach
-                                            </div>
-                                            <small>Select all documents required from bidders.</small>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div class="ui-field ui-field--wide" data-pw-negotiation hidden>
+                                <label class="ui-label" for="negotiation_ground">Ground for Negotiated Procurement <span class="ui-required" aria-hidden="true">*</span></label>
+                                <select id="negotiation_ground" name="negotiation_ground" class="ui-input" aria-describedby="negotiation_ground-hint negotiation_ground-error">
+                                    <option value="">Select the ground</option>
+                                    @foreach(ProcurementMode::NEGOTIATION_GROUNDS as $groundKey => $groundLabel)
+                                        <option value="{{ $groundKey }}" @selected(old('negotiation_ground') === $groundKey)>{{ $groundLabel }}</option>
+                                    @endforeach
+                                </select>
+                                <span class="ui-hint" id="negotiation_ground-hint">After two failed biddings the invitation is posted for 3 calendar days; emergency cases are not posted.</span>
+                                <span class="ui-error" id="negotiation_ground-error" data-pw-error @unless($err('negotiation_ground')) hidden @endunless>{{ $err('negotiation_ground') }}</span>
                             </div>
+                            <p class="pw-note ui-field--wide" data-pw-mode-rule aria-live="polite">Competitive bidding and the alternative modes follow different steps and dates.</p>
+                        </div>
+                    </fieldset>
 
-                            <!-- Step 3: Upload Bid Documents -->
-                            <div class="wizard-step-content" data-step-content="3">
-                                <div class="wizard-step-panel">
-                                    <h3 class="form-section-title">Step 3: Upload Bid Documents</h3>
-                                    <p class="wizard-help-text">
-                                        Upload the necessary bidding documents for this project. Allowed file types: PDF, DOCX, XLSX. Max file size: 20MB per file.
-                                    </p>
-                                    <div class="form-group full-width">
-                                        <label>Project Documents</label>
-                                        <div id="documentUploadList" class="document-upload-list">
-                                            <div class="document-upload-item" data-index="0">
-                                                <select name="document_type[]" class="document-type-select" required>
-                                                    <option value="">Select Document Type</option>
-                                                    <option value="invitation_to_bid">Invitation to Bid</option>
-                                                    <option value="bidding_documents">Bidding Documents</option>
-                                                    <option value="terms_of_reference">Terms of Reference</option>
-                                                    <option value="technical_specifications">Technical Specifications</option>
-                                                    <option value="bill_of_quantities">Bill of Quantities</option>
-                                                    <option value="project_plans">Project Plans / Drawings</option>
-                                                    <option value="supplemental_bulletin">Supplemental Bid Bulletin</option>
-                                                    <option value="other">Other</option>
-                                                </select>
-                                                <input type="file" name="project_documents[]" accept=".pdf,.doc,.docx,.xlsx,.xls,.jpg,.jpeg,.png" required>
-                                            </div>
-                                        </div>
-                                        <button type="button" class="btn btn-secondary btn-add-document" onclick="addDocumentRow()">
-                                            <i class="fas fa-plus"></i> Add Another Document
-                                        </button>
-                                    </div>
+                    <fieldset class="pw-section">
+                        <legend class="pw-section__title">Budget and funding</legend>
+                        <div class="pw-grid">
+                            <div class="ui-field">
+                                <label class="ui-label" for="budget_display">Approved Budget for the Contract (ABC) <span class="ui-required" aria-hidden="true">*</span> @if($pr)<span class="pw-chip">From PR</span>@endif</label>
+                                <div class="ui-input-group">
+                                    <span class="ui-input-group__prefix" aria-hidden="true">â‚±</span>
+                                    <input type="text" id="budget_display" class="ui-input ui-num" value="{{ $budgetDisplay }}" inputmode="decimal" autocomplete="off" placeholder="0.00" required data-pw-money="budget" aria-invalid="{{ $invalid('budget') }}" aria-describedby="budget-hint budget-error">
                                 </div>
+                                <input type="hidden" id="budget" name="budget" value="{{ $budget }}">
+                                <span class="ui-hint" id="budget-hint">@if($pr)The request estimated â‚±{{ number_format((float) $pr->estimated_cost, 2) }}; set the final ABC.@else The ceiling of the contract price.@endif</span>
+                                <span class="ui-error" id="budget-error" data-pw-error @unless($err('budget')) hidden @endunless>{{ $err('budget') }}</span>
                             </div>
-
-                            <!-- Step 4: Important Dates -->
-                            <div class="wizard-step-content" data-step-content="4">
-                                <div class="wizard-step-panel">
-                                    <h3 class="form-section-title">Step 4: Important Dates</h3>
-                                    <div class="form-grid">
-                                        <div class="form-group">
-                                            <label for="date_posted">Date Posted *</label>
-                                            <input type="date" id="date_posted" name="date_posted" value="{{ old('date_posted', date('Y-m-d')) }}" required>
-                                            @error('date_posted') <small class="error-message">{{ $message }}</small> @enderror
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="pre_bid_conference_date">Pre-Bid Conference Date</label>
-                                            <input type="datetime-local" id="pre_bid_conference_date" name="pre_bid_conference_date" value="{{ old('pre_bid_conference_date') }}">
-                                            <small>Optional</small>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="clarification_deadline">Deadline for Questions / Clarifications *</label>
-                                            <input type="datetime-local" id="clarification_deadline" name="clarification_deadline" value="{{ old('clarification_deadline') }}" required>
-                                            @error('clarification_deadline') <small class="error-message">{{ $message }}</small> @enderror
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="bid_submission_deadline">Bid Submission Deadline *</label>
-                                            <input type="datetime-local" id="bid_submission_deadline" name="bid_submission_deadline" value="{{ old('bid_submission_deadline') }}" required>
-                                            @error('bid_submission_deadline') <small class="error-message">{{ $message }}</small> @enderror
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="bid_opening_date">Bid Opening Date *</label>
-                                            <input type="datetime-local" id="bid_opening_date" name="bid_opening_date" value="{{ old('bid_opening_date') }}" required>
-                                            @error('bid_opening_date') <small class="error-message">{{ $message }}</small> @enderror
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="evaluation_start_date">Evaluation Start Date</label>
-                                            <input type="date" id="evaluation_start_date" name="evaluation_start_date" value="{{ old('evaluation_start_date') }}">
-                                        </div>
-                                        <div class="form-group full-width">
-                                            <label for="expected_award_date">Expected Award Date</label>
-                                            <input type="date" id="expected_award_date" name="expected_award_date" value="{{ old('expected_award_date') }}">
-                                        </div>
-                                    </div>
+                            <div class="ui-field" data-pw-choice="source_of_fund" data-pw-choice-other="Other">
+                                <label class="ui-label" for="source_of_fund_choice">Source of funds <span class="ui-required" aria-hidden="true">*</span> @if($pr)<span class="pw-chip">From PR</span>@endif</label>
+                                <input type="hidden" id="source_of_fund" name="source_of_fund" value="{{ $sourceOfFund }}" data-pw-choice-value>
+                                <select id="source_of_fund_choice" class="ui-input" required data-pw-choice-select aria-invalid="{{ $invalid('source_of_fund') }}" aria-describedby="source_of_fund-error">
+                                    <option value="">Select the source of funds</option>
+                                    @foreach($sourceOfFundOptions as $option)
+                                        <option value="{{ $option }}" @selected($sourceOfFundChoice === $option)>{{ $option }}</option>
+                                    @endforeach
+                                </select>
+                                <div class="pw-subfield" data-pw-choice-extra @unless($sourceOfFundChoice === 'Other') hidden @endunless>
+                                    <label class="ui-label" for="source_of_fund_other">Specify the source of funds <span class="ui-required" aria-hidden="true">*</span></label>
+                                    <input type="text" id="source_of_fund_other" class="ui-input" value="{{ $sourceOfFundOther }}" maxlength="255" data-pw-choice-input aria-describedby="source_of_fund-error">
                                 </div>
+                                <span class="ui-error" id="source_of_fund-error" data-pw-error @unless($err('source_of_fund')) hidden @endunless>{{ $err('source_of_fund') }}</span>
                             </div>
+                            <div class="ui-field" data-pw-choice="contract_duration" data-pw-choice-other="Custom">
+                                <label class="ui-label" for="contract_duration_choice">Contract duration / delivery period <span class="ui-required" aria-hidden="true">*</span> @if($pr)<span class="pw-chip">From PR</span>@endif</label>
+                                <input type="hidden" id="contract_duration" name="contract_duration" value="{{ $duration }}" data-pw-choice-value>
+                                <select id="contract_duration_choice" class="ui-input" required data-pw-choice-select aria-invalid="{{ $invalid('contract_duration') }}" aria-describedby="contract_duration-error">
+                                    <option value="">Select the duration</option>
+                                    @foreach($durationOptions as $option)
+                                        <option value="{{ $option }}" @selected($durationChoice === $option)>{{ $option === 'Custom' ? 'Other (specify)' : $option }}</option>
+                                    @endforeach
+                                </select>
+                                <div class="pw-subfield" data-pw-choice-extra @unless($durationChoice === 'Custom') hidden @endunless>
+                                    <label class="ui-label" for="contract_duration_custom">Specify the duration <span class="ui-required" aria-hidden="true">*</span></label>
+                                    <input type="text" id="contract_duration_custom" class="ui-input" value="{{ $durationCustom }}" maxlength="255" placeholder="e.g. 45 calendar days from receipt of the Notice to Proceed" data-pw-choice-input aria-describedby="contract_duration-error">
+                                </div>
+                                <span class="ui-error" id="contract_duration-error" data-pw-error @unless($err('contract_duration')) hidden @endunless>{{ $err('contract_duration') }}</span>
+                            </div>
+                        </div>
+                    </fieldset>
 
-                            <!-- Step 5: Review & Publish -->
-                            <div class="wizard-step-content" data-step-content="5">
-                                <div class="wizard-step-panel">
-                                    <h3 class="form-section-title">Step 5: Review & Publish</h3>
+                    <details class="pw-section pw-details" @if(old('philgeps_reference_no') || old('philgeps_url') || $err('philgeps_url')) open @endif>
+                        <summary class="pw-section__title">External PhilGEPS record <span class="ui-optional">(optional)</span></summary>
+                        <p class="ui-hint">Only if the notice was already posted on PhilGEPS. This system does not post to PhilGEPS, and these fields do not affect publication here.</p>
+                        <div class="pw-grid">
+                            <div class="ui-field">
+                                <label class="ui-label" for="philgeps_reference_no">PhilGEPS reference no.</label>
+                                <input type="text" id="philgeps_reference_no" name="philgeps_reference_no" class="ui-input ui-mono" value="{{ old('philgeps_reference_no') }}" maxlength="100" aria-describedby="philgeps_reference_no-error">
+                                <span class="ui-error" id="philgeps_reference_no-error" data-pw-error @unless($err('philgeps_reference_no')) hidden @endunless>{{ $err('philgeps_reference_no') }}</span>
+                            </div>
+                            <div class="ui-field">
+                                <label class="ui-label" for="philgeps_url">PhilGEPS notice link</label>
+                                <input type="url" id="philgeps_url" name="philgeps_url" class="ui-input" value="{{ old('philgeps_url') }}" maxlength="500" placeholder="https://notices.philgeps.gov.ph/â€¦" aria-invalid="{{ $invalid('philgeps_url') }}" aria-describedby="philgeps_url-error">
+                                <span class="ui-error" id="philgeps_url-error" data-pw-error @unless($err('philgeps_url')) hidden @endunless>{{ $err('philgeps_url') }}</span>
+                            </div>
+                        </div>
+                    </details>
+                </section>
 
-                                    <!-- Project Info Review -->
-                                    <div class="review-card">
-                                        <h4><i class="fas fa-info-circle"></i> Project Information</h4>
-                                        <ul class="review-list" id="reviewProjectInfo"></ul>
-                                    </div>
+                {{-- ============================== Step 2 ============================== --}}
+                <section class="pw-step" data-pw-step="2" aria-labelledby="pw-step2-title" hidden>
+                    <h3 class="pw-step__title" id="pw-step2-title">Requirements</h3>
 
-                                    <!-- Requirements Review -->
-                                    <div class="review-card">
-                                        <h4><i class="fas fa-list-check"></i> Bidding Requirements</h4>
-                                        <ul class="review-list" id="reviewRequirements"></ul>
-                                    </div>
-
-                                    <!-- Documents Review -->
-                                    <div class="review-card">
-                                        <h4><i class="fas fa-paperclip"></i> Uploaded Documents</h4>
-                                        <ul class="review-documents-list" id="reviewDocuments"></ul>
-                                    </div>
-
-                                    <!-- Dates Review -->
-                                    <div class="review-card">
-                                        <h4><i class="fas fa-calendar-alt"></i> Important Dates</h4>
-                                        <ul class="review-list" id="reviewDates"></ul>
-                                    </div>
-
-                                    <div class="form-group confirm-publish-group">
-                                        <label class="confirm-publish-label">
-                                            <input type="checkbox" name="confirm_correct" required>
-                                            <span>I confirm that all provided information is accurate and ready for publishing.</span>
+                    <fieldset class="pw-section">
+                        <legend class="pw-section__title">Documents bidders must submit</legend>
+                        <p class="ui-hint">The mode and category already add the standard forms, including the PhilGEPS Platinum certificate and the Omnibus Sworn Statement. Permits, DTI/SEC registration and tax clearance are checked at the bidder's registration and at post-qualification, so list only what this project needs on top of those.</p>
+                        <div class="pw-checkgroups">
+                            @foreach($requirementGroups as $group => $items)
+                                <div class="pw-checkgroup">
+                                    <p class="pw-checkgroup__title">{{ $group }}</p>
+                                    @foreach($items as $item)
+                                        <label class="pw-check">
+                                            <input type="checkbox" name="required_documents[]" value="{{ $item }}" @checked(in_array($item, $selectedRequirements, true))>
+                                            <span>{{ $item === 'Other BAC Required Documents' ? 'Other documents required by the BAC' : $item }}</span>
                                         </label>
+                                    @endforeach
+                                </div>
+                            @endforeach
+                        </div>
+
+                        <div class="pw-extra" data-pw-extra-list>
+                            <p class="pw-checkgroup__title">Additional required documents</p>
+                            <ul class="pw-extra__list" data-pw-extra-items>
+                                @foreach($extraRequirements as $index => $extra)
+                                    <li class="pw-extra__item" data-pw-extra-item>
+                                        <label class="sr-only" for="extra-requirement-{{ $index }}">Additional required document</label>
+                                        <input type="text" id="extra-requirement-{{ $index }}" name="required_documents[]" class="ui-input" value="{{ $extra }}" maxlength="255">
+                                        <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" data-pw-extra-remove><i class="fas fa-trash-can" aria-hidden="true"></i> Remove</button>
+                                    </li>
+                                @endforeach
+                            </ul>
+                            <template data-pw-extra-template>
+                                <li class="pw-extra__item" data-pw-extra-item>
+                                    <label class="sr-only">Additional required document</label>
+                                    <input type="text" name="required_documents[]" class="ui-input" maxlength="255" placeholder="e.g. Certificate of site inspection">
+                                    <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" data-pw-extra-remove><i class="fas fa-trash-can" aria-hidden="true"></i> Remove</button>
+                                </li>
+                            </template>
+                            <button type="button" class="ui-btn ui-btn--secondary ui-btn--sm" data-pw-extra-add><i class="fas fa-plus" aria-hidden="true"></i> Add a required document</button>
+                        </div>
+                        <span class="ui-error" id="required_documents-error" data-pw-error @unless($err('required_documents')) hidden @endunless>{{ $err('required_documents') }}</span>
+                    </fieldset>
+
+                    <fieldset class="pw-section">
+                        <legend class="pw-section__title">Requirement details <span class="ui-optional">(optional)</span></legend>
+                        <p class="ui-hint">Notes shown with the requirements, for example minimum experience or license classifications.</p>
+                        <div class="pw-grid">
+                            @foreach([
+                                'eligibility_requirements' => ['Eligibility requirements', 'e.g. PCAB license category C or higher'],
+                                'technical_requirements' => ['Technical requirements', 'e.g. Delivery within 30 calendar days; 1-year warranty'],
+                                'financial_requirements' => ['Financial requirements', 'e.g. NFCC equal to the ABC or a committed line of credit'],
+                                'qualification_notes' => ['Qualification notes', 'Anything bidders should know about post-qualification'],
+                                'special_instructions' => ['Special instructions', 'e.g. Submit two copies of the technical proposal'],
+                            ] as $field => [$label, $placeholder])
+                                <div class="ui-field">
+                                    <label class="ui-label" for="{{ $field }}">{{ $label }}</label>
+                                    <textarea id="{{ $field }}" name="{{ $field }}" class="ui-input" rows="3" placeholder="{{ $placeholder }}" aria-describedby="{{ $field }}-error">{{ old($field) }}</textarea>
+                                    <span class="ui-error" id="{{ $field }}-error" data-pw-error @unless($err($field)) hidden @endunless>{{ $err($field) }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    </fieldset>
+
+                    @php
+                        $criteriaRows = collect((array) old('evaluation_criteria', []))->filter(fn ($row) => is_array($row))->values();
+                        if ($criteriaRows->isEmpty()) {
+                            $criteriaRows = collect([['name' => '', 'weight' => '']]);
+                        }
+                    @endphp
+                    <fieldset class="pw-section" data-pw-weighted hidden>
+                        <legend class="pw-section__title">Evaluation criteria <span data-pw-weighted-label>(MEARB / MARB)</span></legend>
+                        <p class="ui-hint">The criteria and weights stated in the Invitation to Bid (IRR Sec. 50.2(e), (f)). Weights must total 100%.</p>
+                        <ul class="pw-extra__list" data-pw-criteria-items>
+                            @foreach($criteriaRows as $index => $row)
+                                <li class="pw-criteria__item" data-pw-criteria-item>
+                                    <input type="text" name="evaluation_criteria[{{ $index }}][name]" class="ui-input" value="{{ $row['name'] ?? '' }}" maxlength="255" placeholder="e.g. Technical capability" aria-label="Criterion">
+                                    <div class="ui-input-group">
+                                        <input type="number" name="evaluation_criteria[{{ $index }}][weight]" class="ui-input ui-num" value="{{ $row['weight'] ?? '' }}" min="0" max="100" step="0.01" placeholder="0" aria-label="Weight in percent" data-pw-criteria-weight>
+                                        <span class="ui-input-group__prefix" aria-hidden="true">%</span>
                                     </div>
+                                    <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" data-pw-criteria-remove><i class="fas fa-trash-can" aria-hidden="true"></i> Remove</button>
+                                </li>
+                            @endforeach
+                        </ul>
+                        <div class="pw-criteria__foot">
+                            <button type="button" class="ui-btn ui-btn--secondary ui-btn--sm" data-pw-criteria-add><i class="fas fa-plus" aria-hidden="true"></i> Add a criterion</button>
+                            <span class="ui-hint" data-pw-criteria-total aria-live="polite">Total: 0%</span>
+                        </div>
+                        <span class="ui-error" id="evaluation_criteria-error" data-pw-error @unless($err('evaluation_criteria')) hidden @endunless>{{ $err('evaluation_criteria') }}</span>
+                        <div class="ui-field" data-pw-qpr hidden>
+                            <label class="ui-label" for="quality_price_ratio">Quality-price ratio: technical weight <span class="ui-required" aria-hidden="true">*</span></label>
+                            <div class="ui-input-group pw-qpr">
+                                <input type="number" id="quality_price_ratio" name="quality_price_ratio" class="ui-input ui-num" value="{{ old('quality_price_ratio') }}" min="1" max="99" step="1" placeholder="70" aria-describedby="quality_price_ratio-hint quality_price_ratio-error">
+                                <span class="ui-input-group__prefix" aria-hidden="true">%</span>
+                            </div>
+                            <span class="ui-hint" id="quality_price_ratio-hint" data-pw-qpr-hint>MEARB only. The price weight is the rest.</span>
+                            <span class="ui-error" id="quality_price_ratio-error" data-pw-error @unless($err('quality_price_ratio')) hidden @endunless>{{ $err('quality_price_ratio') }}</span>
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="pw-section">
+                        <legend class="pw-section__title">Submission, fee and bid security</legend>
+                        <div class="pw-grid">
+                            <div class="ui-field">
+                                <label class="ui-label" for="submission_mode">How bidders submit</label>
+                                <select id="submission_mode" name="submission_mode" class="ui-input" data-pw-submission-mode aria-describedby="submission_mode-error">
+                                    <option value="electronic" @selected(old('submission_mode', 'electronic') === 'electronic')>Online, through this system</option>
+                                    <option value="manual" @selected(old('submission_mode') === 'manual')>Manual, sealed at the BAC Secretariat</option>
+                                </select>
+                                <span class="ui-error" id="submission_mode-error" data-pw-error @unless($err('submission_mode')) hidden @endunless>{{ $err('submission_mode') }}</span>
+                            </div>
+                            <div class="ui-field" data-pw-show-when="manual">
+                                <label class="ui-label" for="submission_venue">Where sealed bids are received</label>
+                                <input type="text" id="submission_venue" name="submission_venue" class="ui-input" value="{{ old('submission_venue', 'BAC Secretariat, Municipal Hall, San Jose, Occidental Mindoro') }}" maxlength="255">
+                            </div>
+                            <div class="ui-field" data-pw-show-when="electronic">
+                                <label class="ui-label" for="electronic_submission_authority">IT certification for electronic bids <span class="ui-required" aria-hidden="true">*</span></label>
+                                <input type="text" id="electronic_submission_authority" name="electronic_submission_authority" class="ui-input" value="{{ old('electronic_submission_authority') }}" maxlength="255" placeholder="e.g. MIS Certification No. 2026-03, submitted to GPPB-TSO" aria-describedby="electronic_submission_authority-hint electronic_submission_authority-error">
+                                <span class="ui-hint" id="electronic_submission_authority-hint">Certification of the official managing the LGU IT system, submitted to the GPPB-TSO before posting (IRR Sec. 50.3.3). Without it, accept manual sealed bids.</span>
+                                <span class="ui-error" id="electronic_submission_authority-error" data-pw-error @unless($err('electronic_submission_authority')) hidden @endunless>{{ $err('electronic_submission_authority') }}</span>
+                            </div>
+                            <div class="ui-field ui-field--wide pw-fee" data-pw-fee-block data-pw-fee-schedule='@json(\App\Support\BiddingDocumentsFee::schedule())'>
+                                <span class="ui-label" id="bidding_fee-label">Bidding documents fee</span>
+                                {{-- Competitive bidding: the ABC schedule's maximum (GPPB Circular No. 02-2026, Sec. 5.2), lower or waived with a reason. --}}
+                                <div class="pw-fee-calc" data-pw-fee-competitive>
+                                    <p class="pw-fee-calc__line" data-pw-fee-calc aria-live="polite">Enter the ABC in step 1 to compute the maximum fee.</p>
+                                    <p class="ui-hint">Maximum rates under {{ \App\Support\BiddingDocumentsFee::BASIS }}. The BAC may charge less or waive the fee, with a recorded reason, but never more.</p>
+                                    <div class="pw-fee-modes" role="radiogroup" aria-labelledby="bidding_fee-label">
+                                        <label class="ui-check"><input type="radio" name="bidding_fee_mode" value="schedule" data-pw-fee-mode @checked($feeMode === 'schedule')> Charge the maximum <strong data-pw-fee-max></strong></label>
+                                        <label class="ui-check"><input type="radio" name="bidding_fee_mode" value="reduced" data-pw-fee-mode @checked($feeMode === 'reduced')> Charge a lower fee</label>
+                                        <label class="ui-check"><input type="radio" name="bidding_fee_mode" value="waived" data-pw-fee-mode @checked($feeMode === 'waived')> Waive the fee</label>
+                                    </div>
+                                    <span class="ui-error" id="bidding_fee_mode-error" data-pw-error @unless($err('bidding_fee_mode')) hidden @endunless>{{ $err('bidding_fee_mode') }}</span>
+                                </div>
+                                <div class="pw-subfield" data-pw-fee-amount>
+                                    <label class="ui-label" for="bidding_documents_fee_display" data-pw-fee-amount-label>Fee amount</label>
+                                    <div class="ui-input-group">
+                                        <span class="ui-input-group__prefix" aria-hidden="true">â‚±</span>
+                                        <input type="text" id="bidding_documents_fee_display" class="ui-input ui-num" value="{{ $feeDisplay }}" inputmode="decimal" autocomplete="off" placeholder="0.00" data-pw-money="bidding_documents_fee" aria-invalid="{{ $invalid('bidding_documents_fee') }}" aria-describedby="bidding_documents_fee-hint bidding_documents_fee-error">
+                                    </div>
+                                    <input type="hidden" id="bidding_documents_fee" name="bidding_documents_fee" value="{{ $fee }}" data-pw-fee>
+                                    <span class="ui-hint" id="bidding_documents_fee-hint" data-pw-fee-amount-hint>Leave blank when the notice charges no fee. Bidders pay at the BAC office before submitting.</span>
+                                    <span class="ui-error" id="bidding_documents_fee-error" data-pw-error @unless($err('bidding_documents_fee')) hidden @endunless>{{ $err('bidding_documents_fee') }}</span>
+                                </div>
+                                <div class="pw-subfield" data-pw-fee-reason>
+                                    <label class="ui-label" for="bidding_fee_reason">Reason for the lower fee or waiver <span class="ui-required" aria-hidden="true">*</span></label>
+                                    <textarea id="bidding_fee_reason" name="bidding_fee_reason" class="ui-input" rows="2" maxlength="2000" placeholder="e.g. Per BAC Resolution No. 2026-020" aria-describedby="bidding_fee_reason-error">{{ old('bidding_fee_reason') }}</textarea>
+                                    <span class="ui-error" id="bidding_fee_reason-error" data-pw-error @unless($err('bidding_fee_reason')) hidden @endunless>{{ $err('bidding_fee_reason') }}</span>
                                 </div>
                             </div>
-
-                            <!-- Wizard Content Actions -->
-                            <div class="wizard-actions-container">
-                                <button type="button" class="btn btn-secondary btn-prev" id="prevBtn" onclick="changeStep(-1)" style="display:none;">
-                                    <i class="fas fa-arrow-left"></i> Previous
-                                </button>
-                                <button type="button" class="btn btn-secondary btn-draft" id="draftBtn" onclick="saveAsDraft()" style="display:none;">
-                                    <i class="fas fa-save"></i> Save as Draft
-                                </button>
-                                <button type="button" class="btn btn-primary btn-next" id="nextBtn" onclick="changeStep(1)">
-                                    Next Step <i class="fas fa-arrow-right"></i>
-                                </button>
-                                <button type="submit" class="btn btn-primary btn-submit" id="submitBtn" onclick="document.getElementById('projectStatus').value='open'" style="display:none;">
-                                    <i class="fas fa-check-circle"></i> Publish Project
-                                </button>
+                            <div class="ui-field" data-pw-fee-venue>
+                                <label class="ui-label" for="payment_venue">Where to pay the fee</label>
+                                <input type="text" id="payment_venue" name="payment_venue" class="ui-input" value="{{ old('payment_venue', 'BAC Secretariat, Municipal Hall, San Jose, Occidental Mindoro') }}" maxlength="255" aria-describedby="payment_venue-error">
+                                <span class="ui-error" id="payment_venue-error" data-pw-error @unless($err('payment_venue')) hidden @endunless>{{ $err('payment_venue') }}</span>
+                            </div>
+                            <div class="ui-field ui-field--wide">
+                                <input type="hidden" name="bid_security_required" value="0">
+                                <label class="ui-check"><input type="checkbox" name="bid_security_required" value="1" data-pw-security @checked(old('bid_security_required', '1') === '1')> Bid security is required</label>
+                                <div class="pw-subfield" data-pw-security-notes>
+                                    <label class="ui-label" for="bid_security_notes">Bid security details <span class="ui-optional">(optional)</span></label>
+                                    <textarea id="bid_security_notes" name="bid_security_notes" class="ui-input" rows="2" maxlength="2000" placeholder="e.g. In any acceptable form and in the amount stated in ITB Clause 16" aria-describedby="bid_security_notes-error">{{ old('bid_security_notes') }}</textarea>
+                                    <span class="ui-error" id="bid_security_notes-error" data-pw-error @unless($err('bid_security_notes')) hidden @endunless>{{ $err('bid_security_notes') }}</span>
+                                </div>
                             </div>
                         </div>
-                    </form>
+                    </fieldset>
+                </section>
 
-                </div>
+                {{-- ============================== Step 3 ============================== --}}
+                <section class="pw-step" data-pw-step="3" aria-labelledby="pw-step3-title" hidden>
+                    <h3 class="pw-step__title" id="pw-step3-title">Documents</h3>
+                    <p class="ui-hint">PDF, Word, Excel, JPG or PNG, up to 20 MB each. Selected files are uploaded when you save the draft or publish â€” until then they stay on this computer.</p>
+
+                    <div class="pw-note" data-pw-doc-rule aria-live="polite"></div>
+
+                    <ul class="pw-docs" data-pw-docs>
+                        <li class="pw-doc" data-pw-doc>
+                            <div class="ui-field">
+                                <label class="ui-label" for="document-type-0">Document type</label>
+                                <select id="document-type-0" name="document_type[]" class="ui-input" data-pw-doc-type>
+                                    <option value="">Select the type</option>
+                                    @foreach($documentTypes as $value => $label)
+                                        <option value="{{ $value }}">{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="pw-doc__file">
+                                <input type="file" id="document-file-0" name="project_documents[]" class="pw-doc__input" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" data-pw-doc-file>
+                                <label class="ui-btn ui-btn--secondary ui-btn--sm" for="document-file-0" data-pw-doc-choose><i class="fas fa-paperclip" aria-hidden="true"></i> <span data-pw-doc-choose-label>Choose file</span></label>
+                                <span class="pw-doc__name" data-pw-doc-name>No file selected</span>
+                                <span class="ui-pill ui-pill--neutral" data-pw-doc-state hidden></span>
+                            </div>
+                            <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm pw-doc__remove" data-pw-doc-remove><i class="fas fa-trash-can" aria-hidden="true"></i> Remove</button>
+                            <span class="ui-error pw-doc__error" data-pw-doc-error hidden></span>
+                        </li>
+                    </ul>
+                    <button type="button" class="ui-btn ui-btn--secondary ui-btn--sm" data-pw-doc-add><i class="fas fa-plus" aria-hidden="true"></i> Add another document</button>
+                    <span class="ui-error" id="project_documents-error" data-pw-error @unless($errors->has('project_documents') || $errors->has('project_documents.*')) hidden @endunless>{{ $err('project_documents') ?: collect($errors->getMessages())->filter(fn ($m, $k) => str_starts_with($k, 'project_documents.'))->flatten()->first() }}</span>
+                </section>
+
+                {{-- ============================== Step 4 ============================== --}}
+                <section class="pw-step" data-pw-step="4" aria-labelledby="pw-step4-title" hidden>
+                    <h3 class="pw-step__title" id="pw-step4-title">Dates</h3>
+                    <p class="ui-hint">In the order they happen. All dates and times are Philippine Standard Time. Meetings, deadlines and openings fall on working days between 8:00 AM and 5:00 PM.</p>
+                    <button type="button" class="ui-btn ui-btn--secondary ui-btn--sm" data-pw-suggest-dates><i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i> Suggest dates</button>
+                    <p class="ui-hint" data-pw-schedule-suggestion role="status" aria-live="polite" hidden></p>
+
+                    <ol class="pw-timeline">
+                        <li class="pw-timeline__item" data-pw-preproc hidden>
+                            <div class="ui-field">
+                                <label class="ui-label" for="pre_procurement_conference_at">Pre-procurement conference held <span class="ui-required" aria-hidden="true" data-pw-preproc-required hidden>*</span> <span class="ui-optional" data-pw-preproc-optional>(if held)</span></label>
+                                <input type="datetime-local" id="pre_procurement_conference_at" name="pre_procurement_conference_at" class="ui-input" value="{{ old('pre_procurement_conference_at') }}" max="{{ $today->format('Y-m-d\TH:i') }}" data-pw-date aria-describedby="pre_procurement_conference_at-hint pre_procurement_conference_at-error">
+                                <label class="ui-label pw-subfield" for="pre_procurement_reference">Minutes / reference <span class="ui-optional">(optional)</span></label>
+                                <input type="text" id="pre_procurement_reference" name="pre_procurement_reference" class="ui-input" value="{{ old('pre_procurement_reference') }}" maxlength="100" placeholder="e.g. Minutes of the Pre-Procurement Conference, 2026-015">
+                                <span class="ui-hint" id="pre_procurement_conference_at-hint" data-pw-preproc-rule>Held before the Invitation to Bid is published (IRR Sec. 49.1). Recorded with the project.</span>
+                                <span class="pw-when" data-pw-when="pre_procurement_conference_at"></span>
+                                <span class="ui-error" id="pre_procurement_conference_at-error" data-pw-error @unless($err('pre_procurement_conference_at')) hidden @endunless>{{ $err('pre_procurement_conference_at') }}</span>
+                            </div>
+                        </li>
+                        <li class="pw-timeline__item">
+                            <div class="ui-field">
+                                <label class="ui-label" for="date_posted">Publication in this BAC system</label>
+                                <input type="date" id="date_posted" name="date_posted" class="ui-input" value="{{ old('date_posted') }}" data-pw-date aria-describedby="date_posted-hint date_posted-error">
+                                <span class="ui-hint" id="date_posted-hint">Publishing from this wizard records today, {{ $today->format('D, M j, Y') }}, as the publication date. For a draft you may note a planned date.</span>
+                                <span class="pw-when" data-pw-when="date_posted"></span>
+                                <span class="ui-error" id="date_posted-error" data-pw-error @unless($err('date_posted')) hidden @endunless>{{ $err('date_posted') }}</span>
+                            </div>
+                        </li>
+                        <li class="pw-timeline__item" data-pw-prebid>
+                            <div class="ui-field">
+                                <label class="ui-label" for="pre_bid_conference_date">Pre-bid conference <span class="ui-required" aria-hidden="true" data-pw-prebid-required hidden>*</span> <span class="ui-optional" data-pw-prebid-optional>(if held)</span></label>
+                                <input type="datetime-local" id="pre_bid_conference_date" name="pre_bid_conference_date" class="ui-input" value="{{ old('pre_bid_conference_date') }}" data-pw-date aria-invalid="{{ $invalid('pre_bid_conference_date') }}" aria-describedby="pre_bid_conference_date-hint pre_bid_conference_date-error">
+                                <span class="ui-hint" id="pre_bid_conference_date-hint" data-pw-prebid-rule></span>
+                                <span class="pw-when" data-pw-when="pre_bid_conference_date"></span>
+                                <span class="ui-error" id="pre_bid_conference_date-error" data-pw-error @unless($err('pre_bid_conference_date')) hidden @endunless>{{ $err('pre_bid_conference_date') }}</span>
+                            </div>
+                        </li>
+                        <li class="pw-timeline__item">
+                            <div class="ui-field">
+                                <label class="ui-label" for="clarification_deadline">Deadline for written clarifications <span class="ui-optional">(optional)</span></label>
+                                <input type="datetime-local" id="clarification_deadline" name="clarification_deadline" class="ui-input" value="{{ old('clarification_deadline') }}" data-pw-date aria-invalid="{{ $invalid('clarification_deadline') }}" aria-describedby="clarification_deadline-error">
+                                <span class="pw-when" data-pw-when="clarification_deadline"></span>
+                                <span class="ui-error" id="clarification_deadline-error" data-pw-error @unless($err('clarification_deadline')) hidden @endunless>{{ $err('clarification_deadline') }}</span>
+                            </div>
+                        </li>
+                        <li class="pw-timeline__item">
+                            <div class="ui-field">
+                                <label class="ui-label" for="bid_submission_deadline"><span data-pw-deadline-label>Bid submission deadline</span> <span class="ui-required" aria-hidden="true">*</span></label>
+                                <input type="datetime-local" id="bid_submission_deadline" name="bid_submission_deadline" class="ui-input" value="{{ old('bid_submission_deadline') }}" required data-pw-date aria-invalid="{{ $invalid('bid_submission_deadline') }}" aria-describedby="bid_submission_deadline-hint bid_submission_deadline-error">
+                                <span class="ui-hint" id="bid_submission_deadline-hint" data-pw-deadline-rule></span>
+                                <span class="pw-when" data-pw-when="bid_submission_deadline"></span>
+                                <span class="ui-error" id="bid_submission_deadline-error" data-pw-error @unless($err('bid_submission_deadline')) hidden @endunless>{{ $err('bid_submission_deadline') }}</span>
+                            </div>
+                        </li>
+                        <li class="pw-timeline__item">
+                            <div class="ui-field">
+                                <label class="ui-label" for="bid_opening_date"><span data-pw-opening-label>Bid opening</span> <span class="ui-required" aria-hidden="true" data-pw-opening-required>*</span></label>
+                                <input type="datetime-local" id="bid_opening_date" name="bid_opening_date" class="ui-input" value="{{ old('bid_opening_date') }}" data-pw-date aria-invalid="{{ $invalid('bid_opening_date') }}" aria-describedby="bid_opening_date-hint bid_opening_date-error">
+                                <span class="ui-hint" id="bid_opening_date-hint" data-pw-opening-rule></span>
+                                <span class="pw-when" data-pw-when="bid_opening_date"></span>
+                                <span class="ui-error" id="bid_opening_date-error" data-pw-error @unless($err('bid_opening_date')) hidden @endunless>{{ $err('bid_opening_date') }}</span>
+                                <div class="pw-subfield" data-pw-opening-venue>
+                                    <label class="ui-label" for="bid_opening_venue">Place of bid opening <span class="ui-required" aria-hidden="true">*</span></label>
+                                    <input type="text" id="bid_opening_venue" name="bid_opening_venue" class="ui-input" value="{{ old('bid_opening_venue', trim(config('bac-office.contact.office').', '.config('bac-office.contact.address'), ', ')) }}" maxlength="500" aria-describedby="bid_opening_venue-hint bid_opening_venue-error">
+                                    <span class="ui-hint" id="bid_opening_venue-hint">Stated in the Invitation to Bid (IRR Sec. 50.2(h)).</span>
+                                    <span class="ui-error" id="bid_opening_venue-error" data-pw-error @unless($err('bid_opening_venue')) hidden @endunless>{{ $err('bid_opening_venue') }}</span>
+                                </div>
+                            </div>
+                        </li>
+                        <li class="pw-timeline__item">
+                            <div class="ui-field">
+                                <label class="ui-label" for="evaluation_start_date">Evaluation starts <span class="ui-optional">(planned)</span></label>
+                                <input type="date" id="evaluation_start_date" name="evaluation_start_date" class="ui-input" value="{{ old('evaluation_start_date') }}" data-pw-date aria-invalid="{{ $invalid('evaluation_start_date') }}" aria-describedby="evaluation_start_date-error">
+                                <span class="pw-when" data-pw-when="evaluation_start_date"></span>
+                                <span class="ui-error" id="evaluation_start_date-error" data-pw-error @unless($err('evaluation_start_date')) hidden @endunless>{{ $err('evaluation_start_date') }}</span>
+                            </div>
+                        </li>
+                        <li class="pw-timeline__item">
+                            <div class="ui-field">
+                                <label class="ui-label" for="expected_award_date">Expected award <span class="ui-optional">(planned)</span></label>
+                                <input type="date" id="expected_award_date" name="expected_award_date" class="ui-input" value="{{ old('expected_award_date') }}" data-pw-date aria-invalid="{{ $invalid('expected_award_date') }}" aria-describedby="expected_award_date-error">
+                                <span class="pw-when" data-pw-when="expected_award_date"></span>
+                                <span class="ui-error" id="expected_award_date-error" data-pw-error @unless($err('expected_award_date')) hidden @endunless>{{ $err('expected_award_date') }}</span>
+                            </div>
+                        </li>
+                    </ol>
+                </section>
+
+                {{-- ============================== Step 5 ============================== --}}
+                <section class="pw-step" data-pw-step="5" aria-labelledby="pw-step5-title" hidden>
+                    <h3 class="pw-step__title" id="pw-step5-title">Review</h3>
+                    <p class="ui-hint">Check each part. <strong>Save as draft</strong> keeps the project private to the BAC. <strong>Publish in the BAC system</strong> makes it visible to bidders here; it does not post to PhilGEPS.</p>
+
+                    <div class="pw-review" data-pw-review>
+                        @foreach([1 => 'Project info', 2 => 'Requirements', 3 => 'Documents', 4 => 'Dates'] as $number => $label)
+                            <section class="pw-review__card" aria-labelledby="pw-review-{{ $number }}">
+                                <header class="pw-review__head">
+                                    <h4 id="pw-review-{{ $number }}">{{ $label }}</h4>
+                                    <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" data-pw-go="{{ $number }}"><i class="fas fa-pen" aria-hidden="true"></i> Edit<span class="sr-only"> {{ strtolower($label) }}</span></button>
+                                </header>
+                                <dl class="pw-review__list" data-pw-review-list="{{ $number }}"></dl>
+                            </section>
+                        @endforeach
+                    </div>
+
+                    <section class="pw-readiness" aria-labelledby="pw-readiness-title">
+                        <h4 id="pw-readiness-title">Before publishing</h4>
+                        <ul class="pw-readiness__list" data-pw-readiness></ul>
+                    </section>
+
+                    <div class="ui-field">
+                        <label class="ui-check">
+                            <input type="checkbox" name="confirm_correct" value="1" data-pw-confirm aria-describedby="confirm_correct-error" @checked(old('confirm_correct'))>
+                            <span>I confirm the project details, requirements, documents and schedule are accurate and ready for publication in the BAC system.</span>
+                        </label>
+                        <span class="ui-error" id="confirm_correct-error" data-pw-error @unless($err('confirm_correct')) hidden @endunless>{{ $err('confirm_correct') }}</span>
+                    </div>
+                </section>
             </div>
-        </main>
+
+            <footer class="pw__footer">
+                <a href="{{ route('admin.projects') }}" class="ui-btn ui-btn--ghost pw__cancel" data-pw-exit>Cancel</a>
+                <span class="pw__position" aria-live="polite" data-pw-position>Step 1 of 5 Â· Project info</span>
+                <div class="pw__actions">
+                    <button type="button" class="ui-btn ui-btn--secondary" data-pw-draft><i class="fas fa-floppy-disk" aria-hidden="true"></i> <span data-pw-draft-label>Save as draft</span></button>
+                    <button type="button" class="ui-btn ui-btn--secondary" data-pw-back hidden><i class="fas fa-arrow-left" aria-hidden="true"></i> Back</button>
+                    <button type="button" class="ui-btn ui-btn--primary" data-pw-next>Next <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+                    <button type="button" class="ui-btn ui-btn--primary" data-pw-publish hidden><i class="fas fa-bullhorn" aria-hidden="true"></i> <span data-pw-publish-label>Publish in the BAC system</span></button>
+                </div>
+            </footer>
+        </form>
     </div>
 </div>
 
-<style>
-    @keyframes modalFadeIn {
-        from {
-            opacity: 0;
-            transform: translateY(8px) scale(0.998);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-        }
-    }
-
-    html:has(.admin-projects-wizard-page),
-    body:has(.admin-projects-wizard-page) {
-        overflow: hidden;
-    }
-
-    /* Button System */
-    .btn {
-        border-radius: 8px;
-        padding: 11px 26px;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 7px;
-        border: 1px solid transparent;
-        white-space: nowrap;
-    }
-    .btn-primary {
-        background: #f59e0b;
-        color: #ffffff;
-        border-color: #f59e0b;
-    }
-    .btn-primary:hover {
-        background: #d97706;
-        border-color: #d97706;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
-    }
-    .btn-secondary {
-        background: #1f1f1f;
-        color: #d1d5db;
-        border-color: #4b5563;
-    }
-     .btn-secondary:hover {
-         background: #262626;
-         color: #ffffff;
-         border-color: #6b7280;
-         transform: translateY(-0.5px);
-     }
-     .btn-danger {
-         background: #7f1d1d;
-         color: #fecaca;
-         border-color: #dc2626;
-     }
-     .btn-danger:hover {
-         background: #991b1b;
-         color: #ffffff;
-         border-color: #b91c1c;
-     }
-
-     /* Actions Footer */
-    .wizard-actions-container {
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-        padding: 16px 28px;
-        border-top: 1px solid #4b5563;
-        background: #0a0a0a;
-    }
-    @media (max-width: 640px) {
-        .wizard-actions-container {
-            flex-direction: column-reverse;
-            align-items: stretch;
-            gap: 8px;
-            padding: 14px 20px;
-        }
-        .wizard-actions-container .btn {
-            width: 100%;
-            justify-content: center;
-            padding: 11px 16px;
-        }
-    }
-
-    /* Stepper */
-    .wizard-steps {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        position: relative;
-        width: 100%;
-    }
-    .wizard-step {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        position: relative;
-        z-index: 1;
-    }
-                .wizard-step::after {
-                    content: '';
-                    position: absolute;
-                    top: 16px;
-                    left: 50%;
-                    width: 100%;
-                    height: 2px;
-                    background: #4b5563;
-                    z-index: -1;
-                    transition: background 0.3s ease;
-                }
-                .wizard-step:last-child::after {
-                    display: none;
-                }
-                .wizard-step.completed::after {
-                    background: #f59e0b;
-                }
-                .step-number {
-                    width: 34px;
-                    height: 34px;
-                    border-radius: 50%;
-                    background: #000000;
-                    border: 2px solid #404040;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 14px;
-                    font-weight: 700;
-                    color: #9ca3af;
-                    margin-bottom: 8px;
-                    transition: all 0.3s ease;
-                    box-sizing: border-box;
-                    position: relative;
-                    z-index: 1;
-                }
-                .wizard-step.active .step-number {
-                    border-color: #f59e0b;
-                    background: #f59e0b;
-                    color: #000000;
-                    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.25);
-                }
-                .wizard-step.completed .step-number {
-                    border-color: #f59e0b;
-                    background: #f59e0b;
-                    color: #000000;
-                }
-                .step-label {
-                    font-size: 12px;
-                    font-weight: 600;
-                    color: #9ca3af;
-                    text-align: center;
-                    white-space: nowrap;
-                    transition: color 0.3s ease;
-                }
-                .wizard-step.active .step-label {
-                    color: #f59e0b;
-                }
-                .wizard-step.completed .step-label {
-                    color: #d1d5db;
-                }
-    .wizard-step:last-child::after {
-        display: none;
-    }
-    .wizard-step.completed::after,
-    .wizard-step.active::after {
-        background: #f59e0b;
-    }
-    .step-number {
-        width: 34px;
-        height: 34px;
-        border-radius: 50%;
-        background: #0a0a0a;
-        border: 2px solid #262626;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 14px;
-        font-weight: 700;
-        color: #6b7280;
-        margin-bottom: 8px;
-        transition: all 0.3s ease;
-        box-sizing: border-box;
-        position: relative;
-        z-index: 1;
-    }
-    .wizard-step.active .step-number {
-        border-color: #f59e0b;
-        background: #f59e0b;
-        color: #000000;
-        box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.2);
-    }
-    .wizard-step.completed .step-number {
-        border-color: #f59e0b;
-        background: #f59e0b;
-        color: #000000;
-    }
-    .step-label {
-        font-size: 12px;
-        font-weight: 600;
-        color: #6b7280;
-        text-align: center;
-        white-space: nowrap;
-        transition: color 0.3s ease;
-    }
-    .wizard-step.active .step-label {
-        color: #f59e0b;
-    }
-    .wizard-step.completed .step-label {
-        color: #d1d5db;
-    }
-    @media (max-width: 640px) {
-        .wizard-steps {
-            padding: 16px 12px;
-        }
-        .step-label {
-            font-size: 10px;
-            white-space: normal;
-            text-align: center;
-            line-height: 1.2;
-        }
-        .step-number {
-            width: 28px;
-            height: 28px;
-            font-size: 12px;
-            margin-bottom: 6px;
-        }
-    }
-
-    /* Step Content */
-    .wizard-step-content {
-        display: none;
-    }
-    .wizard-step-content.active {
-        display: block;
-    }
-
-    /* Form Section */
-    .form-section-title {
-        color: #ffffff;
-        font-size: 18px;
-        font-weight: 700;
-        margin: 0 0 20px;
-        padding-bottom: 12px;
-        border-bottom: 1px solid #404040;
-        letter-spacing: 0;
-    }
-
-    /* Form Grid & Layout */
-                .form-grid {
-                    display: grid;
-                    grid-template-columns: repeat(2, 1fr);
-                    gap: 0 20px;
-                }
-                @media (max-width: 768px) {
-                    .form-grid {
-                        grid-template-columns: 1fr;
-                        gap: 0;
-                    }
-                }
-    .form-group {
-        margin-bottom: 20px;
-        padding-right: 10px;
-    }
-    .form-group.full-width {
-        grid-column: 1 / -1;
-    }
-                .form-group label {
-                    display: block;
-                    font-size: 12px;
-                    font-weight: 600;
-                    color: #ffffff;
-                    margin-bottom: 6px;
-                    letter-spacing: 0.03em;
-                    text-transform: uppercase;
-                }
-                .form-group input,
-                .form-group select,
-                .form-group textarea {
-                    width: 100%;
-                    padding: 11px 14px;
-                    border: 1px solid #4b5563;
-                    background: #111827;
-                    color: #ffffff;
-                    border-radius: 6px;
-                    font-size: 14px;
-                    font-family: inherit;
-                    transition: all 0.2s ease;
-                    box-sizing: border-box;
-                    line-height: 1.5;
-                }
-                .form-group input:focus,
-                .form-group select:focus,
-                .form-group textarea:focus {
-                    outline: none;
-                    border-color: #f59e0b;
-                    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
-                    background: #1a1a1a;
-                }
-                .form-group input:hover,
-                .form-group select:hover,
-                .form-group textarea:hover {
-                    border-color: #6b7280;
-                }
-                .form-group small {
-                    display: block;
-                    font-size: 12px;
-                    color: #9ca3af;
-                    margin-top: 6px;
-                    line-height: 1.4;
-                }
-    .form-group textarea {
-        resize: vertical;
-        min-height: 100px;
-        line-height: 1.5;
-    }
-                .form-group select {
-                    appearance: none;
-                    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-                    background-position: right 12px center;
-                    background-repeat: no-repeat;
-                    background-size: 16px;
-                    padding-right: 36px;
-                }
-
-    .error-message {
-        color: #f87171;
-        font-size: 12px;
-        margin-top: 6px;
-        display: block;
-        font-weight: 500;
-    }
-
-    /* Document Upload */
-    .document-upload-list {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-    .document-upload-item {
-        display: flex;
-        gap: 10px;
-        align-items: flex-start;
-    }
-    .document-upload-item select {
-        flex: 0 0 240px;
-        min-width: 200px;
-    }
-    @media (max-width: 640px) {
-        .document-upload-item {
-            flex-direction: column;
-        }
-        .document-upload-item select,
-        .document-upload-item input[type="file"] {
-            width: 100%;
-            flex: none;
-        }
-    }
-
-    /* Review Cards */
-    .review-card {
-        background: #111827;
-        border: 1px solid #4b5563;
-        border-radius: 10px;
-        padding: 20px;
-        margin-bottom: 16px;
-    }
-    .review-card h4 {
-        color: #ffffff;
-        margin: 0 0 16px;
-        font-size: 14px;
-        font-weight: 700;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        letter-spacing: 0.02em;
-    }
-    .review-card h4 i {
-        color: #f59e0b;
-        font-size: 15px;
-    }
-    .review-list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 14px 20px;
-    }
-    @media (max-width: 640px) {
-        .review-list {
-            grid-template-columns: 1fr;
-            gap: 12px;
-        }
-    }
-    .review-list li {
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-    }
-                .review-list li span:first-child {
-                    color: #d1d5db;
-                    font-size: 11px;
-                    font-weight: 700;
-                    text-transform: uppercase;
-                    letter-spacing: 0.05em;
-                }
-    .review-list li span:last-child {
-        color: #e5e7eb;
-        font-size: 13px;
-        font-weight: 500;
-        word-break: break-word;
-    }
-    .review-documents-list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-    .review-documents-list li {
-        color: #d1d5db;
-        font-size: 13px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 4px 0;
-    }
-    .review-documents-list li i {
-        color: #f59e0b;
-        font-size: 13px;
-    }
-
-    /* Date inputs dark theme */
-    input[type="date"],
-    input[type="datetime-local"] {
-        color-scheme: dark;
-    }
-    input[type="date"]::-webkit-calendar-picker-indicator,
-    input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-        filter: invert(0.7);
-    }
-
-    /* Placeholder text */
-    ::placeholder {
-        color: #d1d5db;
-        opacity: 1;
-    }
-    :-ms-input-placeholder {
-        color: #d1d5db;
-    }
-    ::-ms-input-placeholder {
-        color: #d1d5db;
-    }
-    :-ms-input-placeholder {
-        color: #9ca3af;
-    }
-    ::-ms-input-placeholder {
-        color: #9ca3af;
-    }
-
-    /* Full-width buttons */
-    @media (max-width: 640px) {
-        .wizard-step .step-label {
-            font-size: 10px;
-            line-height: 1.3;
-            padding: 0 4px;
-        }
-        .document-upload-item select {
-            flex: 0 0 100%;
-        }
-    }
-     .step-number {
-         background: #000000;
-         border-color: #4b5563;
-         color: #d1d5db;
-         margin-bottom: 10px;
-     }
-     .step-label {
-         color: #d1d5db;
-     }
-
-    /* Scoped wizard polish: overrides the older light-theme wizard rules in dashboard.css. */
-    .admin-projects-wizard-page {
-        --wizard-bg: #101418;
-        --wizard-panel: #151a1f;
-        --wizard-panel-soft: #1a2027;
-        --wizard-field: #111a22;
-        --wizard-field-hover: #16212b;
-        --wizard-border: #2f3a45;
-        --wizard-border-strong: #5d6b7a;
-        --wizard-text: #f8fafc;
-        --wizard-muted: #aeb8c5;
-        --wizard-subtle: #7f8b9b;
-        --wizard-accent: #f59e0b;
-        --wizard-accent-hover: #d97706;
-        --wizard-accent-soft: rgba(245, 158, 11, 0.16);
-        --wizard-accent-line: rgba(245, 158, 11, 0.42);
-        --wizard-danger: #ef4444;
-    }
-
-    .admin-projects-wizard-page .wizard-modal-host {
-        min-height: calc(100vh - 60px);
-        padding: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .admin-projects-wizard-page .wizard-modal-overlay {
-        position: fixed;
-        inset: 0;
-        z-index: 10000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: clamp(16px, 2vw, 28px);
-        box-sizing: border-box;
-        background: rgba(0, 0, 0, 0.68);
-        backdrop-filter: none;
-        -webkit-backdrop-filter: none;
-    }
-
-    .admin-projects-wizard-page .wizard-container.modal-wizard {
-        width: 100%;
-        max-width: min(1120px, calc(100vw - 40px));
-        max-height: min(860px, calc(100vh - 40px));
-        margin: 0;
-        display: block;
-        position: relative;
-        overflow-x: hidden;
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        scrollbar-color: var(--wizard-border-strong) transparent;
-        scrollbar-width: thin;
-        color: var(--wizard-text);
-        background: var(--wizard-bg);
-        border: 1px solid rgba(148, 163, 184, 0.28);
-        border-radius: 14px;
-        box-shadow: 0 26px 60px rgba(0, 0, 0, 0.5);
-        animation: modalFadeIn 0.18s ease-out;
-    }
-
-    .admin-projects-wizard-page .wizard-close-button {
-        position: absolute;
-        top: 18px;
-        right: 18px;
-        z-index: 10;
-        width: 36px;
-        height: 36px;
-        border-radius: 8px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--wizard-muted);
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(148, 163, 184, 0.16);
-        text-decoration: none;
-        transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
-    }
-
-    .admin-projects-wizard-page .wizard-close-button:hover,
-    .admin-projects-wizard-page .wizard-close-button:focus-visible {
-        color: var(--wizard-text);
-        background: rgba(255, 255, 255, 0.09);
-        border-color: rgba(148, 163, 184, 0.34);
-        transform: translateY(-1px);
-        outline: none;
-    }
-
-    .admin-projects-wizard-page .wizard-modal-header {
-        padding: 24px 72px 22px 32px;
-        background: linear-gradient(180deg, #171b20 0%, #101315 100%);
-        border-bottom: 1px solid var(--wizard-border);
-    }
-
-    .admin-projects-wizard-page .wizard-title-row {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 6px;
-    }
-
-    .admin-projects-wizard-page .wizard-title-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 999px;
-        background: var(--wizard-accent);
-        box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.12), 0 0 18px rgba(245, 158, 11, 0.45);
-        flex: 0 0 auto;
-    }
-
-    .admin-projects-wizard-page .wizard-modal-header h2 {
-        margin: 0;
-        color: var(--wizard-text);
-        font-size: clamp(20px, 2vw, 24px);
-        font-weight: 700;
-        line-height: 1.2;
-        letter-spacing: 0;
-    }
-
-    .admin-projects-wizard-page .wizard-modal-header p {
-        margin: 0 0 0 22px;
-        color: var(--wizard-muted);
-        font-size: 14px;
-        line-height: 1.45;
-    }
-
-    .admin-projects-wizard-page .wizard-form {
-        display: block;
-        min-height: auto;
-    }
-
-    .admin-projects-wizard-page .wizard-steps {
-        margin: 0;
-        padding: 24px 36px 22px;
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 8px;
-        background: linear-gradient(180deg, rgba(21, 26, 31, 0.72) 0%, rgba(16, 20, 24, 0.96) 100%);
-        border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-        overflow-x: auto;
-        scrollbar-width: none;
-    }
-
-    .admin-projects-wizard-page .wizard-steps::-webkit-scrollbar {
-        display: none;
-    }
-
-    .admin-projects-wizard-page .wizard-step {
-        flex: 1 0 120px;
-        min-width: 92px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        position: relative;
-        z-index: 1;
-    }
-
-    .admin-projects-wizard-page .wizard-step::before {
-        content: none;
-        display: none;
-    }
-
-    .admin-projects-wizard-page .wizard-step::after {
-        content: '';
-        position: absolute;
-        top: 21px;
-        left: 50%;
-        width: 100%;
-        height: 2px;
-        background: #33414f;
-        z-index: -1;
-        transition: background 0.22s ease;
-    }
-
-    .admin-projects-wizard-page .wizard-step:last-child::before,
-    .admin-projects-wizard-page .wizard-step:last-child::after,
-    .admin-projects-wizard-page .wizard-step[data-step="5"]::before,
-    .admin-projects-wizard-page .wizard-step[data-step="5"]::after {
-        content: none;
-        display: none !important;
-        width: 0 !important;
-    }
-
-    .admin-projects-wizard-page .wizard-step.completed::after {
-        background: var(--wizard-accent);
-    }
-
-    .admin-projects-wizard-page .wizard-step.active::after {
-        background: linear-gradient(90deg, var(--wizard-accent), #33414f);
-    }
-
-    .admin-projects-wizard-page .step-number {
-        width: 44px;
-        height: 44px;
-        margin: 0 0 12px;
-        border-radius: 999px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-sizing: border-box;
-        position: relative;
-        z-index: 1;
-        color: #b8c3d1;
-        background: var(--wizard-field);
-        border: 3px solid #11161b;
-        box-shadow: 0 0 0 1px #4e5d6d;
-        font-size: 15px;
-        font-weight: 800;
-        line-height: 1;
-        transition: background 0.22s ease, color 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease;
-    }
-
-    .admin-projects-wizard-page .wizard-step.active .step-number {
-        color: #ffffff;
-        background: var(--wizard-accent);
-        box-shadow: 0 0 0 5px var(--wizard-accent-soft);
-        transform: translateY(-1px);
-    }
-
-    .admin-projects-wizard-page .wizard-step.completed .step-number {
-        color: #ffffff;
-        background: #b76f02;
-        box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.12);
-    }
-
-    .admin-projects-wizard-page .step-label {
-        max-width: 130px;
-        color: var(--wizard-muted);
-        font-size: 13px;
-        font-weight: 700;
-        line-height: 1.25;
-        letter-spacing: 0;
-        text-align: center;
-        white-space: normal;
-    }
-
-    .admin-projects-wizard-page .wizard-step.active .step-label {
-        color: #fbbf24;
-    }
-
-    .admin-projects-wizard-page .wizard-step.completed .step-label {
-        color: var(--wizard-text);
-    }
-
-    .admin-projects-wizard-page .wizard-body {
-        display: block;
-        min-height: auto;
-        overflow: visible;
-        padding: 0;
-        background: var(--wizard-bg);
-    }
-
-    .admin-projects-wizard-page .wizard-step-panel {
-        padding: clamp(24px, 3vw, 34px) clamp(24px, 4vw, 44px) clamp(36px, 4vw, 48px);
-    }
-
-    .admin-projects-wizard-page .form-section-title {
-        margin: 0 0 22px;
-        padding-bottom: 14px;
-        color: var(--wizard-text);
-        border-bottom: 1px solid var(--wizard-border);
-        font-size: 18px;
-        font-weight: 800;
-        line-height: 1.25;
-        letter-spacing: 0;
-    }
-
-    .admin-projects-wizard-page .wizard-help-text {
-        max-width: 760px;
-        margin: -8px 0 22px;
-        color: var(--wizard-muted);
-        font-size: 13px;
-        line-height: 1.6;
-    }
-
-    .admin-projects-wizard-page .form-grid {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        gap: 20px 28px;
-        margin: 0;
-    }
-
-    .admin-projects-wizard-page .form-group {
-        margin: 0;
-        padding: 0;
-        min-width: 0;
-    }
-
-    .admin-projects-wizard-page .form-group.full-width {
-        grid-column: 1 / -1;
-    }
-
-    .admin-projects-wizard-page .form-group label {
-        display: block;
-        margin: 0 0 7px;
-        color: #cbd5e1;
-        font-size: 12px;
-        font-weight: 800;
-        line-height: 1.3;
-        letter-spacing: 0;
-        text-transform: uppercase;
-    }
-
-    .admin-projects-wizard-page .form-group input,
-    .admin-projects-wizard-page .form-group select,
-    .admin-projects-wizard-page .form-group textarea {
-        width: 100%;
-        min-height: 46px;
-        box-sizing: border-box;
-        border: 1px solid var(--wizard-border-strong);
-        border-radius: 8px;
-        background-color: var(--wizard-field);
-        color: var(--wizard-text);
-        font: inherit;
-        font-size: 14px;
-        line-height: 1.5;
-        padding: 11px 14px;
-        transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-    }
-
-    .admin-projects-wizard-page .form-group textarea {
-        min-height: 132px;
-        resize: vertical;
-    }
-
-    .admin-projects-wizard-page .form-group select {
-        appearance: none;
-        padding-right: 42px;
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23aeb8c5' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.7' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-        background-position: right 14px center;
-        background-repeat: no-repeat;
-        background-size: 16px;
-    }
-
-    .admin-projects-wizard-page .form-group select option {
-        background: var(--wizard-field);
-        color: var(--wizard-text);
-    }
-
-    .admin-projects-wizard-page .form-group input:hover,
-    .admin-projects-wizard-page .form-group select:hover,
-    .admin-projects-wizard-page .form-group textarea:hover {
-        border-color: #7b8796;
-        background-color: var(--wizard-field-hover);
-    }
-
-    .admin-projects-wizard-page .form-group input:focus,
-    .admin-projects-wizard-page .form-group select:focus,
-    .admin-projects-wizard-page .form-group textarea:focus {
-        outline: none;
-        border-color: var(--wizard-accent);
-        background-color: var(--wizard-field-hover);
-        box-shadow: 0 0 0 4px var(--wizard-accent-soft);
-    }
-
-    .admin-projects-wizard-page .form-group small,
-    .admin-projects-wizard-page .wizard-help-text {
-        color: var(--wizard-muted);
-    }
-
-    .admin-projects-wizard-page .form-group .error-message,
-    .admin-projects-wizard-page .error-message {
-        color: #fca5a5;
-        font-size: 12px;
-        font-weight: 700;
-        margin-top: 7px;
-    }
-
-    .admin-projects-wizard-page ::placeholder {
-        color: #9aa6b6;
-        opacity: 1;
-    }
-
-    .admin-projects-wizard-page .requirements-checklist {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
-        padding: 0;
-        background: transparent;
-        border: 0;
-        border-radius: 0;
-    }
-
-    .admin-projects-wizard-page .checkbox-item,
-    .admin-projects-wizard-page .requirements-checklist .checkbox-item {
-        min-height: 32px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 8px 10px;
-        border-radius: 6px;
-        border: 1px solid var(--wizard-border-strong);
-        color: var(--wizard-text);
-        background: var(--wizard-field);
-        cursor: pointer;
-        transition: all 0.15s ease;
-    }
-    
-    .admin-projects-wizard-page .checkbox-item:hover,
-    .admin-projects-wizard-page .requirements-checklist .checkbox-item:hover {
-        background: var(--wizard-field-hover);
-        border-color: var(--wizard-accent);
-    }
-    
-    .admin-projects-wizard-page .checkbox-item:has(input[type="checkbox"]:checked),
-    .admin-projects-wizard-page .requirements-checklist .checkbox-item:has(input[type="checkbox"]:checked) {
-        background: var(--wizard-accent-soft);
-        border-color: var(--wizard-accent);
-    }
-    
-    .admin-projects-wizard-page .checkbox-item input[type="checkbox"],
-    .admin-projects-wizard-page .requirements-checklist .checkbox-item input[type="checkbox"] {
-        appearance: none;
-        -webkit-appearance: none;
-        width: 14px !important;
-        height: 14px !important;
-        min-width: 14px !important;
-        min-height: 14px !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        flex-shrink: 0;
-        display: inline-block !important;
-        border: 1.5px solid #6b7280 !important;
-        border-radius: 3px !important;
-        background-color: var(--wizard-field) !important;
-        background-position: center !important;
-        background-repeat: no-repeat !important;
-        box-shadow: none !important;
-        cursor: pointer;
-        transition: all 0.15s ease;
-    }
-    
-    .admin-projects-wizard-page .checkbox-item input[type="checkbox"]:hover,
-    .admin-projects-wizard-page .requirements-checklist .checkbox-item input[type="checkbox"]:hover {
-        border-color: var(--wizard-accent) !important;
-        background-color: var(--wizard-field-hover) !important;
-    }
-    
-    .admin-projects-wizard-page .checkbox-item input[type="checkbox"]:checked,
-    .admin-projects-wizard-page .requirements-checklist .checkbox-item input[type="checkbox"]:checked {
-        border-color: var(--wizard-accent) !important;
-        background-color: var(--wizard-accent) !important;
-        background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M3.5 8.2 6.6 11.2 12.7 4.8' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e") !important;
-        background-size: 9px 9px !important;
-    }
-    
-    .admin-projects-wizard-page .checkbox-item input[type="checkbox"]:focus-visible,
-    .admin-projects-wizard-page .requirements-checklist .checkbox-item input[type="checkbox"]:focus-visible {
-        outline: none;
-        box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3) !important;
-    }
-
-    .admin-projects-wizard-page .checkbox-item span {
-        color: var(--wizard-text);
-        font-size: 13px;
-        font-weight: 500;
-        line-height: 1.4;
-        overflow-wrap: anywhere;
-    }
-
-    .admin-projects-wizard-page .document-upload-list {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
-
-    .admin-projects-wizard-page .document-upload-item {
-        display: flex;
-        align-items: stretch;
-        gap: 12px;
-        padding: 14px;
-        background: var(--wizard-panel);
-        border: 1px solid var(--wizard-border);
-        border-radius: 8px;
-    }
-
-    .admin-projects-wizard-page .document-type-select {
-        flex: 0 0 260px;
-        min-width: 220px;
-    }
-
-    .admin-projects-wizard-page .document-upload-item input[type="file"] {
-        flex: 1 1 auto;
-        min-width: 0;
-        padding: 9px;
-    }
-
-    .admin-projects-wizard-page .document-upload-item input[type="file"]::file-selector-button {
-        margin-right: 12px;
-        padding: 8px 12px;
-        border: 1px solid var(--wizard-border-strong);
-        border-radius: 8px;
-        color: var(--wizard-text);
-        background: var(--wizard-panel-soft);
-        cursor: pointer;
-    }
-
-    .admin-projects-wizard-page .btn-add-document {
-        margin-top: 12px;
-    }
-
-    .admin-projects-wizard-page .btn-remove-document {
-        width: 46px;
-        padding: 0;
-        flex: 0 0 46px;
-    }
-
-    .admin-projects-wizard-page .review-card {
-        margin: 0 0 16px;
-        padding: 18px;
-        background: var(--wizard-panel);
-        border: 1px solid var(--wizard-border);
-        border-radius: 8px;
-    }
-
-    .admin-projects-wizard-page .review-card h4 {
-        margin: 0 0 14px;
-        display: flex;
-        align-items: center;
-        gap: 9px;
-        color: var(--wizard-text);
-        font-size: 14px;
-        font-weight: 800;
-        letter-spacing: 0;
-    }
-
-    .admin-projects-wizard-page .review-card h4 i,
-    .admin-projects-wizard-page .review-documents-list li i {
-        color: #fbbf24;
-    }
-
-    .admin-projects-wizard-page .review-list {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px 18px;
-    }
-
-    .admin-projects-wizard-page .review-list li {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        min-width: 0;
-    }
-
-    .admin-projects-wizard-page .review-list li span:first-child {
-        color: var(--wizard-subtle);
-        font-size: 11px;
-        font-weight: 800;
-        letter-spacing: 0;
-        text-transform: uppercase;
-    }
-
-    .admin-projects-wizard-page .review-list li span:last-child {
-        color: #e8eef5;
-        font-size: 13px;
-        font-weight: 600;
-        line-height: 1.45;
-        text-align: left;
-        overflow-wrap: anywhere;
-    }
-
-    .admin-projects-wizard-page .review-documents-list {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .admin-projects-wizard-page .review-documents-list li {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 9px 10px;
-        border-radius: 8px;
-        color: #e2e8f0;
-        background: rgba(255, 255, 255, 0.04);
-        font-size: 13px;
-        overflow-wrap: anywhere;
-    }
-
-    .admin-projects-wizard-page .confirm-publish-group {
-        margin-top: 20px;
-        padding-top: 8px;
-        border-top: 1px solid var(--wizard-border);
-    }
-    
-    .admin-projects-wizard-page .confirm-publish-label {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        cursor: pointer;
-        line-height: 1.4;
-    }
-    
-    .admin-projects-wizard-page .confirm-publish-label input {
-        appearance: none;
-        -webkit-appearance: none;
-        width: 16px;
-        height: 16px;
-        min-height: 16px;
-        margin: 0;
-        flex-shrink: 0;
-        display: grid;
-        place-content: center;
-        border: 1.5px solid #6b7280;
-        border-radius: 4px;
-        background-color: var(--wizard-field);
-        background-position: center;
-        background-repeat: no-repeat;
-        cursor: pointer;
-        transition: all 0.15s ease;
-    }
-    
-    .admin-projects-wizard-page .confirm-publish-label input:checked {
-        border-color: var(--wizard-accent);
-        background-color: var(--wizard-accent);
-        background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M3.5 8.2 6.6 11.2 12.7 4.8' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e");
-        background-size: 10px 10px;
-    }
-    
-    .admin-projects-wizard-page .confirm-publish-label input:hover {
-        border-color: var(--wizard-accent);
-        background-color: var(--wizard-field-hover);
-    }
-    
-    .admin-projects-wizard-page .confirm-publish-label input:focus-visible {
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
-    }
-    
-    .admin-projects-wizard-page .confirm-publish-label span {
-        color: #dbe4ee;
-        font-size: 13px;
-        font-weight: 500;
-        text-transform: none;
-        line-height: 1.4;
-    }
-
-    .admin-projects-wizard-page .wizard-actions-container {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 10px;
-        padding: 0 clamp(24px, 4vw, 44px) clamp(28px, 4vw, 40px);
-        min-height: 0;
-        box-sizing: border-box;
-        background: transparent;
-        border-top: 0;
-    }
-
-    .admin-projects-wizard-page .btn {
-        min-height: 44px;
-        border-radius: 8px;
-        padding: 10px 20px;
-        border: 1px solid transparent;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        font-size: 14px;
-        font-weight: 800;
-        line-height: 1;
-        white-space: nowrap;
-        cursor: pointer;
-        transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
-    }
-
-    .admin-projects-wizard-page .btn-primary,
-    .admin-projects-wizard-page .btn-next,
-    .admin-projects-wizard-page .btn-submit {
-        color: #ffffff;
-        background: var(--wizard-accent);
-        border-color: var(--wizard-accent);
-        box-shadow: none;
-    }
-
-    .admin-projects-wizard-page .btn-primary:hover,
-    .admin-projects-wizard-page .btn-next:hover,
-    .admin-projects-wizard-page .btn-submit:hover {
-        background: var(--wizard-accent-hover);
-        border-color: var(--wizard-accent-hover);
-        transform: none;
-        box-shadow: none;
-    }
-
-    .admin-projects-wizard-page .btn-secondary,
-    .admin-projects-wizard-page .btn-prev,
-    .admin-projects-wizard-page .btn-draft {
-        color: #e2e8f0;
-        background: var(--wizard-panel-soft);
-        border-color: var(--wizard-border-strong);
-    }
-
-    .admin-projects-wizard-page .btn-secondary:hover,
-    .admin-projects-wizard-page .btn-prev:hover,
-    .admin-projects-wizard-page .btn-draft:hover {
-        color: var(--wizard-text);
-        background: #232c35;
-        border-color: #748194;
-        transform: none;
-    }
-
-    .admin-projects-wizard-page .btn-draft {
-        margin-right: auto;
-    }
-
-    .admin-projects-wizard-page .btn-danger {
-        color: #fee2e2;
-        background: rgba(239, 68, 68, 0.12);
-        border-color: rgba(239, 68, 68, 0.48);
-    }
-
-    .admin-projects-wizard-page .btn-danger:hover {
-        color: #ffffff;
-        background: var(--wizard-danger);
-        border-color: var(--wizard-danger);
-    }
-
-    .admin-projects-wizard-page .wizard-container.modal-wizard::-webkit-scrollbar {
-        width: 10px;
-    }
-
-    .admin-projects-wizard-page .wizard-container.modal-wizard::-webkit-scrollbar-track {
-        background: transparent;
-    }
-
-    .admin-projects-wizard-page .wizard-container.modal-wizard::-webkit-scrollbar-thumb {
-        border: 2px solid var(--wizard-bg);
-        border-radius: 999px;
-        background: var(--wizard-border-strong);
-    }
-
-    @media (max-width: 900px) {
-        .admin-projects-wizard-page .wizard-container.modal-wizard {
-            max-width: calc(100vw - 24px);
-        }
-
-        .admin-projects-wizard-page .form-grid,
-        .admin-projects-wizard-page .requirements-checklist,
-        .admin-projects-wizard-page .review-list {
-            grid-template-columns: 1fr;
-        }
-
-        .admin-projects-wizard-page .document-upload-item {
-            flex-direction: column;
-        }
-
-        .admin-projects-wizard-page .document-type-select,
-        .admin-projects-wizard-page .document-upload-item input[type="file"],
-        .admin-projects-wizard-page .btn-remove-document {
-            width: 100%;
-            flex: none;
-        }
-
-        .admin-projects-wizard-page .btn-remove-document {
-            min-height: 42px;
-        }
-    }
-
-    @media (max-width: 640px) {
-        .admin-projects-wizard-page .wizard-modal-overlay {
-            align-items: stretch;
-            padding: 8px;
-        }
-
-        .admin-projects-wizard-page .wizard-container.modal-wizard {
-            max-width: 100%;
-            max-height: calc(100vh - 16px);
-            border-radius: 12px;
-        }
-
-        .admin-projects-wizard-page .wizard-modal-header {
-            padding: 20px 58px 18px 20px;
-        }
-
-        .admin-projects-wizard-page .wizard-modal-header p {
-            margin-left: 0;
-        }
-
-        .admin-projects-wizard-page .wizard-steps {
-            padding: 18px 18px 20px;
-        }
-
-        .admin-projects-wizard-page .wizard-step {
-            flex-basis: 88px;
-            min-width: 78px;
-        }
-
-        .admin-projects-wizard-page .step-number {
-            width: 38px;
-            height: 38px;
-            font-size: 13px;
-        }
-
-        .admin-projects-wizard-page .step-label {
-            font-size: 11px;
-        }
-
-        .admin-projects-wizard-page .wizard-step-panel {
-            padding: 22px 18px;
-        }
-
-        .admin-projects-wizard-page .wizard-actions-container {
-            flex-direction: column-reverse;
-            align-items: stretch;
-            padding: 14px 18px;
-        }
-
-        .admin-projects-wizard-page .wizard-actions-container .btn {
-            width: 100%;
-        }
-
-        .admin-projects-wizard-page .btn-draft {
-            margin-right: 0;
-        }
-    }
-</style>
-
-<script>
-let currentStep = 1;
-const totalSteps = 5;
-
-document.getElementById('wizardModalOverlay').addEventListener('click', function(e) {
-    if (e.target === this) {
-        window.location.href = "{{ route('admin.projects') }}";
-    }
-});
-
-function updateStepUI() {
-    document.querySelectorAll('.wizard-step').forEach((el, idx) => {
-        const stepNum = idx + 1;
-        el.classList.remove('active', 'completed');
-        if (stepNum === currentStep) {
-            el.classList.add('active');
-        } else if (stepNum < currentStep) {
-            el.classList.add('completed');
-        }
-    });
-
-    document.querySelectorAll('.wizard-step-content').forEach(el => {
-        el.classList.remove('active');
-        if (parseInt(el.dataset.stepContent) === currentStep) {
-            el.classList.add('active');
-        }
-    });
-
-    document.getElementById('prevBtn').style.display = currentStep === 1 ? 'none' : 'inline-flex';
-    document.getElementById('nextBtn').style.display = currentStep === totalSteps ? 'none' : 'inline-flex';
-    document.getElementById('draftBtn').style.display = currentStep === totalSteps ? 'inline-flex' : 'none';
-    document.getElementById('submitBtn').style.display = currentStep === totalSteps ? 'inline-flex' : 'none';
-
-    const wizardScroller = document.querySelector('.modal-wizard');
-    if (wizardScroller) wizardScroller.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function validateStep(step) {
-    let isValid = true;
-    const currentContent = document.querySelector(`[data-step-content="${step}"]`);
-    const requiredFields = currentContent.querySelectorAll('[required]');
-    const errorMessages = currentContent.querySelectorAll('.error-message');
-
-    errorMessages.forEach(el => el.textContent = '');
-
-    requiredFields.forEach(field => {
-        if (!field.value.trim()) {
-            isValid = false;
-            field.style.borderColor = '#ef4444';
-            field.style.boxShadow = '0 0 0 4px rgba(239, 68, 68, 0.16)';
-            const errorEl = field.parentElement.querySelector('.error-message');
-            if (errorEl) errorEl.textContent = 'This field is required';
-        } else if (field.type === 'date' && field.value) {
-            const selected = new Date(field.value);
-            const today = new Date();
-            today.setHours(0,0,0,0);
-            if (field.id === 'bid_submission_deadline' && selected <= today) {
-                isValid = false;
-                field.style.borderColor = '#ef4444';
-                field.style.boxShadow = '0 0 0 4px rgba(239, 68, 68, 0.16)';
-                const errorEl = field.parentElement.querySelector('.error-message');
-                if (errorEl) errorEl.textContent = 'Bid submission deadline must be after today.';
-            } else if (field.id === 'bid_opening_date') {
-                const submission = new Date(document.getElementById('bid_submission_deadline').value);
-                if (selected <= submission) {
-                    isValid = false;
-                    field.style.borderColor = '#ef4444';
-                    field.style.boxShadow = '0 0 0 4px rgba(239, 68, 68, 0.16)';
-                    const errorEl = field.parentElement.querySelector('.error-message');
-                    if (errorEl) errorEl.textContent = 'Bid opening must be after submission deadline.';
-                }
-            } else {
-                field.style.removeProperty('border-color');
-                field.style.removeProperty('box-shadow');
-            }
-        } else {
-            field.style.removeProperty('border-color');
-            field.style.removeProperty('box-shadow');
-        }
-    });
-
-    return isValid;
-}
-
-function changeStep(delta) {
-    if (delta === 1 && !validateStep(currentStep)) return;
-
-    const newStep = currentStep + delta;
-    if (newStep >= 1 && newStep <= totalSteps) {
-        currentStep = newStep;
-        updateStepUI();
-        if (currentStep === totalSteps) {
-            populateReview();
-        }
-    }
-}
-
-function populateReview() {
-    const formatDate = (val) => {
-        if (!val) return 'Not set';
-        const d = new Date(val);
-        return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-    };
-
-    const projectInfo = [
-        { label: 'Title', value: document.getElementById('title').value || 'Not provided' },
-        { label: 'Description', value: document.getElementById('description').value || 'Not provided' },
-        { label: 'Category', value: document.getElementById('category').options[document.getElementById('category').selectedIndex].text || 'Not selected' },
-        { label: 'Location', value: document.getElementById('location').value || 'Not provided' },
-        { label: 'Procurement Mode', value: document.getElementById('procurement_mode').options[document.getElementById('procurement_mode').selectedIndex].text || 'Not selected' },
-        { label: 'Source of Fund', value: document.getElementById('source_of_fund').value || 'Not provided' },
-        { label: 'Contract Duration', value: document.getElementById('contract_duration').value || 'Not provided' },
-        { label: 'Budget', value: 'PHP ' + (parseFloat(document.getElementById('budget').value) || 0).toFixed(2) }
-    ];
-    const infoList = document.getElementById('reviewProjectInfo');
-    infoList.innerHTML = projectInfo.map(item => `<li><span>${item.label}</span><span>${item.value}</span></li>`).join('');
-
-    const reqList = document.getElementById('reviewRequirements');
-    const requiredDocs = Array.from(document.querySelectorAll('input[name="required_documents[]"]:checked')).map(cb => cb.parentElement.querySelector('span').textContent);
-
-    reqList.innerHTML = `
-        <li><span>Required Docs</span><span>${requiredDocs.length ? requiredDocs.join(', ') : 'None selected'}</span></li>
-    `;
-
-    const docRows = document.querySelectorAll('.document-upload-item');
-    const docList = document.getElementById('reviewDocuments');
-    docList.innerHTML = '';
-    docRows.forEach(row => {
-        const typeSelect = row.querySelector('select');
-        const fileInput = row.querySelector('input[type="file"]');
-        const typeLabel = typeSelect.options[typeSelect.selectedIndex].text;
-        const fileName = fileInput.files[0]?.name || 'No file selected';
-        if (typeLabel) {
-            docList.innerHTML += `<li><i class="fas fa-file"></i> ${typeLabel}: ${fileName}</li>`;
-        }
-    });
-
-    const dateList = document.getElementById('reviewDates');
-    dateList.innerHTML = `
-        <li><span>Date Posted</span><span>${formatDate(document.getElementById('date_posted').value)}</span></li>
-        <li><span>Pre-Bid Conf.</span><span>${formatDate(document.getElementById('pre_bid_conference_date').value)}</span></li>
-        <li><span>Clarification</span><span>${formatDate(document.getElementById('clarification_deadline').value)}</span></li>
-        <li><span>Submission</span><span>${formatDate(document.getElementById('bid_submission_deadline').value)}</span></li>
-        <li><span>Bid Opening</span><span>${formatDate(document.getElementById('bid_opening_date').value)}</span></li>
-        <li><span>Evaluation</span><span>${formatDate(document.getElementById('evaluation_start_date').value)}</span></li>
-        <li><span>Award Date</span><span>${formatDate(document.getElementById('expected_award_date').value)}</span></li>
-    `;
-}
-
-function saveAsDraft() {
-    document.getElementById('projectStatus').value = 'draft';
-    document.getElementById('projectWizardForm').submit();
-}
-
-document.getElementById('projectWizardForm').addEventListener('submit', function(e) {
-    const status = document.getElementById('projectStatus').value;
-    if (status === 'draft') {
-        return;
-    }
-    if (currentStep !== totalSteps) {
-        e.preventDefault();
-        currentStep = totalSteps;
-        updateStepUI();
-        populateReview();
-    }
-});
-
-document.addEventListener('DOMContentLoaded', function() {
-    updateStepUI();
-});
-
-function addDocumentRow() {
-    const list = document.getElementById('documentUploadList');
-    const index = list.children.length;
-    const newRow = document.createElement('div');
-    newRow.className = 'document-upload-item';
-    newRow.setAttribute('data-index', index);
-    newRow.innerHTML = `
-        <select name="document_type[]" class="document-type-select">
-            <option value="">Select Document Type</option>
-            <option value="invitation_to_bid">Invitation to Bid</option>
-            <option value="bidding_documents">Bidding Documents</option>
-            <option value="terms_of_reference">Terms of Reference</option>
-            <option value="technical_specifications">Technical Specifications</option>
-            <option value="bill_of_quantities">Bill of Quantities</option>
-            <option value="project_plans">Project Plans / Drawings</option>
-            <option value="supplemental_bulletin">Supplemental Bid Bulletin</option>
-            <option value="other">Other</option>
-        </select>
-        <input type="file" name="document_files[]" accept=".pdf,.doc,.docx,.xlsx,.xls,.jpg,.jpeg,.png">
-        <button type="button" class="btn btn-danger btn-remove-document" onclick="removeDocumentRow(this)">
-            <i class="fas fa-trash"></i>
-        </button>
-    `;
-    list.appendChild(newRow);
-}
-
-function removeDocumentRow(btn) {
-    btn.closest('.document-upload-item').remove();
-}
-</script>
+<dialog class="ui-dialog pw-dialog" id="pwPublishDialog" aria-labelledby="pwPublishTitle">
+    <div class="ui-card__head">
+        <div>
+            <h2 class="ui-card__title" id="pwPublishTitle">Publish this project in the BAC system?</h2>
+            <p class="ui-card__desc">It becomes visible to bidders in this system. It is not posted to PhilGEPS.</p>
+        </div>
+    </div>
+    <div class="ui-card__body">
+        <dl class="ui-dl" data-pw-publish-summary></dl>
+        <p class="ui-hint ui-mt-sm">If a publication check fails, the project is kept as a draft and the reasons are shown.</p>
+    </div>
+    <div class="ui-card__foot">
+        <button type="button" class="ui-btn ui-btn--secondary" data-pw-publish-cancel>Keep editing</button>
+        <button type="button" class="ui-btn ui-btn--primary" data-pw-publish-confirm><i class="fas fa-bullhorn" aria-hidden="true"></i> Publish now</button>
+    </div>
+</dialog>
+
+<dialog class="ui-dialog pw-dialog" id="pwLeaveDialog" aria-labelledby="pwLeaveTitle">
+    <div class="ui-card__head">
+        <div>
+            <h2 class="ui-card__title" id="pwLeaveTitle">Leave without saving?</h2>
+            <p class="ui-card__desc">The details you entered in this wizard will be lost. Save a draft to keep them.</p>
+        </div>
+    </div>
+    <div class="ui-card__foot">
+        <button type="button" class="ui-btn ui-btn--secondary" data-pw-leave-stay>Stay</button>
+        <button type="button" class="ui-btn ui-btn--secondary" data-pw-leave-draft><i class="fas fa-floppy-disk" aria-hidden="true"></i> Save draft</button>
+        <button type="button" class="ui-btn ui-btn--danger" data-pw-leave-go>Leave</button>
+    </div>
+</dialog>
+@endsection
+
+@push('scripts')
+    <script type="application/json" id="pwRules">@json(\App\Support\ProcurementMode::clientRules() + ['today' => $today->format('Y-m-d'), 'maxUploadKb' => 20480])</script>
+    @vite('resources/js/project-wizard.js')
+@endpush

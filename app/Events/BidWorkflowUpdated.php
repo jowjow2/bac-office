@@ -18,7 +18,7 @@ class BidWorkflowUpdated implements ShouldBroadcastNow
 
     public function __construct(Bid $bid)
     {
-        $this->bid = $bid->load(['project', 'award']);
+        $this->bid = $bid->load(['project.awards', 'project.rebidProject', 'award']);
     }
 
     public function broadcastOn(): array
@@ -30,15 +30,16 @@ class BidWorkflowUpdated implements ShouldBroadcastNow
 
     public function broadcastWith(): array
     {
+        // Sent to the bidder's own channel: same payload as the track page,
+        // no internal notes.
+        $progress = $this->bid->progress()->toArray();
+
         return [
             'id' => $this->bid->id,
             'project_title' => $this->bid->project?->title ?? 'Unknown Project',
-            'bid_amount' => $this->bid->bid_amount,
-            'workflow_step' => $this->bid->effective_workflow_step,
-            'eligibility_status' => $this->bid->eligibility_status,
-            'status' => $this->bid->status,
+            'current' => $progress['current'],
+            'signature' => $progress['signature'],
             'updated_at' => $this->bid->updated_at?->timestamp,
-            'timeline_steps' => $this->bid->workflow_timeline_steps,
         ];
     }
 }

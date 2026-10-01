@@ -1,6 +1,6 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 @include('partials.dashboard-viewport')
-<div class="admin-dashboard">
+<div class="admin-dashboard admin-role-page">
     @vite(['resources/css/dashboard.css'])
 
     @include('partials.admin-sidebar')
@@ -9,12 +9,7 @@
     <div class="main-area">
 
         <!-- NAVBAR -->
-        <header class="navbar">
-            <div class="nav-left">
-                <h2>Create Project</h2>
-                <p>Add new procurement project</p>
-            </div>
-        </header>
+        <x-page-header title="Create project" subtitle="Add new procurement project" />
 
         <!-- MAIN CONTENT -->
         <main class="dashboard-content">
@@ -32,10 +27,10 @@
 
             <!-- MODAL OVERLAY -->
             <div id="createModalOverlay" style="display: flex; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.92); z-index: 10000; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; backdrop-filter: blur(4px);">
-                <div class="form-container" style="background: #111827; border-radius: 16px; width: 100%; max-width: 800px; max-height: calc(100vh - 40px); display: flex; flex-direction: column; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); overflow: hidden; margin: 0; color: #ffffff;">
+                <div class="form-container" style="background: #1b2420; border-radius: 16px; width: 100%; max-width: 800px; max-height: calc(100vh - 40px); display: flex; flex-direction: column; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); overflow: hidden; margin: 0; color: #ffffff;">
                     
                     <!-- Modal Header -->
-                    <div style="padding: 20px 24px; border-bottom: 1px solid #374151; background: #111827; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="padding: 20px 24px; border-bottom: 1px solid #374151; background: #1b2420; display: flex; justify-content: space-between; align-items: center;">
                         <div>
                             <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #ffffff;">Create New Project</h2>
                             <p style="margin: 4px 0 0; font-size: 14px; color: #9ca3af;">Fill in the details below to create a new procurement project.</p>
@@ -58,7 +53,7 @@
                 </div>
                 @endif
 
-                <form id="createProjectForm" action="{{ route('admin.projects.store') }}" method="POST">
+                <form id="createProjectForm" action="{{ route('admin.projects.store') }}" method="POST" enctype="multipart/form-data">
                     @csrf
 
                     <div style="margin-bottom: 20px;">
@@ -69,6 +64,12 @@
                     <div style="margin-bottom: 20px;">
                         <label style="display: block; font-size: 14px; font-weight: 500; color: #d1d5db; margin-bottom: 6px;">Description</label>
                         <textarea name="description" rows="4" required style="width: 100%; padding: 10px 12px; border: 1px solid #4b5563; background: #1f2937; color: #ffffff; border-radius: 8px; font-size: 14px; resize: vertical;">{{ old('description') }}</textarea>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; font-size: 14px; font-weight: 500; color: #d1d5db; margin-bottom: 6px;">Upload Files</label>
+                        <input type="file" name="document_files[]" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="width: 100%; padding: 10px 12px; border: 1px solid #4b5563; background: #1f2937; color: #ffffff; border-radius: 8px; font-size: 14px;">
+                        <div style="margin-top: 6px; font-size: 12px; color: #9ca3af;">You can upload multiple PDF, DOC, DOCX, JPG, JPEG, or PNG files. Limit is 20MB per file.</div>
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
@@ -95,12 +96,12 @@
                     </div>
                     
                     <!-- Modal Footer / Actions -->
-                    <div style="padding: 16px 24px; border-top: 1px solid #374151; background: #111827; display: flex; justify-content: flex-end; gap: 12px;" class="create-modal-actions">
+                    <div style="padding: 16px 24px; border-top: 1px solid #374151; background: #1b2420; display: flex; justify-content: flex-end; gap: 12px;" class="create-modal-actions">
                         <a href="{{ route('admin.projects') }}" style="padding: 10px 24px; border: 1px solid #4b5563; border-radius: 8px; background: #374151; color: #d1d5db; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; text-decoration: none; display: inline-flex; align-items: center;" onmouseover="this.style.background='#4b5563'" onmouseout="this.style.background='#374151'">Cancel</a>
                         <button type="button" onclick="document.getElementById('projectStatus').value='draft'; document.getElementById('createProjectForm').submit()" style="padding: 10px 24px; border: 1px solid #4b5563; border-radius: 8px; background: #374151; color: #d1d5db; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; text-decoration: none; display: inline-flex; align-items: center;" onmouseover="this.style.background='#4b5563'" onmouseout="this.style.background='#374151'">
                             <i class="fas fa-file-alt" style="margin-right: 6px;"></i> Save as Draft
                         </button>
-                        <button type="button" onclick="document.getElementById('projectStatus').value='open'; document.getElementById('createProjectForm').submit()" style="padding: 10px 24px; background: #3b82f6; color: #ffffff; border: 1px solid #3b82f6; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s;" onmouseover="this.style.background='#2563eb'; this.style.borderColor='#2563eb'" onmouseout="this.style.background='#3b82f6'; this.style.borderColor='#3b82f6'">
+                        <button type="button" onclick="document.getElementById('projectStatus').value='open'; document.getElementById('createProjectForm').submit()" style="padding: 10px 24px; background: #2f7a5f; color: #ffffff; border: 1px solid #2f7a5f; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s;" onmouseover="this.style.background='#235e4c'; this.style.borderColor='#235e4c'" onmouseout="this.style.background='#2f7a5f'; this.style.borderColor='#2f7a5f'">
                             <i class="fas fa-paper-plane"></i> Publish Project
                         </button>
                     </div>

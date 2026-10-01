@@ -1,0 +1,234 @@
+@extends('layouts.portal')
+
+@section('title', 'Purchase requests')
+@section('subtitle', 'Check each request against the PPMP/APP and the available funds, then forward it to the BAC or return it to the end-user office with remarks.')
+
+@php
+    $tz = config('bac-office.display_timezone');
+    $tabs = [
+        'review' => ['For PPMP/APP review', $counts['review']],
+        'bac' => ['Forwarded to BAC', $counts['bac']],
+        'returned' => ['Returned / not approved', $counts['returned']],
+        'procurement' => ['In procurement', $counts['procurement']],
+        'all' => ['All', null],
+    ];
+    $reviewErrors = old('_review_id') ? (int) old('_review_id') : null;
+@endphp
+
+@section('actions')
+    @if($routePrefix === 'admin')
+        <a href="{{ route('admin.users', ['filter' => 'end_user']) }}" class="ui-btn ui-btn--secondary"><i class="fas fa-building" aria-hidden="true"></i> Office accounts · {{ $officeAccounts }}</a>
+    @endif
+@endsection
+
+@section('content')
+<div class="ui-page">
+    @if($officeAccounts === 0)
+        <div class="ui-alert ui-alert--warning" role="status">
+            <i class="fas fa-building-circle-exclamation" aria-hidden="true"></i>
+            <div>
+                <strong>No end-user office account exists yet.</strong>
+                Purchase requests are filed by each end-user office through its own account (My purchase requests → New purchase request), then submitted here for the PPMP/APP and funds review.
+                @if($routePrefix === 'admin')
+                    <div class="ui-mt-sm"><a href="{{ route('admin.users', ['create' => 'end_user']) }}" class="ui-btn ui-btn--primary ui-btn--sm"><i class="fas fa-plus" aria-hidden="true"></i> Add an end-user office account</a></div>
+                @else
+                    Ask the BAC administrator to create an account for each requesting office.
+                @endif
+            </div>
+        </div>
+    @endif
+
+    @if($errors->any() && ! $reviewErrors)
+        <div class="ui-alert ui-alert--danger" role="alert">
+            <i class="fas fa-circle-exclamation" aria-hidden="true"></i>
+            <ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
+        </div>
+    @endif
+
+    <section class="ui-card">
+        <nav class="ui-tabs ui-tabs--inset" aria-label="Request queues">
+            @foreach($tabs as $key => [$label, $count])
+                <a class="ui-tab" href="{{ route($routePrefix.'.requests', array_filter(['tab' => $key, 'q' => $search])) }}" @if($tab === $key) aria-current="page" @endif>
+                    {{ $label }}
+                    @if($count !== null)<span class="ui-tab__count">{{ $count }}</span>@endif
+                </a>
+            @endforeach
+        </nav>
+
+        <form method="GET" action="{{ route($routePrefix.'.requests') }}" class="ui-toolbar" role="search">
+            <input type="hidden" name="tab" value="{{ $tab }}">
+            <label class="ui-search">
+                <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                <span class="sr-only">Search requests</span>
+                <input type="search" name="q" value="{{ $search }}" class="ui-input" placeholder="Search by title, PR number, or office">
+            </label>
+            <button type="submit" class="ui-btn ui-btn--secondary">Search</button>
+        </form>
+
+        @if($requests->isEmpty())
+            @php
+                // Queues where the search does find something.
+                $elsewhere = $search === '' ? [] : array_filter($tabs, fn ($entry, $key) => $key !== $tab && $entry[1] > 0, ARRAY_FILTER_USE_BOTH);
+            @endphp
+            <div class="ui-empty">
+                <i class="fas fa-inbox" aria-hidden="true"></i>
+                <strong>{{ $search !== '' ? 'No requests in '.$tabs[$tab][0].' match "'.$search.'"' : 'This queue is empty' }}</strong>
+                <span>
+                    @if($search !== '')
+                        @if($elsewhere)
+                            Found in
+                            @foreach($elsewhere as $key => [$label, $count])
+                                <a class="ui-link" href="{{ route($routePrefix.'.requests', ['tab' => $key, 'q' => $search]) }}">{{ $label }} ({{ $count }})</a>@if(! $loop->last), @endif
+                            @endforeach
+                            &middot;
+                        @endif
+                        <a class="ui-link" href="{{ route($routePrefix.'.requests', ['tab' => $tab]) }}">Clear search</a>
+                    @elseif($tab === 'review')
+                        End-user offices file purchase requests from their own accounts; a request appears here once the office submits it.
+                        @if($drafts > 0) {{ $drafts }} {{ \Illuminate\Support\Str::plural('draft', $drafts) }} {{ $drafts === 1 ? 'is' : 'are' }} still being prepared by the offices. @endif
+                    @else
+                        Try another queue.
+                    @endif
+                </span>
+            </div>
+        @else
+            <div class="ui-table-wrap">
+                <table class="ui-table ui-table--stack">
+                    <thead>
+                        <tr>
+                            <th scope="col">Request</th>
+                            <th scope="col">End-user office</th>
+                            <th scope="col" class="is-num">Estimated cost (₱)</th>
+                            <th scope="col">Submitted</th>
+                            <th scope="col">Status</th>
+                            <th scope="col" class="is-actions"><span class="sr-only">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($requests as $item)
+                            <tr>
+                                <td data-label="Request">
+                                    <span class="ui-cell-title">{{ $item->title }}</span>
+                                    <span class="ui-cell-sub"><span class="ui-mono">{{ $item->reference_no }}</span> &middot; {{ ucfirst($item->category) }} &middot; {{ $item->quantityLabel() }}</span>
+                                </td>
+                                <td data-label="Office">{{ $item->end_user_office }}</td>
+                                <td data-label="Estimated cost" class="is-num">{{ number_format((float) $item->estimated_cost, 2) }}</td>
+                                <td data-label="Submitted" class="is-nowrap">{{ $item->submitted_at?->timezone($tz)->format('M d, Y') ?? '—' }}</td>
+                                <td data-label="Status"><span class="ui-badge ui-badge--{{ $item->statusTone() }}">{{ $item->statusLabel() }}</span></td>
+                                <td data-label="Actions" class="is-actions">
+                                    <span class="ui-actions ui-actions--end">
+                                        <button type="button" class="ui-btn {{ $item->awaitsReview() ? 'ui-btn--primary' : 'ui-btn--secondary' }} ui-btn--sm" data-dialog-open="request-{{ $item->id }}">
+                                            {{ $item->awaitsReview() ? 'Review' : 'View' }}<span class="sr-only"> {{ $item->reference_no }}</span>
+                                        </button>
+                                        @if($item->awaitsBac() && $routePrefix === 'admin')
+                                            <a class="ui-btn ui-btn--success ui-btn--sm" href="{{ route('admin.projects.create', ['request' => $item->id]) }}">Prepare procurement</a>
+                                        @endif
+                                        @if($item->project)
+                                            <a class="ui-btn ui-btn--ghost ui-btn--sm" href="{{ route($routePrefix.'.procurement.show', $item->project) }}">Open procurement</a>
+                                        @endif
+                                    </span>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            <nav class="ui-pager" aria-label="Pages">
+                <span>Showing {{ $requests->firstItem() }}–{{ $requests->lastItem() }} of {{ $requests->total() }}</span>
+                <span class="ui-actions">
+                    <a class="ui-btn ui-btn--secondary ui-btn--sm" href="{{ $requests->previousPageUrl() ?? '#' }}" @if($requests->onFirstPage()) aria-disabled="true" tabindex="-1" @endif>Previous</a>
+                    <a class="ui-btn ui-btn--secondary ui-btn--sm" href="{{ $requests->nextPageUrl() ?? '#' }}" @unless($requests->hasMorePages()) aria-disabled="true" tabindex="-1" @endunless>Next</a>
+                </span>
+            </nav>
+        @endif
+    </section>
+</div>
+
+@foreach($requests as $item)
+    @php $showErrors = $reviewErrors === $item->id; @endphp
+    <dialog class="ui-dialog" id="request-{{ $item->id }}" aria-labelledby="request-{{ $item->id }}-title" @if($showErrors) data-open-on-load @endif>
+        <div class="ui-card__head">
+            <div>
+                <p class="ui-eyebrow">{{ $item->reference_no }} &middot; {{ $item->end_user_office }}</p>
+                <h2 class="ui-card__title" id="request-{{ $item->id }}-title">{{ $item->title }}</h2>
+            </div>
+            <button type="button" class="ui-dialog__close" data-dialog-close aria-label="Close"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+        </div>
+        <div class="ui-card__body ui-stack">
+            <dl class="ui-dl">
+                <div><dt>Category</dt><dd>{{ ucfirst($item->category) }}</dd></div>
+                <div><dt>Quantity</dt><dd>{{ $item->quantityLabel() }}</dd></div>
+                <div><dt>Estimated cost</dt><dd>&#8369;{{ number_format((float) $item->estimated_cost, 2) }}</dd></div>
+                <div><dt>Source of funds</dt><dd>{{ $item->fund_source }}</dd></div>
+                <div><dt>Delivery / duration</dt><dd>{{ $item->delivery_period }}</dd></div>
+                <div><dt>Requested by</dt><dd>{{ $item->requester?->name ?? '—' }}</dd></div>
+                @if($item->ppmp_reference)
+                    <div><dt>PPMP / APP</dt><dd>{{ $item->ppmp_reference }} / {{ $item->app_reference }}</dd></div>
+                @endif
+                @if($item->budget_confirmed_at)
+                    <div><dt>Budget confirmed</dt><dd>{{ $item->budgetConfirmer?->name ?? 'Former user' }} &middot; {{ $item->budget_confirmed_at->format('M j, Y g:i A') }}</dd></div>
+                @endif
+                @if($item->review_remarks)
+                    <div><dt>Review remarks</dt><dd>{{ $item->review_remarks }}</dd></div>
+                @endif
+            </dl>
+            <div>
+                <p class="ui-label">Specifications / TOR</p>
+                <p class="ui-prose-box">{{ $item->specifications }}</p>
+            </div>
+            @if($item->documents->isNotEmpty())
+                <ul class="ui-files">
+                    @foreach($item->documents as $document)
+                        <li><i class="fas fa-file-lines" aria-hidden="true"></i><a class="ui-link" href="{{ route('procurement.files.request', $document) }}" target="_blank" rel="noopener">{{ $document->typeLabel() }}: {{ $document->original_name }}</a></li>
+                    @endforeach
+                </ul>
+            @endif
+
+            @if($item->awaitsReview())
+                <form method="POST" action="{{ route($routePrefix.'.requests.review', $item) }}" class="ui-form ui-form--tight ui-form--divided">
+                    @csrf
+                    <input type="hidden" name="_review_id" value="{{ $item->id }}">
+                    @if($showErrors && $errors->any())
+                        <div class="ui-alert ui-alert--danger" role="alert">
+                            <i class="fas fa-circle-exclamation" aria-hidden="true"></i>
+                            <ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
+                        </div>
+                    @endif
+                    <fieldset class="ui-fieldset">
+                        <legend class="ui-label ui-legend">Decision <span class="ui-required" aria-hidden="true">*</span></legend>
+                        <div class="ui-radio-cards">
+                            <label class="ui-radio-card"><input type="radio" name="decision" value="forward" required @checked(! $showErrors || old('decision', 'forward') === 'forward')><strong>Forward to BAC</strong><span>Covered by PPMP/APP and budget</span></label>
+                            <label class="ui-radio-card"><input type="radio" name="decision" value="return" @checked($showErrors && old('decision') === 'return')><strong>Return</strong><span>Needs correction by the office</span></label>
+                            <label class="ui-radio-card"><input type="radio" name="decision" value="reject" @checked($showErrors && old('decision') === 'reject')><strong>Not approved</strong><span>Not in PPMP/APP or no budget</span></label>
+                        </div>
+                    </fieldset>
+                    <div class="ui-fields">
+                        <div class="ui-field">
+                            <label class="ui-label" for="ppmp-{{ $item->id }}">PPMP reference</label>
+                            <input id="ppmp-{{ $item->id }}" name="ppmp_reference" class="ui-input" maxlength="255" value="{{ $showErrors ? old('ppmp_reference') : $item->ppmp_reference }}" placeholder="e.g. PPMP-MEO-2026, item 12">
+                        </div>
+                        <div class="ui-field">
+                            <label class="ui-label" for="app-{{ $item->id }}">APP reference</label>
+                            <input id="app-{{ $item->id }}" name="app_reference" class="ui-input" maxlength="255" value="{{ $showErrors ? old('app_reference') : $item->app_reference }}" placeholder="e.g. APP 2026, line 45">
+                        </div>
+                        <div class="ui-field ui-field--wide">
+                            <input type="hidden" name="budget_available" value="0">
+                            <label class="ui-check"><input type="checkbox" name="budget_available" value="1" @checked($showErrors && old('budget_available'))> The budget for this request is available (certified by the Budget Office).</label>
+                            <span class="ui-hint">Required to forward, together with the PPMP and APP references. Your name and the date and time are recorded when you confirm.</span>
+                        </div>
+                        <div class="ui-field ui-field--wide">
+                            <label class="ui-label" for="remarks-{{ $item->id }}">Remarks</label>
+                            <textarea id="remarks-{{ $item->id }}" name="review_remarks" class="ui-input" rows="3" maxlength="2000" placeholder="Required when returning or not approving; shown to the end-user office.">{{ $showErrors ? old('review_remarks') : '' }}</textarea>
+                        </div>
+                    </div>
+                    <div class="ui-actions ui-actions--end">
+                        <button type="button" class="ui-btn ui-btn--secondary" data-dialog-close>Cancel</button>
+                        <button type="submit" class="ui-btn ui-btn--primary">Record decision</button>
+                    </div>
+                </form>
+            @endif
+        </div>
+    </dialog>
+@endforeach
+@endsection
+

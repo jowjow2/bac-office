@@ -1,6 +1,6 @@
 @php
     $compact = $compact ?? false;
-    $projectDocuments = $projectDocuments ?? $project->uploadedDocuments();
+    $projectDocuments = $projectDocuments ?? $project->publicDocuments();
     $documentLimit = $documentLimit ?? ($compact ? 2 : false);
     $visibleDocuments = $documentLimit ? $projectDocuments->take($documentLimit) : $projectDocuments;
 @endphp

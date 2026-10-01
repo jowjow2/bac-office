@@ -1,0 +1,63 @@
+/*
+ * SJBAC design tokens: colours, radii, shadows and type shared by the portal
+ * (portal-shell.css) and the public website (app.css). Change them here only.
+ */
+
+:root {
+    /* Surfaces */
+    --ui-page: #f3f1eb;
+    --ui-surface: #ffffff;
+    --ui-surface-2: #faf8f3;
+    --ui-line: #e5e0d4;
+    --ui-line-soft: #efebe2;
+    --ui-line-strong: #d2cbbb;
+
+    /* Text */
+    --ui-ink: #1b2420;
+    --ui-ink-2: #33403a;
+    --ui-muted: #5b6761;
+    --ui-subtle: #78827c;
+
+    /* Brand (forest green) */
+    --ui-primary: #1d4f40;
+    --ui-primary-hover: #153c30;
+    --ui-primary-soft: #e8f1ec;
+    --ui-primary-line: #b7d2c4;
+
+    /* Status */
+    --ui-success: #1d6a4d;
+    --ui-success-soft: #e2f2ea;
+    --ui-success-line: #b4dac6;
+    --ui-info: #1f4f86;
+    --ui-info-soft: #e6eef8;
+    --ui-info-line: #bfd1ea;
+    --ui-warning: #875705;
+    --ui-warning-soft: #fcf1d8;
+    --ui-warning-line: #efd59a;
+    --ui-danger: #a0322b;
+    --ui-danger-soft: #fbe9e6;
+    --ui-danger-line: #efc5bf;
+
+    /* Sidebar */
+    --ui-sidebar: #1e3a31;
+    --ui-sidebar-ink: #dbe7e0;
+    --ui-sidebar-muted: #93b0a3;
+    --ui-sidebar-hover: rgba(255, 255, 255, .07);
+    --ui-sidebar-active: #2c5245;
+    --ui-sidebar-line: rgba(255, 255, 255, .1);
+    --ui-sidebar-width: 232px;
+
+    /* Shape & type */
+    --ui-radius: 6px;
+    --ui-radius-lg: 8px;
+    --ui-shadow: 0 1px 2px rgba(27, 36, 32, .04);
+    --ui-shadow-lg: 0 24px 60px rgba(27, 36, 32, .28);
+    --ui-focus-color: #2f7a5f;
+    --ui-focus: 0 0 0 3px rgba(47, 122, 95, .32);
+    --ui-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --ui-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+    --ui-text-xs: 11.5px;
+    --ui-text-sm: 12.5px;
+    --ui-text: 13.5px;
+    --ui-text-lg: 15px;
+}

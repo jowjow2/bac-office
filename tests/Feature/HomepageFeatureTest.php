@@ -75,7 +75,7 @@ it('shows live procurement highlights on the homepage', function () {
         && ! $projects->contains('title', 'Internal Draft Project'));
     $response->assertViewHas('latestAwards', fn ($awards) => $awards->count() === 1
         && $awards->first()->project?->title === 'Water System Upgrade');
-    $response->assertSee('Bids and Awards Committee Portal');
+    $response->assertSee('Bids and Awards Committee Procurement Portal');
     $response->assertSee('Ensuring transparency, accountability, and efficiency');
     $response->assertSee('School Building Repair');
     $response->assertSee('Water System Upgrade');

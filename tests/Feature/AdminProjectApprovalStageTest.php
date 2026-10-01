@@ -111,7 +111,7 @@ it('allows admins to upload a project file during project creation', function ()
         ->get(route('admin.projects'));
 
     $listingResponse->assertOk();
-    $listingResponse->assertSee('2 files attached');
+    $listingResponse->assertDontSee('files attached');
     $listingResponse->assertDontSee('scope-of-work.pdf');
     $listingResponse->assertDontSee('project-specs.docx');
 
@@ -169,7 +169,8 @@ it('allows admins to append more project files when editing a project', function
         ->put(route('admin.project.update', $project), [
             'title' => 'Public Market Upgrade',
             'description' => 'Initial project package with added files.',
-            'budget' => 1500000,
+            // The edit form shows the ABC with thousands separators.
+            'budget' => '1,500,000.00',
             'status' => 'approved_for_bidding',
             'deadline' => now()->addDays(10)->toDateString(),
             'document_files' => [
@@ -182,7 +183,8 @@ it('allows admins to append more project files when editing a project', function
 
     $project->refresh()->load('documents');
 
-    expect($project->documents)->toHaveCount(2);
+    expect($project->documents)->toHaveCount(2)
+        ->and($project->budget)->toBe('1500000.00');
     expect($project->uploadedDocuments()->pluck('display_name')->all())->toBe([
         'terms.pdf',
         'drawings.png',
@@ -301,4 +303,225 @@ it('keeps approved for bidding projects hidden from bidder available projects un
     $response->assertOk();
     $response->assertSee('Road Concreting Project');
     $response->assertDontSee('Drainage Improvement Project');
+});
+
+it('saves project wizard drafts without publish-only fields', function () {
+    $test = testCase();
+
+    $admin = User::create([
+        'name' => 'Admin Draft Creator',
+        'email' => 'admin-wizard-draft@example.com',
+        'password' => Hash::make('password'),
+        'role' => 'admin',
+        'status' => 'active',
+    ]);
+
+    $response = $test
+        ->actingAs($admin)
+        ->post(route('admin.projects.wizard.store'), [
+            'title' => 'Wizard Draft Project',
+            'status' => 'draft',
+        ]);
+
+    $response->assertRedirect(route('admin.projects') . '?status=draft');
+    $response->assertSessionHas('success', 'Project created successfully.');
+
+    $project = Project::where('title', 'Wizard Draft Project')->firstOrFail();
+
+    expect($project->status)->toBe('draft');
+    expect((float) $project->budget)->toBe(0.0);
+    expect($project->deadline)->toBeNull();
+    expect($project->requirement)->not->toBeNull();
+    expect($project->schedule)->not->toBeNull();
+
+    $listingResponse = $test
+        ->actingAs($admin)
+        ->get(route('admin.projects', ['status' => 'draft']));
+
+    $listingResponse->assertOk();
+    $listingResponse->assertSee('Wizard Draft Project');
+    expect($listingResponse->viewData('projectTotals')['draft'])->toBe(1);
+});
+
+it('publishes project wizard submissions as open projects with related records', function () {
+    $test = testCase();
+
+    config()->set('filesystems.uploads_disk', 'public');
+    Storage::fake('public');
+
+    $admin = User::create([
+        'name' => 'Admin Wizard Publisher',
+        'email' => 'admin-wizard-publish@example.com',
+        'password' => Hash::make('password'),
+        'role' => 'admin',
+        'status' => 'active',
+    ]);
+
+    // RA 9184: 7-day posting, pre-bid conference 12+ days before the deadline
+    // (ABC >= ₱1M), bid opening immediately after the deadline the same day.
+    $submissionDeadline = workdayAt(20, 9, 0)->format('Y-m-d\TH:i');
+    $openingDate = workdayAt(20, 9, 30)->format('Y-m-d\TH:i');
+
+    $response = $test
+        ->actingAs($admin)
+        ->post(route('admin.projects.wizard.store'), [
+            'title' => 'Wizard Published Project',
+            'description' => 'A complete project created from the wizard publish path.',
+            'category' => 'goods',
+            'location' => 'City Hall',
+            'procurement_mode' => 'public_bidding',
+            'source_of_fund' => 'General Fund',
+            'contract_duration' => '45 calendar days',
+            'budget' => 3250000,
+            'status' => 'open',
+            'philgeps_reference_no' => '11223344',
+            'bidding_documents_fee' => '5000',
+            'payment_venue' => 'BAC Secretariat, Municipal Hall',
+            'award_criterion' => 'lowest_calculated_bid',
+            'bid_opening_venue' => 'BAC Conference Room, Municipal Hall',
+            'electronic_submission_authority' => 'MIS Certification No. 2026-03',
+            'date_posted' => now()->toDateString(),
+            'pre_bid_conference_date' => workdayAt(6, 10, 0)->format('Y-m-d\TH:i'),
+            'bid_submission_deadline' => $submissionDeadline,
+            'bid_opening_date' => $openingDate,
+            'required_documents' => ['Business Permit', 'Technical Proposal'],
+            'eligibility_requirements' => 'Valid registration documents.',
+            'technical_requirements' => 'Compliant technical offer.',
+            'financial_requirements' => 'Signed financial proposal.',
+            'document_type' => ['invitation_to_bid', 'technical_specifications'],
+            'project_documents' => [
+                UploadedFile::fake()->create('invitation.pdf', 96, 'application/pdf'),
+                UploadedFile::fake()->create('technical-specs.pdf', 96, 'application/pdf'),
+            ],
+            'confirm_correct' => 'on',
+        ]);
+
+    $response->assertRedirect(route('admin.projects'));
+    $response->assertSessionHas('success', 'Project created successfully.');
+
+    $project = Project::where('title', 'Wizard Published Project')->firstOrFail();
+    $project->load(['requirement', 'schedule', 'documents']);
+
+    expect($project->status)->toBe('open');
+    expect($project->reference_no)->toBe('SJ-BAC-' . now()->format('Y') . '-G-001');
+    expect($project->submission_mode)->toBe('electronic')
+        ->and($project->bidding_documents_fee)->toBe('5000.00')
+        ->and($project->payment_venue)->toBe('BAC Secretariat, Municipal Hall')
+        // Electronic bids need the IT certification before posting (RA 12009 IRR Sec. 50.3.3).
+        ->and($project->electronic_submission_authority)->toBe('MIS Certification No. 2026-03')
+        ->and($project->award_criterion)->toBe('lowest_calculated_bid')
+        ->and($project->bid_opening_venue)->toBe('BAC Conference Room, Municipal Hall');
+    expect((float) $project->budget)->toBe(3250000.0);
+    expect($project->deadline?->format('Y-m-d H:i'))->toBe(str_replace('T', ' ', $submissionDeadline));
+    expect($project->requirement->required_documents)->toBe(['Business Permit', 'Technical Proposal']);
+    expect($project->schedule->bid_submission_deadline?->format('Y-m-d H:i'))->toBe(str_replace('T', ' ', $submissionDeadline));
+    expect($project->schedule->bid_opening_date?->format('Y-m-d H:i'))->toBe(str_replace('T', ' ', $openingDate));
+    expect($project->documents)->toHaveCount(2);
+    expect($project->documents->pluck('document_type')->all())->toBe([
+        'invitation_to_bid',
+        'technical_specifications',
+    ]);
+    expect($project->documents->pluck('original_name')->all())->toBe([
+        'invitation.pdf',
+        'technical-specs.pdf',
+    ]);
+    Storage::disk('public')->assertExists($project->documents[0]->file_path);
+    Storage::disk('public')->assertExists($project->documents[1]->file_path);
+
+    $listingResponse = $test
+        ->actingAs($admin)
+        ->get(route('admin.projects'));
+
+    $listingResponse->assertOk();
+    $listingResponse->assertSee('Wizard Published Project');
+    expect($listingResponse->viewData('projectTotals')['all'])->toBe(1);
+    expect($listingResponse->viewData('projectTotals')['open'])->toBe(1);
+});
+
+it('shows procurement QR login context with the project category', function () {
+    $test = testCase();
+
+    $project = Project::create([
+        'title' => 'QR Category Project',
+        'description' => 'Project opened for QR scan testing.',
+        'category' => 'infrastructure',
+        'budget' => 1230000,
+        'deadline' => now()->addDays(8),
+        'status' => 'open',
+    ]);
+
+    $procurementResponse = $test->get(route('public.procurement'));
+
+    $procurementResponse->assertOk();
+    $procurementResponse->assertSee(route('public.procurement.qr', $project), false);
+    $procurementResponse->assertSee(route('login.page', ['qr_project' => $project->id]), false);
+    $procurementResponse->assertSee('Infrastructure');
+
+    $qrResponse = $test->get(route('public.procurement.qr', $project));
+
+    $qrResponse->assertOk();
+    $qrResponse->assertHeader('Content-Type', 'image/svg+xml');
+
+    $loginResponse = $test->get(route('login.page', ['qr_project' => $project->id]));
+
+    $loginResponse->assertRedirect(route('home'));
+    $loginResponse->assertSessionHas('scanned_project_title', 'QR Category Project');
+    $loginResponse->assertSessionHas('scanned_project_category', 'Infrastructure');
+});
+it('publishes draft projects from the admin projects page', function () {
+    $test = testCase();
+
+    $admin = User::create([
+        'name' => 'Admin Publisher',
+        'email' => 'admin-project-publisher@example.com',
+        'password' => Hash::make('password'),
+        'role' => 'admin',
+        'status' => 'active',
+    ]);
+
+    $project = Project::create([
+        'title' => 'Draft Road Repair',
+        'description' => 'Draft project that should become open for bidding.',
+        'category' => 'infrastructure',
+        'procurement_mode' => 'public_bidding',
+        'award_criterion' => 'lowest_calculated_bid',
+        'bid_opening_venue' => 'BAC Conference Room, Municipal Hall',
+        'electronic_submission_authority' => 'MIS Certification No. 2026-03',
+        'philgeps_reference_no' => '55667788',
+        'budget' => 850000,
+        'deadline' => workdayAt(10, 9, 0),
+        'status' => 'draft',
+    ]);
+    \App\Models\ProjectSchedule::create([
+        'project_id' => $project->id,
+        'date_posted' => now()->toDateString(),
+        'bid_submission_deadline' => workdayAt(10, 9, 0),
+        'bid_opening_date' => workdayAt(10, 9, 30),
+    ]);
+    \App\Models\ProjectDocument::create([
+        'project_id' => $project->id,
+        'original_name' => 'itb.pdf',
+        'file_path' => 'project-documents/project_doc_' . $project->id . '_itb.pdf',
+        'document_type' => 'invitation_to_bid',
+    ]);
+
+    $listingResponse = $test
+        ->actingAs($admin)
+        ->get(route('admin.projects'));
+
+    $listingResponse->assertOk();
+    $listingResponse->assertSee('onclick="publishDraft(' . $project->id . ', this)"', false);
+
+    $response = $test
+        ->actingAs($admin)
+        ->postJson(route('admin.project.publish', $project));
+
+    $response
+        ->assertOk()
+        ->assertJson([
+            'success' => true,
+            'message' => 'Project published successfully! It is now ready for bidding.',
+        ]);
+
+    expect($project->fresh()->status)->toBe('open');
 });

@@ -1,6 +1,6 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 @include('partials.dashboard-viewport')
-<div class="admin-dashboard dashboard-home">
+<div class="admin-dashboard staff-role-page dashboard-home admin-dashboard-page staff-dashboard staff-dashboard-page">
     @vite(['resources/css/dashboard.css'])
     @include('partials.staff-page-styles')
 
@@ -11,7 +11,7 @@
             right: 24px;
             width: min(360px, calc(100vw - 32px));
             z-index: 2400;
-            box-shadow: 0 16px 34px rgba(15, 23, 42, 0.14);
+            box-shadow: 0 16px 34px rgba(27, 36, 32, 0.14);
             opacity: 1;
             transform: translateY(0);
             transition: opacity 0.35s ease, transform 0.35s ease;
@@ -26,7 +26,8 @@
                 right: 16px;
             }
         }
-        /* Modal Styles */
+        /* Shared modal layout is defined in dashboard.css; this page keeps
+           only the staff-specific visibility state for its modal toggles. */
         .modal-overlay {
             position: fixed;
             inset: 0;
@@ -42,51 +43,11 @@
         .modal-overlay.show {
             display: flex;
         }
-        .modal-content {
-            background: #fff;
-            border-radius: 12px;
-            max-width: 720px;
-            width: 100%;
-            max-height: 90vh;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-        .modal-header {
-            padding: 24px 24px 0;
-            border-bottom: 1px solid #e5e7eb;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-        }
         .modal-title {
             font-size: 20px;
             font-weight: 700;
-            color: #111827;
+            color: var(--ui-ink);
             margin: 0;
-        }
-        .modal-close {
-            width: 36px;
-            height: 36px;
-            border: none;
-            background: #f3f4f6;
-            border-radius: 8px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #6b7280;
-            font-size: 20px;
-            transition: all 0.2s;
-        }
-        .modal-close:hover {
-            background: #ef4444;
-            color: white;
-        }
-        .modal-body {
-            padding: 24px;
-            overflow-y: auto;
-            flex: 1;
         }
         .bid-detail-grid {
             display: grid;
@@ -95,23 +56,23 @@
             margin-bottom: 24px;
         }
         .bid-detail-item {
-            background: #f9fafb;
+            background: var(--ui-surface-2);
             padding: 16px;
             border-radius: 8px;
-            border-left: 4px solid #2563eb;
+            border-left: 4px solid var(--ui-primary);
         }
         .bid-detail-label {
             font-size: 12px;
             font-weight: 600;
-            color: #6b7280;
-            text-transform: uppercase;
+            color: var(--ui-muted);
+            text-transform: none;
             letter-spacing: 0.5px;
             margin-bottom: 4px;
         }
         .bid-detail-value {
             font-size: 15px;
             font-weight: 500;
-            color: #111827;
+            color: var(--ui-ink);
             word-break: break-word;
         }
         .pdf-preview-container {
@@ -133,7 +94,7 @@
         }
         .file-actions .staff-button {
             padding: 8px 16px;
-            font-size: 13px;
+            font-size: 12.5px;
         }
         .status-badge {
             display: inline-block;
@@ -155,14 +116,14 @@
         .document-checklist h4 {
             font-size: 14px;
             font-weight: 600;
-            color: #374151;
+            color: var(--ui-ink-2);
             margin-bottom: 12px;
         }
         .checklist-item {
             display: flex;
             align-items: center;
             padding: 8px 0;
-            border-bottom: 1px solid #e5e7eb;
+            border-bottom: 1px solid var(--ui-line);
             font-size: 14px;
         }
         .checklist-item:last-child {
@@ -186,46 +147,6 @@
             background: #ef4444;
             color: white;
         }
-        /* Confirmation Modal */
-        .confirm-modal .modal-content {
-            max-width: 420px;
-        }
-        .confirm-modal .modal-body {
-            text-align: center;
-        }
-        .confirm-modal .confirm-icon {
-            width: 64px;
-            height: 64px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 16px;
-            font-size: 32px;
-        }
-        .confirm-modal .confirm-icon.warning {
-            background: #fef3c7;
-            color: #d97706;
-        }
-        .confirm-modal .confirm-icon.danger {
-            background: #fee2e2;
-            color: #dc2626;
-        }
-        .confirm-modal h3 {
-            font-size: 18px;
-            font-weight: 700;
-            color: #111827;
-            margin-bottom: 8px;
-        }
-        .confirm-modal p {
-            color: #6b7280;
-            margin-bottom: 20px;
-        }
-        .confirm-actions {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-        }
         .reject-reason {
             margin-top: 16px;
             text-align: left;
@@ -233,7 +154,7 @@
         .reject-reason textarea {
             width: 100%;
             padding: 10px 14px;
-            border: 1px solid #d1d5db;
+            border: 1px solid var(--ui-line-strong);
             border-radius: 8px;
             font-size: 14px;
             resize: vertical;
@@ -242,9 +163,9 @@
         }
         .reject-reason textarea:focus {
             outline: none;
-            border-color: #2563eb;
+            border-color: var(--ui-primary);
         }
-        /* Button Loading State */
+        /* button Loading state */
         .staff-btn-loading {
             position: relative;
             pointer-events: none;
@@ -269,7 +190,7 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-        /* Toast Notifications */
+        /* toast notifications */
         .toast-container {
             position: fixed;
             top: 100px;
@@ -298,7 +219,7 @@
         .toast.success { background: #10b981; }
         .toast.error { background: #ef4444; }
         .toast.warning { background: #f59e0b; }
-        /* Responsive Table */
+        /* responsive table */
         @media (max-width: 900px) {
             .staff-table-wrap {
                 overflow-x: auto;
@@ -308,13 +229,6 @@
             }
         }
         @media (max-width: 640px) {
-            .modal-overlay {
-                padding: 10px;
-            }
-            .modal-content {
-                width: 95%;
-                max-height: 90vh;
-            }
             .staff-inline-actions {
                 flex-direction: column;
                 gap: 8px;
@@ -326,15 +240,11 @@
                 width: 100%;
             }
         }
-    </style>
-
+</style>
     @include('partials.staff-sidebar', ['activeStaffMenu' => 'review-bids'])
 
     <div class="main-area">
-        @include('partials.staff-topbar', [
-            'staffNavbarTitle' => 'Review Bids',
-            'staffNavbarSubtitle' => 'Bid submissions review and validation',
-        ])
+        <x-page-header title="Review bids" subtitle="Bid submissions review and validation" />
 
         <main class="dashboard-content dashboard-home-content">
             <section class="staff-dashboard">
@@ -348,7 +258,7 @@
 
                 <section class="staff-page-intro">
                     <h1 class="staff-page-title">Review Bids</h1>
-                    <p class="staff-page-subtitle">Review, validate or reject bid submissions from bidders.</p>
+                    <p class="staff-page-subtitle">Prepare and view assigned submissions. BAC Admin records all opening and review decisions.</p>
                 </section>
 
                 @if(session('success'))
@@ -388,19 +298,16 @@
                                     @php
                                         $proposalFile = $bid->proposal_file;
                                         $eligibilityFile = $bid->eligibility_file;
-                                        $isEligible = $bid->eligibility_status === \App\Models\Bid::ELIGIBILITY_VALID;
-                                        $statusClass = match($bid->status) {
+                                        // Same stage classification as the admin table and bidder track.
+                                        $stageStatus = $bid->progress()->adminStatus();
+                                        $sealed = $bid->isSealed();
+                                        $awaitingPrelim = ! $sealed && in_array($stageStatus['key'], ['preliminary_examination'], true);
+                                        $statusClass = match($stageStatus['class']) {
+                                            'disqualified' => 'rejected',
                                             'pending' => 'pending',
-                                            'approved' => 'validated',
-                                            'rejected' => 'rejected',
-                                            default => 'pending',
+                                            default => 'validated',
                                         };
-                                        $statusLabel = match($bid->status) {
-                                            'pending' => 'Pending',
-                                            'approved' => 'Approved',
-                                            'rejected' => 'Rejected',
-                                            default => 'Pending',
-                                        };
+                                        $statusLabel = $stageStatus['label'];
                                     @endphp
                                     <tr data-bid-id="{{ $bid->id }}">
                                         <td>
@@ -412,15 +319,15 @@
                                         <td class="staff-project-title">
                                             {{ $bid->project ? $bid->project->title : 'N/A' }}
                                         </td>
-                                        <td><strong>&#8369;{{ number_format((float) $bid->bid_amount, 2) }}</strong></td>
+                                        <td><strong>{!! $bid->isFinancialSealed() ? '<i class="fas fa-lock"></i> Sealed' : '&#8369;' . number_format((float) $bid->bid_amount, 2) !!}</strong></td>
                                         <td>
                                             <div class="staff-document-cell">
-                                                @if($proposalFile)
+                                                @if($proposalFile && ! $sealed)
                                                     <a href="{{ route('staff.bids.proposal.preview', $bid) }}" target="_blank" class="staff-document-link">
                                                         <i class="fas fa-file-contract"></i> View PDF
                                                     </a>
                                                 @endif
-                                                @if($eligibilityFile)
+                                                @if($eligibilityFile && ! $sealed)
                                                     <a href="{{ route('staff.bids.eligibility.preview', $bid) }}" target="_blank" class="staff-document-link">
                                                         <i class="fas fa-file-certificate"></i> View PDF
                                                     </a>
@@ -428,7 +335,7 @@
                                                 <span class="staff-status-pill {{ $proposalFile ? 'approved' : 'rejected' }}">
                                                     {{ $proposalFile ? 'uploaded' : 'missing' }}
                                                 </span>
-                                                <div style="font-size:12px;color:#64748b;line-height:1.55;">
+                                                <div style="font-size:12px;color:#6b736e;line-height:1.55;">
                                                     <div>Documents: {{ $bid->documentsAreComplete() ? 'Complete' : 'Incomplete' }}</div>
                                                     <div>Eligibility: {{ $bid->eligibility_status_label }}</div>
                                                     <div>Eligibility file: {{ $eligibilityFile ? 'uploaded' : 'missing' }}</div>
@@ -452,29 +359,27 @@
                                                         data-bidder-name="{{ e($bid->user ? ($bid->user->company ?: $bid->user->name) : 'N/A') }}"
                                                         data-bidder-email="{{ e($bid->user ? $bid->user->email : 'N/A') }}"
                                                         data-project-title="{{ e($bid->project ? $bid->project->title : 'N/A') }}"
-                                                        data-bid-amount="{{ (float) $bid->bid_amount }}"
-                                                        data-proposal-url="{{ $proposalFile ? route('staff.bids.proposal.preview', $bid) : '' }}"
-                                                        data-eligibility-url="{{ $eligibilityFile ? route('staff.bids.eligibility.preview', $bid) : '' }}"
-                                                        data-status="{{ $bid->status }}"
+                                                        data-bid-amount="{{ $sealed ? '' : (float) $bid->bid_amount }}"
+                                                        data-proposal-url="{{ $proposalFile && ! $sealed ? route('staff.bids.proposal.preview', $bid) : '' }}"
+                                                        data-eligibility-url="{{ $eligibilityFile && ! $sealed ? route('staff.bids.eligibility.preview', $bid) : '' }}"
+                                                        data-status="{{ $stageStatus['key'] }}"
                                                         data-remarks="{{ e($bid->notes ?? '') }}"
                                                         data-rejection-reason="{{ e($bid->rejection_reason ?? '') }}"
                                                         title="View full bid details">
                                                     <i class="fas fa-eye"></i> Check Bid
                                                 </button>
-                                                @if($bid->status === 'pending' && $isEligible && $proposalFile && $eligibilityFile)
-                                                    <button type="button" 
-                                                            class="staff-button-success validate-bid-btn" 
+                                                @if($awaitingPrelim)
+                                                    <button type="button"
+                                                            class="staff-button-success validate-bid-btn"
                                                             data-bid-id="{{ $bid->id }}"
-                                                            title="Validate bid documents">
-                                                        <i class="fas fa-check"></i> Validate
+                                                            title="Verify requirements and record the preliminary examination">
+                                                        <i class="fas fa-clipboard-check"></i> Examine
                                                     </button>
-                                                @endif
-                                                @if($bid->status === 'pending')
-                                                    <button type="button" 
-                                                            class="staff-button-danger reject-bid-btn" 
+                                                    <button type="button"
+                                                            class="staff-button-danger reject-bid-btn"
                                                             data-bid-id="{{ $bid->id }}"
-                                                            title="Reject bid">
-                                                        <i class="fas fa-times"></i> Reject
+                                                            title="Failed preliminary examination">
+                                                        <i class="fas fa-times"></i> Fail
                                                     </button>
                                                 @endif
                                             </div>
@@ -485,7 +390,7 @@
                                         <td colspan="6" class="staff-empty-cell">
                                             <i class="fas fa-folder-open" style="font-size: 48px; color: #d1d5db; margin-bottom: 12px;"></i>
                                             <h3>No pending bid submissions</h3>
-                                            <p>All bids have been reviewed or there are no submissions for your assigned projects.</p>
+                                            <p>All Bids have been reviewed or there are no submissions for Your assigned projects.</p>
                                         </td>
                                     </tr>
                                 @endforelse
@@ -497,39 +402,44 @@
         </main>
     </div>
 
-    <!-- Bid Details Modal -->
+    <!-- bid details modal -->
     <div class="modal-overlay" id="bidDetailsModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title">Bid Submission Details</h3>
-                <button class="modal-close" onclick="closeModal('bidDetailsModal')" aria-label="Close modal">
+                <h3 class="modal-title">bid Submission details</h3>
+                <button class="modal-close" onclick="closeModal('bidDetailsModal')" aria-label="close modal">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <div class="modal-body" id="bidDetailsContent">
-                <!-- Content loaded via JS -->
+                <!-- content loaded via js -->
             </div>
         </div>
     </div>
 
-    <!-- Confirm Modal (Validate/Reject) -->
-    <div class="modal-overlay confirm-modal" id="confirmModal">
-        <div class="modal-content">
-            <div class="modal-body">
+    <!-- confirm modal (validate/reject) -->
+    <div class="modal-overlay confirm-modal bac-confirm-modal" id="confirmModal">
+        <div class="modal-content bac-confirm-card">
+            <div class="modal-header bac-confirm-header">
+                <h3 id="confirmTitle">Confirm Action</h3>
+                <button type="button" class="modal-close" onclick="closeModal('confirmModal')" aria-label="Close confirmation">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body bac-confirm-body">
                 <div class="confirm-icon warning" id="confirmIcon">
                     <i class="fas fa-exclamation-triangle"></i>
                 </div>
-                <h3 id="confirmTitle">Confirm Action</h3>
                 <p id="confirmMessage">Are you sure?</p>
                 <div class="reject-reason" id="rejectReasonInput" style="display: none;">
                     <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151;">Rejection Reason *</label>
                     <textarea id="rejectReason" placeholder="Please provide a clear reason for rejection..."></textarea>
-                    <div id="rejectError" style="color: #ef4444; font-size: 12px; margin-top: 4px; display: none;">Rejection reason is required.</div>
+                    <div id="rejectError" style="color: #ef4444; font-size: 12px; margin-top: 4px; display: none;">Rejection Reason is required.</div>
                 </div>
-                <div class="confirm-actions">
-                    <button class="staff-button-secondary" onclick="closeModal('confirmModal')">Cancel</button>
-                    <button class="staff-button-danger" id="confirmBtn" onclick="confirmAction()">Confirm</button>
-                </div>
+            </div>
+            <div class="confirm-actions bac-confirm-actions">
+                <button class="staff-button-secondary bac-confirm-cancel" onclick="closeModal('confirmModal')">Cancel</button>
+                <button class="staff-button-danger bac-confirm-danger" id="confirmBtn" onclick="confirmAction()">Confirm</button>
             </div>
         </div>
     </div>
@@ -540,10 +450,10 @@
         const bidDataCache = {};
         let pendingAction = null;
 
-        // Fetch bid details
+        // fetch bid details
         function fetchBidDetails(bidId) {
-            if (bidDataCache[bidId]) {
-                renderBidDetails(bidDataCache[bidId]);
+            if (bidDatacache[bidId]) {
+                renderBidDetails(bidDatacache[bidId]);
                 return;
             }
 
@@ -551,7 +461,7 @@
                 .then(res => res.json())
                 .then(data => {
                     if (data.ok) {
-                        bidDataCache[bidId] = data.bid;
+                        bidDatacache[bidId] = data.bid;
                         renderBidDetails(data.bid);
                     }
                 })
@@ -562,9 +472,9 @@
             const content = document.getElementById('bidDetailsContent');
             const eligibilityStatus = bid.eligibility_status || 'pending';
             const eligibilityLabel = {
-                'pending': 'Pending Review',
-                'valid': 'Valid',
-                'invalid': 'Invalid'
+                'pending': 'Pending review',
+                'valid': 'valid',
+                'invalid': 'invalid'
             }[eligibilityStatus] || 'Unknown';
 
             const workflowStepLabel = bid.workflow_step_label || bid.workflow_step || 'Unknown';
@@ -588,11 +498,11 @@
                 filesHTML.push(`
                     <a href="{{ route('staff.bids.proposal.download', ':bidId') }}".replace(':bidId', bid.id)
                        class="staff-button-primary file-actions-btn" style="padding: 8px 14px; font-size: 13px; margin-right: 8px;">
-                        <i class="fas fa-download"></i> Download Proposal
+                        <i class="fas fa-download"></i> Download proposal
                     </a>
                     <a href="{{ route('staff.bids.proposal.preview', ':bidId') }}".replace(':bidId', bid.id)
                        target="_blank" class="staff-button-secondary file-actions-btn" style="padding: 8px 14px; font-size: 13px;">
-                        <i class="fas fa-eye"></i> Preview
+                        <i class="fas fa-eye"></i> preview
                     </a>
                 `);
             }
@@ -604,7 +514,7 @@
                     </a>
                     <a href="{{ route('staff.bids.eligibility.preview', ':bidId') }}".replace(':bidId', bid.id)
                        target="_blank" class="staff-button-secondary file-actions-btn" style="padding: 8px 14px; font-size: 13px;">
-                        <i class="fas fa-eye"></i> Preview
+                        <i class="fas fa-eye"></i> preview
                     </a>
                 `);
             }
@@ -612,7 +522,7 @@
             content.innerHTML = `
                 <div class="bid-detail-grid">
                     <div class="bid-detail-item">
-                        <div class="bid-detail-label">Bidder</div>
+                        <div class="bid-detail-label">bidder</div>
                         <div class="bid-detail-value">${bid.user?.company || bid.user?.name || 'N/A'}</div>
                     </div>
                     <div class="bid-detail-item">
@@ -620,7 +530,7 @@
                         <div class="bid-detail-value">${bid.project?.title || 'N/A'}</div>
                     </div>
                     <div class="bid-detail-item">
-                        <div class="bid-detail-label">Bid Amount</div>
+                        <div class="bid-detail-label">bid Amount</div>
                         <div class="bid-detail-value" style="color: #10b981; font-size: 18px;">&#8369;${parseFloat(bid.bid_amount || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
                     </div>
                     <div class="bid-detail-item">
@@ -628,11 +538,11 @@
                         <div class="bid-detail-value">${new Date(bid.created_at).toLocaleDateString('en-US', {year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'})}</div>
                     </div>
                     <div class="bid-detail-item">
-                        <div class="bid-detail-label">Current Status</div>
+                        <div class="bid-detail-label">Current status</div>
                         <div class="bid-detail-value"><span class="status-badge ${bid.status || 'pending'}">${bid.status_label || 'Pending'}</span></div>
                     </div>
                     <div class="bid-detail-item">
-                        <div class="bid-detail-label">Eligibility Status</div>
+                        <div class="bid-detail-label">Eligibility status</div>
                         <div class="bid-detail-value">
                             <span class="status-badge ${eligibilityStatus === 'valid' ? 'validated' : eligibilityStatus === 'invalid' ? 'rejected' : 'pending'}">
                                 ${eligibilityLabel}
@@ -640,15 +550,15 @@
                         </div>
                     </div>
                     <div class="bid-detail-item" style="grid-column: 1 / -1;">
-                        <div class="bid-detail-label">Workflow Step</div>
+                        <div class="bid-detail-label">workflow step</div>
                         <div class="bid-detail-value">${workflowStepLabel}</div>
                     </div>
                 </div>
 
                 ${bid.notes ? `
                     <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; border-radius: 4px; margin-bottom: 16px;">
-                        <div style="font-size: 12px; font-weight: 600; color: #92400e; margin-bottom: 4px;">Notes</div>
-                        <div style="font-size: 14px; color: #92400e; white-space: pre-wrap;">${bid.notes}</div>
+                        <div style="font-size: 12px; font-weight: 600; color: #92400E; margin-bottom: 4px;">Notes</div>
+                        <div style="font-size: 14px; color: #92400E; white-space: pre-wrap;">${bid.notes}</div>
                     </div>
                 ` : ''}
 
@@ -661,7 +571,7 @@
 
                 ${filesHTML.length > 0 ? `
                     <div style="margin: 20px 0;">
-                        <div class="bid-detail-label" style="margin-bottom: 12px;">Uploaded Files</div>
+                        <div class="bid-detail-label" style="margin-bottom: 12px;">uploaded files</div>
                         <div class="file-actions">
                             ${filesHTML.join('')}
                         </div>
@@ -670,7 +580,7 @@
 
                 <div class="document-checklist">
                     <h4><i class="fas fa-clipboard-check"></i> Document Checklist</h4>
-                    ${checklistHTML || '<p style="color: #6b7280; font-size: 14px;">No documents uploaded yet.</p>'}
+                    ${checklistHTML || '<p style="color: #6b7280; font-size: 14px;">no documents uploaded yet.</p>'}
                 </div>
 
                 ${bid.workflow_timeline_steps ? `
@@ -683,10 +593,10 @@
                                 <div style="display: flex; align-items: center; padding: 8px 12px; background: ${step.completed ? '#f0fdf4' : step.current ? '#fef3c7' : '#f9fafb'}; border-left: 3px solid ${step.completed ? '#10b981' : step.current ? '#f59e0b' : '#d1d5db'}; border-radius: 4px;">
                                     <i class="fas ${step.icon}" style="color: ${step.completed ? '#10b981' : step.current ? '#f59e0b' : '#9ca3af'}; margin-right: 10px;"></i>
                                     <div style="flex: 1;">
-                                        <div style="font-size: 13px; font-weight: 500; color: #111827;">${step.label}</div>
+                                        <div style="font-size: 13px; font-weight: 500; color: #1b2420;">${step.label}</div>
                                         <div style="font-size: 11px; color: #6b7280;">${step.time}</div>
                                     </div>
-                                    ${step.verified ? '<i class="fas fa-check-circle" style="color: #10b981;"></i>' : ''}
+                                    ${step.Verified ? '<i class="fas fa-check-circle" style="color: #10b981;"></i>' : ''}
                                 </div>
                             `).join('')}
                         </div>
@@ -697,7 +607,7 @@
             openModal('bidDetailsModal');
         }
 
-        // Validation
+        // validation
         function validateBid(bidId) {
             pendingAction = { type: 'validate', bidId };
             const modal = document.getElementById('confirmModal');
@@ -708,14 +618,14 @@
 
             icon.className = 'confirm-icon warning';
             icon.innerHTML = '<i class="fas fa-check-circle"></i>';
-            title.textContent = 'Validate Bid Documents';
-            message.innerHTML = 'Are you sure you want to validate the bid documents?<br><small style="color: #6b7280;">This will advance the workflow to "Documents Validated" and notify the bidder.</small>';
+            title.textContent = 'Validate Bid documents';
+            message.innerHTML = 'Are you sure you want to validate the bid documents?<br><small style="color: #6b7280;">this will advance the workflow to "documents validated" and notify the bidder.</small>';
             reasonInput.style.display = 'none';
 
             openModal('confirmModal');
         }
 
-        // Reject
+        // reject
         function rejectBid(bidId) {
             pendingAction = { type: 'reject', bidId };
             const modal = document.getElementById('confirmModal');
@@ -727,7 +637,7 @@
             icon.className = 'confirm-icon danger';
             icon.innerHTML = '<i class="fas fa-times-circle"></i>';
             title.textContent = 'Reject Bid';
-            message.innerHTML = 'Are you sure you want to reject this bid?<br><small style="color: #6b7280;">The bidder will be notified and the bid marked as rejected.</small>';
+            message.innerHTML = 'Are you sure you want to reject this bid?<br><small style="color: #6b7280;">the bidder will be notified and the bid marked as Rejected.</small>';
             reasonInput.style.display = 'block';
 
             openModal('confirmModal');
@@ -769,10 +679,10 @@
             .then(res => res.json())
             .then(data => {
                 if (data.ok) {
-                    showToast('Bid validated successfully!', 'success');
+                    showToast('bid validated successfully!', 'success');
                     setTimeout(() => location.reload(), 800);
                 } else {
-                    showToast(data.message || 'Validation failed', 'error');
+                    showToast(data.message || 'validation Failed', 'error');
                     if (btn) {
                         btn.classList.remove('staff-btn-loading');
                         btn.disabled = false;
@@ -780,7 +690,7 @@
                 }
             })
             .catch(err => {
-                showToast('Request failed', 'error');
+                showToast('Request Failed', 'error');
                 if (btn) {
                     btn.classList.remove('staff-btn-loading');
                     btn.disabled = false;
@@ -806,10 +716,10 @@
             .then(res => res.json())
             .then(data => {
                 if (data.ok) {
-                    showToast('Bid rejected successfully!', 'success');
+                    showToast('bid Rejected successfully!', 'success');
                     setTimeout(() => location.reload(), 800);
                 } else {
-                    showToast(data.message || 'Rejection failed', 'error');
+                    showToast(data.message || 'Rejection Failed', 'error');
                     if (btn) {
                         btn.classList.remove('staff-btn-loading');
                         btn.disabled = false;
@@ -817,7 +727,7 @@
                 }
             })
             .catch(err => {
-                showToast('Request failed', 'error');
+                showToast('Request Failed', 'error');
                 if (btn) {
                     btn.classList.remove('staff-btn-loading');
                     btn.disabled = false;
@@ -851,37 +761,37 @@
             }, 4000);
         }
 
-        // Event listeners
-        document.addEventListener('click', function(e) {
-            if (e.target.classList.contains('modal-overlay')) {
-                e.target.classList.remove('active');
+        // event listeners
+        document.addEventListener('click', function(E) {
+            if (E.target.classList.contains('modal-overlay')) {
+                E.target.classList.remove('active');
                 document.body.style.overflow = '';
             }
         });
 
-        document.addEventListener('click', function(e) {
-            if (e.target.closest('.view-bid-btn')) {
-                const bidId = e.target.closest('.view-bid-btn').dataset.bidId;
+        document.addEventListener('click', function(E) {
+            if (E.target.closest('.view-bid-btn')) {
+                const bidId = E.target.closest('.view-bid-btn').dataset.bidId;
                 fetchBidDetails(bidId);
             }
         });
 
-        document.addEventListener('click', function(e) {
-            if (e.target.closest('.validate-bid-btn')) {
-                const bidId = e.target.closest('.validate-bid-btn').dataset.bidId;
+        document.addEventListener('click', function(E) {
+            if (E.target.closest('.validate-bid-btn')) {
+                const bidId = E.target.closest('.validate-bid-btn').dataset.bidId;
                 validateBid(bidId);
             }
         });
 
-        document.addEventListener('click', function(e) {
-            if (e.target.closest('.reject-bid-btn')) {
-                const bidId = e.target.closest('.reject-bid-btn').dataset.bidId;
+        document.addEventListener('click', function(E) {
+            if (E.target.closest('.reject-bid-btn')) {
+                const bidId = E.target.closest('.reject-bid-btn').dataset.bidId;
                 rejectBid(bidId);
             }
         });
 
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
+        document.addEventListener('keydown', function(E) {
+            if (E.key === 'Escape') {
                 document.querySelectorAll('.modal-overlay.active').forEach(modal => {
                     modal.classList.remove('active');
                     document.body.style.overflow = '';
@@ -889,16 +799,16 @@
             }
         });
 
-        // WebSocket - Real-time updates
+        // WebSocket - real-time Updates
         if (typeof Echo !== 'undefined') {
             Echo.private('staff.' + {{ Auth::id() }})
-                .listen('BidWorkflowUpdated', (e) => {
+                .listen('BidWorkflowUpdated', (E) => {
                     showToast('Bid status updated in real-time', 'success');
                     setTimeout(() => location.reload(), 1000);
                 });
         }
 
-        // Polling fallback
+        // polling Fallback
         setInterval(() => {
             const pendingCount = document.querySelectorAll('[data-bid-id]').length;
             if (pendingCount > 0) {
@@ -993,7 +903,7 @@
 
                 const content = document.getElementById('bidDetailsContent');
                 if (content) {
-                    content.innerHTML = '<p style="color:#64748b;">Loading bid details...</p>';
+                    content.innerHTML = '<p style="color:#6b736e;">Loading bid details...</p>';
                 }
                 window.openModal('bidDetailsModal');
 
@@ -1020,6 +930,8 @@
                 const content = document.getElementById('bidDetailsContent');
                 if (!content) return;
 
+                // Passing preliminary examination requires each project
+                // requirement to be verified, not just uploaded.
                 const checklist = (bid.document_checklist || []).map(function (item) {
                     return `
                         <div class="checklist-item">
@@ -1028,26 +940,28 @@
                             </span>
                             <span>${escapeHtml(item.label)}</span>
                             ${item.file_name ? `<span style="margin-left:auto;color:#6b7280;font-size:12px;">${escapeHtml(item.file_name)}</span>` : ''}
+                            ${bid.can_validate && item.submitted ? `<label style="margin-left:${item.file_name ? '12px' : 'auto'};font-size:12px;display:inline-flex;gap:4px;align-items:center;"><input type="checkbox" data-verify-requirement value="${escapeHtml(item.key)}"> Verified</label>` : ''}
                         </div>
                     `;
                 }).join('');
 
                 const fileButtons = [
                     bid.proposal_url ? `<a href="${escapeHtml(bid.proposal_url)}" target="_blank" rel="noopener" class="staff-button-secondary" style="padding:8px 14px;font-size:13px;"><i class="fas fa-eye"></i> View Proposal</a>` : '',
-                    bid.proposal_download_url ? `<a href="${escapeHtml(bid.proposal_download_url)}" class="staff-button-primary" style="padding:8px 14px;font-size:13px;"><i class="fas fa-download"></i> Download Proposal</a>` : '',
+                    bid.proposal_download_url ? `<a href="${escapeHtml(bid.proposal_download_url)}" class="staff-button-primary" style="padding:8px 14px;font-size:13px;"><i class="fas fa-download"></i> Download proposal</a>` : '',
                     bid.eligibility_url ? `<a href="${escapeHtml(bid.eligibility_url)}" target="_blank" rel="noopener" class="staff-button-secondary" style="padding:8px 14px;font-size:13px;"><i class="fas fa-eye"></i> View Eligibility</a>` : '',
                     bid.eligibility_download_url ? `<a href="${escapeHtml(bid.eligibility_download_url)}" class="staff-button-primary" style="padding:8px 14px;font-size:13px;"><i class="fas fa-download"></i> Download Eligibility</a>` : '',
                 ].filter(Boolean).join('');
 
                 const disableActions = !bid.can_validate && !bid.can_reject;
+                const permissionNotice = bid.can_decide ? '' : '<div style="margin:14px 0;padding:10px 12px;border:1px solid #d9e4dd;border-radius:8px;background:#f5faf7;color:#466052;font-size:13px;"><i class="fas fa-eye"></i> BAC Staff may prepare and view this record. BAC Admin records opening and review decisions.</div>';
                 content.innerHTML = `
                     <div class="bid-detail-grid">
                         <div class="bid-detail-item">
-                            <div class="bid-detail-label">Bidder / Company</div>
+                            <div class="bid-detail-label">bidder / company</div>
                             <div class="bid-detail-value">${escapeHtml(bid.bidder_name)}</div>
                         </div>
                         <div class="bid-detail-item">
-                            <div class="bid-detail-label">Bidder Email</div>
+                            <div class="bid-detail-label">bidder email</div>
                             <div class="bid-detail-value">${escapeHtml(bid.bidder_email)}</div>
                         </div>
                         <div class="bid-detail-item">
@@ -1055,11 +969,11 @@
                             <div class="bid-detail-value">${escapeHtml(bid.project_title)}</div>
                         </div>
                         <div class="bid-detail-item">
-                            <div class="bid-detail-label">Bid Amount</div>
-                            <div class="bid-detail-value">&#8369;${money(bid.bid_amount)}</div>
+                            <div class="bid-detail-label">bid Amount</div>
+                            <div class="bid-detail-value">${bid.sealed ? 'Sealed until bid opening' : '&#8369;' + money(bid.bid_amount)}</div>
                         </div>
                         <div class="bid-detail-item">
-                            <div class="bid-detail-label">Current Status</div>
+                            <div class="bid-detail-label">Current status</div>
                             <div class="bid-detail-value">
                                 <span class="status-badge ${statusClass(bid.status)}" data-modal-status>${escapeHtml(bid.status_label)}</span>
                             </div>
@@ -1072,14 +986,14 @@
 
                     ${(bid.notes || bid.rejection_reason) ? `
                         <div style="display:grid;gap:10px;margin-bottom:16px;">
-                            ${bid.notes ? `<div style="background:#fff7ed;border-left:4px solid #f97316;padding:12px;border-radius:8px;"><strong>Staff Remarks</strong><div style="margin-top:6px;white-space:pre-wrap;">${escapeHtml(bid.notes)}</div></div>` : ''}
+                            ${bid.notes ? `<div style="background:#e8f1ec;border-left:4px solid #235e4c;padding:12px;border-radius:8px;"><strong>Staff Remarks</strong><div style="margin-top:6px;white-space:pre-wrap;">${escapeHtml(bid.notes)}</div></div>` : ''}
                             ${bid.rejection_reason ? `<div style="background:#fee2e2;border-left:4px solid #ef4444;padding:12px;border-radius:8px;"><strong>Rejection Reason</strong><div style="margin-top:6px;white-space:pre-wrap;">${escapeHtml(bid.rejection_reason)}</div></div>` : ''}
                         </div>
                     ` : ''}
 
                     <div style="margin:18px 0;">
-                        <div class="bid-detail-label" style="margin-bottom:10px;">Submitted Documents</div>
-                        <div class="file-actions">${fileButtons || '<span style="color:#64748b;">No submitted documents available.</span>'}</div>
+                        <div class="bid-detail-label" style="margin-bottom:10px;">Submitted documents</div>
+                        <div class="file-actions">${fileButtons || '<span style="color:#6b736e;">No submitted documents available.</span>'}</div>
                     </div>
 
                     <div class="document-checklist">
@@ -1087,10 +1001,11 @@
                         ${checklist || '<p style="color:#6b7280;font-size:14px;">No checklist items available.</p>'}
                     </div>
 
+                    ${permissionNotice}
                     <div class="confirm-actions" style="justify-content:flex-end;margin-top:22px;">
-                        <button type="button" class="staff-button-success" data-modal-validate="${bid.id}" ${bid.can_validate ? '' : 'disabled'}>Validate</button>
-                        <button type="button" class="staff-button-danger" data-modal-reject="${bid.id}" ${bid.can_reject ? '' : 'disabled'}>Reject</button>
-                        ${disableActions ? '<span style="align-self:center;color:#64748b;font-size:13px;">This bid has already been reviewed.</span>' : ''}
+                        <button type="button" class="staff-button-success" data-modal-validate="${bid.id}" ${bid.can_validate ? '' : 'disabled'}>Passed Preliminary Examination</button>
+                        <button type="button" class="staff-button-danger" data-modal-reject="${bid.id}" ${bid.can_reject ? '' : 'disabled'}>Fail / Disqualify</button>
+                        ${disableActions ? `<span style="align-self:center;color:#6b736e;font-size:13px;">${bid.sealed ? 'Bids are sealed until the bid opening is recorded.' : 'No preliminary decision is available at this stage.'}</span>` : ''}
                     </div>
                 `;
 
@@ -1128,7 +1043,9 @@
                     submitReviewAction(action.bidId, 'reject', { rejection_reason: reason });
                     return;
                 }
-                submitReviewAction(action.bidId, 'validate', {});
+                const verified = Array.from(document.querySelectorAll('#bidDetailsContent [data-verify-requirement]:checked'))
+                    .map(function (input) { return input.value; });
+                submitReviewAction(action.bidId, 'validate', { verified_requirements: verified });
             };
 
             async function submitReviewAction(bidId, type, payload) {
@@ -1213,7 +1130,8 @@
                 if (tableValidate) {
                     event.preventDefault();
                     event.stopImmediatePropagation();
-                    window.validateBid(tableValidate.dataset.bidId);
+                    // Open the review so each requirement can be verified first.
+                    window.fetchBidDetails(tableValidate.dataset.bidId);
                     return;
                 }
 

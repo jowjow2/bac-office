@@ -4,70 +4,160 @@
 @section('body_class', 'public-page')
 
 @section('content')
-    <main class="public-shell">
-        <section class="public-page-hero">
-            <p class="public-page-kicker">Awards & Contracts</p>
-            <h1>Recently awarded procurement projects</h1>
-            <p>
-                See awarded contracts, project titles, winning bidders, and contract values published through BAC-Office.
+    @php
+        /** $records / $postings come from PublicAwardController::publicRecord(). */
+        $totalAwardedValue = $awards->sum('contract_amount');
+        $cardUrl = fn (array $record) => route('public.awards', array_filter(['q' => $query, 'award' => $record['id'], 'page' => $postings->currentPage() > 1 ? $postings->currentPage() : null])).'#award-document';
+        $pageUrl = fn (int $page) => route('public.awards', array_filter(['q' => $query, 'award' => $selected['id'] ?? null, 'page' => $page > 1 ? $page : null]));
+        $postTitle = fn (array $record) => trim(($record['date_code'] ? $record['date_code'].' – ' : '').'Notice of Award');
+    @endphp
+
+    <main class="public-shell award-posts" data-award-docs>
+        <header class="board-bar">
+            <div>
+                <p class="board-eyebrow">Bids and Awards Committee &middot; San Jose, Occidental Mindoro</p>
+                <h1>Awards &amp; Contracts</h1>
+            </div>
+            <form action="{{ route('public.awards') }}" method="GET" class="board-search" role="search">
+                <label for="award-docs-q" class="sr-only">Search awards</label>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+                <input id="award-docs-q" type="search" name="q" value="{{ $query }}" placeholder="Search project, contractor or reference no." autocomplete="off">
+                <button type="submit" class="btn">Search</button>
+            </form>
+        </header>
+
+        @if($query !== '')
+            <p class="board-results">
+                {{ $records->count() }} result{{ $records->count() === 1 ? '' : 's' }} for "<strong>{{ $query }}</strong>"
+                <a href="{{ route('public.awards') }}">Clear search</a>
             </p>
-        </section>
+        @endif
 
-        <section class="public-results-bar">
-            <p>
-                @if($query !== '')
-                    Results for "<strong>{{ $query }}</strong>"
-                @else
-                    Showing the latest awarded contracts
-                @endif
-            </p>
-            <span>{{ $awards->count() }} award{{ $awards->count() === 1 ? '' : 's' }}</span>
-        </section>
+        @if($selected === null)
+            <div class="public-empty-state award-posts-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
+                <p>
+                    @if($query !== '')
+                        No published award matched "<strong>{{ $query }}</strong>".
+                    @else
+                        No awarded contracts have been published yet.
+                    @endif
+                </p>
+            </div>
+        @else
+            {{-- The selected posting: title, posting date and reference, then its document. --}}
+            <article id="award-document" class="award-post" aria-labelledby="award-post-title" tabindex="-1">
+                <header class="award-post-head">
+                    <h2 id="award-post-title" class="award-post-title" data-award-field="post_title">{{ $postTitle($selected) }}</h2>
+                    <p class="award-post-subject" data-award-field="title">{{ $selected['title'] }}</p>
+                    <p class="award-post-posted">
+                        <span>Posted: <time data-award-field="date" datetime="{{ $selected['date_iso'] }}">{{ $selected['date'] }}</time></span>
+                        <span>Reference No. <b class="award-post-mono" data-award-field="reference">{{ $selected['reference'] }}</b></span>
+                        <span>Project <b class="award-post-mono" data-award-field="project_reference">{{ $selected['project_reference'] ?: '—' }}</b></span>
+                    </p>
+                </header>
 
-        <section class="public-card-grid">
-                @forelse($awards as $award)
-                    @php
-                        $winner = $award->bid?->user?->company ?: ($award->bid?->user?->name ?? 'N/A');
-                        $hasCertificate = $award->hasCertificateFile();
-                        $qrUrl = $award->tokenQrUrl();
-                    @endphp
-                    <article class="public-card">
-                        <div class="public-card-meta">
-                            <span class="public-status public-status-awarded">{{ ucfirst($award->status) }}</span>
-                            <span>{{ $award->contract_date?->format('M d, Y') ?? 'TBA' }}</span>
-                        </div>
-
-                        <h2>{{ $award->project?->title ?? 'Untitled Project' }}</h2>
-                        <p>Winning bidder: {{ $winner }}</p>
-
-                        <div class="public-award-verify">
-                            @if($hasCertificate)
-                                <div class="public-award-qr" aria-label="Scan QR code for official award certificate">
-                                    <img src="{{ $qrUrl }}" alt="QR code for official award certificate">
-                                </div>
-                                <div class="public-award-verify-copy">
-                                    <span>Official Certificate QR</span>
-                                    <strong>{{ $award->certificate_number }}</strong>
-                                    <p>Scan QR to view the authentic certificate document.</p>
-                                </div>
-                            @else
-                                <div class="public-award-verify-copy">
-                                    <span>Certificate Verification</span>
-                                    <strong>Pending certificate</strong>
-                                    <p>Certificate not yet uploaded.</p>
-                                </div>
-                            @endif
-                        </div>
-
-                        <div class="public-card-footer">
-                            <strong>&#8369;{{ number_format((float) $award->contract_amount, 2) }}</strong>
-                        </div>
-                    </article>
-                @empty
-                <div class="public-empty-state">
-                    No awarded contracts matched your search yet.
+                <div class="award-post-viewer">
+                    <iframe
+                        class="award-post-frame"
+                        title="Notice of Award: {{ $selected['title'] }}"
+                        src="{{ $selected['document_url'] ?? 'about:blank' }}"
+                        data-award-frame
+                        @unless($selected['document_url']) hidden @endunless
+                    ></iframe>
+                    <div class="award-post-missing" data-award-missing @if($selected['document_url']) hidden @endif>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="m9.5 12.5 5 5m0-5-5 5"/></svg>
+                        <strong>Document not available</strong>
+                        <span>The signed Notice of Award for this record has not been published online.</span>
+                    </div>
                 </div>
-            @endforelse
-        </section>
+
+                <div class="award-post-facts" aria-label="Award details">
+                    <dl>
+                        <div><dt>Winning bidder</dt><dd data-award-field="winner">{{ $selected['winner'] }}</dd></div>
+                        <div><dt>Contract amount</dt><dd class="award-post-amount" data-award-field="amount">{{ $selected['amount'] }}</dd></div>
+                        <div><dt>Status</dt><dd><span class="award-post-status" data-award-field="status">{{ $selected['status'] }}</span></dd></div>
+                    </dl>
+                    <div class="award-post-actions">
+                        <a href="{{ $selected['bidder_verify_url'] ?? '#' }}" class="award-post-qr public-qr-preview-trigger" data-public-qr-trigger="award-bidder-qr-modal" data-award-bidder data-award-bidder-link aria-label="QR code of the winning bidder's awarded bids" @unless($selected['bidder_qr_url']) hidden @endunless>
+                            <img src="{{ $selected['bidder_qr_url'] ?? '' }}" alt="" data-award-bidder-qr>
+                        </a>
+                        <a href="{{ $selected['verify_url'] }}" class="btn-outline" data-award-verify>View award details</a>
+                        <a href="{{ $selected['document_url'] ?? '#' }}" target="_blank" rel="noopener" class="btn" data-award-open @unless($selected['document_url']) hidden @endunless>Open document</a>
+                    </div>
+                </div>
+            </article>
+
+            @if($records->contains(fn ($record) => $record['bidder_qr_url']))
+                <div id="award-bidder-qr-modal" class="public-qr-modal" hidden aria-hidden="true">
+                    <div class="public-qr-backdrop" data-public-qr-close></div>
+                    <section class="public-qr-dialog" role="dialog" aria-modal="true" aria-label="QR code for the winning bidder's bidding record">
+                        <button type="button" class="public-qr-close" data-public-qr-close aria-label="Close QR preview">&times;</button>
+                        <div class="public-qr-image-frame">
+                            <img src="{{ $selected['bidder_qr_url'] ?? '' }}" alt="QR code for the winning bidder's bidding record" data-award-bidder-qr>
+                        </div>
+                        <p class="public-qr-caption">Scan to see this bidder's awarded bids</p>
+                    </section>
+                </div>
+            @endif
+
+            <section class="award-post-list" aria-labelledby="award-post-list-title">
+                <header class="award-post-list-head">
+                    <h2 id="award-post-list-title">Award postings</h2>
+                    <p>{{ $records->count() }} award{{ $records->count() === 1 ? '' : 's' }} &middot; &#8369;{{ number_format((float) $totalAwardedValue, 2) }} total contract value</p>
+                </header>
+
+                <ul class="award-post-cards">
+                    @foreach($postings as $record)
+                        @php $isSelected = $record['id'] === $selected['id']; @endphp
+                        <li>
+                            <a href="{{ $cardUrl($record) }}"
+                               class="award-post-card {{ $isSelected ? 'is-selected' : '' }}"
+                               data-award-card
+                               data-award='@json($record + ['post_title' => $postTitle($record)])'
+                               @if($isSelected) aria-current="true" @endif>
+                                <span class="award-post-thumb" aria-hidden="true">
+                                    <img src="{{ asset('Images/Logo2.png') }}" alt="" loading="lazy">
+                                    <span>Bids and Awards Committee<br>San Jose, Occidental Mindoro</span>
+                                    @unless($record['document_url'])<em>No document</em>@endunless
+                                </span>
+                                <span class="award-post-card-body">
+                                    <strong>{{ $postTitle($record) }} – {{ $record['title'] }}</strong>
+                                    <small>{{ $record['date'] }}</small>
+                                    <small class="award-post-mono">{{ $record['reference'] }}</small>
+                                </span>
+                                <span class="award-post-card-flag">Now viewing</span>
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+
+                @if($postings->hasPages())
+                    <nav class="award-post-pages" aria-label="Award postings pages">
+                        @if($postings->onFirstPage())
+                            <span class="is-disabled" aria-hidden="true">&larr;</span>
+                        @else
+                            <a href="{{ $pageUrl($postings->currentPage() - 1) }}" aria-label="Previous page">&larr;</a>
+                        @endif
+                        @foreach(range(1, $postings->lastPage()) as $page)
+                            @if($page === $postings->currentPage())
+                                <span class="is-current" aria-current="page">{{ $page }}</span>
+                            @elseif($page === 1 || $page === $postings->lastPage() || abs($page - $postings->currentPage()) <= 1)
+                                <a href="{{ $pageUrl($page) }}">{{ $page }}</a>
+                            @elseif(abs($page - $postings->currentPage()) === 2)
+                                <span class="is-gap" aria-hidden="true">&hellip;</span>
+                            @endif
+                        @endforeach
+                        @if($postings->hasMorePages())
+                            <a href="{{ $pageUrl($postings->currentPage() + 1) }}" aria-label="Next page">&rarr;</a>
+                        @else
+                            <span class="is-disabled" aria-hidden="true">&rarr;</span>
+                        @endif
+                    </nav>
+                @endif
+            </section>
+        @endif
     </main>
+
+    @vite('resources/js/public-awards.js')
 @endsection

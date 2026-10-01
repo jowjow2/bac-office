@@ -16,6 +16,7 @@
             if (!config.feedUrl) return;
 
             const badgeSelectors = ['[data-notification-badge]'];
+            const messageBadgeSelectors = ['[data-message-badge]'];
             const list = document.querySelector('[data-notifications-list]');
             const dropdownList = document.querySelector('[data-notification-dropdown-list]');
             const unreadLabels = document.querySelectorAll('[data-notification-unread-label]');
@@ -109,12 +110,13 @@
                     });
 
                     updateBadges(Number(data.unread_count || 0));
+                    updateMessageBadges(Number(data.unread_messages_count || 0));
                     renderList(list, notifications, false);
                     renderList(dropdownList, notifications.slice(0, 5), true);
 
                     if (hasNew) {
                         const newestNotification = notifications.find(function (item) {
-                            return !latestIds.has(String(item.id)) && !item.is_read;
+                            return !latestIds.has(String(item.id)) && !item.is_read && shouldShowNotificationToast(item);
                         });
 
                         if (newestNotification) {
@@ -257,10 +259,10 @@
                     'gap:12px',
                     'padding:14px 16px',
                     'border-radius:14px',
-                    'background:#0f172a',
+                    'background:#1b2420',
                     'color:#fff',
                     'text-decoration:none',
-                    'box-shadow:0 18px 40px rgba(15,23,42,0.28)',
+                    'box-shadow:0 18px 40px rgba(27, 36, 32,0.28)',
                     'z-index:10050',
                     'transform:translateY(-8px)',
                     'opacity:0',
@@ -278,8 +280,8 @@
                         justify-content: center;
                         flex: 0 0 auto;
                         border-radius: 999px;
-                        background: rgba(249, 115, 22, 0.16);
-                        color: #fb923c;
+                        background: rgba(29, 79, 64, 0.18);
+                        color: #6fae94;
                     }
                     .toast-live-notification-copy {
                         min-width: 0;
@@ -295,7 +297,7 @@
                         white-space: nowrap;
                     }
                     .toast-live-notification-copy small {
-                        color: #cbd5e1;
+                        color: #d2cbbb;
                         font-size: 12px;
                         line-height: 1.35;
                         display: -webkit-box;
@@ -319,6 +321,10 @@
                     toast.classList.remove('show');
                     setTimeout(function () { toast.remove(); }, 220);
                 }, 5000);
+            }
+
+            function shouldShowNotificationToast(notification) {
+                return String(notification.type || '').toLowerCase() !== 'message';
             }
 
             function renderList(target, notifications, compact) {
@@ -355,13 +361,13 @@
                     }
                 } else if (title.includes('project') || message.includes('project')) {
                     iconClass = 'fa-briefcase';
-                    iconColor = 'notification-icon-warning';
+                    iconColor = 'notification-icon-info';
                 } else if (title.includes('message') || message.includes('message')) {
                     iconClass = 'fa-envelope';
                     iconColor = 'notification-icon-info';
                 } else if (title.includes('award') || message.includes('award')) {
                     iconClass = 'fa-trophy';
-                    iconColor = 'notification-icon-warning';
+                    iconColor = 'notification-icon-info';
                 } else if (title.includes('assign') || message.includes('assign')) {
                     iconClass = 'fa-tasks';
                     iconColor = 'notification-icon-primary';
@@ -400,6 +406,8 @@
 
             function renderDropdownItem(notification) {
                 const stateClass = notification.is_read ? 'is-read' : 'is-unread';
+                const { iconClass, iconColor } = getNotificationIcon(notification);
+                const unreadIndicator = notification.is_read ? '' : '<span class="notification-unread-indicator"></span>';
 
                 return `
                     <a href="${escapeAttribute(openUrl(notification.id))}"
@@ -407,23 +415,29 @@
                        data-notification-row
                        data-notification-open
                        data-notification-id="${escapeAttribute(notification.id)}">
-                        <div class="notification-item-title">${escapeHtml(notification.title || notification.message || 'Notification')}</div>
-                        <div class="notification-item-meta">${escapeHtml(notification.message || '')}</div>
-                        <div class="notification-item-meta">${escapeHtml(notification.time || 'Recently')}</div>
+                        <div class="notification-icon ${iconColor}">
+                            <i class="fas ${iconClass}"></i>
+                            ${unreadIndicator}
+                        </div>
+                        <div class="notification-item-body">
+                            <div class="notification-item-title">${escapeHtml(notification.title || notification.message || 'Notification')}</div>
+                            <div class="notification-item-meta">${escapeHtml(notification.message || '')}</div>
+                            <div class="notification-item-time">${escapeHtml(notification.time || 'Recently')}</div>
+                        </div>
                     </a>
                 `;
             }
 
             function updateBadges(count) {
-                document.querySelectorAll('.notification-button').forEach(function (button) {
-                    const existingBadge = button.querySelector('.notification-badge');
+                document.querySelectorAll('.portal-bell__button').forEach(function (button) {
+                    const existingBadge = button.querySelector('.portal-bell__count');
                     if (existingBadge && !existingBadge.dataset.notificationBadge) {
                         existingBadge.dataset.notificationBadge = '';
                     }
 
                     if (!button.querySelector('[data-notification-badge]')) {
                         const badge = document.createElement('span');
-                        badge.className = 'notification-badge';
+                        badge.className = 'portal-bell__count';
                         badge.dataset.notificationBadge = '';
                         badge.hidden = true;
                         badge.style.display = 'none';
@@ -454,8 +468,33 @@
                 });
             }
 
+            function updateMessageBadges(count) {
+                messageBadgeSelectors.forEach(function (selector) {
+                    document.querySelectorAll(selector).forEach(function (badge) {
+                        if (!badge) return;
+
+                        if (count > 0) {
+                            badge.textContent = String(count);
+                            badge.hidden = false;
+                            badge.style.display = 'inline-flex';
+                        } else {
+                            badge.textContent = '';
+                            badge.hidden = true;
+                            badge.style.display = 'none';
+                        }
+                    });
+                });
+            }
+
+            window.BacUpdateMessageBadges = updateMessageBadges;
+
+            document.addEventListener('bac:message-count-updated', function (event) {
+                const count = Number(event.detail?.count || 0);
+                updateMessageBadges(count);
+            });
+
             function currentBadgeCount() {
-                const badge = document.querySelector('[data-notification-badge], .notification-button .notification-badge');
+                const badge = document.querySelector('[data-notification-badge]');
                 return Number(badge?.textContent || 0);
             }
 

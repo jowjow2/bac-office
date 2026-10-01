@@ -1,6 +1,9 @@
 @php
     $requirement = $project->requirement;
-    $requiredDocuments = collect($requirement?->required_documents ?? [])->filter()->values();
+    // The submit modal shows these as upload rows instead (BidSubmissionRequirements).
+    $requiredDocuments = ($showDocumentChips ?? true)
+        ? collect($requirement?->required_documents ?? [])->filter()->values()
+        : collect();
     $requirementSections = collect([
         'Eligibility Requirements' => $requirement?->eligibility_requirements,
         'Technical Requirements' => $requirement?->technical_requirements,
@@ -25,10 +28,7 @@
         @if($requiredDocuments->isNotEmpty())
             <div class="bidder-required-docs">
                 @foreach($requiredDocuments as $document)
-                    <span class="bidder-required-doc">
-                        <i class="fas fa-check"></i>
-                        {{ $document }}
-                    </span>
+                    <span class="bidder-required-doc">{{ $document }}</span>
                 @endforeach
             </div>
         @endif

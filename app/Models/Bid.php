@@ -2,14 +2,88 @@
 
 namespace App\Models;
 
+use App\Support\BidProgress;
+use App\Support\BidSubmissionRequirements;
 use App\Support\Uploads;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use App\Models\Concerns\MasksFutureProcurementEvents;
 use Illuminate\Database\Eloquent\Model;
 
 class Bid extends Model
 {
+    use MasksFutureProcurementEvents;
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope('known_as_of_demo_clock', function (Builder $query): void {
+            $clock = app(\App\Support\ProcurementClock::class);
+            if (! $clock->demoModeEnabled()) return;
+            $at = $clock->now();
+            $query->where('created_at', '<=', $at)
+                ->where(fn (Builder $visible) => $visible->whereNull('submitted_at')->orWhere('submitted_at', '<=', $at));
+        });
+    }
+    public function workflowStepAsOf($rawStep = null): string
+    {
+        $rawUpdatedAt = $this->getRawOriginal('workflow_step_updated_at');
+        if ($rawUpdatedAt === null || ! \Carbon\CarbonImmutable::parse($rawUpdatedAt, config('app.timezone', 'Asia/Manila'))
+                ->greaterThan(app(\App\Support\ProcurementClock::class)->now())) {
+            return (string) ($rawStep ?: self::STEP_SUBMITTED);
+        }
+
+        return match (true) {
+            $this->project_completed_at !== null => self::STEP_PROJECT_COMPLETED,
+            $this->disqualified_at !== null => self::STEP_DISQUALIFIED,
+            $this->notice_to_proceed_at !== null => self::STEP_NOTICE_TO_PROCEED,
+            $this->contract_signed_at !== null => self::STEP_CONTRACT_SIGNED,
+            $this->notice_of_award_at !== null => self::STEP_NOTICE_OF_AWARD,
+            $this->award_decision_at !== null && $this->award_decision === self::AWARD_DECISION_APPROVED => self::STEP_AWARDED,
+            $this->award_decision_at !== null && $this->award_decision === self::AWARD_DECISION_DISAPPROVED => self::STEP_NOT_AWARDED,
+            $this->bac_recommended_at !== null => self::STEP_RECOMMENDED,
+            $this->post_qualification_completed_at !== null => self::STEP_POST_QUALIFIED,
+            $this->post_qualification_at !== null => self::STEP_POST_QUALIFICATION,
+            $this->evaluated_at !== null => self::STEP_EVALUATED,
+            $this->bac_evaluation_at !== null => self::STEP_FOR_BAC_EVALUATION,
+            $this->documents_validated_at !== null => self::STEP_DOCUMENTS_VALIDATED,
+            $this->submitted_at !== null => self::STEP_SUBMITTED,
+            default => self::STEP_SUBMITTED,
+        };
+    }
+
+    public function getWorkflowStepAttribute($value): string
+    {
+        return $this->workflowStepAsOf($value);
+    }
+
+    public function getStatusAttribute($value): ?string
+    {
+        $step = $this->workflowStepAsOf($this->attributes['workflow_step'] ?? null);
+        $updatedAt = $this->getRawOriginal('workflow_step_updated_at');
+        $isRewound = $updatedAt !== null && \Carbon\CarbonImmutable::parse($updatedAt, config('app.timezone', 'Asia/Manila'))
+            ->greaterThan(app(\App\Support\ProcurementClock::class)->now());
+        if (! $isRewound) return $value;
+
+        return match ($step) {
+            self::STEP_DISQUALIFIED, self::STEP_NOT_AWARDED => 'rejected',
+            self::STEP_AWARDED, self::STEP_NOTICE_OF_AWARD, self::STEP_CONTRACT_SIGNED, self::STEP_NOTICE_TO_PROCEED, self::STEP_PROJECT_COMPLETED => 'awarded',
+            self::STEP_DOCUMENTS_VALIDATED, self::STEP_FOR_BAC_EVALUATION, self::STEP_EVALUATED, self::STEP_POST_QUALIFICATION, self::STEP_POST_QUALIFIED, self::STEP_RECOMMENDED => 'approved',
+            default => 'pending',
+        };
+    }
+    protected function futureProcurementEventFields(): array
+    {
+        return [
+            'created_at', 'submitted_at', 'workflow_step_updated_at', 'eligibility_reviewed_at',
+            'documents_validated_at', 'bac_evaluation_at', 'approved_at', 'disqualified_at',
+            'awarded_at', 'notice_of_award_at', 'notice_to_proceed_at', 'project_completed_at',
+            'evaluated_at', 'post_qualification_at', 'post_qualification_completed_at',
+            'bac_recommended_at', 'award_decision_at', 'contract_signed_at', 'technical_scored_at',
+            'financial_opened_at',
+        ];
+    }
     public const ELIGIBILITY_PENDING = 'pending';
     public const ELIGIBILITY_VALID = 'valid';
     public const ELIGIBILITY_INVALID = 'invalid';
@@ -26,17 +100,48 @@ class Bid extends Model
     public const STEP_NOTICE_OF_AWARD = 'notice_of_award';
     public const STEP_NOTICE_TO_PROCEED = 'notice_to_proceed';
     public const STEP_PROJECT_COMPLETED = 'project_completed';
+    public const STEP_EVALUATED = 'evaluated';
+    public const STEP_POST_QUALIFICATION = 'post_qualification';
+    public const STEP_POST_QUALIFIED = 'post_qualified';
+    public const STEP_RECOMMENDED = 'recommended';
+    public const STEP_CONTRACT_SIGNED = 'contract_signed';
 
+    public const POST_QUALIFICATION_PASSED = 'passed';
+    public const POST_QUALIFICATION_FAILED = 'failed';
+
+    public const AWARD_DECISION_APPROVED = 'approved';
+    public const AWARD_DECISION_DISAPPROVED = 'disapproved';
+
+    /** An approved award the HoPE later cancelled before contract signing. */
+    public const AWARD_DECISION_CANCELLED = 'cancelled';
+
+    /** Official electronic submission (project authorized for it). */
+    public const CHANNEL_ELECTRONIC = 'electronic';
+
+    /** Manual submission through the BAC Secretariat; official once receipt is recorded. */
+    public const CHANNEL_MANUAL = 'manual';
+
+    /** Bids accepted through the website before submission channels existed. */
+    public const CHANNEL_LEGACY = 'website_legacy';
+
+    // Internal workflow_step labels (admin/staff). Bidders see BidProgress
+    // labels instead. STEP_APPROVED is a legacy value: it was set when
+    // documents were approved, so it never means the bid won.
     public const WORKFLOW_STEPS = [
         self::STEP_SUBMITTED => 'Bid Submitted',
         self::STEP_PENDING_VALIDATION => 'Pending Validation',
-        self::STEP_DOCUMENTS_VALIDATED => 'Documents Validated',
-        self::STEP_FOR_BAC_EVALUATION => 'For BAC Evaluation',
-        self::STEP_APPROVED => 'Approved',
+        self::STEP_DOCUMENTS_VALIDATED => 'Passed Preliminary Examination',
+        self::STEP_FOR_BAC_EVALUATION => 'Under Evaluation',
+        self::STEP_APPROVED => 'Approved for Evaluation (legacy)',
+        self::STEP_EVALUATED => 'Evaluated',
+        self::STEP_POST_QUALIFICATION => 'Under Post-Qualification',
+        self::STEP_POST_QUALIFIED => 'Post-Qualified',
+        self::STEP_RECOMMENDED => 'Recommended for Award',
         self::STEP_DISQUALIFIED => 'Disqualified',
-        self::STEP_AWARDED => 'Awarded',
+        self::STEP_AWARDED => 'Award Approved',
         self::STEP_NOT_AWARDED => 'Not Awarded',
         self::STEP_NOTICE_OF_AWARD => 'Notice of Award Issued',
+        self::STEP_CONTRACT_SIGNED => 'Contract Signed',
         self::STEP_NOTICE_TO_PROCEED => 'Notice to Proceed Issued',
         self::STEP_PROJECT_COMPLETED => 'Project Completed',
     ];
@@ -108,12 +213,45 @@ class Bid extends Model
         'notice_to_proceed_by',
         'project_completed_at',
         'project_completed_by',
+        'evaluated_at',
+        'evaluated_by',
+        'post_qualification_at',
+        'post_qualification_by',
+        'post_qualification_result',
+        'post_qualification_completed_at',
+        'bac_recommended_at',
+        'bac_recommended_by',
+        'award_decision',
+        'award_decision_at',
+        'award_decision_by',
+        'performance_security_at',
+        'contract_signed_at',
+        'contract_signed_by',
+        'disqualified_stage',
         'notes',
         'rejection_reason',
+        'submission_channel',
+        'submitted_at',
+        'financial_opening_password_hash',
+        'financial_password_attempts',
+        'financial_password_locked_until',
+        'receipt_no',
+        'submission_received_by',
+        'bac_resolution_no',
+        'bac_resolution_date',
     ];
 
+    protected $hidden = ['financial_opening_password_hash'];
+
     protected $casts = [
+        'financial_password_locked_until' => 'datetime',
         'bid_amount' => 'decimal:2',
+        'financial_opened_at' => 'datetime',
+        'financial_opened_by' => 'integer',
+        'technical_score' => 'decimal:4',
+        'technical_scored_at' => 'datetime',
+        'technical_scored_by' => 'integer',
+        'bac_resolution_date' => 'date',
         'eligibility_reviewed_at' => 'datetime',
         'workflow_step_updated_at' => 'datetime',
         'documents_validated_at' => 'datetime',
@@ -124,7 +262,29 @@ class Bid extends Model
         'notice_of_award_at' => 'datetime',
         'notice_to_proceed_at' => 'datetime',
         'project_completed_at' => 'datetime',
+        'evaluated_at' => 'datetime',
+        'post_qualification_at' => 'datetime',
+        'post_qualification_completed_at' => 'datetime',
+        'bac_recommended_at' => 'datetime',
+        'award_decision_at' => 'datetime',
+        'performance_security_at' => 'date',
+        'contract_signed_at' => 'datetime',
+        'submitted_at' => 'datetime',
     ];
+
+    /**
+     * Bids the BAC recommended and the HoPE approved that do not have an award
+     * record (certificate) yet. Only these can be "declared the winner".
+     */
+    public function scopeAwaitingAwardRecord(Builder $query): Builder
+    {
+        // Approved, Notice of Award not issued yet. The approval already handed
+        // off an award record, so the award itself is not the test.
+        return $query->whereNotNull('bac_recommended_at')
+            ->where('award_decision', self::AWARD_DECISION_APPROVED)
+            ->whereNull('disqualified_at')
+            ->whereNull('notice_of_award_at');
+    }
 
     public function getAmountAttribute(): mixed
     {
@@ -186,104 +346,37 @@ class Bid extends Model
     }
 
     /**
-     * Determine the effective workflow step based on bid data (for backward compatibility)
+     * Bidder-facing progress built only from recorded BAC / LGU actions.
      */
-    public function getEffectiveWorkflowStepAttribute(): string
+    public function progress(): BidProgress
     {
-        // If workflow_step is explicitly set and not default, use it
-        if ($this->workflow_step && $this->workflow_step !== self::STEP_SUBMITTED) {
-            return $this->workflow_step;
-        }
-
-        // Fallback: derive from legacy fields
-        if ($this->status === 'approved') {
-            if ($this->award && in_array($this->award->status, [Award::STATUS_VALID, 'active'], true)) {
-                return self::STEP_AWARDED;
-            }
-            return self::STEP_APPROVED;
-        }
-
-        if ($this->status === 'rejected') {
-            return self::STEP_DISQUALIFIED;
-        }
-
-        if ($this->eligibility_status === self::ELIGIBILITY_VALID) {
-            return self::STEP_DOCUMENTS_VALIDATED;
-        }
-
-        if ($this->eligibility_status === self::ELIGIBILITY_INVALID) {
-            return self::STEP_DISQUALIFIED;
-        }
-
-        return self::STEP_PENDING_VALIDATION;
+        return BidProgress::for($this);
     }
 
     /**
-     * Get the complete timeline steps for display
+     * Compact timeline for the staff review modal and broadcasts. Derived from
+     * BidProgress so every screen agrees on which milestones really happened.
      */
     public function getWorkflowTimelineSteps(): array
     {
-        $step = $this->effective_workflow_step;
-        $orderedSteps = array_keys(self::WORKFLOW_STEPS);
-        $currentIndex = array_search($step, $orderedSteps);
-
-        $completedSteps = [];
-        if ($currentIndex !== false) {
-            $completedSteps = array_slice($orderedSteps, 0, $currentIndex);
-        }
-
         $steps = [];
-        foreach (self::WORKFLOW_STEPS as $key => $label) {
-            $isCompleted = in_array($key, $completedSteps, true);
-            $isCurrent = $key === $step;
 
-            // Determine if this step was verified by an admin or staff
-            $verified = false;
-            if ($isCompleted || $isCurrent) {
-                $verifier = null;
-                switch ($key) {
-                    case self::STEP_DOCUMENTS_VALIDATED:
-                        $verifier = $this->documentsValidator;
-                        break;
-                    case self::STEP_FOR_BAC_EVALUATION:
-                        $verifier = $this->bacEvaluator;
-                        break;
-                    case self::STEP_APPROVED:
-                        $verifier = $this->approvedByUser;
-                        break;
-                    case self::STEP_DISQUALIFIED:
-                        $verifier = $this->disqualifiedByUser;
-                        break;
-                    case self::STEP_AWARDED:
-                        $verifier = $this->awardedByUser;
-                        break;
-                    case self::STEP_NOTICE_OF_AWARD:
-                        $verifier = $this->noticeOfAwardByUser;
-                        break;
-                    case self::STEP_NOTICE_TO_PROCEED:
-                        $verifier = $this->noticeToProceedByUser;
-                        break;
-                    case self::STEP_PROJECT_COMPLETED:
-                        $verifier = $this->projectCompletedByUser;
-                        break;
-                }
-                if ($key === self::STEP_PENDING_VALIDATION && $isCompleted) {
-                    $verified = true;
-                }
+        foreach ($this->progress()->stages() as $stage) {
+            $state = $stage['state'];
 
-                if ($verifier && in_array($verifier->role, ['admin', 'staff'], true)) {
-                    $verified = true;
-                }
-            }
-
-            $steps[$key] = [
-                'label' => $label,
-                'completed' => $isCompleted || $isCurrent,
-                'current' => $isCurrent,
-                'icon' => $this->getWorkflowStepIcon($key),
-                'time' => $this->getWorkflowStepTime($key),
-                'status' => $this->getWorkflowStepStatusBadge($key),
-                'verified' => $verified,
+            $steps[$stage['key']] = [
+                'label' => $stage['label'],
+                'completed' => $state === 'done',
+                'current' => $state === 'current',
+                'state' => $state,
+                'icon' => self::STAGE_ICONS[$stage['key']] ?? 'fa-circle',
+                'time' => $stage['at'] ?? $stage['description'],
+                'status' => match ($state) {
+                    'done' => 'completed',
+                    'failed' => 'rejected',
+                    default => 'pending',
+                },
+                'verified' => $state === 'done',
             ];
         }
 
@@ -296,108 +389,161 @@ class Bid extends Model
         return $this->getWorkflowTimelineSteps();
     }
 
-    private function getWorkflowStepIcon(string $step): string
-    {
-        return match ($step) {
-            self::STEP_SUBMITTED => 'fa-file-signature',
-            self::STEP_PENDING_VALIDATION => 'fa-clock',
-            self::STEP_DOCUMENTS_VALIDATED => 'fa-check-circle',
-            self::STEP_FOR_BAC_EVALUATION => 'fa-users',
-            self::STEP_APPROVED => 'fa-check-double',
-            self::STEP_DISQUALIFIED => 'fa-circle-xmark',
-            self::STEP_AWARDED => 'fa-trophy',
-            self::STEP_NOT_AWARDED => 'fa-times-circle',
-            self::STEP_NOTICE_OF_AWARD => 'fa-envelope-open-text',
-            self::STEP_NOTICE_TO_PROCEED => 'fa-file-contract',
-            self::STEP_PROJECT_COMPLETED => 'fa-flag-checkered',
-            default => 'fa-question-circle',
-        };
-    }
+    private const STAGE_ICONS = [
+        BidProgress::STAGE_SUBMITTED => 'fa-file-signature',
+        BidProgress::STAGE_PRELIMINARY => 'fa-folder-open',
+        BidProgress::STAGE_EVALUATION => 'fa-scale-balanced',
+        BidProgress::STAGE_POST_QUALIFICATION => 'fa-user-check',
+        BidProgress::STAGE_RECOMMENDATION => 'fa-gavel',
+        BidProgress::STAGE_AWARD_APPROVAL => 'fa-stamp',
+        BidProgress::STAGE_NOTICE_OF_AWARD => 'fa-envelope-open-text',
+        BidProgress::STAGE_CONTRACT_SIGNED => 'fa-file-contract',
+        BidProgress::STAGE_NOTICE_TO_PROCEED => 'fa-person-digging',
+    ];
 
-    private function getWorkflowStepTime(string $step): string
-    {
-        return match ($step) {
-            self::STEP_SUBMITTED => $this->created_at?->diffForHumans() ?? 'Recently',
-            self::STEP_PENDING_VALIDATION => 'Pending document review',
-            self::STEP_DOCUMENTS_VALIDATED => $this->documents_validated_at?->diffForHumans() ?? 'Awaiting validation',
-            self::STEP_FOR_BAC_EVALUATION => $this->bac_evaluation_at?->diffForHumans() ?? 'Under BAC evaluation',
-            self::STEP_APPROVED => $this->approved_at?->diffForHumans() ?? 'Approved',
-            self::STEP_DISQUALIFIED => $this->disqualified_at?->diffForHumans() ?? 'Disqualified',
-            self::STEP_AWARDED => $this->awarded_at?->diffForHumans() ?? ($this->award?->created_at?->diffForHumans() ?? 'Awarded'),
-            self::STEP_NOT_AWARDED => 'Not awarded',
-            self::STEP_NOTICE_OF_AWARD => $this->notice_of_award_at?->diffForHumans() ?? 'Notice issued',
-            self::STEP_NOTICE_TO_PROCEED => $this->notice_to_proceed_at?->diffForHumans() ?? 'Notice issued',
-            self::STEP_PROJECT_COMPLETED => $this->project_completed_at?->diffForHumans() ?? 'Completed',
-            default => '-',
-        };
-    }
+    /**
+     * Where each requirement listed on a project (Project wizard > Required
+     * Documents) can be found among the bidder's documents or this bid's files.
+     */
+    public const REQUIREMENT_EVIDENCE = [
+        'Business Permit' => ['document_types' => ['Business Permit', "Mayor's Permit"]],
+        "Mayor's Permit" => ['document_types' => ["Mayor's Permit", 'Business Permit']],
+        'PhilGEPS Registration' => ['document_types' => ['PhilGEPS Certificate']],
+        'DTI/SEC Registration' => ['document_types' => ['DTI/SEC Registration']],
+        'Tax Clearance' => ['document_types' => ['Tax Clearance']],
+        'Omnibus Sworn Statement' => ['document_types' => ['Omnibus Sworn Statement'], 'bid_files' => ['eligibility']],
+        'Technical Proposal' => ['bid_files' => ['proposal']],
+        'Financial Proposal' => ['bid_files' => ['proposal']],
+        'Company Profile' => ['document_types' => ['Company Profile']],
+        'PCAB License' => ['document_types' => ['PCAB License']],
+        'Other BAC Required Documents' => ['document_types' => ['Other Supporting Documents'], 'bid_files' => ['eligibility']],
+    ];
 
-    private function getWorkflowStepStatusBadge(string $step): ?string
-    {
-        if ($step === self::STEP_SUBMITTED) {
-            return 'submitted';
-        }
-
-        if (in_array($step, [self::STEP_PENDING_VALIDATION, self::STEP_FOR_BAC_EVALUATION], true)) {
-            return 'pending';
-        }
-
-        if (in_array($step, [self::STEP_DOCUMENTS_VALIDATED, self::STEP_APPROVED, self::STEP_AWARDED, self::STEP_NOTICE_OF_AWARD, self::STEP_NOTICE_TO_PROCEED, self::STEP_PROJECT_COMPLETED], true)) {
-            return 'completed';
-        }
-
-        if ($step === self::STEP_DISQUALIFIED || $step === self::STEP_NOT_AWARDED) {
-            return $this->status === 'rejected' ? 'rejected' : 'pending';
-        }
-
-        return null;
-    }
-
+    /**
+     * Requirements to check at preliminary examination. Uses the project's own
+     * required documents; REQUIRED_DOCUMENT_CHECKS is only the fallback for
+     * projects created without a requirements list.
+     *
+     * "submitted" only means a file exists. Whether it complies is decided by
+     * the reviewer, who must verify each item before a bid can pass.
+     */
     public function documentChecklist(): array
     {
+        if (in_array($this->submission_channel, [self::CHANNEL_ELECTRONIC, self::CHANNEL_MANUAL], true)) {
+            return $this->submissionChecklist();
+        }
+
+        // Legacy bids (two files + bidder profile documents).
         $documents = $this->user?->relationLoaded('bidderDocuments')
             ? $this->user->bidderDocuments
             : ($this->user?->bidderDocuments()->get() ?? collect());
 
-        return collect(self::REQUIRED_DOCUMENT_CHECKS)
+        $documents = $documents
+            ->filter(fn ($document): bool => ($document->is_current ?? true) && ($document->review_status ?? null) !== 'needs_action')
+            ->values();
+
+        return collect($this->requirementDefinitions())
             ->map(function (array $check) use ($documents) {
-                if (($check['bid_file'] ?? null) === 'proposal') {
-                    return [
-                        'key' => $check['key'],
-                        'label' => $check['label'],
-                        'submitted' => filled($this->proposal_file),
-                        'file_name' => $this->proposal_filename,
-                        'document_type' => 'Proposal File',
-                        'document_id' => null,
-                        'is_proposal' => true,
-                        'is_eligibility_file' => false,
-                    ];
+                $matchedDocument = $documents->first(
+                    fn ($document) => in_array($document->document_type, $check['document_types'] ?? [], true)
+                );
+
+                if ($matchedDocument) {
+                    return $this->checklistRow($check, true, $matchedDocument->display_name, $matchedDocument->document_type, $matchedDocument->id);
                 }
 
-                if (($check['bid_file'] ?? null) === 'eligibility') {
-                    return [
-                        'key' => $check['key'],
-                        'label' => $check['label'],
-                        'submitted' => filled($this->eligibility_file),
-                        'file_name' => $this->eligibility_filename,
-                        'document_type' => 'Eligibility Document',
-                        'document_id' => null,
-                        'is_proposal' => false,
-                        'is_eligibility_file' => true,
-                    ];
+                foreach ($check['bid_files'] ?? [] as $bidFile) {
+                    if ($bidFile === 'proposal' && filled($this->proposal_file)) {
+                        return $this->checklistRow($check, true, $this->proposal_filename, 'Proposal File', null, 'proposal');
+                    }
+
+                    if ($bidFile === 'eligibility' && filled($this->eligibility_file)) {
+                        return $this->checklistRow($check, true, $this->eligibility_filename, 'Eligibility Document', null, 'eligibility');
+                    }
                 }
 
-                $matchedDocument = $documents->first(function ($document) use ($check) {
-                    return in_array($document->document_type, $check['document_types'] ?? [], true);
-                });
+                return $this->checklistRow($check, false, null, null, null, ($check['bid_files'] ?? [null])[0] ?? null);
+            })
+            ->all();
+    }
 
-                return [
+    /**
+     * @return array<int, array{key: string, label: string, document_types?: array, bid_files?: array}>
+     */
+    public function requirementDefinitions(): array
+    {
+        $project = $this->project;
+        $requirement = $project?->relationLoaded('requirement') ? $project->requirement : $project?->requirement()->first();
+        $required = collect($requirement?->required_documents ?? [])->filter()->unique()->values();
+
+        if ($required->isEmpty()) {
+            return collect(self::REQUIRED_DOCUMENT_CHECKS)
+                ->map(fn (array $check) => [
                     'key' => $check['key'],
                     'label' => $check['label'],
-                    'submitted' => $matchedDocument !== null,
-                    'file_name' => $matchedDocument?->display_name,
-                    'document_type' => $matchedDocument?->document_type,
-                    'document_id' => $matchedDocument?->id,
+                    'document_types' => $check['document_types'] ?? [],
+                    'bid_files' => isset($check['bid_file']) ? [$check['bid_file']] : [],
+                ])
+                ->all();
+        }
+
+        return $required
+            ->map(fn (string $label) => [
+                'key' => \Illuminate\Support\Str::slug($label, '_'),
+                'label' => $label,
+                'document_types' => self::REQUIREMENT_EVIDENCE[$label]['document_types'] ?? [$label],
+                'bid_files' => self::REQUIREMENT_EVIDENCE[$label]['bid_files'] ?? [],
+            ])
+            ->all();
+    }
+
+    private function checklistRow(array $check, bool $submitted, ?string $fileName, ?string $documentType, ?int $documentId, ?string $bidFile = null): array
+    {
+        return [
+            'key' => $check['key'],
+            'label' => $check['label'],
+            'submitted' => $submitted,
+            'file_name' => $fileName,
+            'document_type' => $documentType,
+            'document_id' => $documentId,
+            'component' => $bidFile === 'proposal' || str_contains(strtolower($check['label']), 'financial') ? 'financial' : 'technical',
+            'is_proposal' => $bidFile === 'proposal',
+            'is_eligibility_file' => $bidFile === 'eligibility',
+        ];
+    }
+
+    /**
+     * Checklist from the project's bid submission requirements
+     * (BidSubmissionRequirements), with evidence from this bid's files.
+     *
+     * Electronic bids: "submitted" is whether the file was received.
+     * Manual bids: the official documents are in the sealed envelopes held by
+     * the BAC Secretariat, so presence is unknown to the system (null) and is
+     * confirmed by the reviewer; any website upload is only a draft copy.
+     */
+    private function submissionChecklist(): array
+    {
+        $files = $this->relationLoaded('documents') ? $this->documents : $this->documents()->get();
+        $files = $files->keyBy('requirement_key');
+        $manual = $this->submission_channel === self::CHANNEL_MANUAL;
+
+        return BidSubmissionRequirements::for($this->project)->items()
+            ->map(function (array $item) use ($files, $manual) {
+                $file = $files->get($item['key']);
+
+                return [
+                    'key' => $item['key'],
+                    'label' => $item['label'],
+                    'component' => $item['component'],
+                    'required' => $item['required'],
+                    'condition' => $item['condition'],
+                    // A missing-document revision request creates a placeholder row. It becomes
+                    // submitted only after the bidder uploads the replacement.
+                    'submitted' => $manual ? null : ($file !== null && filled($file->file_path)),
+                    'file_name' => $file?->original_name,
+                    'document_type' => $manual ? 'Sealed envelope (BAC Secretariat)' : ($file ? 'Electronic submission' : null),
+                    'document_id' => null,
+                    'bid_document_id' => $file?->id,
                     'is_proposal' => false,
                     'is_eligibility_file' => false,
                 ];
@@ -405,21 +551,180 @@ class Bid extends Model
             ->all();
     }
 
+    /**
+     * Technical component contents stay sealed only for competitive bidding
+     * until the project's authorized opening is recorded. RFQ/quotation and
+     * other alternative modes do not inherit this competitive gate.
+     */
+    public function isSealed(): bool
+    {
+        return ($this->project?->requiresRecordedBidOpening() ?? true)
+            && ($this->isDraft() || ! ($this->project?->bidsAreOpened() ?? false));
+    }
+
+    /**
+     * Competitive bidding uses a two-envelope reveal: the financial component
+     * becomes available after opening and a recorded preliminary examination.
+     * Alternative modes use the configured quotation/offer review rules.
+     */
+    public function isFinancialSealed(): bool
+    {
+        if ($this->project !== null && ! $this->project->mode()->isCompetitive()) return false;
+        if ($this->isSealed()) return true;
+        if (! $this->documents_validated_at || ! $this->documents_validated_by
+            || $this->disqualified_at !== null || $this->status === 'rejected') return true;
+        return $this->financial_opened_at === null || $this->financial_opened_by === null;
+    }
+
+    public function reviewChecklist(): array
+    {
+        return array_map(function (array $item): array {
+            $sealed = ($item['component'] ?? 'technical') === 'financial'
+                ? $this->isFinancialSealed() : $this->isSealed();
+            $item['sealed'] = $sealed;
+            if ($sealed) {
+                $item['file_name'] = null;
+                $item['document_id'] = null;
+                $item['bid_document_id'] = null;
+                $item['document_type'] = 'Sealed component';
+            }
+            return $item;
+        }, $this->documentChecklist());
+    }
+
+    public function financialOpenedByUser()
+    {
+        return $this->belongsTo(User::class, 'financial_opened_by');
+    }
+
+    /**
+     * A reviewer may see the presence/count of a sealed submission, but not
+     * its price, contents, original filenames or download URL.
+     *
+     * @return array{key:string,label:string,required:int,received:int,missing:int,unknown:int,missing_labels:array<int,string>}
+     */
+    public function submissionDocumentStatus(): array
+    {
+        if ($this->isDraft()) {
+            return [
+                'key' => 'draft',
+                'label' => 'Draft - not an official submission',
+                'required' => 0,
+                'received' => 0,
+                'missing' => 0,
+                'unknown' => 0,
+                'missing_labels' => [],
+            ];
+        }
+
+        $required = collect($this->documentChecklist())->filter(fn (array $item) => $item['required'] ?? true)->values();
+        $missing = $required->filter(fn (array $item) => $item['submitted'] === false)->values();
+        $unknown = $required->filter(fn (array $item) => $item['submitted'] === null)->values();
+        $received = $required->filter(fn (array $item) => $item['submitted'] === true)->count();
+
+        if ($unknown->isNotEmpty()) {
+            return [
+                'key' => 'sealed_envelope',
+                'label' => 'Sealed envelope - verify at opening',
+                'required' => $required->count(),
+                'received' => $received,
+                'missing' => $missing->count(),
+                'unknown' => $unknown->count(),
+                'missing_labels' => $missing->pluck('label')->values()->all(),
+            ];
+        }
+
+        if ($missing->isNotEmpty()) {
+            return [
+                'key' => 'incomplete',
+                'label' => 'Incomplete - '.$missing->count().' required '.str('upload')->plural($missing->count()).' missing',
+                'required' => $required->count(),
+                'received' => $received,
+                'missing' => $missing->count(),
+                'unknown' => 0,
+                'missing_labels' => $missing->pluck('label')->values()->all(),
+            ];
+        }
+
+        return [
+            'key' => $this->isSealed() ? 'received_sealed' : 'complete',
+            'label' => $this->isSealed() ? 'Complete - files sealed until opening' : 'Complete - all required uploads received',
+            'required' => $required->count(),
+            'received' => $received,
+            'missing' => 0,
+            'unknown' => 0,
+            'missing_labels' => [],
+        ];
+    }
+
+    public function hasSubmittedComponent(string $component): bool
+    {
+        return collect($this->documentChecklist())
+            ->where('component', $component)
+            ->contains(fn (array $item) => $item['submitted'] === true || $item['submitted'] === null);
+    }
+
+    /**
+     * Official bid: submitted online, or (before submission became online-only)
+     * recorded as received by the BAC Secretariat. Rows without a channel are
+     * bids created before channels existed and stay submitted.
+     */
+    public function isOfficiallySubmitted(): bool
+    {
+        return $this->submission_channel === null || $this->submitted_at !== null || filled($this->receipt_no);
+    }
+
+    /** A draft saved before submission became online-only; not an official bid. */
+    public function isDraft(): bool
+    {
+        return ! $this->isOfficiallySubmitted();
+    }
+
+    /**
+     * An official online bid the bidder may still modify (RA 12009 IRR Sec. 55.1):
+     * the BAC has recorded nothing on it yet. The deadline is checked separately.
+     */
+    public function isModifiableOnline(): bool
+    {
+        return ! $this->isDraft()
+            && $this->submission_channel === self::CHANNEL_ELECTRONIC
+            && in_array($this->workflow_step ?: self::STEP_SUBMITTED, [self::STEP_SUBMITTED, self::STEP_PENDING_VALIDATION], true)
+            && $this->financial_opened_at === null;
+    }
+
+    /**
+     * Whether the bidder can modify this bid right now: online, before the
+     * deadline, and nothing past receipt recorded on it (for the bidder pages).
+     */
+    public function canBeModifiedNow(): bool
+    {
+        $project = $this->project;
+        if (! $project || ! $project->isOpenForBidding() || ! $project->acceptsElectronicSubmission() || ! $this->isModifiableOnline()) {
+            return false;
+        }
+
+        $progress = $this->progress()->toArray();
+
+        return $progress['outcome'] === null
+            && $progress['current']['tone'] === 'active'
+            && in_array($progress['current']['key'], [BidProgress::STAGE_SUBMITTED, BidProgress::STAGE_PRELIMINARY], true);
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(BidDocument::class);
+    }
+
     public function documentsAreComplete(): bool
     {
         return collect($this->documentChecklist())
-            ->every(fn (array $item) => (bool) $item['submitted']);
+            ->filter(fn (array $item) => $item['required'] ?? true)
+            ->every(fn (array $item) => $item['submitted'] === true);
     }
 
     public function getDocumentsReviewStatusAttribute(): string
     {
         return $this->documentsAreComplete() ? 'complete' : 'incomplete';
-    }
-
-    public function canBeValidatedByStaff(): bool
-    {
-        return $this->documentsAreComplete()
-            && $this->eligibility_status === self::ELIGIBILITY_VALID;
     }
 
     public function project(): BelongsTo
@@ -502,12 +807,19 @@ class Bid extends Model
     // Helper to check if bid is eligible for bidding (documents validated, not disqualified)
     public function isEligibleForBidding(): bool
     {
-        return $this->workflow_step === self::STEP_DOCUMENTS_VALIDATED
-            || $this->workflow_step === self::STEP_FOR_BAC_EVALUATION
-            || $this->workflow_step === self::STEP_APPROVED
-            || $this->workflow_step === self::STEP_AWARDED
-            || $this->workflow_step === self::STEP_NOTICE_OF_AWARD
-            || $this->workflow_step === self::STEP_NOTICE_TO_PROCEED
-            || $this->workflow_step === self::STEP_PROJECT_COMPLETED;
+        return in_array($this->workflow_step, [
+            self::STEP_DOCUMENTS_VALIDATED,
+            self::STEP_FOR_BAC_EVALUATION,
+            self::STEP_APPROVED,
+            self::STEP_EVALUATED,
+            self::STEP_POST_QUALIFICATION,
+            self::STEP_POST_QUALIFIED,
+            self::STEP_RECOMMENDED,
+            self::STEP_AWARDED,
+            self::STEP_NOTICE_OF_AWARD,
+            self::STEP_CONTRACT_SIGNED,
+            self::STEP_NOTICE_TO_PROCEED,
+            self::STEP_PROJECT_COMPLETED,
+        ], true);
     }
 }

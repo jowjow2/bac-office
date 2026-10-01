@@ -1,0 +1,85 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+6 0 obj
+<< /Length 775 >>
+stream
+q
+1 0.45 0 rg
+60 742 492 8 re f
+0.97 0.98 1 rg
+60 130 492 590 re f
+0.88 0.9 0.94 RG
+60 130 492 590 re S
+0.12 0.16 0.24 rg
+BT
+/F2 22 Tf
+72 720 Td
+(BAC Office Bidder Registration) Tj
+ET
+BT
+/F1 14 Tf
+72 680 Td
+(Demo Requirement File) Tj
+ET
+BT
+/F2 16 Tf
+72 632 Td
+(DTI/SEC/CDA Registration Certificate) Tj
+ET
+BT
+/F1 12 Tf
+72 590 Td
+(This file is a sample PDF for demonstrating the bidder registration flow.) Tj
+ET
+BT
+/F1 12 Tf
+72 568 Td
+(Upload it to the matching BAC requirement field during testing.) Tj
+ET
+BT
+/F1 12 Tf
+72 546 Td
+(Status after registration: Pending admin review.) Tj
+ET
+BT
+/F2 11 Tf
+72 492 Td
+(DEMO ONLY - NOT AN OFFICIAL GOVERNMENT DOCUMENT) Tj
+ET
+0.35 0.41 0.5 rg
+BT
+/F1 10 Tf
+72 170 Td
+(Generated for local registration demo and upload validation.) Tj
+ET
+Q
+endstream
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000000321 00000 n 
+0000000396 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+1221
+%%EOF

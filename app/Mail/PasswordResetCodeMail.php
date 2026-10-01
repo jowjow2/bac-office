@@ -15,14 +15,15 @@ class PasswordResetCodeMail extends Mailable
 
     public function __construct(
         public User $user,
-        public string $code
+        public string $code,
+        public int $expiresInSeconds = 180
     ) {
     }
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'BAC Office Password Reset Code',
+            subject: 'SJBAC Password Reset Code',
         );
     }
 

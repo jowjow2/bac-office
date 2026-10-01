@@ -22,7 +22,7 @@ class LoginVerificationCodeMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'BAC Office Login Verification Code',
+            subject: 'SJBAC Login Verification Code',
         );
     }
 

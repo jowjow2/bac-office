@@ -7,9 +7,9 @@
 
 /* ===== BODY ===== */
 body{
-    font-family:'Inter','Segoe UI',sans-serif;
-    background:#f8fafc;
-    color:#1f2937;
+    font-family:var(--ui-font);
+    background:var(--ui-surface-2);
+    color:var(--ui-ink);
 }
 
 /* ===== MAIN CONTENT ===== */
@@ -23,7 +23,7 @@ body{
 .navbar{
     width:100%;
     background:#ffffff;
-    border-bottom:1px solid #e5e7eb;
+    border-bottom:1px solid var(--ui-line);
     padding:14px 30px;
 
     display:flex;
@@ -35,7 +35,7 @@ body{
 .navbar .logo{
     font-size:18px;
     font-weight:600;
-    color:#111827;
+    color:var(--ui-ink);
 }
 
 /* ===== NAV LINKS ===== */
@@ -47,13 +47,13 @@ body{
 .navbar .nav-links a{
     text-decoration:none;
     font-size:14px;
-    color:#374151;
+    color:var(--ui-ink-2);
     font-weight:500;
     transition:0.2s;
 }
 
 .navbar .nav-links a:hover{
-    color:#2563eb;
+    color:var(--ui-primary);
 }
 
 /* ===== RIGHT SIDE (LOGIN / SEARCH) ===== */
@@ -66,14 +66,14 @@ body{
 /* SEARCH INPUT */
 .navbar input{
     padding:6px 10px;
-    border:1px solid #e5e7eb;
+    border:1px solid var(--ui-line);
     border-radius:6px;
     font-size:13px;
 }
 
 /* BUTTONS */
 .btn{
-    background:#2563eb;
+    background:var(--ui-primary);
     color:white;
     padding:6px 12px;
     border-radius:6px;
@@ -85,18 +85,18 @@ body{
 }
 
 .btn:hover{
-    background:#1d4ed8;
+    background:var(--ui-primary-hover);
 }
 
 /* SECONDARY BUTTON */
 .btn-outline{
     background:white;
-    border:1px solid #e5e7eb;
-    color:#374151;
+    border:1px solid var(--ui-line);
+    color:var(--ui-ink-2);
 }
 
 .btn-outline:hover{
-    background:#f3f4f6;
+    background:var(--ui-surface-2);
 }
 
 /* ===== RESPONSIVE ===== */

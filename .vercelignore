@@ -14,3 +14,12 @@
 /storage/framework/views
 /tests
 /public/build
+/.tmp
+/UsersCEDRICKAppDataLocalTemp*
+/.vercel
+/.kilo
+/storage
+/tools
+/public/uploads
+/public/storage
+/public/documents

@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
         {
             src: '/Images/slider2.png',
             title: 'Procurement workflow in motion',
-            meta: 'Gallery slides help explain how BAC-Office operations move from coordination to public notice and award posting.',
+            meta: 'Gallery slides help explain how SJBAC operations move from coordination to public notice and award posting.',
         },
         {
             src: '/Images/slider3.png',
@@ -25,13 +25,13 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         {
             src: '/Images/slider5.png',
-            title: 'BAC-Office public operations',
+            title: 'SJBAC public operations',
             meta: 'Show office milestones and procurement events in a format that feels intentional and easy to scan.',
         },
         {
             src: '/Images/slider6.png',
             title: 'Procurement coordination highlights',
-            meta: 'Highlight procurement coordination, records management, and BAC-Office activity through documented visuals.',
+            meta: 'Highlight procurement coordination, records management, and SJBAC activity through documented visuals.',
         },
     ];
 
@@ -259,6 +259,60 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    const publicQrTriggers = document.querySelectorAll('[data-public-qr-trigger]');
+    const publicQrModals = document.querySelectorAll('.public-qr-modal');
+    let activePublicQrModal = null;
+
+    function closePublicQrModal(modal = activePublicQrModal) {
+        if (!modal) return;
+
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        modal.hidden = true;
+
+        if (activePublicQrModal === modal) {
+            activePublicQrModal = null;
+        }
+
+        if (!document.querySelector('.public-details-modal.is-open, .public-qr-modal.is-open')) {
+            document.body.classList.remove('public-modal-open');
+        }
+    }
+
+    function openPublicQrModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+
+        if (activePublicQrModal && activePublicQrModal !== modal) {
+            closePublicQrModal(activePublicQrModal);
+        }
+
+        modal.hidden = false;
+        modal.setAttribute('aria-hidden', 'false');
+        modal.classList.add('is-open');
+        document.body.classList.add('public-modal-open');
+        activePublicQrModal = modal;
+
+        const closeButton = modal.querySelector('[data-public-qr-close]');
+        if (closeButton) closeButton.focus({ preventScroll: true });
+    }
+
+    publicQrTriggers.forEach((trigger) => {
+        trigger.addEventListener('click', (event) => {
+            const modalId = trigger.dataset.publicQrTrigger;
+            if (!modalId || !document.getElementById(modalId)) return;
+
+            event.preventDefault();
+            openPublicQrModal(modalId);
+        });
+    });
+
+    publicQrModals.forEach((modal) => {
+        modal.querySelectorAll('[data-public-qr-close]').forEach((button) => {
+            button.addEventListener('click', () => closePublicQrModal(modal));
+        });
+    });
+
     publicDetailsModals.forEach((modal) => {
         modal.querySelectorAll('[data-public-details-close]').forEach((button) => {
             button.addEventListener('click', () => closePublicDetailsModal(modal));
@@ -279,6 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             closePublicDetailsModal();
+            closePublicQrModal();
         }
     });
 

@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Models\Message;
+use App\Support\PortalNavigation;
 use App\Support\SystemNotification;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\Facades\View;
@@ -35,20 +37,33 @@ class AppServiceProvider extends ServiceProvider
             }
         }
 
-        View::composer(['admin.*', 'dashboard.admin'], function ($view) {
-            $view->with('unreadNotificationsCount', SystemNotification::unreadCount(auth()->id()));
-            $view->with('adminUnreadMessagesCount', $this->unreadMessageCountForRole('admin'));
+        // Unread counts shown on each role's notifications page.
+        View::composer('admin.notifications', fn ($view) => $view->with('unreadNotificationsCount', SystemNotification::unreadCount(Auth::id())));
+        View::composer('bidder.notifications', fn ($view) => $view->with('bidderNotificationCount', SystemNotification::unreadCount(Auth::id())));
+        View::composer('staff.notifications', fn ($view) => $view->with('staffNotificationCount', SystemNotification::unreadCount(Auth::id())));
+
+        // The portal shell (sidebar, page header bell) used on every role's pages.
+        View::composer('partials.portal.sidebar', function ($view) {
+            $user = Auth::user();
+            $messages = $user ? $this->unreadMessageCountForRole((string) $user->role) : 0;
+            $notifications = $user ? SystemNotification::unreadCount($user->id) : 0;
+
+            $view->with('portalNavigation', $user ? PortalNavigation::for($user, $messages, $notifications) : []);
         });
 
-        View::composer(['bidder.*', 'dashboard.bidder'], function ($view) {
-            $view->with('bidderUnreadMessagesCount', $this->unreadMessageCountForRole('bidder'));
-            $view->with('bidderNotificationCount', SystemNotification::unreadCount(auth()->id()));
+        View::composer('components.portal-bell', function ($view) {
+            $user = Auth::user();
+
+            $view->with([
+                'portalUnreadNotifications' => $user ? SystemNotification::unreadCount($user->id) : 0,
+                'portalNotifications' => $user ? SystemNotification::payloads(SystemNotification::forUser($user->id, 6), $user) : collect(),
+            ]);
         });
     }
 
     protected function unreadMessageCountForRole(string $role): int
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         if (! $user || $user->role !== $role) {
             return 0;

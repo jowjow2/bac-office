@@ -1,261 +1,315 @@
-@php($projectDocuments = $project->uploadedDocuments())
+@php
+    $projectDocuments = $project->uploadedDocuments();
+    $budget = (float) $project->budget;
+    // Amounts are sealed until the bid opening, so no variance warning before it.
+    $unusualBidCount = $budget > 0 && $project->bidsAreOpened()
+        ? $project->bids->filter(function ($bid) use ($budget) {
+            return ((((float) $bid->bid_amount - $budget) / $budget) * 100) > 200;
+        })->count()
+        : 0;
+    $assignedStaff = $project->assignments->first()?->staff;
+@endphp
 
 <div class="view-project-modal-shell">
     <div class="view-project-modal-header">
         <div>
+            <p class="view-project-eyebrow">Project summary</p>
             <h2>View Project</h2>
         </div>
     </div>
 
     <div class="view-project-modal-body">
-        <div class="view-project-grid">
-            <div class="view-project-field">
-                <label>Project Title</label>
-                <div class="view-project-value">{{ $project->title }}</div>
-            </div>
-
-            <div class="view-project-field">
-                <label>Status</label>
-                <div class="view-project-value">
-                    <span class="view-project-status-pill {{ $project->status }}">{{ \Illuminate\Support\Str::headline($project->status) }}</span>
+        @if($unusualBidCount > 0)
+            <div class="view-project-anomaly-banner" role="alert">
+                <span class="view-project-anomaly-icon" aria-hidden="true">
+                    <i class="fas fa-triangle-exclamation"></i>
+                </span>
+                <div class="view-project-anomaly-copy">
+                    <strong>
+                        {{ $unusualBidCount }} bid{{ $unusualBidCount === 1 ? '' : 's' }} {{ $unusualBidCount === 1 ? 'has' : 'have' }} unusually high variance from budget.
+                    </strong>
+                    <span>Review before closing this project.</span>
+                    <a href="{{ route('admin.bids', ['project' => $project->id]) }}">
+                        Review project bids
+                        <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                    </a>
                 </div>
             </div>
-        </div>
+        @endif
 
-        <div class="view-project-grid">
-            <div class="view-project-field">
-                <label>Budget (&#8369;)</label>
-                <div class="view-project-value">P{{ number_format((float) $project->budget, 2) }}</div>
-            </div>
+        <x-project-summary-section title="Project Overview" class="view-project-overview">
+            <x-project-field-row label="Project Title" class="view-project-field--primary view-project-overview-title">
+                {{ $project->title }}
+            </x-project-field-row>
 
-            <div class="view-project-field">
-                <label>Total Bids</label>
-                <div class="view-project-value">{{ $project->bids_count }}</div>
-            </div>
-        </div>
+            <x-project-field-row label="Status" class="view-project-overview-status">
+                <span class="view-project-status-pill {{ $project->status }}">
+                    {{ \Illuminate\Support\Str::headline($project->status) }}
+                </span>
+            </x-project-field-row>
 
-        <div class="view-project-field">
-            <label>Description</label>
-            <div class="view-project-value view-project-textarea">{{ $project->description ?: 'N/A' }}</div>
-        </div>
+            <x-project-field-row label="Budget (PHP)" class="view-project-overview-budget">
+                P{{ number_format((float) $project->budget, 2) }}
+            </x-project-field-row>
 
-        <div class="view-project-field">
-            <label>Project Files</label>
-            <div style="margin-bottom: 8px; font-size: 12px; color: #64748b;">
-                Click any file below to open its PDF preview.
-            </div>
-            <div class="view-project-value">
-                @if($projectDocuments->isNotEmpty())
-                    <div class="view-project-file-list">
-                        @foreach($projectDocuments as $documentIndex => $document)
-                            <a href="{{ route('admin.project.document.pdf', ['project' => $project, 'document' => $documentIndex]) }}" target="_blank" rel="noopener" style="color: #1d4ed8; text-decoration: none;">
-                                {{ $document->display_name }}
-                            </a>
-                        @endforeach
-                    </div>
-                @else
-                    No files uploaded
+            <x-project-field-row label="Total Bids" class="view-project-overview-bids">
+                <span class="view-project-bid-count">{{ $project->bids_count }}</span>
+                @if($unusualBidCount > 0)
+                    <a href="{{ route('admin.bids', ['project' => $project->id]) }}" class="view-project-inline-warning" title="Review unusual bid variance" aria-label="Review unusual bid variance">
+                        <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+                    </a>
                 @endif
-            </div>
-        </div>
+            </x-project-field-row>
+        </x-project-summary-section>
 
-        <div class="view-project-grid">
-            <div class="view-project-field">
-                <label>Deadline</label>
-                <div class="view-project-value">{{ $project->deadline ? $project->deadline->format('m/d/Y') : 'N/A' }}</div>
-            </div>
+        <x-project-summary-section title="Project Details" class="view-project-details">
+            <x-project-field-row label="Description" :block="true">
+                {{ $project->description ?: 'N/A' }}
+            </x-project-field-row>
 
-            <div class="view-project-field">
-                <label>Assign Staff</label>
-                <div class="view-project-value">{{ $project->assignments->first()?->staff?->name ?? 'Unassigned' }}</div>
+            <div class="view-project-field view-project-field--block">
+                <div class="view-project-field-label">Project Files</div>
+                <div class="view-project-file-note">
+                    Click any file below to open its PDF preview.
+                </div>
+                <div class="view-project-file-list">
+                    @if($projectDocuments->isNotEmpty())
+                        @foreach($projectDocuments as $documentIndex => $document)
+                            <x-file-attachment-item :project="$project" :document="$document" :index="$documentIndex" />
+                        @endforeach
+                    @else
+                        <div class="view-project-empty-files">No files uploaded</div>
+                    @endif
+                </div>
             </div>
-        </div>
+        </x-project-summary-section>
 
-        <div class="view-project-actions">
-            <button type="button" onclick="closeViewModal()" class="btn-secondary">Close</button>
-            <button type="button" onclick="closeViewModal(); loadEditModal({{ $project->id }})" class="btn-primary">Edit Project</button>
-        </div>
+        <x-project-summary-section title="Schedule & Staffing" class="view-project-schedule">
+            <x-project-field-row label="Deadline">
+                {{ $project->deadline ? $project->deadline->format('m/d/Y') : 'N/A' }}
+            </x-project-field-row>
+
+            <x-project-field-row label="Assign Staff">
+                <div class="view-project-staff-summary">
+                    <span class="view-project-staff-value" data-view-project-staff-value>
+                        {{ $assignedStaff?->name ?? 'Unassigned' }}
+                    </span>
+                    @if(!$assignedStaff)
+                        <button type="button"
+                                class="view-project-assign-trigger"
+                                data-view-project-assign-toggle
+                                aria-expanded="false">
+                            <i class="fas fa-user-plus" aria-hidden="true"></i>
+                            Assign
+                        </button>
+                    @endif
+                </div>
+            </x-project-field-row>
+
+            @if(!$assignedStaff)
+                <div class="view-project-assign-panel" data-view-project-assign-panel hidden>
+                    <form action="{{ route('admin.assignments.store') }}" method="POST" data-view-project-assign-form>
+                        @csrf
+                        <input type="hidden" name="project_id" value="{{ $project->id }}">
+                        <label for="view-project-staff-picker-{{ $project->id }}">Choose staff member</label>
+                        <div class="view-project-assign-controls">
+                            <select id="view-project-staff-picker-{{ $project->id }}" name="staff_id" required>
+                                <option value="">Select staff</option>
+                                @foreach(($staffMembers ?? collect()) as $staff)
+                                    <option value="{{ $staff->id }}">{{ $staff->name }}</option>
+                                @endforeach
+                            </select>
+                            <button type="submit" class="view-project-assign-save">Save</button>
+                        </div>
+                        <button type="button" class="view-project-assign-cancel" data-view-project-assign-cancel>
+                            Cancel
+                        </button>
+                        <p class="view-project-assign-error" data-view-project-assign-error></p>
+                    </form>
+                </div>
+            @endif
+        </x-project-summary-section>
+
+        @php
+            $unverifiedDocuments = $project->unverifiedDocuments();
+        @endphp
+        @if($unverifiedDocuments->isNotEmpty())
+            <div class="view-project-anomaly-banner" role="alert">
+                <span class="view-project-anomaly-icon" aria-hidden="true"><i class="fas fa-triangle-exclamation"></i></span>
+                <div class="view-project-anomaly-copy">
+                    <strong>{{ $unverifiedDocuments->count() }} linked {{ \Illuminate\Support\Str::plural('file', $unverifiedDocuments->count()) }} could not be verified as this project's bidding documents.</strong>
+                    <span>{{ $unverifiedDocuments->pluck('display_name')->implode(', ') }} &mdash; stored among bidder uploads or named for another project. Hidden from bidders and the public; remove or re-upload the correct document.</span>
+                </div>
+            </div>
+        @endif
+
+        @php
+            $feePaymentsCount = $project->biddingFeePayments()->count();
+            $submissionDeadline = $project->bidSubmissionDeadline();
+            $feeLocked = $feePaymentsCount > 0 || ($submissionDeadline !== null && $submissionDeadline->isPast());
+        @endphp
+        <style>
+            .vp-online { display: grid; gap: 14px; }
+            .vp-online-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+            .vp-online-stat { padding: 10px 12px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg); background: var(--ui-surface-2); }
+            .vp-online-stat span { display: block; color: var(--ui-muted); font-size: 11.5px; font-weight: 600; text-transform: none; letter-spacing: normal; }
+            .vp-online-stat strong { display: block; margin-top: 3px; color: var(--ui-ink); font-size: 14px; font-variant-numeric: tabular-nums; }
+            .vp-online-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+            .vp-online-field { display: grid; gap: 5px; min-width: 0; }
+            .vp-online-field.is-wide { grid-column: 1 / -1; }
+            .vp-online-field :is(input:not([type="checkbox"]), select, textarea) { width: 100%; min-height: 40px; border: 1px solid var(--ui-line-strong); border-radius: 8px; padding: 8px 10px; font: inherit; background: #fff; }
+            .vp-online-field textarea { min-height: 72px; resize: vertical; }
+            .vp-online-field :is(input, select, textarea):focus { outline: none; border-color: var(--ui-primary); box-shadow: 0 0 0 3px rgba(29, 79, 64, .15); }
+            .vp-online-field :is(input, select):disabled { background: var(--ui-line-soft); color: var(--ui-muted); }
+            .vp-fee-calc { margin: 0; color: var(--ui-ink); font-size: 13px; font-weight: 600; line-height: 1.45; }
+            .vp-online-check { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--ui-ink-2); }
+            .vp-online-field small { color: var(--ui-muted); font-size: 12px; line-height: 1.4; }
+            .vp-online-actions { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+            @media (max-width: 640px) { .vp-online-summary, .vp-online-form { grid-template-columns: minmax(0, 1fr); } }
+        </style>
+        <x-project-summary-section title="Notice, Submission & Bidding Fee" class="view-project-submission">
+            <div class="vp-online">
+                <div class="vp-online-summary">
+                    <div class="vp-online-stat">
+                        <span>Submission</span>
+                        <strong>{{ $project->acceptsElectronicSubmission() ? 'Online' : 'Manual (sealed)' }}</strong>
+                    </div>
+                    <div class="vp-online-stat">
+                        <span>Bidding fee</span>
+                        <strong>{{ $project->requiresBiddingFee() ? '₱' . number_format((float) $project->bidding_documents_fee, 2) : ($project->biddingFeeWaived() ? 'Waived' : 'Free') }}</strong>
+                    </div>
+                    <div class="vp-online-stat">
+                        <span>Payments recorded</span>
+                        <strong>
+                            @if($project->requiresBiddingFee())
+                                <a href="{{ route('admin.payments', ['project' => $project->id]) }}">{{ $feePaymentsCount }}</a>
+                            @else
+                                &mdash;
+                            @endif
+                        </strong>
+                    </div>
+                </div>
+
+                <form action="{{ route('admin.project.submission-settings', $project) }}" method="POST" class="vp-online-form">
+                    @csrf
+                    <div class="vp-online-field">
+                        <label class="view-project-field-label" for="submission-mode-{{ $project->id }}">Submission method in the notice</label>
+                        <select id="submission-mode-{{ $project->id }}" name="submission_mode" @disabled($submissionDeadline !== null && $submissionDeadline->isPast())>
+                            <option value="electronic" @selected($project->acceptsElectronicSubmission())>Online, through this system</option>
+                            <option value="manual" @selected(! $project->acceptsElectronicSubmission())>Manual, sealed bids at the BAC Secretariat</option>
+                        </select>
+                        @if($submissionDeadline !== null && $submissionDeadline->isPast())
+                            <input type="hidden" name="submission_mode" value="{{ $project->submission_mode ?: 'electronic' }}">
+                            <small>Locked after the submission deadline.</small>
+                        @endif
+                    </div>
+                    <div class="vp-online-field">
+                        <label class="view-project-field-label" for="submission-venue-{{ $project->id }}">Where sealed bids are submitted (manual)</label>
+                        <input id="submission-venue-{{ $project->id }}" name="submission_venue" value="{{ $project->submission_venue }}" maxlength="255"
+                               placeholder="e.g. BAC Secretariat, 2F Municipal Hall">
+                    </div>
+                    <div class="vp-online-field">
+                        <label class="view-project-field-label" for="legal-basis-{{ $project->id }}">Legal basis</label>
+                        <select id="legal-basis-{{ $project->id }}" name="legal_basis">
+                            @unless($project->legal_basis)<option value="">Not specified</option>@endunless
+                            @foreach(\App\Models\Project::LEGAL_BASES as $key => $label)
+                                <option value="{{ $key }}" @selected($project->legal_basis === $key)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="vp-online-field">
+                        <label class="view-project-field-label" for="philgeps-url-{{ $project->id }}">PhilGEPS notice link</label>
+                        <input id="philgeps-url-{{ $project->id }}" type="url" name="philgeps_url" value="{{ $project->philgeps_url }}" maxlength="500" placeholder="https://notices.philgeps.gov.ph/...">
+                    </div>
+                    <div class="vp-online-field is-wide">
+                        <input type="hidden" name="bid_security_required" value="0">
+                        <label class="vp-online-check"><input type="checkbox" name="bid_security_required" value="1" @checked($project->bid_security_required)> Bid security is required (separate from the bidding documents fee)</label>
+                        <textarea name="bid_security_notes" maxlength="2000" aria-label="Bid security requirement" placeholder="e.g. In any acceptable form and in the amount stated in ITB Clause 16 of the bidding documents">{{ $project->bid_security_notes }}</textarea>
+                    </div>
+                    @php $feeInfo = \App\Support\BiddingDocumentsFee::describe($project); @endphp
+                    <div class="vp-online-field">
+                        <span class="view-project-field-label">Bidding documents fee</span>
+                        <p class="vp-fee-calc">{{ $feeInfo['text'] }}</p>
+                        @if($feeInfo['reason'])<small>Reason: {{ $feeInfo['reason'] }}</small>@endif
+                        @if($feeLocked)
+                            <small>Locked: {{ $feePaymentsCount > 0 ? 'payments were already recorded.' : 'the submission deadline has passed.' }}</small>
+                        @else
+                            <small>Change it with Edit project: a lower fee or a waiver needs a reason{{ $project->isPublishedLocally() ? ', and a published fee changes only through a recorded amendment' : '' }}.</small>
+                        @endif
+                    </div>
+                    <div class="vp-online-field">
+                        <label class="view-project-field-label" for="payment-venue-{{ $project->id }}">Where to pay</label>
+                        <input id="payment-venue-{{ $project->id }}" name="payment_venue" value="{{ $project->payment_venue }}" maxlength="255"
+                               placeholder="e.g. BAC Secretariat, 2F Municipal Hall, San Jose, Occidental Mindoro">
+                        <small>Shown to bidders with the fee.</small>
+                    </div>
+                    <div class="vp-online-field">
+                        <label class="view-project-field-label" for="submission-authority-{{ $project->id }}">LGU authority reference (optional)</label>
+                        <input id="submission-authority-{{ $project->id }}" name="electronic_submission_authority" value="{{ $project->electronic_submission_authority }}" maxlength="255"
+                               placeholder="e.g. BAC Resolution No. 2026-014">
+                    </div>
+                    <div class="vp-online-field">
+                        <label class="view-project-field-label" for="philgeps-ref-{{ $project->id }}">PhilGEPS reference number</label>
+                        <input id="philgeps-ref-{{ $project->id }}" name="philgeps_reference_no" value="{{ $project->philgeps_reference_no }}" maxlength="100">
+                    </div>
+                    <div class="vp-online-actions">
+                        @if($project->requiresBiddingFee())
+                            <a href="{{ route('admin.payments', ['project' => $project->id]) }}" class="btn-secondary"><i class="fas fa-receipt" aria-hidden="true"></i> View payments</a>
+                        @else
+                            <span></span>
+                        @endif
+                        <button type="submit" class="btn-primary">Save settings</button>
+                    </div>
+                </form>
+            </div>
+        </x-project-summary-section>
+
+        @if($project->isFailedBidding() || in_array($project->status, ['open', 'closed'], true))
+            <x-project-summary-section title="Bidding Outcome" class="view-project-outcome">
+                @if($project->isFailedBidding())
+                    <x-project-field-row label="Failed Bidding">
+                        Declared {{ $project->failed_bidding_at->timezone(config('bac-office.display_timezone'))->format('M d, Y h:i A') }}
+                    </x-project-field-row>
+                    <x-project-field-row label="Ground" :block="true">
+                        {{ $project->failed_bidding_reason }}
+                    </x-project-field-row>
+                @endif
+
+                <form action="{{ route('admin.project.failed-bidding', $project) }}" method="POST" class="view-project-failed-form" style="display:grid; gap:10px; margin-top:8px;">
+                    @csrf
+                    @unless($project->isFailedBidding())
+                        <label for="failed-bidding-reason-{{ $project->id }}" class="view-project-field-label">Declare failure of bidding</label>
+                        <textarea id="failed-bidding-reason-{{ $project->id }}" name="failed_bidding_reason" rows="3" required minlength="5"
+                                  placeholder="Ground shown to all bidders, e.g. no bids received, all bids post-disqualified, or bids exceeded the ABC."
+                                  style="width:100%; border:1px solid #d2cbbb; border-radius:8px; padding:8px 10px; font:inherit;"></textarea>
+                    @else
+                        <input type="hidden" name="failed_bidding_reason" value="{{ $project->failed_bidding_reason }}">
+                    @endunless
+
+                    <label for="rebid-project-{{ $project->id }}" class="view-project-field-label">New bidding round (optional)</label>
+                    <select id="rebid-project-{{ $project->id }}" name="rebid_project_id" style="border:1px solid #d2cbbb; border-radius:8px; padding:8px 10px; font:inherit;">
+                        <option value="">Not posted yet</option>
+                        @foreach(($rebidCandidates ?? collect()) as $candidate)
+                            <option value="{{ $candidate->id }}" @selected($project->rebid_project_id === $candidate->id)>
+                                {{ $candidate->title }}{{ $candidate->reference_no ? ' (' . $candidate->reference_no . ')' : '' }}
+                            </option>
+                        @endforeach
+                    </select>
+
+                    <div>
+                        <button type="submit" class="btn-secondary">
+                            {{ $project->isFailedBidding() ? 'Update new bidding round link' : 'Record failed bidding' }}
+                        </button>
+                    </div>
+                </form>
+            </x-project-summary-section>
+        @endif
+
+    </div>
+
+    <div class="view-project-actions">
+        <button type="button" onclick="closeViewModal()" class="btn-secondary">Close</button>
+        <a href="{{ route('admin.procurement.show', $project) }}" class="btn-secondary">Procurement record</a>
+        <button type="button" onclick="closeViewModal(); loadEditModal({{ $project->id }})" class="btn-primary">Edit Project</button>
     </div>
 </div>
-
-<style>
-    .view-project-modal-shell {
-        background: #fff;
-        border-radius: 16px;
-        overflow: hidden;
-        width: 100%;
-        max-width: 100%;
-        box-sizing: border-box;
-        font-family: 'Inter', sans-serif;
-        box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
-    }
-
-    .view-project-modal-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        min-height: 64px;
-        padding: 0 20px;
-        border-bottom: 1px solid #edf2f7;
-        background: #ffffff;
-    }
-
-    .view-project-modal-header h2 {
-        margin: 0;
-        font-size: 18px;
-        font-weight: 600;
-        line-height: 1.2;
-        color: #111827;
-    }
-
-    .view-project-modal-body {
-        padding: 16px 16px 0;
-        display: grid;
-        gap: 8px;
-        box-sizing: border-box;
-        background: #ffffff;
-    }
-
-    .view-project-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-        margin-bottom: 4px;
-    }
-
-    .view-project-field {
-        margin-bottom: 6px;
-    }
-
-    .view-project-field label {
-        display: block;
-        margin-bottom: 6px;
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        color: #6b7280;
-    }
-
-    .view-project-value {
-        width: 100%;
-        min-height: 40px;
-        display: flex;
-        align-items: center;
-        padding: 10px 12px;
-        border: 1px solid #d1d5db;
-        border-radius: 12px;
-        background: #fff;
-        color: #111827;
-        font-size: 13px;
-        line-height: 1.5;
-        box-sizing: border-box;
-    }
-
-    .view-project-file-list {
-        display: grid;
-        gap: 8px;
-        width: 100%;
-    }
-
-    .view-project-textarea {
-        min-height: 84px;
-        align-items: flex-start;
-        white-space: pre-wrap;
-    }
-
-    .view-project-status-pill {
-        display: inline-flex;
-        align-items: center;
-        padding: 4px 10px;
-        border-radius: 999px;
-        font-size: 12px;
-        font-weight: 600;
-        line-height: 1.2;
-    }
-
-    .view-project-status-pill.open {
-        background: #dcfce7;
-        color: #166534;
-    }
-
-    .view-project-status-pill.approved_for_bidding {
-        background: #dbeafe;
-        color: #1d4ed8;
-    }
-
-    .view-project-status-pill.awarded {
-        background: #fef3c7;
-        color: #b45309;
-    }
-
-    .view-project-status-pill.closed {
-        background: #e5e7eb;
-        color: #475569;
-    }
-
-    .view-project-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-        align-items: center;
-        margin: 2px -16px 0;
-        padding: 12px 16px 14px;
-        border-top: 1px solid #edf2f7;
-        background: #fff;
-        box-sizing: border-box;
-    }
-
-    .view-project-actions .btn-primary,
-    .view-project-actions .btn-secondary {
-        min-width: 132px;
-        height: 38px;
-        padding: 0 16px;
-        border-radius: 10px;
-        font-size: 12px;
-        font-family: 'Inter', sans-serif;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .view-project-actions .btn-primary {
-        background: #1d4ed8;
-        border: 1px solid #1d4ed8;
-        color: #ffffff;
-        font-weight: 600;
-        box-shadow: 0 10px 24px rgba(29, 78, 216, 0.22);
-    }
-
-    .view-project-actions .btn-primary:hover {
-        background: #1e40af;
-        border-color: #1e40af;
-    }
-
-    .view-project-actions .btn-secondary {
-        background: #fff;
-        border: 1px solid #d1d5db;
-        color: #334155;
-        font-weight: 500;
-    }
-
-    .view-project-actions .btn-secondary:hover {
-        background: #f8fafc;
-    }
-
-    @media (max-width: 700px) {
-        .view-project-grid {
-            grid-template-columns: 1fr;
-        }
-
-        .view-project-actions {
-            flex-direction: column;
-            align-items: stretch;
-        }
-
-        .view-project-actions .btn-primary,
-        .view-project-actions .btn-secondary {
-            width: 100%;
-        }
-    }
-</style>

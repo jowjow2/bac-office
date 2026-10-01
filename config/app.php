@@ -65,7 +65,11 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    // Philippine Standard Time (UTC+8), used by the LGU of San Jose,
+    // Occidental Mindoro: deadlines, bid openings and recorded events are in
+    // local time. Existing UTC records were converted by the
+    // 2026_09_29_000001_use_philippine_standard_time migration.
+    'timezone' => env('APP_TIMEZONE', 'Asia/Manila'),
 
     /*
     |--------------------------------------------------------------------------

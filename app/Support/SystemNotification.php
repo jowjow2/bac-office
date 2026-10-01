@@ -17,17 +17,25 @@ class SystemNotification
         'bid_rejected',
         'documents_validated',
         'documents_rejected',
+        'bid_document_review',
         'staff_assignment',
         'project_assignment',
         'project_available',
         'project_status',
         'project_created',
         'bid_recommendation',
+        'bid_progress',
         'award',
         'award_won',
         'award_decision',
         'account_approved',
         'account_rejected',
+        'bidder_requirements_incomplete',
+        'bidder_requirements_action',
+        'bidder_requirements_resubmitted',
+        'bidding_fee_paid',
+        'procurement_request',
+        'bidder_document',
         'staff_registration',
         'bidder_registration',
         'system_alert',
@@ -210,10 +218,11 @@ class SystemNotification
     protected static function adminTargetUrl(string $type, array $data): string
     {
         return match ($type) {
-            'new_bid', 'bid_submitted', 'bid_recommendation' => route('admin.bids'),
+            'new_bid', 'bid_submitted', 'bid_recommendation', 'bid_document_review' => route('admin.bids'),
             'staff_assignment', 'project_assignment' => route('admin.assignments'),
             'award', 'award_won', 'award_decision' => route('admin.awards.index'),
-            'staff_registration', 'bidder_registration', 'account_approved', 'account_rejected' => route('admin.users'),
+            'staff_registration', 'account_approved', 'account_rejected' => route('admin.users'),
+            'bidder_registration', 'bidder_requirements_action', 'bidder_requirements_resubmitted', 'bidder_document' => Arr::get($data, 'user_id') ? route('admin.users.review', ['user' => Arr::get($data, 'user_id')]) : route('admin.users'),
             'project_available', 'project_status', 'project_created' => route('admin.projects'),
             default => route('admin.notifications'),
         };
@@ -222,9 +231,10 @@ class SystemNotification
     protected static function staffTargetUrl(string $type, array $data): string
     {
         return match ($type) {
-            'new_bid', 'bid_submitted', 'documents_validated', 'documents_rejected', 'bid_approved', 'bid_rejected' => route('staff.review-bids'),
+            'new_bid', 'bid_submitted', 'documents_validated', 'documents_rejected', 'bid_approved', 'bid_rejected', 'bid_document_review' => route('staff.review-bids'),
             'staff_assignment', 'project_assignment' => route('staff.assign-projects'),
             'project_available', 'project_status' => route('staff.assign-projects'),
+            'bidder_registration', 'bidder_requirements_action', 'bidder_requirements_resubmitted', 'bidder_document' => Arr::get($data, 'user_id') ? route('staff.users.review', ['user' => Arr::get($data, 'user_id')]) : route('staff.notifications'),
             default => route('staff.notifications'),
         };
     }
@@ -233,9 +243,9 @@ class SystemNotification
     {
         return match ($type) {
             'project_available' => route('bidder.available-projects'),
-            'bid_approved', 'bid_rejected', 'documents_validated', 'documents_rejected', 'new_bid', 'bid_submitted' => route('bidder.my-bids'),
+            'bid_approved', 'bid_rejected', 'documents_validated', 'documents_rejected', 'new_bid', 'bid_submitted', 'bid_document_review' => route('bidder.my-bids'),
             'award', 'award_won', 'award_decision' => route('bidder.awarded-contracts'),
-            'account_approved', 'account_rejected', 'staff_registration', 'bidder_registration' => route('bidder.company-profile'),
+            'account_approved', 'account_rejected', 'staff_registration', 'bidder_registration', 'bidder_requirements_incomplete', 'bidder_requirements_action' => route('bidder.company-profile'),
             default => route('bidder.notifications'),
         };
     }

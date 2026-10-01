@@ -9,7 +9,7 @@
 <div class="declare-award-modal-shell">
     <div class="declare-award-modal-header">
         <div>
-            <h2>Declare Award - {{ $project->title }}</h2>
+            <h2>Notice of Award - {{ $project->title }}</h2>
         </div>
     </div>
 
@@ -32,7 +32,7 @@
                 </div>
             @endif
 
-            <p class="declare-award-helper">Lowest approved/evaluated bidder is selected by default. Upload the authentic Certificate of Winner PDF before confirming.</p>
+            <p class="declare-award-helper">Only a bid the BAC recommended and the Head of the Procuring Entity approved can receive the Notice of Award. Upload the signed Notice of Award (PDF): it becomes the QR-verifiable award document. The contract amount is the bid price as submitted; record contract signing and the Notice to Proceed afterwards on the bid.</p>
 
             <div class="declare-award-options">
                 @forelse($bids as $bid)
@@ -56,7 +56,7 @@
                                 <div class="declare-award-bidder-name">{{ $bid->user->company ?: ($bid->user->name ?? 'N/A') }}</div>
                                 <div class="declare-award-bidder-email">{{ $bid->user->email ?? 'N/A' }}</div>
                                 @if($isLowest)
-                                    <div class="declare-award-lowest">Lowest Bid</div>
+                                    <div class="declare-award-lowest">BAC Recommended</div>
                                 @endif
                             </div>
 
@@ -67,7 +67,7 @@
                         </div>
                     </label>
                 @empty
-                    <div class="declare-award-empty">No eligible bids are available for this project yet.</div>
+                    <div class="declare-award-empty">No BAC-recommended bid is awaiting award approval for this project.</div>
                 @endforelse
             </div>
             <p class="declare-award-field-error" data-error-for="bid_id"></p>
@@ -79,7 +79,7 @@
             </div>
 
             <div class="declare-award-field">
-                <label for="certificateFile">Certificate PDF <span style="color:red">*</span></label>
+                <label for="certificateFile">Signed Notice of Award (PDF) <span style="color:red">*</span></label>
                 <input type="file" name="certificate_file" id="certificateFile" class="declare-award-file" accept="application/pdf" required onchange="validateDeclareWinnerForm()">
                 <p class="declare-award-field-hint" style="font-size:11px; color:#6b7280; margin-top:4px;">Upload the authentic Certificate of Winner (PDF only, max 5MB).</p>
                 <p class="declare-award-field-error" data-error-for="certificate_file"></p>
@@ -88,8 +88,8 @@
         </div>
 
         <div class="declare-award-actions">
-            <button type="button" class="declare-award-secondary" onclick="closeDeclareWinnerModal()">Cancel</button>
-            <button type="submit" id="declareWinnerSubmitBtn" class="declare-award-primary" disabled>Confirm Declare Winner</button>
+            <button type="button" class="declare-award-secondary" onclick="closeDeclareWinnerModal()" style="background: #ffffff !important; border: 1px solid #d2cbbb !important; color: #1b2420 !important; -webkit-text-fill-color: #1b2420 !important; box-shadow: none !important; opacity: 1 !important; text-indent: 0 !important; font-size: 14px !important;">Cancel</button>
+            <button type="submit" id="declareWinnerSubmitBtn" class="declare-award-primary" disabled>Issue Notice of Award</button>
         </div>
     </form>
 </div>
@@ -97,10 +97,10 @@
 <style>
     .declare-award-modal-shell {
         background: #fff;
-        border-radius: 16px;
+        border-radius: var(--ui-radius-lg);
         overflow: hidden;
-        font-family: 'Inter', sans-serif;
-        box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
+        font-family: var(--ui-font);
+        box-shadow: 0 18px 42px rgba(27, 36, 32, 0.12);
     }
 
     .declare-award-modal-header {
@@ -108,14 +108,14 @@
         display: flex;
         align-items: center;
         padding: 0 20px;
-        border-bottom: 1px solid #edf2f7;
+        border-bottom: 1px solid var(--ui-line-soft);
     }
 
     .declare-award-modal-header h2 {
         margin: 0;
         font-size: 18px;
         font-weight: 600;
-        color: #111827;
+        color: var(--ui-ink);
         line-height: 1.2;
     }
 
@@ -131,7 +131,7 @@
 
     .declare-award-helper {
         margin: 0 0 6px;
-        color: #64748b;
+        color: var(--ui-muted);
         font-size: 12px;
         font-weight: 500;
     }
@@ -139,7 +139,7 @@
     .declare-award-error {
         margin-bottom: 8px;
         padding: 10px 12px;
-        border-radius: 10px;
+        border-radius: var(--ui-radius-lg);
         border: 1px solid #fecaca;
         background: #fef2f2;
         color: #b91c1c;
@@ -159,8 +159,8 @@
 
     .declare-award-option {
         display: block;
-        border: 1px solid #d1d5db;
-        border-radius: 12px;
+        border: 1px solid var(--ui-line-strong);
+        border-radius: var(--ui-radius-lg);
         padding: 14px;
         cursor: pointer;
         transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
@@ -168,9 +168,9 @@
     }
 
     .declare-award-option.is-selected {
-        border-color: #1d4ed8;
-        box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.08);
-        background: #f8fbff;
+        border-color: var(--ui-primary);
+        box-shadow: 0 0 0 4px rgba(29, 79, 64, 0.08);
+        background: var(--ui-surface-2);
     }
 
     .declare-award-option-main {
@@ -183,14 +183,14 @@
     .declare-award-bidder-name {
         font-size: 14px;
         font-weight: 600;
-        color: #0f172a;
+        color: var(--ui-ink);
         line-height: 1.4;
         margin-bottom: 4px;
     }
 
     .declare-award-bidder-email {
         font-size: 12px;
-        color: #94a3b8;
+        color: var(--ui-subtle);
         line-height: 1.4;
         margin-bottom: 10px;
     }
@@ -199,8 +199,8 @@
         font-size: 11px;
         font-weight: 600;
         color: #166534;
-        text-transform: uppercase;
-        letter-spacing: 0.02em;
+        text-transform: none;
+        letter-spacing: normal;
     }
 
     .declare-award-amount-wrap {
@@ -211,7 +211,7 @@
     .declare-award-amount {
         font-size: 18px;
         font-weight: 600;
-        color: #0f172a;
+        color: var(--ui-ink);
         line-height: 1.3;
         margin-bottom: 4px;
     }
@@ -231,29 +231,29 @@
         margin-bottom: 6px;
         font-size: 11px;
         font-weight: 600;
-        color: #6b7280;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+        color: var(--ui-muted);
+        text-transform: none;
+        letter-spacing: normal;
     }
 
     .declare-award-textarea {
         width: 100%;
         min-height: 84px;
         padding: 10px 12px;
-        border: 1px solid #d1d5db;
-        border-radius: 12px;
+        border: 1px solid var(--ui-line-strong);
+        border-radius: var(--ui-radius-lg);
         font-size: 13px;
-        color: #111827;
+        color: var(--ui-ink);
         resize: vertical;
         box-sizing: border-box;
         outline: none;
-        font-family: 'Inter', sans-serif;
+        font-family: var(--ui-font);
         transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
     }
 
     .declare-award-textarea:focus {
-        border-color: #93c5fd;
-        box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.12);
+        border-color: var(--ui-primary-line);
+        box-shadow: 0 0 0 4px rgba(29, 79, 64, 0.12);
         background: #ffffff;
     }
 
@@ -266,7 +266,7 @@
     .declare-award-options.input-error {
         padding: 6px;
         border: 1px solid #fca5a5;
-        border-radius: 14px;
+        border-radius: var(--ui-radius-lg);
     }
 
     .declare-award-field-error {
@@ -287,7 +287,7 @@
         align-items: center;
         margin: 2px -16px 0;
         padding: 12px 16px 14px;
-        border-top: 1px solid #edf2f7;
+        border-top: 1px solid var(--ui-line-soft);
         background: #fff;
         box-sizing: border-box;
     }
@@ -297,26 +297,26 @@
         min-width: 132px;
         height: 38px;
         padding: 0 16px;
-        border-radius: 10px;
+        border-radius: var(--ui-radius-lg);
         font-size: 12px;
         font-weight: 600;
         cursor: pointer;
-        font-family: 'Inter', sans-serif;
+        font-family: var(--ui-font);
         display: inline-flex;
         align-items: center;
         justify-content: center;
     }
 
     .declare-award-primary {
-        background: #1d4ed8;
-        border: 1px solid #1d4ed8;
+        background: var(--ui-primary);
+        border: 1px solid var(--ui-primary);
         color: #fff;
-        box-shadow: 0 10px 24px rgba(29, 78, 216, 0.22);
+        box-shadow: 0 10px 24px rgba(29, 79, 64, 0.22);
     }
 
     .declare-award-primary:hover {
-        background: #1e40af;
-        border-color: #1e40af;
+        background: var(--ui-primary-hover);
+        border-color: var(--ui-primary-hover);
     }
 
     .declare-award-primary:disabled {
@@ -326,21 +326,21 @@
 
     .declare-award-secondary {
         background: #fff;
-        color: #374151;
-        border: 1px solid #d1d5db;
+        color: var(--ui-ink-2);
+        border: 1px solid var(--ui-line-strong);
         font-weight: 500;
     }
 
     .declare-award-secondary:hover {
-        background: #f8fafc;
+        background: var(--ui-surface-2);
     }
 
     .declare-award-empty {
         padding: 18px;
-        border: 1px dashed #d1d5db;
-        border-radius: 12px;
+        border: 1px dashed var(--ui-line-strong);
+        border-radius: var(--ui-radius-lg);
         text-align: center;
-        color: #94a3b8;
+        color: var(--ui-subtle);
         font-size: 14px;
     }
 
@@ -459,3 +459,4 @@
     // Initialize button state on load
     document.addEventListener('DOMContentLoaded', validateCertificateFile);
 </script>
+

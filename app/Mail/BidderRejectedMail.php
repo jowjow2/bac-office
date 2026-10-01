@@ -24,7 +24,7 @@ class BidderRejectedMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'BAC Office Registration Update',
+            subject: 'SJBAC Registration Update',
         );
     }
 

@@ -4,113 +4,143 @@
 @section('body_class', 'public-page')
 
 @section('content')
-    <main class="public-shell">
-        <section class="public-page-hero">
-            <p class="public-page-kicker">Procurement</p>
-            <h1>Open and tracked procurement projects</h1>
-            <p>
-                Browse BAC-Office projects, budgets, deadlines, and current procurement status in one public-facing list.
-            </p>
-        </section>
+    @php
+        $categoryFilters = [
+            'goods' => 'Goods',
+            'services' => 'Services',
+            'infrastructure' => 'Infrastructure',
+            'consultancy' => 'Consultancy',
+        ];
+        $totalCategoryCount = $categoryCounts->sum();
+        $tz = config('bac-office.display_timezone', 'Asia/Manila');
+        $now = now($tz);
+        // Per-project values shared by the list rows and their detail dialogs.
+        $row = function ($project) use ($tz, $now) {
+            $projectModalId = 'public-project-modal-' . $project->id;
+            $projectCategoryLabel = $project->category
+                ? (string) \Illuminate\Support\Str::of($project->category)->replace('_', ' ')->title()
+                : 'Uncategorized';
+            $statusLabel = ucwords(str_replace('_', ' ', $project->status));
+            $deadline = $project->bidSubmissionDeadline()?->copy()->timezone($tz);
+            $projectLoginUrl = route('login.page', ['qr_project' => $project->id]);
+            $projectViewUrl = route('public.procurement.show', $project);
+            // Time left to submit, from the recorded submission deadline.
+            $timeLeft = match (true) {
+                $project->status !== 'open' => null,
+                ! $deadline => 'Deadline to be announced',
+                $deadline->isPast() => 'Submission closed',
+                $deadline->isSameDay($now) => 'Closes today',
+                default => 'Closes in '.($days = (int) ceil($now->diffInHours($deadline) / 24)).' '.\Illuminate\Support\Str::plural('day', $days),
+            };
 
-        <section class="public-results-bar">
-            <p>
-                @if($query !== '')
-                    Results for "<strong>{{ $query }}</strong>"
-                @else
-                    Showing the latest procurement projects
-                @endif
-            </p>
-            <span>{{ $projects->count() }} project{{ $projects->count() === 1 ? '' : 's' }}</span>
-        </section>
+            return compact('projectModalId', 'projectCategoryLabel', 'statusLabel', 'deadline', 'projectLoginUrl', 'projectViewUrl', 'timeLeft');
+        };
+    @endphp
 
-        <section class="public-card-grid">
-            @forelse($projects as $project)
-                @php
-                    $projectDocuments = $project->uploadedDocuments();
-                    $projectModalId = 'public-project-modal-' . $project->id;
-                @endphp
+    <main class="public-shell proc-register">
+        <header class="board-bar">
+            <div>
+                <p class="board-eyebrow">Bids and Awards Committee &middot; San Jose, Occidental Mindoro</p>
+                <h1>Procurement Opportunities</h1>
+            </div>
+            <form action="{{ route('public.procurement') }}" method="GET" class="board-search" role="search">
+                <label for="proc-q" class="sr-only">Search procurement</label>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+                <input id="proc-q" type="search" name="q" value="{{ $query }}" placeholder="Search project title or description" autocomplete="off">
+                @if($category !== '')<input type="hidden" name="category" value="{{ $category }}">@endif
+                <button type="submit" class="btn">Search</button>
+            </form>
+        </header>
 
-                <article class="public-card">
-                    <div class="public-card-meta">
-                        <span class="public-status public-status-{{ $project->status }}">{{ ucfirst($project->status) }}</span>
-                        <span>
-                            Deadline:
-                            {{ $project->deadline ? $project->deadline->format('M d, Y') : 'TBA' }}
-                        </span>
-                    </div>
+        <nav class="proc-tabs" aria-label="Filter by category">
+            <a href="{{ route('public.procurement', array_filter(['q' => $query ?: null])) }}" @class(['proc-tab', 'is-active' => $category === '']) @if($category === '') aria-current="true" @endif>
+                All <span class="proc-tab-count">{{ $totalCategoryCount }}</span>
+            </a>
+            @foreach($categoryFilters as $slug => $label)
+                <a href="{{ route('public.procurement', array_filter(['q' => $query ?: null, 'category' => $slug])) }}" data-category="{{ $slug }}" @class(['proc-tab', 'is-active' => $category === $slug]) @if($category === $slug) aria-current="true" @endif>
+                    {{ $label }} <span class="proc-tab-count">{{ $categoryCounts->get($slug, 0) }}</span>
+                </a>
+            @endforeach
+        </nav>
 
-                    <h2>{{ $project->title }}</h2>
-                    <p>{{ $project->description ?: 'No description available yet.' }}</p>
+        <p class="board-results">
+            {{ $projects->count() }} project{{ $projects->count() === 1 ? '' : 's' }}
+            @if($category !== '') in <strong>{{ $categoryFilters[$category] ?? $category }}</strong>@endif
+            @if($query !== '') matching "<strong>{{ $query }}</strong>"@endif
+            @if($query !== '' || $category !== '')
+                <a href="{{ route('public.procurement') }}">Clear filters</a>
+            @endif
+        </p>
 
-                    @if($projectDocuments->isNotEmpty())
-                        @include('pages.partials.procurement-bidding-files', [
-                            'project' => $project,
-                            'projectDocuments' => $projectDocuments,
-                            'compact' => true,
-                        ])
-                    @endif
-
-                    <div class="public-card-footer">
-                        <strong>P{{ number_format((float) $project->budget, 2) }}</strong>
-                        <div class="public-card-actions">
-                            <a href="{{ route('public.procurement.show', $project) }}" class="btn btn-outline" data-public-details-trigger="{{ $projectModalId }}">View Details</a>
-                            <button type="button" class="btn login-btn-inline" onclick="openLogin()">Login to Participate</button>
+        @if($projects->isEmpty())
+            <div class="public-empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M8 14h8"/></svg>
+                <p>No procurement projects matched your search yet.</p>
+            </div>
+        @else
+            <ol class="proc-list">
+                @foreach($projects as $project)
+                    @php extract($row($project)); @endphp
+                    <li class="proc-item" data-category="{{ strtolower((string) $project->category) }}">
+                        <div class="proc-date" aria-label="Bid submission deadline">
+                            <span class="proc-date-label">Deadline</span>
+                            @if($deadline)
+                                <strong>{{ $deadline->format('d') }}</strong>
+                                <span>{{ strtoupper($deadline->format('M Y')) }}</span>
+                                <small>{{ $deadline->format('h:i A') }}</small>
+                            @else
+                                <strong>—</strong>
+                                <span>TBA</span>
+                            @endif
                         </div>
-                    </div>
-                </article>
 
+                        <div class="proc-main">
+                            <p class="proc-topline">
+                                @if($project->reference_no)<span class="proc-ref">{{ $project->reference_no }}</span>@endif
+                                <span class="public-status public-status-{{ $project->status }}">{{ $statusLabel }}</span>
+                                @if($timeLeft)<span class="proc-left {{ $timeLeft === 'Submission closed' ? 'is-closed' : '' }}">{{ $timeLeft }}</span>@endif
+                            </p>
+                            <h2><a href="{{ $projectViewUrl }}" data-public-details-trigger="{{ $projectModalId }}">{{ $project->title }}</a></h2>
+                            <p class="proc-meta">
+                                <span class="proc-category" data-category="{{ strtolower((string) $project->category) }}">{{ $projectCategoryLabel }}</span>
+                                <span>{{ $project->modeLabel() }}</span>
+                                @if($project->location)<span>{{ $project->location }}</span>@endif
+                            </p>
+                            @if($project->description)
+                                <p class="proc-desc">{{ $project->description }}</p>
+                            @endif
+                        </div>
+
+                        <div class="proc-side">
+                            <span>Approved budget (ABC)</span>
+                            <strong>&#8369;{{ number_format((float) $project->budget, 2) }}</strong>
+                            <a href="{{ $projectViewUrl }}" class="btn-outline" data-public-details-trigger="{{ $projectModalId }}">View details</a>
+                        </div>
+                    </li>
+
+                @endforeach
+            </ol>
+
+            @foreach($projects as $project)
+                @php extract($row($project)); @endphp
                 <div id="{{ $projectModalId }}" class="public-details-modal" hidden aria-hidden="true">
                     <div class="public-details-backdrop" data-public-details-close></div>
 
-                    <section class="public-details-dialog" role="dialog" aria-modal="true" aria-labelledby="{{ $projectModalId }}-title">
-                        <button type="button" class="public-details-close" data-public-details-close aria-label="Close project details">&times;</button>
+                    <section class="public-details-dialog bid-notice-dialog" role="dialog" aria-modal="true" aria-labelledby="bid-notice-dialog-{{ $project->id }}-title">
+                        <button type="button" class="public-details-close" data-public-details-close aria-label="Close bid notice">&times;</button>
 
-                        <div class="public-details-header">
-                            <span class="public-status public-status-{{ $project->status }}">{{ ucwords(str_replace('_', ' ', $project->status)) }}</span>
-                            <h2 id="{{ $projectModalId }}-title">{{ $project->title }}</h2>
-                            <p>{{ $project->description ?: 'No description available yet.' }}</p>
-                        </div>
+                        @include('pages.partials.bid-notice', ['project' => $project, 'compact' => true])
 
-                        <div class="public-details-modal-stats">
-                            <div class="public-detail-stat">
-                                <span>Budget</span>
-                                <strong>P{{ number_format((float) $project->budget, 2) }}</strong>
-                            </div>
-
-                            <div class="public-detail-stat">
-                                <span>Deadline</span>
-                                <strong>{{ $project->deadline ? $project->deadline->format('M d, Y') : 'TBA' }}</strong>
-                            </div>
-
-                            <div class="public-detail-stat">
-                                <span>Status</span>
-                                <strong>{{ ucwords(str_replace('_', ' ', $project->status)) }}</strong>
-                            </div>
-                        </div>
-
-                        @if($projectDocuments->isNotEmpty())
-                            <div class="public-details-files">
-                                @include('pages.partials.procurement-bidding-files', [
-                                    'project' => $project,
-                                    'projectDocuments' => $projectDocuments,
-                                    'compact' => true,
-                                    'documentLimit' => false,
-                                ])
-                            </div>
-                        @endif
-
-                        <div class="public-details-actions">
-                            <button type="button" class="btn login-btn-inline" data-public-details-login>Login to Participate</button>
+                        <footer class="bid-notice-actions">
                             <button type="button" class="btn btn-outline" data-public-details-close>Close</button>
-                        </div>
+                            <a href="{{ $projectViewUrl }}" class="btn btn-outline">Full notice page</a>
+                            @if($project->status === 'open')
+                                <a href="{{ $projectLoginUrl }}" class="btn">Login to Participate</a>
+                            @endif
+                        </footer>
                     </section>
                 </div>
-            @empty
-                <div class="public-empty-state">
-                    No procurement projects matched your search yet.
-                </div>
-            @endforelse
-        </section>
+            @endforeach
+        @endif
     </main>
 @endsection

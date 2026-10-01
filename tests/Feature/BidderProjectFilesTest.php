@@ -75,20 +75,24 @@ it('shows attached project files on the bidder available projects page', functio
     $response->assertDontSee('data:image/svg+xml;base64,', false);
 });
 
-it('shows attached project files on the bidder dashboard open projects table', function () {
+it('lists open projects on the bidder dashboard and their files on the opportunity page', function () {
     $bidder = createBidderProjectFilesUser();
     $project = createBidderProjectWithFiles([
         'title' => 'Health Center Repair Package',
     ]);
 
+    testCase()->actingAs($bidder)->get(route('bidder.dashboard'))
+        ->assertOk()
+        ->assertSee('Open opportunities')
+        ->assertSee('Health Center Repair Package')
+        ->assertSee(route('bidder.opportunities.show', $project), false);
+
     $response = testCase()
         ->actingAs($bidder)
-        ->get(route('bidder.dashboard'));
+        ->get(route('bidder.opportunities.show', $project));
 
     $response->assertOk();
-    $response->assertSee('Open Projects');
-    $response->assertSee('Health Center Repair Package');
-    $response->assertSee('Project Files');
+    $response->assertSee('Official documents');
     $response->assertSee('scope-of-work.pdf');
     $response->assertSee('technical-specs.docx');
     $response->assertSee('target="_blank"', false);

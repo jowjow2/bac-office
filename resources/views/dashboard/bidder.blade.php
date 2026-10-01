@@ -1,575 +1,265 @@
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-@include('partials.dashboard-viewport')
-<div class="admin-dashboard dashboard-home bidder-dashboard-page">
-    @vite(['resources/css/dashboard.css'])
+@extends('layouts.portal')
 
-    <style>
-        .bidder-dashboard-page {
-            font-family: 'Inter', sans-serif;
-        }
+@use('App\Support\Format')
 
-        .bidder-sidebar-badge {
-            margin-left: auto;
-        }
+@php
+    $bidderName = $user->company ?: $user->name;
+    $isApproved = $user->isApprovedBidder();
+    $officialBids = $myBids->reject(fn ($bid) => $bid->isDraft());
+    $toneMap = ['active' => 'info', 'muted' => 'neutral', 'success' => 'success', 'warning' => 'warning', 'danger' => 'danger'];
+    $reviewLabel = match ($reviewStatus ?? 'new') {
+        'under_review' => 'Under review',
+        'needs_action' => 'Needs action',
+        'for_re_evaluation' => 'For re-evaluation',
+        default => 'Submitted — waiting for review',
+    };
+@endphp
 
-        .bidder-dashboard-page .dashboard-home-intro {
-            margin-bottom: 22px;
-        }
+@section('title', $isApproved ? 'Bidding overview' : 'Registration status')
+@section('subtitle', $bidderName.' · Supplier portal of the '.config('bac-office.procuring_entity').' BAC')
 
-        .bidder-dashboard-page .dashboard-home-title {
-            margin: 0 0 8px;
-            font-size: 24px;
-            font-weight: 700;
-            color: #0f172a;
-        }
+@section('actions')
+    @if($isApproved)
+        <a href="{{ route('bidder.my-bids') }}" class="ui-btn ui-btn--secondary">My bids &amp; quotations</a>
+        <a href="{{ route('bidder.available-projects') }}" class="ui-btn ui-btn--primary"><i class="fas fa-bullhorn" aria-hidden="true"></i> Browse opportunities</a>
+    @else
+        <a href="{{ route('bidder.company-profile') }}" class="ui-btn ui-btn--primary"><i class="fas fa-folder-open" aria-hidden="true"></i> Registration documents</a>
+    @endif
+@endsection
 
-        .bidder-dashboard-page .dashboard-home-subtitle {
-            margin: 0;
-            font-size: 13px;
-            color: #94a3b8;
-        }
-
-        .bidder-award-banner {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            background: linear-gradient(135deg, #d48a00 0%, #f5a300 100%);
-            border-radius: 16px;
-            padding: 18px 24px;
-            color: #fff;
-            margin-bottom: 22px;
-            box-shadow: 0 12px 28px rgba(217, 119, 6, 0.22);
-        }
-
-        .bidder-award-banner-icon {
-            width: 46px;
-            height: 46px;
-            border-radius: 14px;
-            background: rgba(255, 255, 255, 0.18);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 23px;
-            flex-shrink: 0;
-        }
-
-        .bidder-award-banner h2 {
-            margin: 0 0 6px;
-            font-size: 15px;
-            font-weight: 700;
-            color: #fff;
-        }
-
-        .bidder-award-banner p {
-            margin: 0;
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.95);
-        }
-
-        .bidder-stats-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 16px;
-            margin-bottom: 22px;
-        }
-
-        .bidder-stat-card {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            background: #fff;
-            border: 1px solid #dbe4f0;
-            border-radius: 18px;
-            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-            padding: 20px 22px;
-        }
-
-        .bidder-stat-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 14px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            flex-shrink: 0;
-        }
-
-        .bidder-stat-icon.blue { background: #dbeafe; color: #2563eb; }
-        .bidder-stat-icon.gold { background: #fef3c7; color: #d97706; }
-        .bidder-stat-icon.green { background: #dcfce7; color: #15803d; }
-        .bidder-stat-icon.award { background: #fef3c7; color: #b45309; }
-
-        .bidder-stat-copy strong {
-            display: block;
-            font-size: 21px;
-            font-weight: 700;
-            color: #0f172a;
-            margin-bottom: 6px;
-            line-height: 1;
-        }
-
-        .bidder-stat-copy h3 {
-            margin: 0 0 4px;
-            font-size: 12px;
-            font-weight: 500;
-            color: #64748b;
-        }
-
-        .bidder-stat-copy p {
-            margin: 0;
-            font-size: 10px;
-            color: #94a3b8;
-        }
-
-        .bidder-dashboard-grid {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-            gap: 18px;
-        }
-
-        .bidder-table-panel {
-            background: #fff;
-            border: 1px solid #dbe4f0;
-            border-radius: 18px;
-            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-            overflow: hidden;
-        }
-
-        .bidder-table-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-            padding: 16px 20px;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .bidder-table-header h2 {
-            margin: 0;
-            font-size: 15px;
-            font-weight: 700;
-            color: #0f172a;
-        }
-
-        .bidder-header-action {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 86px;
-            height: 30px;
-            padding: 0 12px;
-            border-radius: 10px;
-            border: 1px solid #cbd5e1;
-            background: #fff;
-            color: #1d4ed8;
-            font-size: 12px;
-            font-weight: 500;
-            text-decoration: none;
-        }
-
-        .bidder-header-action.primary {
-            background: #1d4ed8;
-            border-color: #1d4ed8;
-            color: #fff;
-        }
-
-        .bidder-table-wrap {
-            overflow-x: auto;
-        }
-
-        .bidder-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .bidder-table thead th {
-            padding: 14px 20px;
-            background: #f8fafc;
-            text-align: left;
-            font-size: 11px;
-            font-weight: 600;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-            color: #64748b;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .bidder-table tbody td {
-            padding: 16px 20px;
-            border-bottom: 1px solid #eef2f7;
-            font-size: 12px;
-            color: #0f172a;
-            vertical-align: middle;
-        }
-
-        .bidder-table tbody tr:last-child td {
-            border-bottom: 0;
-        }
-
-        .bidder-project-title {
-            font-size: 13px;
-            font-weight: 600;
-            color: #0f172a;
-        }
-
-        .bidder-project-files {
-            margin-top: 10px;
-            padding: 10px 12px;
-            border: 1px solid #dbe4f0;
-            border-radius: 12px;
-            background: #f8fbff;
-        }
-
-        .bidder-project-files-compact {
-            margin-bottom: 0;
-        }
-
-        .bidder-project-files-heading {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            margin-bottom: 8px;
-        }
-
-        .bidder-project-files-title {
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #334155;
-        }
-
-        .bidder-project-files-count {
-            font-size: 10px;
-            color: #64748b;
-        }
-
-        .bidder-project-files-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .bidder-project-file-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            max-width: 100%;
-            padding: 6px 10px;
-            border-radius: 999px;
-            border: 1px solid #dbeafe;
-            background: #ffffff;
-            color: #1d4ed8;
-            font-size: 11px;
-            font-weight: 600;
-            text-decoration: none;
-        }
-
-        .bidder-project-file-link:hover {
-            color: #1e40af;
-            border-color: #93c5fd;
-        }
-
-        .bidder-project-file-link span {
-            max-width: 180px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .bidder-project-file-link.is-disabled {
-            color: #94a3b8;
-            border-color: #e2e8f0;
-            cursor: default;
-        }
-
-        .bidder-status-pill {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 4px 12px;
-            border-radius: 999px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-
-        .bidder-status-pill.pending { background: #fff7ed; color: #c2410c; }
-        .bidder-status-pill.approved { background: #dcfce7; color: #15803d; }
-        .bidder-status-pill.rejected { background: #fee2e2; color: #b91c1c; }
-        .bidder-status-pill.submitted { background: #dcfce7; color: #047857; }
-        .bidder-status-pill.open { background: #fff7ed; color: #c2410c; }
-
-        .bidder-empty {
-            padding: 26px 20px;
-            text-align: center;
-            font-size: 12px;
-            color: #94a3b8;
-        }
-
-        @media (max-width: 1200px) {
-            .bidder-stats-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-
-            .bidder-dashboard-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .bidder-stats-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-
-            .bidder-award-banner,
-            .bidder-table-header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .bidder-stat-card {
-                padding: 16px;
-                gap: 12px;
-            }
-
-            .bidder-stat-icon {
-                width: 44px;
-                height: 44px;
-                border-radius: 12px;
-                font-size: 18px;
-            }
-
-            .bidder-stat-copy strong {
-                font-size: 24px;
-                margin-bottom: 4px;
-            }
-
-            .bidder-stat-copy h3 {
-                font-size: 13px;
-                margin-bottom: 3px;
-            }
-
-            .bidder-stat-copy p {
-                font-size: 11px;
-                line-height: 1.4;
-            }
-        }
-
-        @media (max-width: 560px) {
-            .bidder-stats-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .bidder-header-action {
-                width: 100%;
-            }
-        }
-    </style>
-
-        @include('partials.bidder-sidebar')
-
-    <div class="main-area">
-        @php
-            $bidderNavbarUser = auth()->user();
-            $bidderNavbarName = $bidderNavbarUser?->company ?: ($bidderNavbarUser?->name ?? 'Bidder');
-            $bidderNavbarRole = ucfirst($bidderNavbarUser?->role ?? 'bidder');
-            $bidderNavbarInitials = collect(preg_split('/\s+/', trim($bidderNavbarName)))
-                ->filter()
-                ->take(2)
-                ->map(fn ($part) => strtoupper(substr($part, 0, 1)))
-                ->implode('');
-        @endphp
-        <header class="navbar">
-            <div class="nav-left">
-                <h2>Bidder Dashboard</h2>
-                <p>Track your bids and available procurement opportunities.</p>
-            </div>
-
-            <div class="nav-right">
-                <div class="nav-icons">
-                    <div class="nav-date-chip">
-                        <i class="far fa-clock" aria-hidden="true"></i>
-                        <span id="realtimeDate">{{ now()->format('M d, Y h:i A') }}</span>
-                    </div>
-                    <a href="{{ route('bidder.notifications') }}" class="notification-button" aria-label="Notifications">
-                        <i class="fas fa-bell"></i>
-                        @if(($bidderNotificationCount ?? 0) > 0)
-                            <span class="notification-badge">{{ $bidderNotificationCount }}</span>
-                        @endif
-                    </a>
-                    <div class="navbar-profile-chip bidder-navbar-profile">
-                        <span class="navbar-user-avatar">{{ $bidderNavbarInitials }}</span>
-                        <span class="navbar-profile-meta">
-                            <span class="navbar-profile-name">{{ $bidderNavbarName }}</span>
-                            <span class="navbar-profile-role">{{ $bidderNavbarRole }}</span>
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </header>
-
-        <main class="dashboard-content dashboard-home-content">
-
-
-            @if($awardedProjects->isNotEmpty())
-                @php $latestAward = $awardedProjects->first(); @endphp
-                <section class="bidder-award-banner">
-                    <div class="bidder-award-banner-icon"><i class="fas fa-trophy"></i></div>
-                    <div>
-                        <h2>Congratulations! You've been awarded a contract.</h2>
-                        <p>{{ $latestAward->project->title ?? 'Awarded project' }} - P{{ number_format((float) $latestAward->contract_amount, 2) }}</p>
-                    </div>
-                </section>
+@section('content')
+    @if(! $isApproved)
+        <section class="ui-callout {{ ($reviewStatus ?? null) === 'needs_action' ? 'ui-callout--warning' : '' }}" aria-labelledby="registration-title">
+            <span class="ui-callout__label">Registration · {{ $reviewLabel }}</span>
+            <h2 class="ui-callout__title" id="registration-title">The BAC is reviewing your registration</h2>
+            <p class="ui-callout__text">Bidding opportunities and submissions open as soon as the BAC approves your eligibility documents. You can update your documents and message the BAC while you wait.</p>
+            @if(($reviewStatus ?? null) === 'needs_action' && $user->bidderProfile?->review_message)
+                <p class="ui-callout__text"><strong>Requested by the BAC:</strong> {{ $user->bidderProfile->review_message }}</p>
             @endif
+        </section>
 
-            <section class="bidder-stats-grid">
-                <article class="bidder-stat-card">
-                    <div class="bidder-stat-icon blue"><i class="fas fa-chart-column"></i></div>
-                    <div class="bidder-stat-copy">
-                        <strong>{{ $availableProjects->count() }}</strong>
-                        <h3>Available Projects</h3>
-                        <p>Open for bidding</p>
+        <div class="ui-grid ui-grid--2">
+            <section class="ui-card" aria-labelledby="req-title">
+                <header class="ui-card__head">
+                    <div>
+                        <h2 class="ui-card__title" id="req-title">Registration requirements · {{ count($registrationDocuments ?? []) }} of {{ count($registrationRequirementOptions ?? []) }} uploaded</h2>
+                        <p class="ui-card__desc">Required documents the BAC checks before approving you.</p>
                     </div>
-                </article>
-
-                <article class="bidder-stat-card">
-                    <div class="bidder-stat-icon gold"><i class="fas fa-square-check"></i></div>
-                    <div class="bidder-stat-copy">
-                        <strong>{{ $myBids->count() }}</strong>
-                        <h3>My Bids</h3>
-                        <p>Total submitted</p>
-                    </div>
-                </article>
-
-                <article class="bidder-stat-card">
-                    <div class="bidder-stat-icon green"><i class="fas fa-ribbon"></i></div>
-                    <div class="bidder-stat-copy">
-                        <strong>{{ $approvedBids }}</strong>
-                        <h3>Approved Bids</h3>
-                        <p>Cleared for evaluation</p>
-                    </div>
-                </article>
-
-                <article class="bidder-stat-card">
-                    <div class="bidder-stat-icon award"><i class="fas fa-award"></i></div>
-                    <div class="bidder-stat-copy">
-                        <strong>{{ $awardedProjects->count() }}</strong>
-                        <h3>Awards Won</h3>
-                        <p>Contracts awarded</p>
-                    </div>
-                </article>
+                </header>
+                <div class="ui-card__body">
+                    <ul class="ui-checklist">
+                        @foreach($registrationRequirementOptions ?? [] as $option)
+                            @php $has = ($registrationDocuments ?? collect())->has($option['document_type']); @endphp
+                            <li class="{{ $has ? 'is-met' : '' }}">
+                                <i class="fas {{ $has ? 'fa-circle-check' : 'fa-circle' }}" aria-hidden="true"></i>
+                                <span>{{ $option['label'] }} @if(! ($option['required'] ?? false))<span class="ui-optional">(optional)</span>@endif</span>
+                                <span class="ui-pill ui-pill--{{ $has ? 'success' : (($option['required'] ?? false) ? 'warning' : 'neutral') }}">{{ $has ? 'Uploaded' : 'Missing' }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+                <div class="ui-card__foot">
+                    <a href="{{ route('bidder.company-profile') }}" class="ui-btn ui-btn--primary">Update documents</a>
+                </div>
             </section>
 
-            <section class="bidder-dashboard-grid">
-                <section class="bidder-table-panel" id="my-recent-bids">
-                    <div class="bidder-table-header">
-                        <h2>My Recent Bids</h2>
-                        <a href="{{ route('bidder.my-bids') }}" class="bidder-header-action">View All</a>
+            <section class="ui-card" aria-labelledby="how-title">
+                <header class="ui-card__head">
+                    <h2 class="ui-card__title" id="how-title">How bidding works here</h2>
+                </header>
+                <div class="ui-card__body">
+                    <ol class="ui-timeline">
+                        @foreach([
+                            ['Register and get approved', 'Upload your PhilGEPS registration and eligibility documents.'],
+                            ['Find an opportunity', 'Read the Invitation to Bid or Request for Quotation and download the documents.'],
+                            ['Pay the bidding documents fee, if the notice requires one', 'Pay at the BAC Secretariat; the Official Receipt is recorded before you submit.'],
+                            ['Prepare the requirements', 'Eligibility and technical documents, bid security when required, and your price.'],
+                            ['Submit before the deadline', 'Online through this portal or sealed at the BAC office, as the notice states.'],
+                            ['Follow the evaluation', 'Opening, evaluation, post-qualification, BAC resolution and HoPE approval.'],
+                        ] as $index => [$step, $hint])
+                            <li class="ui-timeline__item {{ $index === 0 ? 'is-current' : 'is-upcoming' }}">
+                                <span class="ui-timeline__marker" aria-hidden="true">{{ $index + 1 }}</span>
+                                <div>
+                                    <p class="ui-timeline__title">{{ $step }}</p>
+                                    <p class="ui-timeline__meta">{{ $hint }}</p>
+                                </div>
+                            </li>
+                        @endforeach
+                    </ol>
+                </div>
+            </section>
+        </div>
+    @else
+        @if($awardedProjects->isNotEmpty())
+            @php $latestAward = $awardedProjects->first(); @endphp
+            <section class="ui-callout ui-callout--success" id="bidderAwardBanner" data-award-id="{{ $latestAward->id }}" hidden aria-live="polite">
+                <span class="ui-callout__label">Contract awarded</span>
+                <div class="ui-row">
+                    <div class="ui-row__main">
+                        <h2 class="ui-callout__title">{{ $latestAward->project->title ?? 'Awarded project' }}</h2>
+                        <p class="ui-callout__text">Contract amount {{ Format::peso($latestAward->contract_amount) }}. See the Notice of Award and next steps under Awarded contracts.</p>
                     </div>
+                    <span class="ui-actions">
+                        <a href="{{ route('bidder.awarded-contracts') }}" class="ui-btn ui-btn--success ui-btn--sm">View contract</a>
+                        <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" id="bidderAwardBannerClose">Dismiss</button>
+                    </span>
+                </div>
+            </section>
+        @endif
 
-                    <div class="bidder-table-wrap">
-                        <table class="bidder-table">
+        <section class="ui-kpis" aria-label="Summary">
+            <a href="{{ route('bidder.available-projects') }}" class="ui-kpi">
+                <span class="ui-kpi__label">Open opportunities</span>
+                <span class="ui-kpi__value">{{ $opportunities->count() }}</span>
+                <span class="ui-kpi__foot">Invitations to Bid and RFQs accepting submissions</span>
+            </a>
+            <a href="{{ route('bidder.my-bids') }}" class="ui-kpi">
+                <span class="ui-kpi__label">My submissions</span>
+                <span class="ui-kpi__value">{{ $officialBids->count() }}</span>
+                <span class="ui-kpi__foot">Official bids and quotations received by the BAC</span>
+            </a>
+            <a href="{{ route('bidder.bidding-track') }}" class="ui-kpi">
+                <span class="ui-kpi__label">Awaiting results</span>
+                <span class="ui-kpi__value">{{ $awaitingResults }}</span>
+                <span class="ui-kpi__foot">In opening, evaluation or award</span>
+            </a>
+            <a href="{{ route('bidder.awarded-contracts') }}" class="ui-kpi">
+                <span class="ui-kpi__label">Contracts won</span>
+                <span class="ui-kpi__value">{{ $awardedProjects->count() }}</span>
+                <span class="ui-kpi__foot">{{ Format::pesoShort($awardedProjects->sum('contract_amount')) }} total contract amount</span>
+            </a>
+        </section>
+
+        <div class="ui-grid ui-grid--sidebar">
+            <section class="ui-card" aria-labelledby="open-title">
+                <header class="ui-card__head">
+                    <div>
+                        <h2 class="ui-card__title" id="open-title">Open opportunities · {{ $opportunities->count() }}</h2>
+                        <p class="ui-card__desc">Closest deadline first. Open one to see its requirements, fee, bid security and how to submit.</p>
+                    </div>
+                    <a href="{{ route('bidder.available-projects') }}" class="ui-link">All opportunities</a>
+                </header>
+                @if($opportunities->isEmpty())
+                    <div class="ui-empty">
+                        <i class="fas fa-bullhorn" aria-hidden="true"></i>
+                        <strong>No open opportunities right now</strong>
+                        <span>New Invitations to Bid and RFQs appear here once posted.</span>
+                    </div>
+                @else
+                    <div class="ui-table-wrap">
+                        <table class="ui-table ui-table--stack">
                             <thead>
                                 <tr>
-                                    <th>Project</th>
-                                    <th>Amount</th>
-                                    <th>Date</th>
-                                    <th>Status</th>
+                                    <th scope="col">Reference</th>
+                                    <th scope="col">Opportunity</th>
+                                    <th scope="col">Mode</th>
+                                    <th scope="col" class="is-num">ABC (₱)</th>
+                                    <th scope="col">Deadline</th>
+                                    <th scope="col">Your status</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($myBids->take(5) as $bid)
+                                @foreach($opportunities->take(10) as $project)
+                                    @php
+                                        $mode = $project->mode();
+                                        $deadline = $project->bidSubmissionDeadline();
+                                        $bid = $myBids->firstWhere('project_id', $project->id);
+                                        $days = $deadline ? (int) now()->startOfDay()->diffInDays($deadline->copy()->startOfDay()) : null;
+                                    @endphp
                                     <tr>
-                                        <td class="bidder-project-title">{{ $bid->project->title ?? 'N/A' }}</td>
-                                        <td>P{{ number_format((float) $bid->bid_amount, 2) }}</td>
-                                        <td>{{ $bid->created_at?->format('Y-m-d') ?? 'N/A' }}</td>
-                                        <td><span class="bidder-status-pill {{ $bid->status }}">{{ $bid->status }}</span></td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="4" class="bidder-empty">No bids submitted yet.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <section class="bidder-table-panel" id="available-projects">
-                    <div class="bidder-table-header">
-                        <h2>Open Projects</h2>
-                        <a href="{{ route('bidder.available-projects') }}" class="bidder-header-action primary">Browse All</a>
-                    </div>
-
-                    <div class="bidder-table-wrap">
-                        <table class="bidder-table">
-                            <thead>
-                                <tr>
-                                    <th>Project</th>
-                                    <th>Budget</th>
-                                    <th>Deadline</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                    @forelse($availableProjects->take(5) as $project)
-                                        @php $hasBid = $myBids->contains('project_id', $project->id); @endphp
-                                    <tr>
-                                        <td>
-                                            <div class="bidder-project-title">{{ $project->title }}</div>
-                                            @include('bidder.partials.project-documents', ['project' => $project, 'compact' => true])
+                                        <td data-label="Reference"><a href="{{ route('bidder.opportunities.show', $project) }}" class="ui-ref">{{ $project->reference_no ?: 'Project #'.$project->id }}</a></td>
+                                        <td data-label="Opportunity">
+                                            <span class="ui-cell-title">{{ $project->title }}</span>
+                                            <span class="ui-cell-sub">{{ $project->end_user_unit ?: 'End-user office not stated' }} · {{ $project->requiresBiddingFee() ? 'Documents fee '.Format::peso($project->bidding_documents_fee) : 'No documents fee' }}</span>
                                         </td>
-                                        <td>P{{ number_format((float) $project->budget, 2) }}</td>
-                                        <td>{{ $project->deadline?->format('Y-m-d') ?? 'N/A' }}</td>
-                                        <td>
-                                            @if($hasBid)
-                                                <span class="bidder-status-pill submitted">Bid Submitted</span>
+                                        <td data-label="Mode"><span class="ui-mode ui-mode--{{ $mode->family() }}">{{ $mode->shortLabel() }}</span></td>
+                                        <td data-label="ABC (₱)" class="is-num">{{ number_format((float) $project->budget, 2) }}</td>
+                                        <td data-label="Deadline" class="is-nowrap">
+                                            {{ Format::date($deadline, true) }}
+                                            @if($days !== null)<span class="ui-cell-sub">{{ $days === 0 ? 'Today' : 'In '.$days.' '.\Illuminate\Support\Str::plural('day', $days) }}</span>@endif
+                                        </td>
+                                        <td data-label="Your status">
+                                            @if($bid && ! $bid->isDraft())
+                                                <span class="ui-pill ui-pill--success">Submitted</span>
+                                            @elseif($bid)
+                                                <span class="ui-pill ui-pill--warning">Draft saved — not submitted</span>
                                             @else
-                                                <span class="bidder-status-pill open">Open</span>
+                                                <span class="ui-pill ui-pill--neutral">Not submitted</span>
                                             @endif
                                         </td>
                                     </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="4" class="bidder-empty">No open projects available.</td>
-                                    </tr>
-                                @endforelse
+                                @endforeach
                             </tbody>
                         </table>
                     </div>
-                </section>
+                @endif
             </section>
-        </main>
-    </div>
-</div>
 
+            @include('partials.portal.upcoming', ['upcomingTitle' => 'Your deadlines · next 21 days'])
+        </div>
+
+        <section class="ui-card" aria-labelledby="mine-title">
+            <header class="ui-card__head">
+                <div>
+                    <h2 class="ui-card__title" id="mine-title">My bids and quotations</h2>
+                    <p class="ui-card__desc">The status the BAC has recorded for each submission.</p>
+                </div>
+                <a href="{{ route('bidder.bidding-track') }}" class="ui-link">Track evaluation</a>
+            </header>
+            @if($myBids->isEmpty())
+                <div class="ui-empty">
+                    <i class="fas fa-envelope-circle-check" aria-hidden="true"></i>
+                    <span>You have not submitted a bid or quotation yet.</span>
+                </div>
+            @else
+                <div class="ui-table-wrap">
+                    <table class="ui-table ui-table--stack">
+                        <thead>
+                            <tr>
+                                <th scope="col">Reference</th>
+                                <th scope="col">Project</th>
+                                <th scope="col">Mode</th>
+                                <th scope="col">Submitted</th>
+                                <th scope="col">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($myBids->take(8) as $bid)
+                                @php $current = $bid->progress()->toArray()['current']; @endphp
+                                <tr>
+                                    <td data-label="Reference">
+                                        @if($bid->project)
+                                            <a href="{{ route('bidder.opportunities.show', $bid->project) }}" class="ui-ref">{{ $bid->project->reference_no ?: 'Project #'.$bid->project_id }}</a>
+                                        @else
+                                            —
+                                        @endif
+                                    </td>
+                                    <td data-label="Project"><span class="ui-cell-title">{{ $bid->project->title ?? 'Project removed' }}</span></td>
+                                    <td data-label="Mode">@if($bid->project)<span class="ui-mode ui-mode--{{ $bid->project->mode()->family() }}">{{ $bid->project->mode()->shortLabel() }}</span>@endif</td>
+                                    <td data-label="Submitted" class="is-nowrap">{{ $bid->isDraft() ? 'Not submitted' : Format::date($bid->submitted_at ?? $bid->created_at, true) }}</td>
+                                    <td data-label="Status"><span class="ui-pill ui-pill--{{ $toneMap[$current['tone']] ?? 'neutral' }}">{{ $current['label'] }}</span></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </section>
+    @endif
+@endsection
+
+@push('scripts')
 <script>
     (function () {
-        const realtimeDate = document.getElementById('realtimeDate');
-        if (!realtimeDate) return;
-
-        function updateRealtimeDate() {
-            const compact = window.innerWidth <= 560;
-            realtimeDate.textContent = new Date().toLocaleString('en-PH', compact ? {
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit'
-            } : {
-                month: 'short',
-                day: '2-digit',
-                year: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                second: '2-digit'
-            });
-        }
-
-        updateRealtimeDate();
-        setInterval(updateRealtimeDate, 1000);
+        var banner = document.getElementById('bidderAwardBanner');
+        if (!banner) return;
+        var key = 'bac_award_banner_dismissed_' + banner.dataset.awardId;
+        try { if (localStorage.getItem(key) === '1') return; } catch (e) {}
+        banner.hidden = false;
+        document.getElementById('bidderAwardBannerClose')?.addEventListener('click', function () {
+            banner.hidden = true;
+            try { localStorage.setItem(key, '1'); } catch (e) {}
+        });
     })();
 </script>
-
-
+@endpush

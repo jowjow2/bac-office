@@ -1,6 +1,6 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 @include('partials.dashboard-viewport')
-<div class="admin-dashboard dashboard-home">
+<div class="admin-dashboard staff-role-page dashboard-home admin-dashboard-page staff-dashboard-page">
     @vite(['resources/css/dashboard.css'])
     @include('partials.staff-page-styles')
 
@@ -11,7 +11,7 @@
             right: 24px;
             width: min(360px, calc(100vw - 32px));
             z-index: 2400;
-            box-shadow: 0 16px 34px rgba(15, 23, 42, 0.14);
+            box-shadow: 0 16px 34px rgba(27, 36, 32, 0.14);
             opacity: 1;
             transform: translateY(0);
             transition: opacity 0.35s ease, transform 0.35s ease;
@@ -30,9 +30,9 @@
 
         .staff-assigned-card {
             background: #fff;
-            border: 1px solid #dbe4f0;
-            border-radius: 18px;
-            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+            border: 1px solid var(--ui-line);
+            border-radius: var(--ui-radius-lg);
+            box-shadow: var(--ui-shadow);
             overflow: hidden;
         }
 
@@ -49,12 +49,12 @@
             margin: 0 0 6px;
             font-size: 15px;
             font-weight: 700;
-            color: #0f172a;
+            color: var(--ui-ink);
         }
 
         .staff-assigned-meta {
             font-size: 12px;
-            color: #94a3b8;
+            color: var(--ui-subtle);
         }
 
         .staff-assigned-actions {
@@ -72,16 +72,16 @@
             margin: 0 0 16px;
             font-size: 12px;
             line-height: 1.6;
-            color: #64748b;
+            color: var(--ui-muted);
         }
 
         .staff-assigned-kicker {
             margin: 0 0 12px;
             font-size: 12px;
             font-weight: 700;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            color: #475569;
+            letter-spacing: normal;
+            text-transform: none;
+            color: var(--ui-ink-2);
         }
 
         .staff-subtable {
@@ -91,20 +91,20 @@
 
         .staff-subtable thead th {
             padding: 12px 16px;
-            background: #f8fafc;
+            background: var(--ui-surface-2);
             text-align: left;
             font-size: 11px;
             font-weight: 600;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-            color: #64748b;
+            letter-spacing: normal;
+            text-transform: none;
+            color: var(--ui-muted);
         }
 
         .staff-subtable tbody td {
             padding: 14px 16px;
-            border-bottom: 1px solid #eef2f7;
+            border-bottom: 1px solid var(--ui-line-soft);
             font-size: 12px;
-            color: #0f172a;
+            color: var(--ui-ink);
             vertical-align: middle;
         }
 
@@ -122,7 +122,7 @@
 
         .staff-reviewed-label {
             font-size: 12px;
-            color: #0f172a;
+            color: var(--ui-ink);
             white-space: nowrap;
         }
         
@@ -137,10 +137,7 @@
     @include('partials.staff-sidebar')
 
     <div class="main-area">
-        @include('partials.staff-topbar', [
-            'staffNavbarTitle' => 'Assigned Projects',
-            'staffNavbarSubtitle' => 'Assigned project management',
-        ])
+        <x-page-header title="Assigned projects" subtitle="Assigned project management" />
 
         <main class="dashboard-content dashboard-home-content">
             <section class="staff-dashboard">
@@ -180,13 +177,17 @@
 
                                 <div class="staff-assigned-actions">
                                     <span class="staff-status-pill {{ $project->status }}">{{ $project->status }}</span>
-                                    @if($project->status === 'open')
-                                        <form method="POST" action="{{ route('staff.projects.status', $project) }}">
-                                            @csrf
-                                            @method('PATCH')
-                                            <input type="hidden" name="status" value="closed">
-                                            <button type="submit" class="staff-button-secondary">Close Bidding</button>
-                                        </form>
+                                    <a href="{{ route('staff.procurement.show', $project) }}" class="staff-button-secondary">Procurement record</a>
+                                    @if($project->status === 'open' && ! $project->bidsAreOpened())
+                                        {{-- Bidding closes at the deadline; the BAC then records the public bid opening. --}}
+                                        @if($openingBlocker = $project->bidOpeningBlocker())
+                                            <span class="staff-status-hint" title="{{ $openingBlocker }}">Bid opening after deadline</span>
+                                        @else
+                                            <form method="POST" action="{{ route('staff.projects.open-bids', $project) }}">
+                                                @csrf
+                                                <button type="submit" class="staff-button-secondary" type="button" disabled>BAC Admin records bid opening</button>
+                                            </form>
+                                        @endif
                                     @endif
                                 </div>
                             </div>
@@ -215,10 +216,14 @@
                                                 @endphp
                                                 <tr>
                                                     <td>{{ $bid->user->company ?: ($bid->user->name ?? 'N/A') }}</td>
-                                                    <td>P{{ number_format((float) $bid->bid_amount, 2) }}</td>
-                                                    <td class="{{ $variance <= 0 ? 'staff-variance-negative' : 'staff-variance-positive' }}">
-                                                        {{ $variance > 0 ? '+' : '' }}{{ number_format($variance, 1) }}%
-                                                    </td>
+                                                    <td><x-bid-amount :bid="$bid" prefix="P" /></td>
+                                                    @if($bid->isFinancialSealed())
+                                                        <td>&mdash;</td>
+                                                    @else
+                                                        <td class="{{ $variance <= 0 ? 'staff-variance-negative' : 'staff-variance-positive' }}">
+                                                            {{ $variance > 0 ? '+' : '' }}{{ number_format($variance, 1) }}%
+                                                        </td>
+                                                    @endif
                                                     <td>
                                                         <span class="staff-status-pill {{ $bid->status }}">{{ $bid->status }}</span>
                                                     </td>

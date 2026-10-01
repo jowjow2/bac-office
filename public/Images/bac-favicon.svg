@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="SJBAC">
+    <defs>
+        <clipPath id="favicon-clip">
+            <circle cx="32" cy="32" r="31"/>
+        </clipPath>
+    </defs>
+    <circle cx="32" cy="32" r="31" fill="#ffffff"/>
+    <image href="Logo.png" x="-11.50" y="-9.30" width="87.88" height="87.88"
+           preserveAspectRatio="xMidYMid meet"
+           clip-path="url(#favicon-clip)"/>
+</svg>

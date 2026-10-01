@@ -59,3 +59,17 @@ function testCase(): TestCase
 
     throw new RuntimeException('The current Pest test is not bound to Tests\\TestCase.');
 }
+
+/**
+ * A moment on a working day (Mon-Fri), at least $daysAhead days from now, at the
+ * given local time. Schedules must fall within LGU office hours.
+ */
+function workdayAt(int $daysAhead, int $hour, int $minute = 0): \Illuminate\Support\Carbon
+{
+    $day = now()->addDays($daysAhead);
+    while ($day->isWeekend()) {
+        $day->addDay();
+    }
+
+    return $day->setTime($hour, $minute);
+}

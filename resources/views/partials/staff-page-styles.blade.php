@@ -1,6 +1,6 @@
 <style>
     .staff-dashboard {
-        font-family: 'Inter', sans-serif;
+        font-family: var(--ui-font);
     }
 
     .staff-dashboard .dashboard-home-intro,
@@ -13,14 +13,14 @@
         margin: 0 0 8px;
         font-size: 24px;
         font-weight: 700;
-        color: #0f172a;
+        color: var(--ui-ink);
     }
 
     .staff-dashboard .dashboard-home-subtitle,
     .staff-page-subtitle {
         margin: 0;
         font-size: 13px;
-        color: #94a3b8;
+        color: var(--ui-subtle);
     }
 
     .staff-stats-grid {
@@ -35,16 +35,16 @@
         align-items: center;
         gap: 16px;
         background: #fff;
-        border: 1px solid #dbe4f0;
-        border-radius: 18px;
-        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+        border: 1px solid var(--ui-line);
+        border-radius: var(--ui-radius-lg);
+        box-shadow: var(--ui-shadow);
         padding: 22px 24px;
     }
 
     .staff-stat-icon {
         width: 50px;
         height: 50px;
-        border-radius: 14px;
+        border-radius: var(--ui-radius-lg);
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -52,8 +52,8 @@
     }
 
     .staff-stat-icon.blue {
-        background: #dbeafe;
-        color: #2563eb;
+        background: var(--ui-primary-soft);
+        color: var(--ui-primary);
     }
 
     .staff-stat-icon.gold {
@@ -71,7 +71,7 @@
         font-size: 21px;
         line-height: 1;
         font-weight: 600;
-        color: #0f172a;
+        color: var(--ui-ink);
         margin-bottom: 6px;
     }
 
@@ -79,13 +79,13 @@
         margin: 0 0 4px;
         font-size: 12px;
         font-weight: 500;
-        color: #64748b;
+        color: var(--ui-muted);
     }
 
     .staff-stat-copy p {
         margin: 0;
         font-size: 10px;
-        color: #94a3b8;
+        color: var(--ui-subtle);
     }
 
     .staff-quick-actions {
@@ -103,9 +103,9 @@
         min-height: 118px;
         padding: 20px 22px;
         background: #fff;
-        border: 1px solid #dbe4f0;
-        border-radius: 18px;
-        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+        border: 1px solid var(--ui-line);
+        border-radius: var(--ui-radius-lg);
+        box-shadow: var(--ui-shadow);
     }
 
     .staff-quick-action-main {
@@ -119,12 +119,12 @@
         width: 48px;
         height: 48px;
         flex: 0 0 48px;
-        border-radius: 14px;
+        border-radius: var(--ui-radius-lg);
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: #fff7ed;
-        color: #ea580c;
+        background: var(--ui-primary-soft);
+        color: var(--ui-primary);
         font-size: 19px;
     }
 
@@ -132,22 +132,22 @@
         margin: 0 0 5px;
         font-size: 15px;
         font-weight: 700;
-        color: #0f172a;
+        color: var(--ui-ink);
     }
 
     .staff-quick-action-copy p {
         margin: 0;
         font-size: 12px;
         line-height: 1.5;
-        color: #64748b;
+        color: var(--ui-muted);
     }
 
     .staff-table-panel,
     .staff-panel {
         background: #fff;
-        border: 1px solid #dbe4f0;
-        border-radius: 18px;
-        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+        border: 1px solid var(--ui-line);
+        border-radius: var(--ui-radius-lg);
+        box-shadow: var(--ui-shadow);
         overflow: hidden;
         margin-bottom: 22px;
     }
@@ -159,7 +159,7 @@
         justify-content: space-between;
         gap: 16px;
         padding: 16px 20px;
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid var(--ui-line);
     }
 
     .staff-table-header h2,
@@ -167,13 +167,13 @@
         margin: 0;
         font-size: 15px;
         font-weight: 700;
-        color: #0f172a;
+        color: var(--ui-ink);
     }
 
     .staff-panel-header p {
         margin: 4px 0 0;
         font-size: 12px;
-        color: #94a3b8;
+        color: var(--ui-subtle);
     }
 
     .staff-view-all,
@@ -184,10 +184,10 @@
         min-width: 90px;
         height: 34px;
         padding: 0 14px;
-        border-radius: 10px;
-        border: 1px solid #cbd5e1;
+        border-radius: var(--ui-radius-lg);
+        border: 1px solid var(--ui-line-strong);
         background: #fff;
-        color: #1e3a8a;
+        color: var(--ui-primary-hover);
         font-size: 12px;
         font-weight: 500;
         text-decoration: none;
@@ -204,21 +204,21 @@
 
     .staff-table thead th {
         padding: 14px 20px;
-        background: #f8fafc;
+        background: var(--ui-surface-2);
         text-align: left;
         font-size: 11px;
         font-weight: 600;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        color: #64748b;
-        border-bottom: 1px solid #e2e8f0;
+        letter-spacing: normal;
+        text-transform: none;
+        color: var(--ui-muted);
+        border-bottom: 1px solid var(--ui-line);
     }
 
     .staff-table tbody td {
         padding: 16px 20px;
-        border-bottom: 1px solid #eef2f7;
+        border-bottom: 1px solid var(--ui-line-soft);
         font-size: 12px;
-        color: #0f172a;
+        color: var(--ui-ink);
         vertical-align: middle;
     }
 
@@ -228,7 +228,7 @@
 
     .staff-project-title {
         font-weight: 600;
-        color: #0f172a;
+        color: var(--ui-ink);
     }
 
     .staff-status-pill {
@@ -248,8 +248,8 @@
     }
 
     .staff-status-pill.closed {
-        background: #e2e8f0;
-        color: #475569;
+        background: var(--ui-line);
+        color: var(--ui-ink-2);
     }
 
     .staff-status-pill.awarded,
@@ -271,7 +271,7 @@
     .staff-empty-cell,
     .staff-empty-state {
         text-align: center;
-        color: #94a3b8;
+        color: var(--ui-subtle);
         font-size: 12px;
         padding: 28px 20px;
     }
@@ -298,10 +298,10 @@
         width: 100%;
         min-height: 34px;
         padding: 8px 10px;
-        border: 1px solid #cbd5e1;
+        border: 1px solid var(--ui-line-strong);
         border-radius: 8px;
         font-size: 12px;
-        color: #0f172a;
+        color: var(--ui-ink);
         background: #fff;
     }
 
@@ -327,15 +327,15 @@
     }
 
     .staff-button-primary {
-        background: #1d4ed8;
-        border: 1px solid #1d4ed8;
+        background: var(--ui-primary);
+        border: 1px solid var(--ui-primary);
         color: #fff;
     }
 
     .staff-button-secondary {
         background: #fff;
-        border: 1px solid #cbd5e1;
-        color: #334155;
+        border: 1px solid var(--ui-line-strong);
+        color: var(--ui-ink-2);
     }
 
     .staff-button-success {
@@ -353,9 +353,9 @@
     .staff-document-link {
         min-height: 30px;
         padding: 0 12px;
-        border: 1px solid #bfdbfe;
-        background: #eff6ff;
-        color: #1d4ed8;
+        border: 1px solid var(--ui-primary-line);
+        background: var(--ui-primary-soft);
+        color: var(--ui-primary);
     }
 
     .staff-panel-body {
@@ -370,24 +370,24 @@
 
     .staff-report-card {
         padding: 16px;
-        border-radius: 14px;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
+        border-radius: var(--ui-radius-lg);
+        background: var(--ui-surface-2);
+        border: 1px solid var(--ui-line);
     }
 
     .staff-report-card span {
         display: block;
         font-size: 11px;
-        color: #94a3b8;
+        color: var(--ui-subtle);
         margin-bottom: 8px;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+        text-transform: none;
+        letter-spacing: normal;
     }
 
     .staff-report-card strong {
         display: block;
         font-size: 18px;
-        color: #0f172a;
+        color: var(--ui-ink);
     }
 
     .staff-notification-list {
@@ -400,7 +400,7 @@
     .assignment-alert {
         margin-bottom: 18px;
         padding: 14px 16px;
-        border-radius: 14px;
+        border-radius: var(--ui-radius-lg);
         font-size: 12px;
     }
 
@@ -428,7 +428,7 @@
 
     .staff-dashboard-page .staff-table-panel {
         margin-bottom: 0;
-        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+        box-shadow: var(--ui-shadow);
     }
 
     .staff-dashboard-page .staff-table-header {
@@ -464,7 +464,7 @@
         .staff-dashboard-page .staff-stat-icon {
             width: 44px;
             height: 44px;
-            border-radius: 12px;
+            border-radius: var(--ui-radius-lg);
             font-size: 18px;
         }
 
@@ -520,13 +520,13 @@
         margin: 0;
         font-size: 18px;
         font-weight: 700;
-        color: #0f172a;
+        color: var(--ui-ink);
     }
 
     .notifications-header-subtitle {
         margin: 6px 0 0;
         font-size: 12px;
-        color: #94a3b8;
+        color: var(--ui-subtle);
     }
 
     .staff-notifications-header {
@@ -535,7 +535,7 @@
         justify-content: space-between;
         gap: 16px;
         padding: 18px 22px;
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid var(--ui-line);
     }
 
     .staff-notification-clear-btn {
@@ -544,10 +544,10 @@
         justify-content: center;
         height: 36px;
         padding: 0 16px;
-        border-radius: 10px;
-        border: 1px solid #cbd5e1;
+        border-radius: var(--ui-radius-lg);
+        border: 1px solid var(--ui-line-strong);
         background: #fff;
-        color: #1d4ed8;
+        color: var(--ui-primary);
         font-size: 12px;
         font-weight: 600;
         cursor: pointer;
@@ -556,9 +556,9 @@
     }
 
     .staff-notification-clear-btn:hover {
-        background: #eff6ff;
-        border-color: #bfdbfe;
-        color: #1e40af;
+        background: var(--ui-primary-soft);
+        border-color: var(--ui-primary-line);
+        color: var(--ui-primary-hover);
     }
 
     .notifications-list-redesigned {
@@ -573,7 +573,7 @@
         align-items: center;
         gap: 12px;
         padding: 14px 22px;
-        border-bottom: 1px solid #eef2f7;
+        border-bottom: 1px solid var(--ui-line-soft);
         text-decoration: none !important;
         color: inherit !important;
         transition: all 0.2s ease;
@@ -595,16 +595,16 @@
     }
 
     .notification-card-redesigned:hover {
-        background: #f8fafc;
+        background: var(--ui-surface-2);
     }
 
     .notification-card-redesigned.notification-unread {
-        background: #faf8f5;
-        border-left: 4px solid #ea580c;
+        background: var(--ui-surface-2);
+        border-left: 4px solid var(--ui-primary);
     }
 
     .notification-card-redesigned.notification-unread:hover {
-        background: #fef3ed;
+        background: var(--ui-primary-soft);
     }
 
     .notification-card-icon-wrapper {
@@ -618,7 +618,7 @@
     .notification-card-icon {
         width: 40px;
         height: 40px;
-        border-radius: 10px;
+        border-radius: var(--ui-radius-lg);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -627,8 +627,8 @@
     }
 
     .notification-icon-default {
-        background: #e0e7ff;
-        color: #4f46e5;
+        background: var(--ui-info-soft);
+        color: var(--ui-info);
     }
 
     .notification-icon-success {
@@ -647,8 +647,8 @@
     }
 
     .notification-icon-info {
-        background: #e0f2fe;
-        color: #0284c7;
+        background: var(--ui-info-soft);
+        color: var(--ui-info);
     }
 
     .notification-icon-primary {
@@ -663,9 +663,9 @@
         width: 10px;
         height: 10px;
         border-radius: 50%;
-        background: #ea580c;
+        background: var(--ui-primary);
         border: 2px solid #ffffff;
-        box-shadow: 0 2px 4px rgba(234, 88, 12, 0.3);
+        box-shadow: 0 2px 4px rgba(29, 79, 64, 0.3);
     }
 
     .notification-card-content {
@@ -694,26 +694,26 @@
         margin: 0;
         font-size: 13px;
         font-weight: 600;
-        color: #0f172a !important;
+        color: var(--ui-ink) !important;
         line-height: 1.4;
     }
 
     .notification-card-redesigned.notification-unread .notification-card-title {
         font-weight: 700;
-        color: #0f172a !important;
+        color: var(--ui-ink) !important;
     }
 
     .notification-card-time {
         flex-shrink: 0;
         font-size: 11px;
-        color: #cbd5e1;
+        color: var(--ui-line-strong);
         white-space: nowrap;
     }
 
     .notification-card-message {
         margin: 0;
         font-size: 12px;
-        color: #64748b !important;
+        color: var(--ui-muted) !important;
         line-height: 1.45;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -723,7 +723,7 @@
     }
 
     .notification-card-redesigned.notification-unread .notification-card-message {
-        color: #475569 !important;
+        color: var(--ui-ink-2) !important;
     }
 
     .notification-card-redesigned.notification-read .notification-card-title,
@@ -745,15 +745,15 @@
         width: 32px;
         height: 32px;
         border-radius: 8px;
-        background: #f1f5f9;
-        color: #64748b;
-        font-size: 13px;
+        background: var(--ui-line-soft);
+        color: var(--ui-muted);
+        font-size: 12.5px;
         transition: all 0.2s ease;
     }
 
     .notification-card-redesigned:hover .notification-action-button {
-        background: #e2e8f0;
-        color: #334155;
+        background: var(--ui-line);
+        color: var(--ui-ink-2);
     }
 
     .notification-card-redesigned.notification-unread:hover .notification-action-button {
@@ -773,14 +773,14 @@
 
     .notifications-empty-icon {
         font-size: 48px;
-        color: #cbd5e1;
+        color: var(--ui-line-strong);
         margin-bottom: 16px;
     }
 
     .notifications-empty-state p {
         margin: 0;
         font-size: 14px;
-        color: #0f172a;
+        color: var(--ui-ink);
         font-weight: 500;
     }
 
@@ -790,7 +790,7 @@
 
     .notifications-empty-subtitle {
         font-size: 12px;
-        color: #94a3b8;
+        color: var(--ui-subtle);
         font-weight: 400;
     }
 
@@ -810,7 +810,7 @@
 
         .staff-notification-clear-btn {
             width: 100%;
-            height: 40px;
+            height: 36px;
         }
 
         .notification-card-redesigned {
@@ -832,7 +832,7 @@
 
         .notification-card-time {
             font-size: 10px;
-            color: #cbd5e1;
+            color: var(--ui-line-strong);
         }
 
         .notification-card-title {

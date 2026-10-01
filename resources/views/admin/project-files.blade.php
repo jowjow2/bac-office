@@ -34,7 +34,7 @@
                             <form action="{{ route('admin.project.document.destroy', ['project' => $project, 'document' => $documentIndex]) }}" method="POST" data-project-file-delete-form>
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="project-files-item-delete" onclick="return confirm('Delete this file?');">
+                                <button type="submit" class="project-files-item-delete" onclick="return confirm('Are you sure you want to delete this file? This action cannot be undone.');">
                                     Delete
                                 </button>
                             </form>
@@ -53,32 +53,32 @@
 <style>
     .project-files-modal-shell {
         background: #fff;
-        border-radius: 16px;
+        border-radius: var(--ui-radius-lg);
         overflow: hidden;
         width: 100%;
         max-width: 100%;
         box-sizing: border-box;
-        font-family: 'Inter', sans-serif;
-        box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
+        font-family: var(--ui-font);
+        box-shadow: 0 18px 42px rgba(27, 36, 32, 0.12);
     }
 
     .project-files-modal-header {
         padding: 18px 20px 14px;
-        border-bottom: 1px solid #edf2f7;
-        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        border-bottom: 1px solid var(--ui-line-soft);
+        background: linear-gradient(180deg, #ffffff 0%, var(--ui-surface-2) 100%);
     }
 
     .project-files-modal-header h2 {
         margin: 0;
         font-size: 18px;
         font-weight: 600;
-        color: #111827;
+        color: var(--ui-ink);
     }
 
     .project-files-modal-header p {
         margin: 6px 0 0;
         font-size: 13px;
-        color: #64748b;
+        color: var(--ui-muted);
     }
 
     .project-files-modal-body {
@@ -94,15 +94,15 @@
         width: fit-content;
         padding: 6px 11px;
         border-radius: 999px;
-        background: #eff6ff;
-        color: #1d4ed8;
+        background: var(--ui-primary-soft);
+        color: var(--ui-primary);
         font-size: 12px;
         font-weight: 600;
     }
 
     .project-files-alert {
         padding: 10px 12px;
-        border-radius: 10px;
+        border-radius: var(--ui-radius-lg);
         font-size: 12px;
         line-height: 1.45;
     }
@@ -130,9 +130,9 @@
         justify-content: space-between;
         gap: 14px;
         padding: 14px 15px;
-        border: 1px solid #e2e8f0;
-        border-radius: 14px;
-        background: #f8fafc;
+        border: 1px solid var(--ui-line);
+        border-radius: var(--ui-radius-lg);
+        background: var(--ui-surface-2);
     }
 
     .project-files-item-actions {
@@ -149,7 +149,7 @@
     }
 
     .project-files-item-name {
-        color: #0f172a;
+        color: var(--ui-ink);
         font-size: 13px;
         font-weight: 600;
         line-height: 1.45;
@@ -157,7 +157,7 @@
     }
 
     .project-files-item-meta {
-        color: #64748b;
+        color: var(--ui-muted);
         font-size: 12px;
         line-height: 1.4;
     }
@@ -169,17 +169,17 @@
         min-width: 88px;
         height: 36px;
         padding: 0 14px;
-        border-radius: 10px;
-        background: #1d4ed8;
+        border-radius: var(--ui-radius-lg);
+        background: var(--ui-primary);
         color: #ffffff;
         text-decoration: none;
         font-size: 12px;
         font-weight: 600;
-        box-shadow: 0 10px 24px rgba(29, 78, 216, 0.2);
+        box-shadow: 0 10px 24px rgba(29, 79, 64, 0.2);
     }
 
     .project-files-item-link:hover {
-        background: #1e40af;
+        background: var(--ui-primary-hover);
     }
 
     .project-files-item-delete {
@@ -187,13 +187,13 @@
         height: 36px;
         padding: 0 14px;
         border: 1px solid #fecaca;
-        border-radius: 10px;
+        border-radius: var(--ui-radius-lg);
         background: #fff1f2;
         color: #b91c1c;
         font-size: 12px;
         font-weight: 600;
         cursor: pointer;
-        font-family: 'Inter', sans-serif;
+        font-family: var(--ui-font);
     }
 
     .project-files-item-delete:hover {
@@ -207,12 +207,12 @@
 
     .project-files-empty {
         padding: 18px;
-        border: 1px dashed #cbd5e1;
-        border-radius: 14px;
-        color: #64748b;
+        border: 1px dashed var(--ui-line-strong);
+        border-radius: var(--ui-radius-lg);
+        color: var(--ui-muted);
         font-size: 13px;
         text-align: center;
-        background: #f8fafc;
+        background: var(--ui-surface-2);
     }
 
     @media (max-width: 700px) {

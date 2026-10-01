@@ -41,8 +41,10 @@ function createStaffReviewFixture(array $bidOverrides = []): array
         'title' => 'Road Repair Project',
         'description' => 'Repair municipal access road.',
         'budget' => 900000,
-        'deadline' => now()->addDays(14),
-        'status' => 'open',
+        // Bids already opened, so documents can be examined and previewed.
+        'deadline' => now()->subDay(),
+        'status' => 'closed',
+        'bids_opened_at' => now()->subHour(),
     ]);
 
     Assignment::create([
@@ -65,6 +67,12 @@ function createStaffReviewFixture(array $bidOverrides = []): array
     ], $bidOverrides));
 
     return compact('staff', 'bidder', 'project', 'bid');
+}
+
+/** Keys of the default preliminary checklist (project has no requirements list). */
+function allRequirementKeys(): array
+{
+    return collect(Bid::REQUIRED_DOCUMENT_CHECKS)->pluck('key')->all();
 }
 
 function attachCompleteBidderDocuments(User $bidder): void
@@ -159,77 +167,62 @@ it('streams submitted bidder documents as inline pdfs for assigned staff', funct
     $response->assertHeader('Content-Disposition', 'inline; filename="business-permit.pdf"');
 });
 
-it('prevents staff validation until documents are complete and eligibility is valid', function () {
-    ['staff' => $staff, 'bid' => $bid] = createStaffReviewFixture();
+it("prevents BAC Staff from recording a preliminary decision", function () {
+    ["staff" => $staff, "bid" => $bid] = createStaffReviewFixture();
 
-    $response = testCase()
-        ->actingAs($staff)
-        ->patch(route('staff.bids.validate', $bid));
+    testCase()->actingAs($staff)
+        ->patch(route("staff.bids.validate", $bid), ["verified_requirements" => allRequirementKeys()])
+        ->assertForbidden();
 
-    $response->assertRedirect();
-    $response->assertSessionHas('warning', 'Cannot validate bid. Please ensure documents are complete and eligibility is valid.');
-
-    expect($bid->fresh()->status)->toBe('pending');
+    expect($bid->fresh()->status)->toBe("pending")
+        ->and($bid->fresh()->documents_validated_at)->toBeNull();
 });
 
-it('lets staff mark eligibility valid and then validate a complete bid', function () {
-    ['staff' => $staff, 'bidder' => $bidder, 'bid' => $bid] = createStaffReviewFixture();
+it("keeps BAC Staff view/prepare-only even for a complete bid", function () {
+    ["staff" => $staff, "bidder" => $bidder, "bid" => $bid] = createStaffReviewFixture();
     attachCompleteBidderDocuments($bidder);
 
-    testCase()
-        ->actingAs($staff)
-        ->patch(route('staff.bids.eligibility', $bid), [
-            'eligibility_status' => 'valid',
-        ])
-        ->assertRedirect()
-        ->assertSessionHas('success', 'Eligibility confirmed valid. Your bid has moved to Documents Validated.');
+    testCase()->actingAs($staff)
+        ->patch(route("staff.bids.validate", $bid), ["verified_requirements" => allRequirementKeys()])
+        ->assertForbidden();
 
-    expect($bid->fresh()->eligibility_status)->toBe('valid');
-
-    testCase()
-        ->actingAs($staff)
-        ->patch(route('staff.bids.validate', $bid))
-        ->assertRedirect()
-        ->assertSessionHas('success', 'Bid documents marked as validated. Workflow advanced to Documents Validated.');
-
-    expect($bid->fresh()->status)->toBe('approved');
+    expect($bid->fresh()->documents_validated_at)->toBeNull();
 });
 
-it('lets staff save a BAC bid evaluation through the check bid modal endpoint', function () {
-    ['staff' => $staff, 'bidder' => $bidder, 'bid' => $bid] = createStaffReviewFixture();
+it("requires BAC Admin for a complete preliminary decision", function () {
+    ["staff" => $staff, "bidder" => $bidder, "bid" => $bid] = createStaffReviewFixture();
     attachCompleteBidderDocuments($bidder);
 
-    $response = testCase()
-        ->actingAs($staff)
-        ->patchJson(route('staff.bids.evaluate', $bid), [
-            'evaluation_status' => 'documents_validated',
-            'remarks' => 'Documents checked and validated.',
-            'action' => 'save',
-        ]);
+    testCase()->actingAs($staff)
+        ->patch(route("staff.bids.validate", $bid), ["verified_requirements" => allRequirementKeys()])
+        ->assertForbidden();
 
-    $response->assertOk();
-    $response->assertJsonPath('ok', true);
-    $response->assertJsonPath('bid.workflow_step', Bid::STEP_DOCUMENTS_VALIDATED);
-
-    $bid->refresh();
-    expect($bid->workflow_step)->toBe(Bid::STEP_DOCUMENTS_VALIDATED)
-        ->and($bid->documents_validated_at)->not->toBeNull()
-        ->and($bid->notes)->toContain('Documents checked and validated.');
+    expect($bid->fresh()->workflow_step)->toBe(Bid::STEP_SUBMITTED);
 });
 
-it('requires remarks before staff can reject from the check bid modal', function () {
-    ['staff' => $staff, 'bid' => $bid] = createStaffReviewFixture();
+it("does not let BAC Staff save a detailed evaluation", function () {
+    ["staff" => $staff, "bidder" => $bidder, "bid" => $bid] = createStaffReviewFixture();
+    attachCompleteBidderDocuments($bidder);
 
-    $response = testCase()
-        ->actingAs($staff)
-        ->patchJson(route('staff.bids.evaluate', $bid), [
-            'evaluation_status' => 'disqualified',
-            'remarks' => '',
-            'action' => 'reject',
-        ]);
+    testCase()->actingAs($staff)->patchJson(route("staff.bids.evaluate", $bid), [
+        "evaluation_status" => "documents_validated",
+        "remarks" => "Documents checked and validated.",
+        "action" => "save",
+        "verified_requirements" => allRequirementKeys(),
+    ])->assertForbidden();
 
-    $response->assertStatus(422);
-    $response->assertJsonPath('ok', false);
-
-    expect($bid->fresh()->status)->toBe('pending');
+    expect($bid->fresh()->workflow_step)->toBe(Bid::STEP_SUBMITTED);
 });
+
+it("does not let BAC Staff save an adverse decision", function () {
+    ["staff" => $staff, "bid" => $bid] = createStaffReviewFixture();
+
+    testCase()->actingAs($staff)->patchJson(route("staff.bids.evaluate", $bid), [
+        "evaluation_status" => "disqualified",
+        "remarks" => "Required documents are not compliant.",
+        "action" => "reject",
+    ])->assertForbidden();
+
+    expect($bid->fresh()->status)->toBe("pending");
+});
+

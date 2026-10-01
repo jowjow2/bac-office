@@ -1,6 +1,6 @@
 @extends('layouts.public')
 
-@section('title', 'Contact BAC Office')
+@section('title', 'Contact SJBAC')
 @section('body_class', 'public-page contact-page')
 
 @push('pre_app_styles')
@@ -11,10 +11,10 @@
     <main class="public-shell contact-shell">
         <section class="public-page-hero contact-hero" data-contact-reveal="up">
             <div class="contact-hero-copy">
-                <p class="public-page-kicker">Contact BAC Office</p>
-                <h1>Contact BAC Office</h1>
+                <p class="public-page-kicker">Contact SJBAC</p>
+                <h1>Contact SJBAC</h1>
                 <p>
-                    For procurement inquiries, bidding concerns, and document assistance, you may contact the BAC Office
+                    For procurement inquiries, bidding concerns, and document assistance, you may contact the SJBAC
                     through the details below.
                 </p>
             </div>
@@ -50,7 +50,7 @@
                         </div>
                         <div>
                             <h2>Office Address</h2>
-                            <p>BAC Office, Municipal Government of San Jose, Occidental Mindoro</p>
+                            <p>SJBAC, Municipal Government of San Jose, Occidental Mindoro</p>
                         </div>
                     </article>
 
@@ -89,14 +89,14 @@
                     <div class="contact-card-heading">
                         <div>
                             <p class="contact-card-kicker">Location Map</p>
-                            <h2>Visit the BAC Office</h2>
+                            <h2>Visit the SJBAC</h2>
                         </div>
-                        <p>Find the BAC Office inside the Municipal Government of San Jose for in-person procurement assistance.</p>
+                        <p>Find the SJBAC inside the Municipal Government of San Jose for in-person procurement assistance.</p>
                     </div>
 
                     <div class="contact-map-frame">
                         <iframe
-                            title="BAC Office location map"
+                            title="SJBAC location map"
                             src="https://www.google.com/maps?q=Municipal%20Government%20of%20San%20Jose%20Occidental%20Mindoro&output=embed"
                             loading="lazy"
                             referrerpolicy="no-referrer-when-downgrade"
@@ -152,7 +152,7 @@
                     <h2>Citizen's Charter / Help Guide</h2>
                     <p>
                         This guide helps bidders, suppliers, and citizens understand the basic steps in joining procurement
-                        activities of the BAC Office.
+                        activities of the SJBAC.
                     </p>
                 </div>
 
@@ -185,7 +185,7 @@
                             <p>Click the Register button.</p>
                             <p>Fill out the bidder registration form.</p>
                             <p>Upload or submit required business documents.</p>
-                            <p>Wait for BAC Office verification.</p>
+                            <p>Wait for SJBAC verification.</p>
                         </div>
                     </details>
 

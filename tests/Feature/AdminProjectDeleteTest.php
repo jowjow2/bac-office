@@ -4,6 +4,7 @@ use App\Models\Assignment;
 use App\Models\Award;
 use App\Models\Bid;
 use App\Models\Project;
+use App\Models\ProcurementRequest;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -114,4 +115,49 @@ it('deletes a project and its dependent records from the admin projects page', f
     $test->assertDatabaseMissing('bids', ['id' => $bid->id]);
     $test->assertDatabaseMissing('awards', ['id' => $award->id]);
     $test->assertDatabaseMissing('staff_assignments', ['id' => $assignment->id]);
+});
+
+it('returns a linked purchase request to the BAC queue when its project is deleted', function () {
+    $admin = User::create([
+        'name' => 'Admin User',
+        'email' => 'admin-request-delete@example.com',
+        'password' => Hash::make('password'),
+        'role' => 'admin',
+        'status' => 'active',
+    ]);
+    $procurementRequest = ProcurementRequest::create([
+        'reference_no' => 'PR-2026-0099',
+        'end_user_office' => 'Municipal Engineering Office',
+        'requested_by' => $admin->id,
+        'title' => 'Deleted project request',
+        'category' => 'goods',
+        'specifications' => 'Ten units of office equipment',
+        'quantity' => 10,
+        'unit' => 'units',
+        'estimated_cost' => 500000,
+        'fund_source' => 'General Fund',
+        'delivery_period' => '30 days',
+        'status' => ProcurementRequest::STATUS_IN_PROCUREMENT,
+    ]);
+    $project = Project::create([
+        'procurement_request_id' => $procurementRequest->id,
+        'title' => 'Deleted project request',
+        'description' => 'Project linked to an active purchase request.',
+        'budget' => 500000,
+        'status' => 'draft',
+    ]);
+
+    testCase()->actingAs($admin)->delete(route('admin.project.destroy', $project))->assertRedirect(route('admin.projects'));
+
+    testCase()->assertDatabaseMissing('projects', ['id' => $project->id]);
+    testCase()->assertDatabaseHas('procurement_requests', [
+        'id' => $procurementRequest->id,
+        'status' => ProcurementRequest::STATUS_FORWARDED,
+    ]);
+    testCase()->assertDatabaseHas('audit_logs', [
+        'action' => 'procurement_project_deleted',
+        'auditable_id' => $procurementRequest->id,
+    ]);
+    testCase()->actingAs($admin)->get(route('admin.requests', ['tab' => 'procurement']))->assertOk()->assertDontSee('PR-2026-0099');
+    testCase()->get(route('admin.requests', ['tab' => 'bac']))->assertOk()->assertSee('PR-2026-0099');
 });

@@ -111,10 +111,7 @@ class MessageController extends Controller
             'conversationMessages' => $conversationMessages,
             'adminNotificationCount' => $unreadNotificationsCount,
             'unreadNotificationsCount' => $unreadNotificationsCount,
-            'adminUnreadMessagesCount' => Message::query()
-                ->where('recipient_id', $admin->id)
-                ->whereNull('read_at')
-                ->count(),
+            'adminUnreadMessagesCount' => $this->unreadMessagesCountFor($admin->id),
         ]);
     }
 
@@ -151,24 +148,6 @@ class MessageController extends Controller
             'body' => trim((string) ($validated['body'] ?? '')),
             ...$this->storeMessageAttachment($request->file('attachment'), $admin->id),
         ]);
-
-        if ($recipient->role === 'staff') {
-            SystemNotification::createForUser(
-                $recipient->id,
-                'New admin message',
-                ($admin->name ?: 'Admin') . ' sent you a new message.',
-                'message',
-                ['sender_id' => $admin->id]
-            );
-        } else {
-            SystemNotification::createForUser(
-                $recipient->id,
-                'New message from BAC Office',
-                'You received a new message from the BAC Office team.',
-                'message',
-                ['sender_id' => $admin->id]
-            );
-        }
 
         return $this->messageStoreResponse($request, $message, 'admin.messages', $recipient->id, [
             'tab' => $recipient->role === 'staff' ? 'staff' : 'bidders',
@@ -228,10 +207,7 @@ class MessageController extends Controller
             'selectedAdmin' => $selectedAdmin,
             'conversationMessages' => $conversationMessages,
             'bidderNotificationCount' => SystemNotification::unreadCount($bidder->id),
-            'bidderUnreadMessagesCount' => Message::query()
-                ->where('recipient_id', $bidder->id)
-                ->whereNull('read_at')
-                ->count(),
+            'bidderUnreadMessagesCount' => $this->unreadMessagesCountFor($bidder->id),
         ]);
     }
 
@@ -268,14 +244,6 @@ class MessageController extends Controller
             'body' => trim((string) ($validated['body'] ?? '')),
             ...$this->storeMessageAttachment($request->file('attachment'), $bidder->id),
         ]);
-
-        SystemNotification::createForUser(
-            $recipient->id,
-            'New bidder message',
-            ($bidder->company ?: $bidder->name) . ' sent you a new message.',
-            'message',
-            ['sender_id' => $bidder->id]
-        );
 
         return $this->messageStoreResponse($request, $message, 'bidder.messages', $recipient->id, [
             'tab' => $recipient->role === 'staff' ? 'staff' : 'admin',
@@ -332,10 +300,7 @@ class MessageController extends Controller
             'selectedContact' => $selectedContact,
             'conversationMessages' => $conversationMessages,
             'staffNotificationCount' => SystemNotification::unreadCount($staff->id),
-            'staffUnreadMessagesCount' => Message::query()
-                ->where('recipient_id', $staff->id)
-                ->whereNull('read_at')
-                ->count(),
+            'staffUnreadMessagesCount' => $this->unreadMessagesCountFor($staff->id),
         ]);
     }
 
@@ -372,14 +337,6 @@ class MessageController extends Controller
             'body' => trim((string) ($validated['body'] ?? '')),
             ...$this->storeMessageAttachment($request->file('attachment'), $staff->id),
         ]);
-
-        SystemNotification::createForUser(
-            $recipient->id,
-            'New staff message',
-            ($staff->name ?: 'Staff') . ' sent you a new message.',
-            'message',
-            ['sender_id' => $staff->id]
-        );
 
         return $this->messageStoreResponse($request, $message, 'staff.messages', $recipient->id, [
             'tab' => $recipient->role === 'bidder' ? 'bidders' : 'admin',
@@ -418,8 +375,16 @@ class MessageController extends Controller
 
         abort_unless($admin->role === 'admin', 403);
 
+        $counterparts = User::query()
+            ->whereIn('role', ['bidder', 'staff'])
+            ->orderByRaw("LOWER(COALESCE(NULLIF(company, ''), name))")
+            ->get();
+
         return response()->json([
+            'ok' => true,
             'statuses' => $this->onlineStatusesForRoles(['bidder', 'staff']),
+            'threads' => $this->threadSyncPayloads($admin, $counterparts),
+            'unread_messages_count' => $this->unreadMessagesCountFor($admin->id),
         ]);
     }
 
@@ -454,8 +419,16 @@ class MessageController extends Controller
 
         abort_unless($bidder->role === 'bidder', 403);
 
+        $counterparts = User::query()
+            ->whereIn('role', ['admin', 'staff'])
+            ->orderBy('name')
+            ->get();
+
         return response()->json([
+            'ok' => true,
             'statuses' => $this->onlineStatusesForRoles(['admin', 'staff']),
+            'threads' => $this->threadSyncPayloads($bidder, $counterparts),
+            'unread_messages_count' => $this->unreadMessagesCountFor($bidder->id),
         ]);
     }
 
@@ -490,8 +463,16 @@ class MessageController extends Controller
 
         abort_unless($staff->role === 'staff', 403);
 
+        $counterparts = User::query()
+            ->whereIn('role', ['admin', 'bidder'])
+            ->orderByRaw("LOWER(COALESCE(NULLIF(company, ''), name))")
+            ->get();
+
         return response()->json([
+            'ok' => true,
             'statuses' => $this->onlineStatusesForRoles(['admin', 'bidder']),
+            'threads' => $this->threadSyncPayloads($staff, $counterparts),
+            'unread_messages_count' => $this->unreadMessagesCountFor($staff->id),
         ]);
     }
 
@@ -523,19 +504,13 @@ class MessageController extends Controller
     {
         $selectedId = (int) $request->query('user', 0);
 
-        if ($selectedId > 0) {
-            $selected = $counterparts->firstWhere('id', $selectedId);
-
-            if ($selected instanceof User) {
-                return $selected;
-            }
+        if ($selectedId <= 0) {
+            return null;
         }
 
-        $threadCandidate = $counterparts->first(function (User $counterpart) use ($request) {
-            return (int) $request->query('user', 0) === (int) $counterpart->id;
-        });
+        $selected = $counterparts->firstWhere('id', $selectedId);
 
-        return $threadCandidate instanceof User ? $threadCandidate : $counterparts->first();
+        return $selected instanceof User ? $selected : null;
     }
 
     protected function buildThreadSummaries(User $currentUser, Collection $counterparts): Collection
@@ -582,6 +557,41 @@ class MessageController extends Controller
             })
             ->sortByDesc('sort_timestamp')
             ->values();
+    }
+
+    protected function threadSyncPayloads(User $currentUser, Collection $counterparts): Collection
+    {
+        return $this->buildThreadSummaries($currentUser, $counterparts)
+            ->map(fn (array $thread) => $this->threadSyncPayload($thread, $currentUser))
+            ->values();
+    }
+
+    protected function threadSyncPayload(array $thread, User $currentUser): array
+    {
+        /** @var User $threadUser */
+        $threadUser = $thread['user'];
+        /** @var Message|null $latestMessage */
+        $latestMessage = $thread['latest_message'] ?? null;
+        $messageText = $latestMessage?->body
+            ? Str::limit($latestMessage->body, 90)
+            : ($latestMessage?->hasAttachment() ? 'Attachment: ' . $latestMessage->attachment_original_name : 'No messages yet. Send your first message.');
+        $senderName = $latestMessage
+            ? ((int) $latestMessage->sender_id === (int) $currentUser->id
+                ? 'You'
+                : ($latestMessage->sender->company ?: $latestMessage->sender->name))
+            : null;
+
+        return [
+            'user_id' => $threadUser->id,
+            'name' => $threadUser->company ?: $threadUser->name,
+            'email' => $threadUser->email,
+            'role' => $threadUser->role,
+            'preview' => $senderName ? $senderName . ': ' . $messageText : $messageText,
+            'time' => $latestMessage?->created_at?->shortRelativeDiffForHumans() ?? '',
+            'unread_count' => (int) ($thread['unread_count'] ?? 0),
+            'latest_message_id' => $latestMessage?->id,
+            'sort_timestamp' => (int) ($thread['sort_timestamp'] ?? ($latestMessage?->created_at?->timestamp ?? 0)),
+        ];
     }
 
     protected function attachmentValidationRules(): array
@@ -643,6 +653,7 @@ class MessageController extends Controller
             return response()->json([
                 'ok' => true,
                 'message' => $this->messagePayload($message),
+                'unread_messages_count' => $this->unreadMessagesCountFor((int) $message->sender_id),
             ], 201);
         }
 
@@ -749,8 +760,17 @@ class MessageController extends Controller
                 ->values(),
             'latest_message_id' => $latestMessageId,
             'read_states' => $readStates,
+            'unread_messages_count' => $this->unreadMessagesCountFor($currentUser->id),
             'typing' => $this->typingPayload($counterpart, $currentUser),
         ]);
+    }
+
+    protected function unreadMessagesCountFor(int $userId): int
+    {
+        return Message::query()
+            ->where('recipient_id', $userId)
+            ->whereNull('read_at')
+            ->count();
     }
 
     protected function typingResponse(Request $request, User $sender, User $recipient): JsonResponse
@@ -861,3 +881,5 @@ class MessageController extends Controller
         return UserPresence::statusesForIds($userIds);
     }
 }
+
+

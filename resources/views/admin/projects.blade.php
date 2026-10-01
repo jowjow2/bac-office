@@ -1,7 +1,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 @include('partials.dashboard-viewport')
-<div class="admin-dashboard">
-    @vite(['resources/css/dashboard.css'])
+<div class="admin-dashboard admin-role-page">
+    @vite(['resources/css/dashboard.css', 'resources/css/bid-management.css', 'resources/css/admin-projects.css', 'resources/js/bid-management.js'])
 
     @include('partials.admin-sidebar')
 
@@ -9,75 +9,140 @@
     <div class="main-area projects-page">
 
         <!-- PAGE HEADER -->
-        <header class="page-header" style="padding: 24px; border-bottom: 1px solid #e5e7eb; background: #ffffff; margin-bottom: 0;">
-            <div style="max-width: 1400px; margin: 0 auto;">
-                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
-                    <div>
-                        <div class="projects-title-row">
-                            <button type="button" class="dashboard-menu-toggle projects-menu-toggle" data-dashboard-sidebar-toggle aria-controls="dashboardSidebar" aria-expanded="false" aria-label="Open navigation menu">
-                                <i class="fas fa-bars" aria-hidden="true"></i>
-                            </button>
-                            <h1 style="font-size: 24px; font-weight: 700; color: #111827; margin: 0;">Project/Biddings</h1>
-                        </div>
-                        <p style="font-size: 14px; color: #6b7280; margin: 4px 0 0;">Manage all projects and biddings</p>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                        <a href="{{ route('admin.projects', ['status' => 'draft']) }}" style="height: 42px; padding: 0 16px; border-radius: 10px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; border: 1px solid {{ ($status ?? '') === 'draft' ? '#f59e0b' : '#e5e7eb' }}; background: {{ ($status ?? '') === 'draft' ? '#fff7ed' : '#ffffff' }}; color: {{ ($status ?? '') === 'draft' ? '#c2410c' : '#374151' }}; transition: all 0.2s;">
-                            <i class="fas fa-file-alt"></i>
-                            Drafts
-                            <span style="min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: {{ ($status ?? '') === 'draft' ? '#fed7aa' : '#f3f4f6' }}; color: {{ ($status ?? '') === 'draft' ? '#9a3412' : '#6b7280' }}; font-size: 11px; font-weight: 800;">{{ $draftProjectsCount ?? 0 }}</span>
-                        </a>
-                        <a href="{{ route('admin.projects.create') }}" style="height: 42px; padding: 0 18px; border-radius: 10px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; border: 1px solid #111827; background: #111827; color: #ffffff; box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14); transition: background 0.2s;" onmouseover="this.style.background='#374151'; this.style.borderColor='#374151';" onmouseout="this.style.background='#111827'; this.style.borderColor='#111827';">
-                            <i class="fas fa-plus"></i>
-                            Create Project
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Filters row -->
-                <form method="GET" action="{{ route('admin.projects') }}" style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-top: 16px;">
-                    <div style="flex: 1; min-width: 200px;">
-                        <input
-                            type="text"
-                            name="search"
-                            value="{{ $search ?? '' }}"
-                            placeholder="Search projects by title, description..."
-                            style="width: 100%; height: 42px; padding: 0 15px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 13px; color: #111827; outline: none; background: #ffffff; transition: border-color 0.2s, box-shadow 0.2s;"
-                            onfocus="this.style.borderColor='#f59e0b'; this.style.boxShadow='0 0 0 3px rgba(245,158,11,0.1)';"
-                            onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none';"
-                        >
-                    </div>
-                    <div style="width: 180px; position: relative; display: inline-block;">
-                        <select name="status" onchange="this.form.submit()" style="width: 100%; height: 42px; padding: 0 14px; padding-right: 36px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 13px; color: #111827; background: #ffffff; cursor: pointer; outline: none; appearance: none; transition: all 0.2s ease;" 
-                            onfocus="this.style.borderColor='#f59e0b'; this.style.boxShadow='0 0 0 3px rgba(245,158,11,0.1)';" 
-                            onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none';">
-                            <option value="">All Status</option>
-                            <option value="draft" {{ ($status ?? '') === 'draft' ? 'selected' : '' }}>Draft</option>
-                            <option value="approved_for_bidding" {{ ($status ?? '') === 'approved_for_bidding' ? 'selected' : '' }}>Approved for Bidding</option>
-                            <option value="open" {{ ($status ?? '') === 'open' ? 'selected' : '' }}>Open</option>
-                            <option value="closed" {{ ($status ?? '') === 'closed' ? 'selected' : '' }}>Closed</option>
-                            <option value="awarded" {{ ($status ?? '') === 'awarded' ? 'selected' : '' }}>Awarded</option>
-                        </select>
-                        <div style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px;">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;">
-                                <polyline points="6 9 12 15 18 9"></polyline>
-                            </svg>
-                        </div>
-                        <style>
-                            select[name="status"]:hover {
-                                border-color: #f59e0b;
-                            }
-                        </style>
-                    </div>
-                    <button type="submit" style="height: 42px; padding: 0 20px; background: #111827; color: white; border: none; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 0.2s;" onmouseover="this.style.background='#374151'" onmouseout="this.style.background='#111827'">
-                        <i class="fas fa-search" style="margin-right: 6px;"></i> Search
-                    </button>
-                </form>
-            </div>
-        </header>
+        <x-page-header title="Projects & biddings" subtitle="Create, publish and track procurement projects" />
 
         <!-- MAIN CONTENT -->
-        <main class="dashboard-content" style="padding: 24px;">
+        @php
+            $projectStatusOptions = [
+                '' => ['label' => 'All Status', 'metric' => 'All Projects', 'icon' => 'fas fa-chart-column'],
+                'draft' => ['label' => 'Draft', 'metric' => 'Drafts', 'icon' => 'fas fa-file-alt'],
+                'approved_for_bidding' => ['label' => 'Approved for Bidding', 'metric' => 'For Bidding', 'icon' => 'fas fa-stamp'],
+                'open' => ['label' => 'Open', 'metric' => 'Open', 'icon' => 'fas fa-lock-open'],
+                'closed' => ['label' => 'Closed', 'metric' => 'Closed', 'icon' => 'fas fa-lock'],
+                'awarded' => ['label' => 'Awarded', 'metric' => 'Awarded', 'icon' => 'fas fa-trophy'],
+            ];
+        @endphp
+
+        <main class="dashboard-content projects-content">
+            <section class="projects-command-panel" aria-label="Projects overview">
+                <div class="projects-summary-grid" aria-label="Project status summary">
+                    @foreach(['' => 'all', 'draft' => 'draft', 'open' => 'open', 'closed' => 'closed', 'awarded' => 'awarded'] as $statusKey => $totalKey)
+                        @php
+                            $statusOption = $projectStatusOptions[$statusKey];
+                        @endphp
+                        <x-project-stat-card
+                            :status-key="$statusKey"
+                            :total-key="$totalKey"
+                            :metric="$statusOption['metric']"
+                            :icon="$statusOption['icon']"
+                            :count="$projectTotals[$totalKey] ?? 0"
+                            :active="($status ?? '') === $statusKey"
+                        />
+                    @endforeach
+                </div>
+            </section>
+
+            <section
+                id="project-management"
+                class="projects-toolbar"
+                aria-label="Project filters and actions"
+                data-export-kind="projects"
+                data-export-url="{{ route('admin.projects.export') }}"
+                data-export-modal-id="projectExportModal"
+                data-export-rows-id="projectExportRows"
+                data-export-toast-id="projectExportToastRegion"
+                data-export-form-selector=".projects-filter-form"
+                data-export-status-order="awarded,open,closed,approved_for_bidding,draft"
+            >
+                <div class="projects-toolbar-actions">
+                    <a href="{{ route('admin.projects.create') }}" class="projects-create-link">
+                        <i class="fas fa-plus" aria-hidden="true"></i>
+                        <span>Create Project</span>
+                    </a>
+                    <a href="{{ ($showArchived ?? false) ? route('admin.projects') : route('admin.projects', ['archived' => 1]) }}" class="projects-archive-link {{ ($showArchived ?? false) ? 'is-active' : '' }}" title="{{ ($showArchived ?? false) ? 'Return to active projects' : 'View archived projects' }}">
+                        <i class="fas fa-box-archive" aria-hidden="true"></i>
+                        <span>{{ ($showArchived ?? false) ? 'Active Projects' : 'Archived Projects' }}</span>
+                    </a>
+                </div>
+
+                <form method="GET" action="{{ route('admin.projects') }}" class="projects-filter-form">
+                    <div class="projects-filter-group">
+                        <div class="projects-search-control">
+                            <label class="projects-search-field">
+                                <span class="sr-only">Search projects</span>
+                                <button type="submit" class="projects-search-icon" aria-label="Search projects"><svg class="projects-search-icon-svg" viewBox="0 0 24 24" focusable="false"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg></button>
+                                <input
+                                    type="text"
+                                    name="search"
+                                    value="{{ $search ?? '' }}"
+                                    placeholder="Search projects"
+                                    class="projects-search-input"
+                                >
+                            </label>
+                        </div>
+                        <label class="projects-status-field">
+                            <span class="sr-only">Filter by status</span>
+                            <select name="status" onchange="this.form.submit()" class="projects-status-select">
+                                <option value="">All Status</option>
+                                <option value="draft" {{ ($status ?? '') === 'draft' ? 'selected' : '' }}>Draft</option>
+                                <option value="approved_for_bidding" {{ ($status ?? '') === 'approved_for_bidding' ? 'selected' : '' }}>Approved for Bidding</option>
+                                <option value="open" {{ ($status ?? '') === 'open' ? 'selected' : '' }}>Open</option>
+                                <option value="closed" {{ ($status ?? '') === 'closed' ? 'selected' : '' }}>Closed</option>
+                                <option value="awarded" {{ ($status ?? '') === 'awarded' ? 'selected' : '' }}>Awarded</option>
+                            </select>
+                            <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                        </label>
+                        <div class="projects-export-action">
+                            <button type="button" class="bid-control" data-open-export-modal>
+                                <i class="fas fa-file-export" aria-hidden="true"></i>
+                                <span>Export</span>
+                            </button>
+                        </div>
+                    </div>
+                    @if(($status ?? '') !== '' || ($search ?? '') !== '')
+                        <a href="{{ route('admin.projects') }}{{ ($showArchived ?? false) ? '?archived=1' : '' }}" class="projects-clear-filters-link">
+                            <i class="fas fa-xmark" aria-hidden="true"></i>
+                            <span>Clear filters</span>
+                        </a>
+                    @endif
+                    @if(($showArchived ?? false))
+                        <input type="hidden" name="archived" value="1">
+                    @endif
+                </form>
+            </section>
+
+            @if(($status ?? '') !== '' || ($search ?? '') !== '' || ($showArchived ?? false))
+                <div class="projects-active-filter-bar" aria-label="Active project filters">
+                    <span class="projects-active-filter-label">Active filters</span>
+
+                    @if(($status ?? '') !== '')
+                        <span class="projects-active-filter-chip">
+                            <span>Status: {{ $projectStatusOptions[$status]['label'] ?? \Illuminate\Support\Str::headline($status) }}</span>
+                            <a href="{{ route('admin.projects') }}" aria-label="Clear status filter" title="Clear status filter">
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </a>
+                        </span>
+                    @endif
+
+                    @if(($search ?? '') !== '')
+                        <span class="projects-active-filter-chip">
+                            <span>Search: {{ $search }}</span>
+                            <a href="{{ route('admin.projects') }}" aria-label="Clear search filter" title="Clear search filter">
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </a>
+                        </span>
+                    @endif
+
+                    @if(($showArchived ?? false))
+                        <span class="projects-active-filter-chip">
+                            <span>View: Archived Projects</span>
+                            <a href="{{ route('admin.projects') }}" aria-label="Return to active projects" title="Return to active projects">
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </a>
+                        </span>
+                    @endif
+                </div>
+            @endif
 
             @if(session('success'))
             <div id="successAlert" style="position: fixed; top: 90px; right: 25px; background: #dcfce7; color: #166534; padding: 16px 20px; border-radius: 10px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; display: flex; align-items: center; gap: 10px; min-width: 280px; border: 1px solid #bbf7d0;">
@@ -87,112 +152,97 @@
             </div>
             @endif
 
-            <!-- PROJECTS CARD -->
-            <div class="content-card" style="background: #ffffff; border-radius: 16px; border: 1px solid #e5e7eb; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06); overflow: hidden;">
-
-                @if($projects->count() > 0)
-                <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr style="background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
-                            <th style="text-align: left; padding: 14px 20px; font-size: 11px; color: #6b7280; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Project Title</th>
-                            <th style="text-align: left; padding: 14px 20px; font-size: 11px; color: #6b7280; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Budget</th>
-                            <th style="text-align: left; padding: 14px 20px; font-size: 11px; color: #6b7280; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Deadline</th>
-                            <th style="text-align: left; padding: 14px 20px; font-size: 11px; color: #6b7280; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Staff</th>
-                            <th style="text-align: left; padding: 14px 20px; font-size: 11px; color: #6b7280; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Bids</th>
-                            <th style="text-align: left; padding: 14px 20px; font-size: 11px; color: #6b7280; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Status</th>
-                            <th style="text-align: left; padding: 14px 20px; font-size: 11px; color: #6b7280; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($projects as $project)
-                        @php($projectStatusLabel = \Illuminate\Support\Str::headline($project->status))
-                        @php($projectDocuments = $project->uploadedDocuments())
-                        <tr style="border-bottom: 1px solid #e5e7eb; transition: background 0.15s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='#ffffff'">
-                            <td data-label="Project Title" style="padding: 18px 20px; font-size: 13px; vertical-align: top;">
-                                <div style="font-size: 14px; font-weight: 600; color: #111827; margin-bottom: 6px; line-height: 1.4;">{{ $project->title }}</div>
-                                <div style="max-width: 400px; font-size: 12px; line-height: 1.5; color: #6b7280;">
-                                    {{ \Illuminate\Support\Str::limit($project->description, 80) }}
-                                </div>
-                                @if($projectDocuments->isNotEmpty())
-                                <div style="margin-top: 10px;" data-project-files-wrap="{{ $project->id }}">
-                                    <button type="button" data-project-files-trigger="{{ $project->id }}" onclick="loadProjectFilesModal({{ $project->id }})" style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid #e5e7eb; border-radius: 999px; background: #f9fafb; color: #f59e0b; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
-                                        <i class="fas fa-paperclip" style="font-size: 9px;"></i>
-                                        {{ $projectDocuments->count() }} {{ \Illuminate\Support\Str::plural('file', $projectDocuments->count()) }} attached
-                                    </button>
-                                </div>
-                                @endif
-                            </td>
-                            <td data-label="Budget" style="padding: 18px 20px; font-size: 13px; font-weight: 600; color: #111827; vertical-align: top;">P{{ number_format((float) $project->budget, 2) }}</td>
-                            <td data-label="Deadline" style="padding: 18px 20px; font-size: 13px; font-weight: 400; color: #374151; vertical-align: top;">{{ $project->deadline ? $project->deadline->format('M d, Y') : 'N/A' }}</td>
-                            <td data-label="Staff" style="padding: 18px 20px; font-size: 13px; font-weight: 400; color: #111827; vertical-align: top;">{{ $project->assignments->first()?->staff?->name ?? '<span style=\"color:#9ca3af\">Unassigned</span>' }}</td>
-                            <td data-label="Bids" style="padding: 18px 20px; vertical-align: top;">
-                                <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 26px; padding: 0 10px; border-radius: 999px; background: #fef3c7; color: #b45309; font-size: 11px; font-weight: 700;">
-                                    {{ $project->bids_count }}
-                                </span>
-                            </td>
-                            <td data-label="Status" style="padding: 18px 20px; vertical-align: top;">
-                                <span style="display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 600;
-                                    @if($project->status == 'draft') background: #fef3c7; color: #92400e;
-                                    @elseif($project->status == 'approved_for_bidding') background: #dbeafe; color: #1d4ed8;
-                                    @elseif($project->status == 'open') background: #dcfce7; color: #166534;
-                                    @elseif($project->status == 'awarded') background: #fef3c7; color: #b45309;
-                                    @elseif($project->status == 'closed') background: #f3f4f6; color: #6b7280;
-                                    @else background: #fef3c7; color: #92400e; @endif">
-                                    {{ $projectStatusLabel }}
-                                </span>
-                            </td>
-                            <td data-label="Actions" style="padding: 18px 20px; vertical-align: top;">
-                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                    <button onclick="loadViewModal({{ $project->id }})" class="action-btn view" style="background: #f9fafb; color: #374151; border: 1px solid #e5e7eb; padding: 7px 13px; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#f3f4f6'; this.style.borderColor='#d1d5db'" onmouseout="this.style.background='#f9fafb'; this.style.borderColor='#e5e7eb'">View</button>
-                                    <button onclick="loadEditModal({{ $project->id }})" class="action-btn edit" style="background: #f9fafb; color: #374151; border: 1px solid #e5e7eb; padding: 7px 13px; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#f3f4f6'; this.style.borderColor='#d1d5db'" onmouseout="this.style.background='#f9fafb'; this.style.borderColor='#e5e7eb'">Edit</button>
-                                    @if($project->status === 'draft')
-                                    <button onclick="publishDraft({{ $project->id }})" class="action-btn publish" style="background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; padding: 7px 13px; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#bfdbfe'; this.style.borderColor='#60a5fa'" onmouseout="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'">
-                                        <i class="fas fa-paper-plane" style="margin-right: 4px;"></i> Publish
-                                    </button>
-                                    @endif
-                                    <form action="{{ route('admin.project.destroy', $project) }}" method="POST" style="display: inline;" onsubmit="return confirm('Delete this project? This will also remove its bids, awards, and staff assignments.');">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="action-btn delete" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 7px 13px; border-radius: 8px; border: none; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#fee2e2'; this.style.borderColor='#fca5a5'" onmouseout="this.style.background='#fef2f2'; this.style.borderColor='#fecaca'">Delete</button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                        @empty
-                        <tr>
-                            <td colspan="7" style="padding: 60px 20px; text-align: center; color: #9ca3af; background: #fafafa;">
-                                <div style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
-                                    <i class="fas fa-folder-open" style="font-size: 56px; color: #d1d5db;"></i>
-                                    <div>
-                                        <p style="font-size: 15px; font-weight: 500; color: #6b7280; margin: 0 0 4px;">No projects found</p>
-                                        <p style="font-size: 13px; color: #9ca3af; margin: 0;">Try adjusting your search or filter criteria</p>
-                                    </div>
-                                </div>
-                            </td>
-                        </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-                @else
-                <!-- Empty State -->
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 24px; text-align: center; background: #fafafa;">
-                    <div style="width: 72px; height: 72px; background: #fef3c7; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
-                        <i class="fas fa-folder-open" style="font-size: 32px; color: #f59e0b;"></i>
-                    </div>
-                    <h3 style="font-size: 16px; font-weight: 600; color: #111827; margin: 0 0 6px;">No projects yet</h3>
-                    <p style="font-size: 13px; color: #6b7280; margin: 0 0 20px; max-width: 320px; line-height: 1.5;">Get started by creating your first procurement project.</p>
-                    <a href="{{ route('admin.projects.create') }}" class="btn-primary" style="background: #111827; color: white; padding: 10px 20px; border-radius: 10px; text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: background 0.2s;" onmouseover="this.style.background='#374151'" onmouseout="this.style.background='#111827'">
-                        <i class="fas fa-plus"></i> Create Project
-                    </a>
-                </div>
-                @endif
-
+            {{-- Why a project was saved as draft / not posted (stays until closed). --}}
+            @if(session('error'))
+            <div id="errorAlert" role="alert" style="position: fixed; top: 90px; right: 25px; max-width: 520px; background: #fef2f2; color: #991b1b; padding: 16px 20px; border-radius: 10px; font-size: 14px; line-height: 1.5; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1001; display: flex; align-items: flex-start; gap: 10px; border: 1px solid #fecaca;">
+                <i class="fas fa-circle-exclamation" style="font-size: 18px; margin-top: 2px;"></i>
+                <span>{{ session('error') }}</span>
+                <button type="button" onclick="this.parentElement.remove()" aria-label="Close" style="margin-left: auto; background: none; border: none; color: #991b1b; cursor: pointer; font-size: 18px; padding: 0; width: 20px; height: 20px;">&times;</button>
             </div>
+            @endif
+
+            <!-- PROJECTS CARD -->
+            <section class="projects-table-panel" aria-label="Project list">
+                @if($projects->count() > 0)
+                    <div class="projects-table-scroll">
+                        <table class="projects-table">
+                            <thead>
+                                <tr>
+                                    <th>Project</th>
+                                    <th>Budget</th>
+                                    <th>Deadline</th>
+                                    <th>Staff</th>
+                                    <th>Bids</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($projects as $project)
+                                    <x-project-table-row :project="$project" />
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="projects-empty-state">
+                        <span class="projects-empty-icon"><i class="fas fa-folder-open" aria-hidden="true"></i></span>
+                        <h3>{{ (($search ?? '') !== '' || ($status ?? '') !== '' || ($showArchived ?? false)) ? 'No projects found' : 'No projects yet' }}</h3>
+                        <p>{{ (($search ?? '') !== '' || ($status ?? '') !== '' || ($showArchived ?? false)) ? 'Change the search or status filter to widen the list.' : 'Create the first procurement project to start the pipeline.' }}</p>
+                        @if(($search ?? '') !== '' || ($status ?? '') !== '' || ($showArchived ?? false))
+                            <a href="{{ route('admin.projects') }}" class="projects-empty-action projects-empty-action--secondary">Clear filters</a>
+                        @else
+                            <a href="{{ route('admin.projects.create') }}" class="projects-empty-action">
+                                <i class="fas fa-plus" aria-hidden="true"></i>
+                                <span>Create Project</span>
+                            </a>
+                        @endif
+                    </div>
+                @endif
+            </section>
+
+            @if(isset($projects) && $projects->total() > 0)
+                <p class="projects-pagination-summary">Showing {{ $projects->firstItem() }}&ndash;{{ $projects->lastItem() }} of {{ $projects->total() }} projects</p>
+            @endif
 
             <!-- PAGINATION (if needed) -->
             @if(isset($projects) && $projects->hasPages())
-            <div style="margin-top: 20px; display: flex; justify-content: center;">
-                {{ $projects->links() }}
+            <div class="projects-pagination">
+                <nav class="projects-pagination-nav" aria-label="Project pagination">
+                    @if($projects->onFirstPage())
+                        <span class="projects-pagination-control is-disabled" aria-disabled="true">
+                            <i class="fas fa-angle-left" aria-hidden="true"></i>
+                            Previous
+                        </span>
+                    @else
+                        <a class="projects-pagination-control" href="{{ $projects->previousPageUrl() }}" rel="prev">
+                            <i class="fas fa-angle-left" aria-hidden="true"></i>
+                            Previous
+                        </a>
+                    @endif
+
+                    <div class="projects-pagination-pages">
+                        @foreach($projects->getUrlRange(1, $projects->lastPage()) as $page => $url)
+                            @if($page === $projects->currentPage())
+                                <span class="projects-pagination-page is-current" aria-current="page">{{ $page }}</span>
+                            @else
+                                <a class="projects-pagination-page" href="{{ $url }}">{{ $page }}</a>
+                            @endif
+                        @endforeach
+                    </div>
+
+                    @if($projects->hasMorePages())
+                        <a class="projects-pagination-control" href="{{ $projects->nextPageUrl() }}" rel="next">
+                            Next
+                            <i class="fas fa-angle-right" aria-hidden="true"></i>
+                        </a>
+                    @else
+                        <span class="projects-pagination-control is-disabled" aria-disabled="true">
+                            Next
+                            <i class="fas fa-angle-right" aria-hidden="true"></i>
+                        </span>
+                    @endif
+                </nav>
             </div>
             @endif
 
@@ -203,7 +253,7 @@
 
 <!-- PROJECT FILES MODAL -->
 <div id="projectFilesModal" style="display: none; position: fixed; inset: 0; padding: 20px; background: rgba(15, 23, 42, 0.45); z-index: 10000; justify-content: center; align-items: center; box-sizing: border-box;">
-    <div style="background: white; border-radius: 14px; width: min(680px, 100%); max-height: calc(100vh - 20px); overflow-y: auto; overflow-x: hidden; position: relative; box-shadow: 0 20px 44px rgba(15, 23, 42, 0.16); box-sizing: border-box;">
+    <div style="background: white; border-radius: 14px; width: min(680px, 100%); max-height: calc(100vh - 20px); overflow: hidden; position: relative; box-shadow: 0 20px 44px rgba(15, 23, 42, 0.16); box-sizing: border-box;">
         <button onclick="closeProjectFilesModal()" style="position: absolute; top: 16px; right: 16px; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; background: #f1f5f9; border: none; border-radius: 9px; font-size: 18px; line-height: 1; cursor: pointer; color: #7c8ba1; z-index: 2;">&times;</button>
         <div id="projectFilesModalBody">
         </div>
@@ -211,9 +261,9 @@
 </div>
 
 <!-- VIEW PROJECT MODAL -->
-<div id="viewProjectModal" style="display: none; position: fixed; inset: 0; padding: 20px; background: rgba(15, 23, 42, 0.45); z-index: 10000; justify-content: center; align-items: center; box-sizing: border-box;">
-    <div style="background: white; border-radius: 14px; width: min(680px, 100%); max-height: calc(100vh - 20px); overflow-y: auto; overflow-x: hidden; position: relative; box-shadow: 0 20px 44px rgba(15, 23, 42, 0.16); box-sizing: border-box;">
-        <button onclick="closeViewModal()" style="position: absolute; top: 16px; right: 16px; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; background: #f1f5f9; border: none; border-radius: 9px; font-size: 18px; line-height: 1; cursor: pointer; color: #7c8ba1; z-index: 2;">&times;</button>
+<div id="viewProjectModal" style="display: none;">
+    <div>
+        <button onclick="closeViewModal()">&times;</button>
         <div id="viewModalBody">
         </div>
     </div>
@@ -221,7 +271,7 @@
 
 <!-- EDIT PROJECT MODAL -->
 <div id="editProjectModal" style="display: none; position: fixed; inset: 0; padding: 20px; background: rgba(15, 23, 42, 0.45); z-index: 10001; justify-content: center; align-items: center; box-sizing: border-box;">
-    <div style="background: white; border-radius: 14px; width: min(680px, 100%); max-height: calc(100vh - 20px); overflow-y: auto; overflow-x: hidden; position: relative; box-shadow: 0 20px 44px rgba(15, 23, 42, 0.16); box-sizing: border-box;">
+    <div style="background: #fffdfa !important; border: 1px solid #e7e5e4 !important; border-radius: 18px; width: min(880px, 100%) !important; max-width: 100% !important; max-height: calc(100dvh - 24px) !important; overflow: hidden; position: relative; box-shadow: 0 28px 80px rgba(15, 23, 42, .22); box-sizing: border-box;">
         <button onclick="closeEditModal()" style="position: absolute; top: 16px; right: 16px; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; background: #f1f5f9; border: none; border-radius: 9px; font-size: 18px; line-height: 1; cursor: pointer; color: #7c8ba1; z-index: 2;">&times;</button>
         <div id="editModalBody">
         </div>
@@ -230,98 +280,69 @@
 
 <!-- DECLARE AWARD MODAL -->
 <div id="declareWinnerModal" style="display: none; position: fixed; inset: 0; padding: 20px; background: rgba(15, 23, 42, 0.45); z-index: 10002; justify-content: center; align-items: center; box-sizing: border-box;">
-    <div style="background: white; border-radius: 14px; width: min(690px, 100%); max-height: calc(100vh - 20px); overflow-y: auto; overflow-x: hidden; position: relative; box-shadow: 0 20px 44px rgba(15, 23, 42, 0.16); box-sizing: border-box;">
+    <div style="background: white; border-radius: 14px; width: min(690px, 100%); max-height: calc(100vh - 20px); overflow: hidden; position: relative; box-shadow: 0 20px 44px rgba(15, 23, 42, 0.16); box-sizing: border-box;">
         <button onclick="closeDeclareWinnerModal()" style="position: absolute; top: 16px; right: 16px; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; background: #f1f5f9; border: none; border-radius: 9px; font-size: 18px; line-height: 1; cursor: pointer; color: #7c8ba1; z-index: 2;">&times;</button>
         <div id="declareWinnerModalBody">
         </div>
     </div>
 </div>
 
-<!-- CREATE PROJECT MODAL -->
-<div id="projectModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
-    <div style="background: white; border-radius: 12px; padding: 22px; width: 90%; max-width: 470px; max-height: 86vh; overflow-y: auto; position: relative;">
+<div id="projectExportModal" class="bid-export-modal-overlay" hidden aria-hidden="true">
+    <div class="bid-export-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="projectExportTitle" tabindex="-1">
+        <header class="bid-export-modal-header">
+            <div>
+                <p class="bid-export-eyebrow">Projects &amp; Biddings</p>
+                <h2 id="projectExportTitle">Export projects</h2>
+            </div>
+            <button type="button" class="bid-export-close" data-close-export-modal aria-label="Close export dialog">&times;</button>
+        </header>
 
-        <button onclick="closeProjectModal()" style="position: absolute; top: 12px; right: 12px; background: none; border: none; font-size: 18px; cursor: pointer; color: #64748b;">&times;</button>
+        <div class="bid-export-modal-body">
+            <p class="bid-export-total" data-export-total></p>
 
-        <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 4px;">Create New Project</h2>
-        <p style="color: #64748b; font-size: 12px; margin-bottom: 14px;">Fill in the details below to create a new procurement project.</p>
+            <section class="bid-export-filter-section" aria-labelledby="projectExportFilterTitle">
+                <div class="bid-export-section-label-row">
+                    <h3 id="projectExportFilterTitle">Filter by status</h3>
+                    <span class="bid-export-filter-help">All selected</span>
+                </div>
+                <div class="bid-export-status-chips" data-export-status-chips role="group" aria-label="Export status filters"></div>
+            </section>
 
-        @if($errors->any())
-        <div style="background: #fee2e2; color: #991b1b; padding: 12px; border-radius: 8px; margin-bottom: 20px;">
-            <ul style="margin: 0; padding-left: 20px;">
-                @foreach($errors->all() as $error)
-                <li>{{ $error }}</li>
-                @endforeach
-            </ul>
+            <p class="bid-export-summary" data-export-summary aria-live="polite"></p>
+            <p class="bid-export-warning" data-export-warning role="status" hidden>
+                <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+                <span></span>
+            </p>
+
+            <section class="bid-export-preview-section" aria-labelledby="projectExportPreviewTitle">
+                <div class="bid-export-section-label-row">
+                    <h3 id="projectExportPreviewTitle">Preview</h3>
+                    <span class="bid-export-preview-count" data-export-preview-count></span>
+                </div>
+                <div class="bid-export-preview-frame">
+                    <table class="bid-export-preview-table">
+                        <thead>
+                            <tr><th scope="col">Project</th><th scope="col" class="is-numeric">Budget</th><th scope="col">Status</th></tr>
+                        </thead>
+                        <tbody data-export-preview-body></tbody>
+                    </table>
+                    <p class="bid-export-empty" data-export-empty hidden>No projects match the selected statuses.</p>
+                </div>
+            </section>
         </div>
-        @endif
 
-        <form action="{{ route('admin.projects.store') }}" method="POST" enctype="multipart/form-data">
-            @csrf
+        <footer class="bid-export-modal-footer">
+            <button type="button" class="bid-export-button bid-export-button-secondary" data-close-export-modal>Cancel</button>
+            <button type="button" class="bid-export-button bid-export-button-primary" data-confirm-export disabled>Confirm export</button>
+        </footer>
 
-            <div style="margin-bottom: 14px;">
-                <label style="display: block; font-size: 12px; font-weight: 500; color: #374151; margin-bottom: 5px;">Project Title</label>
-                <input type="text" name="title" value="{{ old('title') }}" required style="width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px;">
-            </div>
-
-            <div style="margin-bottom: 14px;">
-                <label style="display: block; font-size: 12px; font-weight: 500; color: #374151; margin-bottom: 5px;">Description</label>
-                <textarea name="description" rows="3" required style="width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; resize: vertical;">{{ old('description') }}</textarea>
-            </div>
-
-            <div style="margin-bottom: 14px;">
-                <label style="display: block; font-size: 12px; font-weight: 500; color: #374151; margin-bottom: 5px;">Upload Files</label>
-                <input type="file" name="document_files[]" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; background: white;">
-                <div style="margin-top: 5px; font-size: 11px; color: #6b7280;">You can upload multiple PDF, DOC, DOCX, JPG, JPEG, or PNG files. Limit is per file at 20MB.</div>
-            </div>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
-                <div>
-                    <label style="display: block; font-size: 12px; font-weight: 500; color: #374151; margin-bottom: 5px;">Category</label>
-                    <input type="text" name="category" value="{{ old('category') }}" required style="width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px;">
-                </div>
-                <div>
-                    <label style="display: block; font-size: 12px; font-weight: 500; color: #374151; margin-bottom: 5px;">Budget (PHP)</label>
-                    <input type="number" name="budget" value="{{ old('budget') }}" required min="0" max="9999999999999.99" step="0.01" style="width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px;">
-                </div>
-            </div>
-
-            <div style="display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 18px;">
-                <div>
-                    <label style="display: block; font-size: 12px; font-weight: 500; color: #374151; margin-bottom: 5px;">Deadline</label>
-                    <input type="date" name="deadline" value="{{ old('deadline') }}" required style="width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px;">
-                </div>
-            </div>
-
-            <input type="hidden" name="status" id="projectModalStatus" value="draft">
-
-            <div style="display: flex; gap: 12px; justify-content: flex-end;">
-                <button type="button" onclick="closeProjectModal()" style="padding: 8px 16px; border: 1px solid #d1d5db; border-radius: 8px; color: #374151; background: white; cursor: pointer; font-size: 13px;">Cancel</button>
-                <button type="button" onclick="document.getElementById('projectModalStatus').value='draft'; this.form.submit();" style="padding: 8px 16px; border: 1px solid #d1d5db; border-radius: 8px; color: #374151; background: white; cursor: pointer; font-size: 13px;">
-                    <i class="fas fa-file-alt"></i> Save as Draft
-                </button>
-                <button type="button" onclick="document.getElementById('projectModalStatus').value='open'; this.form.submit();" style="padding: 8px 16px; background: #1a3cff; color: white; border: none; border-radius: 8px; font-size: 13px; cursor: pointer;">
-                    <i class="fas fa-paper-plane"></i> Publish Project
-                </button>
-            </div>
-        </form>
     </div>
 </div>
 
+<script type="application/json" id="projectExportRows">@json($exportRows ?? [])</script>
+<div id="projectExportToastRegion" class="bid-export-toast-region" aria-live="polite" aria-atomic="true"></div>
+
 <script>
-    function openProjectModal() {
-        document.getElementById('projectModal').style.display = 'flex';
-    }
-
-    function closeProjectModal() {
-        document.getElementById('projectModal').style.display = 'none';
-    }
-
-    document.getElementById('projectModal').addEventListener('click', function(e) {
-        if (e.target === this) {
-            closeProjectModal();
-        }
-    });
 
     function closeSuccessAlert() {
         const alert = document.getElementById('successAlert');
@@ -342,9 +363,6 @@
             }, 5000);
         }
 
-        @if($errors->any())
-            openProjectModal();
-        @endif
     });
 
     let currentProjectId = null;
@@ -397,7 +415,6 @@
                 })
                 .then(result => {
                     if (result.ok && result.data.success) {
-                        syncProjectFilesTrigger(currentProjectId, result.data.remaining_count);
                         showTempMessage(result.data.message || 'Project file deleted successfully!', 'success');
                         loadProjectFilesModal(currentProjectId);
                     } else {
@@ -433,21 +450,6 @@
         alertBox.style.display = 'block';
     }
 
-    function syncProjectFilesTrigger(projectId, remainingCount) {
-        const wrap = document.querySelector(`[data-project-files-wrap="${projectId}"]`);
-        const trigger = document.querySelector(`[data-project-files-trigger="${projectId}"]`);
-
-        if (!wrap || !trigger) return;
-
-        if (remainingCount <= 0) {
-            wrap.remove();
-            return;
-        }
-
-        const label = `${remainingCount} ${remainingCount === 1 ? 'file' : 'files'} attached`;
-        trigger.innerHTML = `<i class="fas fa-paperclip" style="font-size: 10px;"></i> ${label}`;
-    }
-
     function loadViewModal(id) {
         currentProjectId = id;
         document.getElementById('viewProjectModal').style.display = 'flex';
@@ -470,6 +472,7 @@
     function loadEditModal(id) {
         currentProjectId = id;
         document.getElementById('editProjectModal').style.display = 'flex';
+        document.body.classList.add('bac-modal-open');
 
         fetch(`/admin/projects/${id}/edit`)
             .then(response => response.text())
@@ -485,6 +488,7 @@
 
     function closeEditModal() {
         document.getElementById('editProjectModal').style.display = 'none';
+        document.body.classList.remove('bac-modal-open');
     }
 
     function loadDeclareWinnerModal(projectId, bidId = null) {
@@ -539,16 +543,115 @@
         }
     }
 
+    function syncSourceOfFundFields(root = document) {
+        const scope = root || document;
+        const fields = scope.matches && scope.matches('[data-source-of-fund-field]')
+            ? [scope]
+            : Array.from(scope.querySelectorAll('[data-source-of-fund-field]'));
+
+        fields.forEach(function(field) {
+            const hidden = field.querySelector('[data-source-of-fund-value]');
+            const select = field.querySelector('[data-source-of-fund-select]');
+            const otherWrap = field.querySelector('[data-source-of-fund-other-wrap]');
+            const other = field.querySelector('[data-source-of-fund-other]');
+
+            if (!hidden || !select) return;
+
+            const isOther = select.value === 'Other';
+            if (otherWrap) otherWrap.hidden = !isOther;
+            hidden.value = isOther ? ((other && other.value.trim()) || select.value) : select.value;
+        });
+    }
+
+    function initSourceOfFundFields(root = document) {
+        const scope = root || document;
+        const fields = scope.matches && scope.matches('[data-source-of-fund-field]')
+            ? [scope]
+            : Array.from(scope.querySelectorAll('[data-source-of-fund-field]'));
+
+        fields.forEach(function(field) {
+            if (field.dataset.sourceOfFundReady === 'true') return;
+            field.dataset.sourceOfFundReady = 'true';
+
+            const select = field.querySelector('[data-source-of-fund-select]');
+            const other = field.querySelector('[data-source-of-fund-other]');
+
+            if (select) select.addEventListener('change', function() { syncSourceOfFundFields(field); });
+            if (other) other.addEventListener('input', function() { syncSourceOfFundFields(field); });
+        });
+
+        syncSourceOfFundFields(scope);
+    }
+    function syncContractDurationFields(root = document) {
+        const scope = root || document;
+        const fields = scope.matches && scope.matches('[data-contract-duration-field]')
+            ? [scope]
+            : Array.from(scope.querySelectorAll('[data-contract-duration-field]'));
+
+        fields.forEach(function(field) {
+            const hidden = field.querySelector('[data-contract-duration-value]');
+            const select = field.querySelector('[data-contract-duration-select]');
+            const customWrap = field.querySelector('[data-contract-duration-custom-wrap]');
+            const custom = field.querySelector('[data-contract-duration-custom]');
+
+            if (!hidden || !select) return;
+
+            const isCustom = select.value === 'Custom';
+            if (customWrap) customWrap.hidden = !isCustom;
+            hidden.value = isCustom ? ((custom && custom.value.trim()) || select.value) : select.value;
+        });
+    }
+
+    function initContractDurationFields(root = document) {
+        const scope = root || document;
+        const fields = scope.matches && scope.matches('[data-contract-duration-field]')
+            ? [scope]
+            : Array.from(scope.querySelectorAll('[data-contract-duration-field]'));
+
+        fields.forEach(function(field) {
+            if (field.dataset.contractDurationReady === 'true') return;
+            field.dataset.contractDurationReady = 'true';
+
+            const select = field.querySelector('[data-contract-duration-select]');
+            const custom = field.querySelector('[data-contract-duration-custom]');
+
+            if (select) select.addEventListener('change', function() { syncContractDurationFields(field); });
+            if (custom) custom.addEventListener('input', function() { syncContractDurationFields(field); });
+        });
+
+        syncContractDurationFields(scope);
+    }
+
     function attachEditFormHandler() {
         const form = document.querySelector('#editModalBody form');
         if (form) {
+            initSourceOfFundFields(form);
+            initContractDurationFields(form);
+            window.BacPortal?.setupMoneyInputs(form);
+            initEditEvaluationFields(form);
+            initEditFeeVenue(form);
+            initEditFileNames(form);
+
+            const publishBtn = form.querySelector('#editPublishBtn');
+            if (publishBtn) {
+                publishBtn.onclick = function() {
+                    publishEditProject(currentProjectId, publishBtn);
+                };
+            }
+
             form.onsubmit = function(e) {
                 e.preventDefault();
                 const submitBtn = document.getElementById('editSubmitBtn');
                 if (!submitBtn) return;
 
+                const submitLabel = submitBtn.innerHTML;
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+                clearEditFormErrors();
+
+                syncSourceOfFundFields(form);
+                syncContractDurationFields(form);
 
                 const formData = new FormData(form);
                 formData.append('_method', 'PUT');
@@ -569,7 +672,7 @@
 
                     if (data.ok && data.data.success) {
                         closeEditModal();
-                        showTempMessage('Project updated successfully!', 'success');
+                        showTempMessage(data.data.message || 'Project updated successfully!', 'success');
                         refreshTable();
                     } else {
                         renderEditFormErrors(data.data.errors || {}, data.data.message || 'Please check the form and try again.');
@@ -581,10 +684,93 @@
                 })
                 .finally(() => {
                     submitBtn.disabled = false;
-                    submitBtn.innerHTML = 'Save Changes';
+                    submitBtn.innerHTML = submitLabel;
                 });
             };
         }
+    }
+
+    // MEARB / MARB fields show only for those criteria; the weights show their running total.
+    function initEditEvaluationFields(form) {
+        const criterion = form.querySelector('[data-pe-criterion]');
+        const weights = Array.from(form.querySelectorAll('[data-pe-weight]'));
+        const total = form.querySelector('[data-pe-weight-total]');
+
+        const syncCriterion = () => {
+            const value = criterion ? criterion.value : '';
+            form.querySelectorAll('[data-pe-weighted]').forEach(el => { el.hidden = !['mearb', 'marb'].includes(value); });
+            form.querySelectorAll('[data-pe-mearb]').forEach(el => { el.hidden = value !== 'mearb'; });
+        };
+        const syncTotal = () => {
+            if (!total) return;
+            const sum = weights.reduce((carry, input) => carry + (Number(input.value) || 0), 0);
+            total.textContent = `${Math.round(sum * 100) / 100}%`;
+            total.closest('tr')?.classList.toggle('is-off', sum > 0 && Math.abs(sum - 100) > 0.01);
+        };
+
+        criterion?.addEventListener('change', syncCriterion);
+        weights.forEach(input => input.addEventListener('input', syncTotal));
+        syncCriterion();
+        syncTotal();
+    }
+
+    // "Where to pay" shows only when there is a fee.
+    // Bidding documents fee: competitive bidding shows the ABC schedule's maximum
+    // (GPPB Circular No. 02-2026, Sec. 5.2); a lower fee or a waiver needs a reason.
+    // The server applies the same rules.
+    function initEditFeeVenue(form) {
+        const section = form.querySelector('[data-pe-fee-section]');
+        const fee = form.querySelector('[data-pe-fee]');
+        const venue = form.querySelector('[data-pe-fee-venue]');
+        if (!section || !fee || !venue) return;
+
+        const competitive = section.dataset.peFeeCompetitive === '1';
+        const schedule = JSON.parse(section.dataset.peFeeSchedule || '[]');
+        const budget = form.querySelector('[name="budget"]');
+        const modes = Array.from(form.querySelectorAll('[data-pe-fee-mode]'));
+        const amountField = form.querySelector('[data-pe-fee-amount]');
+        const reasonField = form.querySelector('[data-pe-fee-reason]');
+        const calc = form.querySelector('[data-pe-fee-calc]');
+        const max = form.querySelector('[data-pe-fee-max]');
+        const peso = (value) => Number(value).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const amount = (input) => Number(String(input?.value || '').replace(/[^0-9.]/g, '')) || 0;
+
+        const sync = () => {
+            if (!competitive) {
+                venue.hidden = !(amount(fee) > 0);
+                return;
+            }
+            const abc = amount(budget);
+            const bracket = abc > 0 ? schedule.find((row) => row.limit === null || Math.round(abc * 100) <= Math.round(row.limit * 100)) : null;
+            const mode = modes.find((radio) => radio.checked)?.value || 'schedule';
+            if (calc) {
+                calc.textContent = bracket
+                    ? `ABC ₱${peso(abc)}: ${bracket.bracket.replace(/^ABC /, '')}, so the maximum fee is ₱${peso(bracket.maximum)}.`
+                    : 'Set the ABC to compute the maximum fee.';
+            }
+            if (max) max.textContent = bracket ? `(₱${peso(bracket.maximum)})` : '';
+            if (amountField) amountField.hidden = mode !== 'reduced';
+            if (reasonField) reasonField.hidden = mode === 'schedule';
+            const charged = mode === 'waived' ? 0 : (mode === 'reduced' ? amount(fee) : (bracket?.maximum || 0));
+            venue.hidden = !(charged > 0);
+        };
+
+        [fee, budget, ...modes].forEach((input) => {
+            input?.addEventListener('input', sync);
+            input?.addEventListener('change', sync);
+        });
+        sync();
+    }
+
+    function initEditFileNames(form) {
+        const input = form.querySelector('[data-pe-files]');
+        const names = form.querySelector('[data-pe-file-names]');
+        if (!input || !names) return;
+
+        input.addEventListener('change', () => {
+            const files = Array.from(input.files || []).map(file => file.name);
+            names.textContent = files.length ? files.join(', ') : 'No files chosen';
+        });
     }
 
     function attachAwardFormHandler() {
@@ -652,17 +838,9 @@
 
     function renderEditFormErrors(errors = {}, message = '') {
         const alertBox = document.getElementById('editFormAlert');
-        const hasFieldErrors = Object.keys(errors).length > 0;
-
-        if (alertBox) {
-            if (message && !hasFieldErrors) {
-                alertBox.textContent = message;
-                alertBox.style.display = 'block';
-            } else {
-                alertBox.style.display = 'none';
-                alertBox.textContent = '';
-            }
-        }
+        const unplaced = [];
+        let placed = 0;
+        let firstInvalid = null;
 
         Object.entries(errors).forEach(([field, messages]) => {
             const normalizedField = field.replace(/\.\d+$/, '');
@@ -675,12 +853,35 @@
 
             if (input) {
                 input.classList.add('input-error');
+                firstInvalid = firstInvalid || input;
             }
 
             if (errorEl) {
                 errorEl.textContent = text;
+                placed++;
+            } else if (text) {
+                unplaced.push(text);
             }
         });
+
+        // Messages shown beside their fields are not repeated in the banner.
+        if (unplaced.length) {
+            message = [...new Set(unplaced)].join(' ');
+        } else if (placed) {
+            message = placed === 1 ? 'Please correct the highlighted field.' : `Please correct the ${placed} highlighted fields.`;
+        }
+
+        if (alertBox) {
+            alertBox.textContent = message || '';
+            alertBox.style.display = message ? 'block' : 'none';
+        }
+
+        if (firstInvalid && firstInvalid.type !== 'hidden') {
+            firstInvalid.focus({ preventScroll: true });
+            firstInvalid.scrollIntoView({ block: 'center' });
+        } else if (alertBox && message) {
+            alertBox.scrollIntoView({ block: 'nearest' });
+        }
     }
 
     function clearAwardFormErrors() {
@@ -704,7 +905,7 @@
         const hasFieldErrors = Object.keys(errors).length > 0;
 
         if (alertBox) {
-            if (message && !hasFieldErrors) {
+            if (message) {
                 alertBox.textContent = message;
                 alertBox.style.display = 'block';
             } else {
@@ -738,6 +939,38 @@
     function refreshTable() {
         location.reload();
     }
+
+    function closeProjectActionMenus() {
+        document.querySelectorAll('.projects-action-menu.is-open').forEach(menu => {
+            menu.classList.remove('is-open');
+            const trigger = menu.querySelector('.projects-action-more');
+            if (trigger) {
+                trigger.setAttribute('aria-expanded', 'false');
+            }
+        });
+    }
+
+    function toggleProjectActionMenu(button) {
+        const menu = button.closest('.projects-action-menu');
+        if (!menu) return;
+
+        const willOpen = !menu.classList.contains('is-open');
+        closeProjectActionMenus();
+        menu.classList.toggle('is-open', willOpen);
+        button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.projects-action-menu')) {
+            closeProjectActionMenus();
+        }
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeProjectActionMenus();
+        }
+    });
 
     function showTempMessage(message, type = 'success') {
         const alertDiv = document.createElement('div');
@@ -780,12 +1013,60 @@
         if (e.target === this) closeDeclareWinnerModal();
     });
 
-    function publishDraft(projectId) {
+    function publishEditProject(projectId, button) {
+        if (!confirm('Publish this project to the BAC system? It will become visible to eligible bidders. PhilGEPS posting details remain separate.')) {
+            return;
+        }
+
+        if (!button) return;
+
+        clearEditFormErrors();
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Publishing...';
+
+        fetch(`/admin/projects/${projectId}/publish`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                'Accept': 'application/json',
+            }
+        })
+        .then(async response => {
+            const data = await response.json().catch(() => ({
+                message: 'Failed to publish project. Please check the form.',
+                errors: {},
+            }));
+            return { ok: response.ok, data };
+        })
+        .then(result => {
+            if (result.ok && result.data.success) {
+                closeEditModal();
+                showTempMessage(result.data.message || 'Project published in the BAC system.', 'success');
+                setTimeout(refreshTable, 450);
+            } else {
+                renderEditFormErrors(result.data.errors || {}, result.data.message || 'Project cannot be published yet.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            renderEditFormErrors({}, 'Publication failed. Please try again.');
+        })
+        .finally(() => {
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-bullhorn" aria-hidden="true"></i> Publish to BAC System';
+        });
+    }
+    function publishDraft(projectId, button) {
         if (!confirm('Publish this draft project? It will become available for bidding.')) {
             return;
         }
 
-        const button = event.target.closest('button');
+        if (!button) {
+            showTempMessage('Unable to publish project from this button. Please refresh and try again.', 'error');
+            return;
+        }
+
         button.disabled = true;
         button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Publishing...';
 
@@ -799,7 +1080,9 @@
             }
         })
         .then(async response => {
-            const data = await response.json();
+            const data = await response.json().catch(() => ({
+                message: 'Failed to publish project. Please refresh and try again.',
+            }));
             return { ok: response.ok, data };
         })
         .then(result => {
@@ -821,5 +1104,123 @@
             showTempMessage('Failed to publish project.', 'error');
         });
     }
+
+
+    // Inline staff assignment for the View Project summary modal.
+    document.addEventListener('click', function (event) {
+        const toggle = event.target.closest('[data-view-project-assign-toggle]');
+        if (toggle) {
+            const section = toggle.closest('.view-project-summary-section');
+            const panel = section ? section.querySelector('[data-view-project-assign-panel]') : null;
+
+            if (panel) {
+                panel.hidden = false;
+                toggle.setAttribute('aria-expanded', 'true');
+            }
+
+            return;
+        }
+
+        const cancel = event.target.closest('[data-view-project-assign-cancel]');
+        if (cancel) {
+            const panel = cancel.closest('[data-view-project-assign-panel]');
+            const section = cancel.closest('.view-project-summary-section');
+            const toggleButton = section ? section.querySelector('[data-view-project-assign-toggle]') : null;
+
+            if (panel) {
+                panel.hidden = true;
+            }
+
+            if (toggleButton) {
+                toggleButton.setAttribute('aria-expanded', 'false');
+            }
+        }
+    });
+
+    document.addEventListener('submit', function (event) {
+        const form = event.target.closest('[data-view-project-assign-form]');
+        if (!form) {
+            return;
+        }
+
+        event.preventDefault();
+
+        const select = form.querySelector('select[name="staff_id"]');
+        const submitButton = form.querySelector('.view-project-assign-save');
+        const error = form.querySelector('[data-view-project-assign-error]');
+        const selectedOption = select ? select.options[select.selectedIndex] : null;
+
+        if (!select || !select.value) {
+            if (error) {
+                error.textContent = 'Please select a staff member.';
+                error.classList.add('is-visible');
+            }
+            return;
+        }
+
+        if (error) {
+            error.textContent = '';
+            error.classList.remove('is-visible');
+        }
+
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.textContent = 'Saving...';
+        }
+
+        fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            },
+        })
+            .then(async function (response) {
+                const data = await response.json().catch(function () {
+                    return {};
+                });
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.message || 'Unable to assign staff.');
+                }
+
+                return data;
+            })
+            .then(function (data) {
+                const modal = form.closest('#viewProjectModal');
+                const staffValue = modal ? modal.querySelector('[data-view-project-staff-value]') : null;
+                const panel = form.closest('[data-view-project-assign-panel]');
+                const toggleButton = modal ? modal.querySelector('[data-view-project-assign-toggle]') : null;
+
+                if (staffValue) {
+                    staffValue.textContent = data.staff_name || selectedOption.textContent.trim();
+                }
+
+                if (toggleButton) {
+                    toggleButton.remove();
+                }
+
+                if (panel) {
+                    panel.remove();
+                }
+
+                if (typeof showTempMessage === 'function') {
+                    showTempMessage(data.message || 'Staff assigned successfully.', 'success');
+                }
+            })
+            .catch(function (assignmentError) {
+                if (error) {
+                    error.textContent = assignmentError.message;
+                    error.classList.add('is-visible');
+                }
+            })
+            .finally(function () {
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Save';
+                }
+            });
+    });
 
 </script>

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Message;
 use App\Models\User;
 use App\Models\UserNotification;
 use App\Support\SystemNotification;
@@ -41,16 +42,40 @@ it('returns only important notifications in the live feed', function () {
         ['user_id' => $staff->id]
     );
 
-    testCase()->assertDatabaseCount('user_notifications', 1);
+    testCase()->assertDatabaseCount('user_notifications', 2);
 
     testCase()
         ->actingAs($admin)
         ->getJson(route('notifications.feed'))
         ->assertOk()
-        ->assertJsonPath('unread_count', 1)
-        ->assertJsonCount(1, 'notifications')
-        ->assertJsonPath('notifications.0.type', 'message')
-        ->assertJsonPath('notifications.0.url', route('admin.messages', ['user' => $staff->id, 'tab' => 'staff']));
+        ->assertJsonPath('unread_count', 2)
+        ->assertJsonCount(2, 'notifications')
+        ->assertJsonFragment(['type' => 'message'])
+        ->assertJsonFragment(['url' => route('admin.messages', ['user' => $staff->id, 'tab' => 'staff'])]);
+});
+
+it('returns unread message count in the live feed', function () {
+    $staff = notificationUser('staff');
+    $admin = notificationUser('admin');
+
+    Message::create([
+        'sender_id' => $admin->id,
+        'recipient_id' => $staff->id,
+        'body' => 'Please review this bidder question.',
+    ]);
+
+    Message::create([
+        'sender_id' => $admin->id,
+        'recipient_id' => $staff->id,
+        'body' => 'Already opened.',
+        'read_at' => now(),
+    ]);
+
+    testCase()
+        ->actingAs($staff)
+        ->getJson(route('notifications.feed'))
+        ->assertOk()
+        ->assertJsonPath('unread_messages_count', 1);
 });
 
 it('opens a notification target and marks it read', function () {

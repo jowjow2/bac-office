@@ -8,10 +8,10 @@
         <section class="certificate-card">
             <div class="certificate-document-border">
                 <div class="certificate-letterhead">
-                    <img src="{{ asset('Images/Logo2.png') }}" alt="BAC-Office logo">
+                    <img src="{{ asset('Images/Logo2.png') }}" alt="SJBAC logo">
                     <div>
                         <span>Republic Procurement Record</span>
-                        <strong>BAC-Office</strong>
+                        <strong>SJBAC</strong>
                         <p>Bids and Awards Committee Official Verification</p>
                     </div>
                 </div>
@@ -21,7 +21,7 @@
                         <p class="public-page-kicker">Verified Award Record</p>
                         <h1>Certificate of Award</h1>
                         <p class="certificate-subtitle">
-                            This certifies that the procurement award below is an authentic BAC-Office published record.
+                            This certifies that the procurement award below is an authentic SJBAC published record.
                         </p>
                     </div>
 
@@ -42,7 +42,7 @@
                     <p>
                         This document confirms that <strong>{{ $winner }}</strong> has been declared the winning bidder for
                         <strong>{{ $award->project?->title ?? 'Untitled Project' }}</strong>, subject to the published award record
-                        maintained by BAC-Office.
+                        maintained by SJBAC.
                     </p>
                 </div>
 
@@ -81,7 +81,7 @@
 
                 <div class="certificate-signature-row">
                     <div class="certificate-signature">
-                        <span>BAC-Office Verification System</span>
+                        <span>SJBAC Verification System</span>
                         <strong>Official Digital Record</strong>
                     </div>
                     <div class="certificate-issued">
