@@ -44,7 +44,7 @@ $withNeonEndpoint = static function (mixed $host): mixed {
     return $host . ";options='endpoint={$endpoint}'";
 };
 
-$pgsqlUrl = $withNeonEndpoint($pgsqlUrl);
+// Keep managed PostgreSQL URLs intact; injecting a Neon options query string makes Laravel treat libpq connection options as PDO options.
 
 $defaultConnection = $firstEnv(['DB_CONNECTION']);
 
