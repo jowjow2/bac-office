@@ -253,6 +253,8 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/admin/assignments', [AdminController::class, 'storeAssignment'])->name('admin.assignments.store');
     Route::delete('/admin/assignments/{assignment}', [AdminController::class, 'destroyAssignment'])->name('admin.assignments.destroy');
     Route::get('/admin/reports', [AdminController::class, 'reports'])->name('admin.reports');
+    Route::get('/admin/audit-logs', [\App\Http\Controllers\AuditLogController::class, 'index'])->name('admin.audit-logs');
+    Route::get('/admin/audit-logs/export', [\App\Http\Controllers\AuditLogController::class, 'export'])->name('admin.audit-logs.export');
     Route::get('/admin/reports/export/csv', [AdminController::class, 'exportReportsCsv'])->name('admin.reports.export.csv');
     Route::get('/admin/reports/export/print', [AdminController::class, 'printReports'])->name('admin.reports.print');
     Route::get('/admin/notifications', [AdminController::class, 'notifications'])->name('admin.notifications');

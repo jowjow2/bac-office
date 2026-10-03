@@ -698,7 +698,7 @@ class BidWorkflow
             'bids_opened_at' => $openedAt->toIso8601String(),
             'timezone' => 'Asia/Manila',
             'component' => 'technical',
-        ]);
+        ], ['user_id' => $actorId]);
 
         $description = $actorId !== null
             ? 'The BAC recorded technical opening. Financial components remain sealed until separately opened.'
