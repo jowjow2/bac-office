@@ -249,3 +249,126 @@ it('runs a small value procurement from quotations to award, and can fail it', f
     testCase()->actingAs($this->admin)->post(route('admin.project.failed-bidding', $empty), ['failed_bidding_reason' => 'No quotation was received.'])->assertSessionHasNoErrors();
     expect($empty->fresh()->isFailedBidding())->toBeTrue();
 });
+
+/** Opening and evaluation of the bids received, lowest first; returns them refreshed. */
+function scenarioOpenAndEvaluate(object $test, Project $project): array
+{
+    $bids = Bid::where('project_id', $project->id)->orderBy('bid_amount')->get();
+    $test->travelTo($project->schedule->bid_opening_date->copy()->addMinute());
+    testCase()->get('/')->assertOk();
+    $keys = BidSubmissionRequirements::for($project)->requiredKeys();
+    foreach ($bids as $bid) {
+        ($test->decide)($bid, BidWorkflow::PASS_PRELIMINARY, ['verified_requirements' => $keys])->assertSessionHasNoErrors();
+        if ($bid->submission_channel === Bid::CHANNEL_MANUAL) {
+            // A sealed paper bid has no PIN; the modal offers to record the envelope opened.
+            testCase()->actingAs($test->admin)->withHeader('X-Requested-With', 'XMLHttpRequest')->get(route('admin.bid.view', $bid))
+                ->assertSee('Record financial envelope opened');
+            testCase()->actingAs($test->admin)->post(route('admin.bid.open-financial', $bid))->assertSessionHasNoErrors();
+            expect($bid->fresh()->financial_opening_method)->toBe('sealed_envelope');
+        } else {
+            testCase()->actingAs($test->admin)->post(route('admin.bid.open-financial', $bid), ['opening_password' => '482913'])->assertSessionHasNoErrors();
+        }
+        ($test->decide)($bid, BidWorkflow::START_EVALUATION)->assertSessionHasNoErrors();
+        ($test->decide)($bid, BidWorkflow::EVALUATE, ['evaluation_result' => 'responsive', 'evaluation_findings' => 'Responsive against the project criteria.'])->assertSessionHasNoErrors();
+    }
+
+    return $bids->map->fresh()->all();
+}
+
+/** Two online bids (A lower than B), opened and evaluated responsive. */
+function scenarioEvaluatedBids(object $test, Project $project): array
+{
+    foreach ([[$test->bidderA, '850,000.00'], [$test->bidderB, '870,000.00']] as [$bidder, $amount]) {
+        ($test->pay)($project, $bidder);
+        ($test->submit)($project, $bidder, $amount)->assertSessionHasNoErrors();
+    }
+
+    return scenarioOpenAndEvaluate($test, $project);
+}
+
+it('awards the next bidder after the HoPE disapproves the recommendation', function () {
+    $project = ($this->competitive)();
+    [$bidA, $bidB] = scenarioEvaluatedBids($this, $project);
+
+    ($this->decide)($bidA, BidWorkflow::START_POST_QUALIFICATION)->assertSessionHasNoErrors();
+    ($this->decide)($bidA, BidWorkflow::PASS_POST_QUALIFICATION, ['post_qualification_findings' => 'Documents verified.'])->assertSessionHasNoErrors();
+    ($this->decide)($bidA, BidWorkflow::RECOMMEND, ['bac_resolution_no' => 'BAC Res. 2026-031', 'bac_resolution_date' => now()->toDateString()])->assertSessionHasNoErrors();
+    ($this->decide)($bidA, BidWorkflow::DISAPPROVE_AWARD, ['reason' => 'Unresolved slippage on another LGU contract.'])->assertSessionHasNoErrors();
+    ($this->pagesLoad)('award disapproved');
+
+    ($this->decide)($bidB->fresh(), BidWorkflow::START_POST_QUALIFICATION)->assertSessionHasNoErrors();
+    ($this->decide)($bidB->fresh(), BidWorkflow::PASS_POST_QUALIFICATION, ['post_qualification_findings' => 'Documents verified.'])->assertSessionHasNoErrors();
+    ($this->decide)($bidB->fresh(), BidWorkflow::RECOMMEND, ['bac_resolution_no' => 'BAC Res. 2026-041', 'bac_resolution_date' => now()->toDateString()])->assertSessionHasNoErrors();
+    ($this->decide)($bidB->fresh(), BidWorkflow::APPROVE_AWARD)->assertSessionHasNoErrors();
+    testCase()->actingAs($this->admin)->post(route('admin.awards.declare', $project), ['bid_id' => $bidB->id, 'certificate_file' => ($this->pdf)('NOA.pdf')])->assertSessionHasNoErrors();
+    expect($project->fresh()->status)->toBe('awarded');
+});
+
+it('moves to the next bidder after post-disqualification, and fails the bidding when all fail', function () {
+    $project = ($this->competitive)();
+    [$bidA, $bidB] = scenarioEvaluatedBids($this, $project);
+
+    // The second bidder waits for the first.
+    ($this->decide)($bidB, BidWorkflow::START_POST_QUALIFICATION)->assertSessionHasErrors('milestone');
+    ($this->decide)($bidA, BidWorkflow::START_POST_QUALIFICATION)->assertSessionHasNoErrors();
+    ($this->decide)($bidA, BidWorkflow::FAIL_POST_QUALIFICATION, ['reason' => 'Net financial contracting capacity below the ABC.', 'post_qualification_findings' => 'NFCC computed below the ABC.'])->assertSessionHasNoErrors();
+    ($this->decide)($bidB->fresh(), BidWorkflow::START_POST_QUALIFICATION)->assertSessionHasNoErrors();
+    ($this->decide)($bidB->fresh(), BidWorkflow::FAIL_POST_QUALIFICATION, ['reason' => 'Expired business permit.', 'post_qualification_findings' => 'Business permit expired.'])->assertSessionHasNoErrors();
+    ($this->pagesLoad)('all post-disqualified');
+
+    // Nobody left: failure of bidding, then the new round is linked to it.
+    testCase()->actingAs($this->admin)->post(route('admin.project.failed-bidding', $project), ['failed_bidding_reason' => 'All bidders were post-disqualified.'])->assertSessionHasNoErrors();
+    $rebid = ($this->competitive)(['title' => 'Concreting of Brgy. Bubog FMR (rebid)']);
+    testCase()->actingAs($this->admin)->post(route('admin.project.failed-bidding', $project), ['failed_bidding_reason' => 'All bidders were post-disqualified.', 'rebid_project_id' => $rebid->id])->assertSessionHasNoErrors();
+    expect($project->fresh()->rebid_project_id)->toBe($rebid->id);
+    ($this->pagesLoad)('rebid linked');
+});
+
+it('never opens an online financial bid without the bidder PIN', function () {
+    $project = ($this->competitive)();
+    ($this->pay)($project, $this->bidderA);
+    ($this->submit)($project, $this->bidderA, '850,000.00')->assertSessionHasNoErrors();
+    $bid = Bid::where('project_id', $project->id)->firstOrFail();
+    $this->travelTo($project->schedule->bid_opening_date->copy()->addMinute());
+    ($this->decide)($bid, BidWorkflow::PASS_PRELIMINARY, ['verified_requirements' => BidSubmissionRequirements::for($project)->requiredKeys()])->assertSessionHasNoErrors();
+
+    // The sealed-envelope path is only for paper bids.
+    testCase()->actingAs($this->admin)->post(route('admin.bid.open-financial', $bid))->assertSessionHasErrors('opening_password');
+    testCase()->actingAs($this->admin)->post(route('admin.bid.open-financial', $bid), ['opening_password' => '000000'])->assertSessionHasErrors('opening');
+    expect($bid->fresh()->isFinancialSealed())->toBeTrue();
+});
+
+it('lets a bidder modify an online bid before the deadline, never after', function () {
+    $project = ($this->competitive)();
+    ($this->pay)($project, $this->bidderA);
+    ($this->submit)($project, $this->bidderA, '850,000.00')->assertSessionHasNoErrors();
+    ($this->submit)($project, $this->bidderA, '845,000.00')->assertSessionHasNoErrors();
+    expect(Bid::where('project_id', $project->id)->count())->toBe(1)
+        ->and((float) Bid::where('project_id', $project->id)->first()->bid_amount)->toBe(845000.0);
+
+    $this->travelTo($project->bidSubmissionDeadline()->copy()->addMinute());
+    ($this->submit)($project, $this->bidderA, '800,000.00')->assertSessionHasErrors();
+    expect((float) Bid::where('project_id', $project->id)->first()->bid_amount)->toBe(845000.0);
+});
+
+it('receives sealed paper bids on a manual project and carries them to award', function () {
+    $project = ($this->competitive)(['submission_mode' => 'manual', 'electronic_submission_authority' => null, 'submission_venue' => 'BAC Secretariat, Municipal Hall']);
+    expect($project->submission_mode)->toBe(Project::SUBMISSION_MANUAL);
+    $received = now()->timezone(config('bac-office.display_timezone'))->format('Y-m-d\TH:i');
+    foreach ([[$this->bidderA, '850,000.00', 'LOG-001'], [$this->bidderB, '870,000.00', 'LOG-002']] as [$bidder, $amount, $log]) {
+        ($this->pay)($project, $bidder);
+        ($this->submit)($project, $bidder, $amount)->assertSessionHasNoErrors();
+        $bid = Bid::where('project_id', $project->id)->where('user_id', $bidder->id)->firstOrFail();
+        expect($bid->isDraft())->toBeTrue();
+        ($this->decide)($bid, BidWorkflow::RECORD_MANUAL_RECEIPT, ['receipt_no' => $log, 'received_at' => $received])->assertSessionHasNoErrors();
+    }
+    ($this->pagesLoad)('sealed bids received');
+
+    [$bidA] = scenarioOpenAndEvaluate($this, $project);
+    ($this->decide)($bidA, BidWorkflow::START_POST_QUALIFICATION)->assertSessionHasNoErrors();
+    ($this->decide)($bidA, BidWorkflow::PASS_POST_QUALIFICATION, ['post_qualification_findings' => 'Documents verified.'])->assertSessionHasNoErrors();
+    ($this->decide)($bidA, BidWorkflow::RECOMMEND, ['bac_resolution_no' => 'BAC Res. 2026-060', 'bac_resolution_date' => now()->toDateString()])->assertSessionHasNoErrors();
+    ($this->decide)($bidA, BidWorkflow::APPROVE_AWARD)->assertSessionHasNoErrors();
+    testCase()->actingAs($this->admin)->post(route('admin.awards.declare', $project), ['bid_id' => $bidA->id, 'certificate_file' => ($this->pdf)('NOA.pdf')])->assertSessionHasNoErrors();
+    expect($project->fresh()->status)->toBe('awarded');
+});

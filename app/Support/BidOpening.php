@@ -151,15 +151,24 @@ class BidOpening
     public function openFinancial(Bid $bid, User $actor, ?string $password = null): void
     {
         $this->authorize($actor);
-        if (! is_string($password) || strlen($password) < 6 || strlen($password) > 128) {
+        // A sealed paper bid has no PIN: its financial envelope is opened by hand at the
+        // opening and the BAC records it. Online bids open only with the bidder's PIN.
+        $paper = $bid->submission_channel === Bid::CHANNEL_MANUAL;
+        if (! $paper && (! is_string($password) || strlen($password) < 6 || strlen($password) > 128)) {
             throw ValidationException::withMessages(['opening_password' => 'Enter the financial password provided by the bidder.']);
         }
-        $result = DB::transaction(function () use ($bid, $actor, $password) {
+        $result = DB::transaction(function () use ($bid, $actor, $password, $paper) {
             $project = Project::lockForUpdate()->with('schedule')->findOrFail($bid->project_id);
             $this->openScheduledTechnical($project);
             $locked = Bid::lockForUpdate()->findOrFail($bid->id)->setRelation('project', $project->fresh(['schedule']));
             if ($error = $this->financialBlocker($locked)) return ['error' => $error];
             $at = now('Asia/Manila');
+            if ($paper) {
+                if ($locked->isDraft()) return ['error' => 'Record the receipt of the sealed bid first.'];
+
+                return $this->recordFinancialOpening($locked, $project, $actor, $at, 'sealed_envelope',
+                    'BAC Admin recorded the opening of the sealed financial envelope.');
+            }
             if (! filled($locked->financial_opening_password_hash)) return ['error' => 'No bidder financial password is stored for this submission.'];
             if ($locked->financial_password_locked_until && $locked->financial_password_locked_until->greaterThan($at)) {
                 return ['error' => 'Financial password attempts are temporarily locked.'];
@@ -178,28 +187,37 @@ class BidOpening
                     ? 'Too many incorrect passwords. Password entry is locked for 15 minutes.'
                     : 'The financial password is incorrect. '.(5 - $attempts).' attempts remain.'];
             }
-            $details = [
-                'component' => 'financial', 'opened_at' => $at->toIso8601String(),
-                'opened_by' => $actor->id, 'timezone' => 'Asia/Manila',
-                'award_criterion' => $project->award_criterion,
-                'documents_reference' => $project->opening_documents_reference,
-                'technical_score' => $locked->technical_score, 'method' => 'bidder_password',
-            ];
-            $locked->forceFill([
-                'financial_password_attempts' => 0, 'financial_password_locked_until' => null,
-                'financial_opening_method' => 'bidder_password', 'financial_opening_exception_reason' => null,
-                'financial_opened_at' => $at, 'financial_opened_by' => $actor->id,
-            ])->save();
-            $locked->trackings()->create([
-                'bidder_id' => $locked->user_id, 'project_id' => $project->id,
-                'stage' => 'financial_opening', 'decision' => 'opened', 'created_by' => $actor->id,
-                'status_title' => 'Financial Component Opened',
-                'status_description' => 'BAC Admin verified the bidder-provided password and recorded the financial opening.',
-                'status_type' => 'info', 'visible_to_bidder' => true, 'details' => $details,
-            ]);
-            AuditLog::log('bid_financial_opened', $locked, [], $details);
-            return ['error' => null];
+
+            return $this->recordFinancialOpening($locked, $project, $actor, $at, 'bidder_password',
+                'BAC Admin verified the bidder-provided password and recorded the financial opening.');
         });
         if ($result['error'] !== null) throw ValidationException::withMessages(['opening' => $result['error']]);
+    }
+
+    /** The financial opening record: on the bid, in the bidder's history and in the audit trail. */
+    private function recordFinancialOpening(Bid $locked, Project $project, User $actor, $at, string $method, string $description): array
+    {
+        $details = [
+            'component' => 'financial', 'opened_at' => $at->toIso8601String(),
+            'opened_by' => $actor->id, 'timezone' => 'Asia/Manila',
+            'award_criterion' => $project->award_criterion,
+            'documents_reference' => $project->opening_documents_reference,
+            'technical_score' => $locked->technical_score, 'method' => $method,
+        ];
+        $locked->forceFill([
+            'financial_password_attempts' => 0, 'financial_password_locked_until' => null,
+            'financial_opening_method' => $method, 'financial_opening_exception_reason' => null,
+            'financial_opened_at' => $at, 'financial_opened_by' => $actor->id,
+        ])->save();
+        $locked->trackings()->create([
+            'bidder_id' => $locked->user_id, 'project_id' => $project->id,
+            'stage' => 'financial_opening', 'decision' => 'opened', 'created_by' => $actor->id,
+            'status_title' => 'Financial Component Opened',
+            'status_description' => $description,
+            'status_type' => 'info', 'visible_to_bidder' => true, 'details' => $details,
+        ]);
+        AuditLog::log('bid_financial_opened', $locked, [], $details);
+
+        return ['error' => null];
     }
 }

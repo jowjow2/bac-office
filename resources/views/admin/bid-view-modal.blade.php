@@ -641,6 +641,13 @@
                                                 @if($errors->has('opening_password'))<p class="br-blocked" role="alert">{{ $errors->first('opening_password') }}</p>@endif
                                                 <p class="br-hint">Verified on the server. The PIN is never saved, displayed after entry, or included in notifications and audit records.</p>
                                             </form>
+                                        @elseif($bid->submission_channel === \App\Models\Bid::CHANNEL_MANUAL)
+                                            {{-- A sealed paper bid has no PIN: its envelope is opened at the opening and recorded here. --}}
+                                            <form action="{{ route('admin.bid.open-financial', $bid) }}" method="POST" class="br-form">
+                                                @csrf
+                                                <p class="br-hint">Sealed paper bid: open its financial envelope before the BAC and bidders present, then record it.</p>
+                                                <button type="submit" class="br-btn br-btn--primary">Record financial envelope opened</button>
+                                            </form>
                                         @else
                                             <p class="br-blocked">No bidder financial password is on record for this submission.</p>
                                         @endif

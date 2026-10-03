@@ -1007,7 +1007,9 @@ class BidWorkflow
 
         if ($action === self::PASS_PRELIMINARY) {
             $required = $checklist->filter(fn (array $item) => $item['required'] ?? true);
-            $missing = $required->where('submitted', false)->pluck('label');
+            // Strictly false: a sealed paper bid marks its documents null (checked by hand
+            // against the envelope), which a loose where('submitted', false) took as missing.
+            $missing = $required->filter(fn (array $item) => $item['submitted'] === false)->pluck('label');
             if ($missing->isNotEmpty()) {
                 throw ValidationException::withMessages([
                     'verified_requirements' => 'Missing required documents: '.$missing->implode(', ').'. Record a failed preliminary examination instead.',
