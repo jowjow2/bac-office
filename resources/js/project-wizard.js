@@ -137,7 +137,7 @@ if (root && form) {
     const family = () => modeSelect?.selectedOptions[0]?.dataset.family || '';
     const isCompetitive = () => family() === 'competitive';
     const noun = () => ({ competitive: 'bids', negotiated: 'offers' }[family()] || 'quotations');
-    const peso0 = (value) => `Ã¢â€šÂ±${Number(value).toLocaleString('en-PH', { maximumFractionDigits: 0 })}`;
+    const peso0 = (value) => `₱${Number(value).toLocaleString('en-PH', { maximumFractionDigits: 0 })}`;
 
     function prebidRequired() {
         return isCompetitive() && abc() >= (rules.prebidThreshold?.[basis()] ?? Infinity);
@@ -383,10 +383,10 @@ if (root && form) {
         feeModes.forEach((radio) => { radio.disabled = !competitive; });
         if (calc) {
             calc.textContent = bracket
-                ? `ABC Ã¢â€šÂ±${formatPeso(abc())}: ${bracket.bracket.replace(/^ABC /, '')}, so the maximum fee is Ã¢â€šÂ±${formatPeso(bracket.maximum)}.`
+                ? `ABC ₱${formatPeso(abc())}: ${bracket.bracket.replace(/^ABC /, '')}, so the maximum fee is ₱${formatPeso(bracket.maximum)}.`
                 : 'Enter the ABC in step 1 to compute the maximum fee.';
         }
-        if (max) max.textContent = bracket ? `(Ã¢â€šÂ±${formatPeso(bracket.maximum)})` : '';
+        if (max) max.textContent = bracket ? `(₱${formatPeso(bracket.maximum)})` : '';
 
         const showAmount = !competitive || mode === 'reduced';
         const showReason = competitive && mode !== 'schedule';
@@ -395,7 +395,7 @@ if (root && form) {
         $('#bidding_fee_reason').disabled = !showReason;
         $('[data-pw-fee-amount-label]').textContent = competitive ? 'Lower fee' : 'Fee amount';
         $('[data-pw-fee-amount-hint]').textContent = competitive
-            ? `Must be less than the Ã¢â€šÂ±${bracket ? formatPeso(bracket.maximum) : 'Ã¢â‚¬â€'} maximum.`
+            ? `Must be less than the ₱${bracket ? formatPeso(bracket.maximum) : '—'} maximum.`
             : 'Leave blank when the notice charges no fee. Bidders pay at the BAC office before submitting.';
         // The schedule's maximum is computed by the server; do not send a stale amount.
         if (competitive && mode !== 'reduced') fee.value = '';
@@ -438,9 +438,9 @@ if (root && form) {
         const name = $('[data-pw-doc-name]', row);
         const state = $('[data-pw-doc-state]', row);
         $('[data-pw-doc-choose-label]', row).textContent = file ? 'Replace file' : 'Choose file';
-        name.textContent = file ? `${file.name} Ã‚Â· ${sizeLabel(file.size)}` : 'No file selected';
+        name.textContent = file ? `${file.name} · ${sizeLabel(file.size)}` : 'No file selected';
         state.hidden = !file;
-        state.textContent = 'Selected Ã¢â‚¬â€ uploads when you save';
+        state.textContent = 'Selected — uploads when you save';
         state.className = 'ui-pill ui-pill--warning';
     }
 
@@ -460,12 +460,12 @@ if (root && form) {
         if (!ALLOWED_EXTENSIONS.includes(extension)) {
             input.value = '';
             renderDoc(row);
-            return docError(row, `Ã¢â‚¬Å“${file.name}Ã¢â‚¬Â is not an allowed type. Use PDF, Word, Excel, JPG or PNG.`);
+            return docError(row, `“${file.name}” is not an allowed type. Use PDF, Word, Excel, JPG or PNG.`);
         }
         if (file.size > MAX_BYTES) {
             input.value = '';
             renderDoc(row);
-            return docError(row, `Ã¢â‚¬Å“${file.name}Ã¢â‚¬Â is ${sizeLabel(file.size)}; the limit is ${sizeLabel(MAX_BYTES)}.`);
+            return docError(row, `“${file.name}” is ${sizeLabel(file.size)}; the limit is ${sizeLabel(MAX_BYTES)}.`);
         }
         return docError(row, '');
     }
@@ -597,7 +597,7 @@ if (root && form) {
         let text = `${DAYS[weekday(date)]}, ${MONTHS[m - 1]} ${d}, ${y}`;
         if (time) {
             const [h, min] = time.split(':').map(Number);
-            text += ` Ã‚Â· ${((h + 11) % 12) + 1}:${pad(min)} ${h >= 12 ? 'PM' : 'AM'}`;
+            text += ` · ${((h + 11) % 12) + 1}:${pad(min)} ${h >= 12 ? 'PM' : 'AM'}`;
         }
         return text;
     }
@@ -614,7 +614,7 @@ if (root && form) {
     function refreshDateHints() {
         $$('[data-pw-when]').forEach((el) => {
             const text = phLabel(val(el.dataset.pwWhen));
-            el.textContent = text ? `${text}${text.includes('Ã‚Â·') ? ' PST' : ''}` : '';
+            el.textContent = text ? `${text}${text.includes('·') ? ' PST' : ''}` : '';
         });
     }
 
@@ -844,7 +844,7 @@ function nextWorkingDay(date, inclusive = true) {
                 if (feeMode === 'reduced' && !(Number(fee.value) > 0)) {
                     fail(feeDisplay, 'Enter the lower fee, or choose to waive it.', 'bidding_documents_fee');
                 } else if (feeMode === 'reduced' && bracket && Number(fee.value) >= bracket.maximum) {
-                    fail(feeDisplay, `The lower fee must be less than the Ã¢â€šÂ±${formatPeso(bracket.maximum)} maximum. To charge the maximum, choose that option.`, 'bidding_documents_fee');
+                    fail(feeDisplay, `The lower fee must be less than the ₱${formatPeso(bracket.maximum)} maximum. To charge the maximum, choose that option.`, 'bidding_documents_fee');
                 }
                 if (byId('bidding_fee_reason').value.trim().length < 10) {
                     fail(byId('bidding_fee_reason'), feeMode === 'waived' ? 'Record why the fee is waived (at least 10 characters).' : 'Record why a lower fee is charged (at least 10 characters).');
@@ -936,7 +936,7 @@ function nextWorkingDay(date, inclusive = true) {
         $('[data-pw-back]').hidden = current === 1;
         $('[data-pw-next]').hidden = current === TOTAL;
         $('[data-pw-publish]').hidden = current !== TOTAL;
-        $('[data-pw-position]').textContent = `Step ${current} of ${TOTAL} Ã‚Â· ${STEP_NAMES[current - 1]}`;
+        $('[data-pw-position]').textContent = `Step ${current} of ${TOTAL} · ${STEP_NAMES[current - 1]}`;
 
         if (current === 4) {
             if (!dateSuggestionsInitialized) suggestProjectDates();
@@ -990,7 +990,7 @@ function nextWorkingDay(date, inclusive = true) {
         const dt = document.createElement('dt');
         const dd = document.createElement('dd');
         dt.textContent = label;
-        dd.textContent = value || (missing ? 'Not provided' : 'Ã¢â‚¬â€');
+        dd.textContent = value || (missing ? 'Not provided' : '—');
         if (!value && missing) dd.classList.add('is-missing');
         wrap.append(dt, dd);
         return wrap;
@@ -1010,14 +1010,14 @@ function nextWorkingDay(date, inclusive = true) {
             ['Category', selectedText('category'), true],
             ['Location', val('location'), true],
             ['End-user office', val('end_user_unit')],
-            ['Mode', selectedText('procurement_mode') + (family() === 'negotiated' && groundSelect.value ? ` Ã¢â‚¬â€ ${selectedText('negotiation_ground')}` : ''), true],
+            ['Mode', selectedText('procurement_mode') + (family() === 'negotiated' && groundSelect.value ? ` — ${selectedText('negotiation_ground')}` : ''), true],
             ['Legal basis', selectedText('legal_basis')],
             ...(isCompetitive() ? [['Award criterion', criterionSelect.value ? selectedText('award_criterion') : '', true]] : []),
             ...(consulting() ? [['Evaluation procedure', procedureSelect.value ? selectedText('evaluation_procedure') : '', true]] : []),
-            ['ABC', moneyTarget.value ? `Ã¢â€šÂ±${formatPeso(moneyTarget.value)}` : '', true],
+            ['ABC', moneyTarget.value ? `₱${formatPeso(moneyTarget.value)}` : '', true],
             ['Source of funds', val('source_of_fund'), true],
             ['Contract duration', val('contract_duration'), true],
-            ['PhilGEPS record', val('philgeps_reference_no') ? `${val('philgeps_reference_no')} (external)` : 'None Ã¢â‚¬â€ not required to publish here'],
+            ['PhilGEPS record', val('philgeps_reference_no') ? `${val('philgeps_reference_no')} (external)` : 'None — not required to publish here'],
         ]);
 
         const required = $$('input[name="required_documents[]"]').filter((input) => (input.type === 'checkbox' ? input.checked : input.value.trim()))
@@ -1031,29 +1031,29 @@ function nextWorkingDay(date, inclusive = true) {
             ['Special instructions', val('special_instructions')],
             ...(weighted() ? [['Evaluation criteria', criteriaRows().map((row) => `${row.name} ${row.weight}%`).join(', '), true]] : []),
             ...(weighted() && criterionSelect.value === 'mearb' ? [['Quality-price ratio', qprInput.value ? `${qprInput.value}% technical / ${100 - Number(qprInput.value)}% price` : '', true]] : []),
-            ['Submission', submissionMode.value === 'manual' ? `Manual, sealed Ã¢â‚¬â€ ${val('submission_venue')}` : `Online, through this system${val('electronic_submission_authority') ? ` Ã¢â‚¬â€ ${val('electronic_submission_authority')}` : ''}`],
+            ['Submission', submissionMode.value === 'manual' ? `Manual, sealed — ${val('submission_venue')}` : `Online, through this system${val('electronic_submission_authority') ? ` — ${val('electronic_submission_authority')}` : ''}`],
             ['Bidding documents fee', (() => {
                 const amount = syncFee();
                 const mode = feeModes.find((radio) => radio.checked)?.value || 'schedule';
                 if (isCompetitive() && mode === 'waived') return `Waived: ${val('bidding_fee_reason')}`;
                 if (!(amount > 0)) return 'None';
                 const note = !isCompetitive() ? '' : (mode === 'reduced' ? ` (lower than the maximum: ${val('bidding_fee_reason')})` : ' (maximum for the ABC)');
-                return `Ã¢â€šÂ±${formatPeso(amount)}${note} Ã¢â‚¬â€ ${val('payment_venue')}`;
+                return `₱${formatPeso(amount)}${note} — ${val('payment_venue')}`;
             })()],
             ['Bid security', security.checked ? (val('bid_security_notes') || 'Required') : 'Not required'],
         ]);
 
         const docs = docRows().filter(({ file }) => file);
         fill(3, docs.length
-            ? docs.map(({ type, file }) => [type.value ? type.selectedOptions[0].textContent : 'Type not chosen', `${file.name} (${sizeLabel(file.size)}) Ã¢â‚¬â€ uploads when you save`])
+            ? docs.map(({ type, file }) => [type.value ? type.selectedOptions[0].textContent : 'Type not chosen', `${file.name} (${sizeLabel(file.size)}) — uploads when you save`])
             : [['Files', 'No files selected']]);
 
         const dated = (id) => {
             const text = phLabel(val(id));
-            return text ? `${text}${text.includes('Ã‚Â·') ? ' PST' : ''}` : '';
+            return text ? `${text}${text.includes('·') ? ' PST' : ''}` : '';
         };
         fill(4, [
-            ...(isCompetitive() ? [['Pre-procurement conference', dated('pre_procurement_conference_at') ? `${dated('pre_procurement_conference_at')}${val('pre_procurement_reference') ? ` Ã¢â‚¬â€ ${val('pre_procurement_reference')}` : ''}` : (preProcRequired() ? '' : 'Not held (optional at this ABC)'), preProcRequired()]] : []),
+            ...(isCompetitive() ? [['Pre-procurement conference', dated('pre_procurement_conference_at') ? `${dated('pre_procurement_conference_at')}${val('pre_procurement_reference') ? ` — ${val('pre_procurement_reference')}` : ''}` : (preProcRequired() ? '' : 'Not held (optional at this ABC)'), preProcRequired()]] : []),
             ['Publication', `On publishing: ${phLabel(rules.today)}`],
             ['Pre-bid conference', dated('pre_bid_conference_date') || (prebidRequired() ? '' : 'Not scheduled'), prebidRequired()],
             ['Clarifications close', dated('clarification_deadline')],
@@ -1104,7 +1104,7 @@ function nextWorkingDay(date, inclusive = true) {
             if (button.tagName === 'BUTTON') button.disabled = true;
         });
         const label = kind === 'draft' ? $('[data-pw-draft-label]') : $('[data-pw-publish-label]');
-        label.textContent = kind === 'draft' ? 'Saving draftÃ¢â‚¬Â¦' : 'PublishingÃ¢â‚¬Â¦';
+        label.textContent = kind === 'draft' ? 'Saving draft…' : 'Publishing…';
         label.closest('button').classList.add('is-busy');
     }
 
@@ -1161,7 +1161,7 @@ function nextWorkingDay(date, inclusive = true) {
         summary.replaceChildren(
             row('Project', val('title')),
             row('Mode', selectedText('procurement_mode')),
-            row('ABC', `Ã¢â€šÂ±${formatPeso(moneyTarget.value)}`),
+            row('ABC', `₱${formatPeso(moneyTarget.value)}`),
             row($('[data-pw-deadline-label]').textContent, `${phLabel(val('bid_submission_deadline'))} PST`),
             row('Files to upload', String(docRows().filter(({ file }) => file).length)),
         );

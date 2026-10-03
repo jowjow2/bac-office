@@ -362,7 +362,7 @@
                                 <div class="br-submission-review__heading">
                                     <div>
                                         <strong>Submission review</strong>
-                                        <p>{{ $hasRevisionRequest ? 'For Revision â€” waiting for the bidder to replace the requested document.' : ($allAccepted ? 'Approved' : 'Review the technical and eligibility documents together.') }}</p>
+                                        <p>{{ $hasRevisionRequest ? 'For Revision — waiting for the bidder to replace the requested document.' : ($allAccepted ? 'Approved' : 'Review the technical and eligibility documents together.') }}</p>
                                     </div>
                                     <span class="br-doc-review__status {{ $hasRevisionRequest ? 'is-needs_revision' : ($allAccepted ? 'is-accepted' : 'is-pending') }}">{{ $hasRevisionRequest ? 'For Revision' : ($allAccepted ? 'Approved' : 'Awaiting review') }}</span>
                                 </div>

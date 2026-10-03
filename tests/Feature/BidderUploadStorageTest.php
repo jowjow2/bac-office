@@ -68,7 +68,7 @@ it('stores bid proposals on the configured uploads disk', function () {
         'electronic_submission_authorized_at' => now(),
     ]);
 
-    // One file per checklist requirement of this project (SVP below ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â±50,000).
+    // One file per checklist requirement of this project (SVP below ₱50,000).
     $response = testCase()
         ->actingAs($bidder)
         ->post(route('bidder.bids.store', $project), [

@@ -1578,7 +1578,7 @@
                                         &mdash;
                                     @endif
                                 </strong>
-                                <span>Recommended bid{{ $recommendedBid ? ' Ãƒâ€šÃ‚Â· ' . ($recommendedBid->user?->company ?: $recommendedBid->user?->name) : '' }}</span>
+                                <span>Recommended bid{{ $recommendedBid ? ' · ' . ($recommendedBid->user?->company ?: $recommendedBid->user?->name) : '' }}</span>
                             </div>
                             <div>
                                 @if($recommendedBid)
@@ -1700,8 +1700,8 @@
                                     @if($awaitingNotice)
                                         <span class="award-date">NOA not issued</span>
                                     @else
-                                        <span class="award-date">{{ $award->awardDate()?->format('M d, Y') ?? 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' }}</span>
-                                        <span class="award-amount-note">Contract: {{ $award->notice_of_award_date && $award->contract_date ? $award->contract_date->format('M d, Y') : ($award->notice_of_award_date ? 'not yet signed' : ($award->contract_date?->format('M d, Y') ?? 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â')) }}</span>
+                                        <span class="award-date">{{ $award->awardDate()?->format('M d, Y') ?? '—' }}</span>
+                                        <span class="award-amount-note">Contract: {{ $award->notice_of_award_date && $award->contract_date ? $award->contract_date->format('M d, Y') : ($award->notice_of_award_date ? 'not yet signed' : ($award->contract_date?->format('M d, Y') ?? '—')) }}</span>
                                     @endif
                                     @if($award->award_approved_at)
                                         <span class="award-amount-note">Approved {{ $award->award_approved_at->timezone(config('bac-office.display_timezone'))->format('M d, Y') }}@if($award->approver) by {{ $award->approver->name }}@endif</span>

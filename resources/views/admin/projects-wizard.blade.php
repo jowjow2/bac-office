@@ -1,5 +1,5 @@
 {{--
-    Create procurement project â€” five-step wizard (Project info, Requirements,
+    Create procurement project — five-step wizard (Project info, Requirements,
     Documents, Dates, Review). Posts to admin.projects.wizard.store with the
     same field names as before: status=draft saves a draft project; status=open
     asks the server to publish it in this BAC system (it stays a draft, with the
@@ -16,7 +16,7 @@
     $invalid = fn (string $field) => $errors->has($field) ? 'true' : 'false';
     $tz = config('bac-office.display_timezone');
 
-    $categories = ['goods' => 'Goods', 'services' => 'Goods â€” general support services', 'infrastructure' => 'Infrastructure', 'consultancy' => 'Consulting services'];
+    $categories = ['goods' => 'Goods', 'services' => 'Goods — general support services', 'infrastructure' => 'Infrastructure', 'consultancy' => 'Consulting services'];
 
     $sourceOfFundOptions = ['General Fund', 'Special Education Fund (SEF)', '20% Development Fund', 'Local Disaster Risk Reduction and Management Fund (LDRRMF)', 'Trust Fund', 'National Government Grant / Transfer', 'Loan / Grant', 'Other'];
     $sourceOfFund = old('source_of_fund');
@@ -146,8 +146,8 @@
                             </div>
                             <dl class="pw-pr__facts">
                                 <div><dt>Status</dt><dd><span class="ui-badge ui-badge--{{ $pr->statusTone() }}">{{ $pr->statusLabel() }}</span></dd></div>
-                                <div><dt>Estimated cost</dt><dd class="ui-num">â‚±{{ number_format((float) $pr->estimated_cost, 2) }}</dd></div>
-                                <div><dt>PPMP / APP</dt><dd>{{ $pr->ppmp_reference ?: 'â€”' }} / {{ $pr->app_reference ?: 'â€”' }}</dd></div>
+                                <div><dt>Estimated cost</dt><dd class="ui-num">₱{{ number_format((float) $pr->estimated_cost, 2) }}</dd></div>
+                                <div><dt>PPMP / APP</dt><dd>{{ $pr->ppmp_reference ?: '—' }} / {{ $pr->app_reference ?: '—' }}</dd></div>
                             </dl>
                             <p class="pw-pr__note">Preparing bidding from {{ $pr->reference_no }}. Fields marked <span class="pw-chip">From PR</span> were copied from the request; changing them here does not change the request. <a class="ui-link" href="{{ route('admin.requests', ['tab' => 'bac', 'q' => $pr->reference_no]) }}">Open the request</a></p>
                         </div>
@@ -261,11 +261,11 @@
                             <div class="ui-field">
                                 <label class="ui-label" for="budget_display">Approved Budget for the Contract (ABC) <span class="ui-required" aria-hidden="true">*</span> @if($pr)<span class="pw-chip">From PR</span>@endif</label>
                                 <div class="ui-input-group">
-                                    <span class="ui-input-group__prefix" aria-hidden="true">â‚±</span>
+                                    <span class="ui-input-group__prefix" aria-hidden="true">₱</span>
                                     <input type="text" id="budget_display" class="ui-input ui-num" value="{{ $budgetDisplay }}" inputmode="decimal" autocomplete="off" placeholder="0.00" required data-pw-money="budget" aria-invalid="{{ $invalid('budget') }}" aria-describedby="budget-hint budget-error">
                                 </div>
                                 <input type="hidden" id="budget" name="budget" value="{{ $budget }}">
-                                <span class="ui-hint" id="budget-hint">@if($pr)The request estimated â‚±{{ number_format((float) $pr->estimated_cost, 2) }}; set the final ABC.@else The ceiling of the contract price.@endif</span>
+                                <span class="ui-hint" id="budget-hint">@if($pr)The request estimated ₱{{ number_format((float) $pr->estimated_cost, 2) }}; set the final ABC.@else The ceiling of the contract price.@endif</span>
                                 <span class="ui-error" id="budget-error" data-pw-error @unless($err('budget')) hidden @endunless>{{ $err('budget') }}</span>
                             </div>
                             <div class="ui-field" data-pw-choice="source_of_fund" data-pw-choice-other="Other">
@@ -312,7 +312,7 @@
                             </div>
                             <div class="ui-field">
                                 <label class="ui-label" for="philgeps_url">PhilGEPS notice link</label>
-                                <input type="url" id="philgeps_url" name="philgeps_url" class="ui-input" value="{{ old('philgeps_url') }}" maxlength="500" placeholder="https://notices.philgeps.gov.ph/â€¦" aria-invalid="{{ $invalid('philgeps_url') }}" aria-describedby="philgeps_url-error">
+                                <input type="url" id="philgeps_url" name="philgeps_url" class="ui-input" value="{{ old('philgeps_url') }}" maxlength="500" placeholder="https://notices.philgeps.gov.ph/…" aria-invalid="{{ $invalid('philgeps_url') }}" aria-describedby="philgeps_url-error">
                                 <span class="ui-error" id="philgeps_url-error" data-pw-error @unless($err('philgeps_url')) hidden @endunless>{{ $err('philgeps_url') }}</span>
                             </div>
                         </div>
@@ -457,7 +457,7 @@
                                 <div class="pw-subfield" data-pw-fee-amount>
                                     <label class="ui-label" for="bidding_documents_fee_display" data-pw-fee-amount-label>Fee amount</label>
                                     <div class="ui-input-group">
-                                        <span class="ui-input-group__prefix" aria-hidden="true">â‚±</span>
+                                        <span class="ui-input-group__prefix" aria-hidden="true">₱</span>
                                         <input type="text" id="bidding_documents_fee_display" class="ui-input ui-num" value="{{ $feeDisplay }}" inputmode="decimal" autocomplete="off" placeholder="0.00" data-pw-money="bidding_documents_fee" aria-invalid="{{ $invalid('bidding_documents_fee') }}" aria-describedby="bidding_documents_fee-hint bidding_documents_fee-error">
                                     </div>
                                     <input type="hidden" id="bidding_documents_fee" name="bidding_documents_fee" value="{{ $fee }}" data-pw-fee>
@@ -491,7 +491,7 @@
                 {{-- ============================== Step 3 ============================== --}}
                 <section class="pw-step" data-pw-step="3" aria-labelledby="pw-step3-title" hidden>
                     <h3 class="pw-step__title" id="pw-step3-title">Documents</h3>
-                    <p class="ui-hint">PDF, Word, Excel, JPG or PNG, up to 20 MB each. Selected files are uploaded when you save the draft or publish â€” until then they stay on this computer.</p>
+                    <p class="ui-hint">PDF, Word, Excel, JPG or PNG, up to 20 MB each. Selected files are uploaded when you save the draft or publish — until then they stay on this computer.</p>
 
                     <div class="pw-note" data-pw-doc-rule aria-live="polite"></div>
 
@@ -642,7 +642,7 @@
 
             <footer class="pw__footer">
                 <a href="{{ route('admin.projects') }}" class="ui-btn ui-btn--ghost pw__cancel" data-pw-exit>Cancel</a>
-                <span class="pw__position" aria-live="polite" data-pw-position>Step 1 of 5 Â· Project info</span>
+                <span class="pw__position" aria-live="polite" data-pw-position>Step 1 of 5 · Project info</span>
                 <div class="pw__actions">
                     <button type="button" class="ui-btn ui-btn--secondary" data-pw-draft><i class="fas fa-floppy-disk" aria-hidden="true"></i> <span data-pw-draft-label>Save as draft</span></button>
                     <button type="button" class="ui-btn ui-btn--secondary" data-pw-back hidden><i class="fas fa-arrow-left" aria-hidden="true"></i> Back</button>

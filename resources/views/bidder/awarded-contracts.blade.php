@@ -241,9 +241,9 @@
                     <thead>
                         <tr>
                             <th scope="col">Project</th>
-                            <th scope="col" class="is-num">ABC (â‚±)</th>
+                            <th scope="col" class="is-num">ABC (₱)</th>
                             <th scope="col" class="is-num">Bids received</th>
-                            <th scope="col" class="is-num">Lowest opened bid (â‚±)</th>
+                            <th scope="col" class="is-num">Lowest opened bid (₱)</th>
                             <th scope="col">Your status</th>
                         </tr>
                     </thead>
@@ -262,9 +262,9 @@
                                     <span class="ui-cell-title">{{ $bid->project->title ?? 'N/A' }}</span>
                                     @if($bid->project?->reference_no)<span class="ui-cell-sub">{{ $bid->project->reference_no }}</span>@endif
                                 </td>
-                                <td data-label="ABC (â‚±)" class="is-num">{{ number_format((float) ($bid->project->budget ?? 0), 2) }}</td>
+                                <td data-label="ABC (₱)" class="is-num">{{ number_format((float) ($bid->project->budget ?? 0), 2) }}</td>
                                 <td data-label="Bids received" class="is-num">{{ $projectBids->count() }}</td>
-                                <td data-label="Lowest opened bid (â‚±)" class="is-num">{{ $lowestBid !== null ? number_format($lowestBid, 2) : 'â€”' }}</td>
+                                <td data-label="Lowest opened bid (₱)" class="is-num">{{ $lowestBid !== null ? number_format($lowestBid, 2) : '—' }}</td>
                                 <td data-label="Your status"><span class="ui-pill ui-pill--info"><i class="fas fa-hourglass-half" aria-hidden="true"></i> {{ $myStage }}</span></td>
                             </tr>
                         @endforeach
