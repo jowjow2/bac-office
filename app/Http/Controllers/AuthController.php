@@ -9,6 +9,7 @@ use App\Models\BidderDocument;
 use App\Models\Project;
 use App\Models\User;
 use App\Support\BidderRegistrationRequirements;
+use App\Support\LoginAudit;
 use App\Support\SystemNotification;
 use App\Support\Uploads;
 use Illuminate\Auth\Events\PasswordReset;
@@ -24,6 +25,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
+use Laravel\Socialite\Facades\Socialite;
 use Throwable;
 
 class AuthController extends Controller
@@ -555,6 +557,85 @@ class AuthController extends Controller
             200,
             $this->redirectAfterLogin($request, $user)
         );
+    }
+
+    /** "Continue with Google" shows only once the OAuth client is configured. */
+    public static function googleSignInEnabled(): bool
+    {
+        return filled(config('services.google.client_id')) && filled(config('services.google.client_secret'));
+    }
+
+    public function redirectToGoogle(Request $request)
+    {
+        abort_unless(self::googleSignInEnabled(), 404);
+        if (Auth::check()) {
+            return redirect()->to($this->redirectForUser(Auth::user()));
+        }
+
+        $request->session()->put('google_login_remember', $request->boolean('remember'));
+
+        return Socialite::driver('google')
+            ->redirectUrl(config('services.google.redirect') ?: route('auth.google.callback'))
+            ->with(['prompt' => 'select_account'])
+            ->redirect();
+    }
+
+    /**
+     * Signs in the account registered with this Google address. It never
+     * creates one: bidders register with their documents and wait for the
+     * BAC. Google has verified the address, so the bidder email code is not
+     * needed; the account checks are the same as for a password sign-in.
+     */
+    public function handleGoogleCallback(Request $request)
+    {
+        abort_unless(self::googleSignInEnabled(), 404);
+        $fail = fn (string $message, string $tab = 'login') => redirect()->route('home')
+            ->with('error', $message)
+            ->with('auth_tab', $tab);
+
+        if ($request->filled('error')) {
+            return $fail('Google sign-in was cancelled.');
+        }
+
+        try {
+            $google = Socialite::driver('google')
+                ->redirectUrl(config('services.google.redirect') ?: route('auth.google.callback'))
+                ->user();
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return $fail('Google sign-in did not finish. Try again, or sign in with your email and password.');
+        }
+
+        $email = strtolower(trim((string) $google->getEmail()));
+        $raw = (array) $google->getRaw();
+        if ($email === '' || ! filter_var($raw['email_verified'] ?? $raw['verified_email'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            return $fail('Your Google account email is not verified. Sign in with your email and password instead.');
+        }
+
+        $user = User::query()
+            ->when(Schema::hasTable('bidders'), fn ($query) => $query->with('bidderProfile'))
+            ->where('email', $email)
+            ->first();
+
+        if (! $user) {
+            LoginAudit::record($request, null, 'google', 'failed', 'no_account');
+
+            return $fail("No SJBAC account uses {$email}. Register as a bidder with this email first.", 'register');
+        }
+
+        if ($user->status === 'rejected' || ($user->role === 'bidder' && ! $user->canLoginAsBidder()) || ($user->role !== 'bidder' && $user->status !== 'active')) {
+            LoginAudit::record($request, $user, 'google', 'failed', 'account_unavailable');
+
+            return $fail($this->accountUnavailableMessage($user));
+        }
+
+        $remember = (bool) $request->session()->pull('google_login_remember', false);
+        Auth::login($user, $remember);
+        $request->session()->regenerate();
+        LoginAudit::record($request, $user, 'google', 'success');
+
+        return redirect()->to($this->redirectAfterLogin($request, $user))->with('success', 'Signed in with Google.');
     }
 
     public function resendLoginCode(Request $request)

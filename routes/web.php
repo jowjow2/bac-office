@@ -149,6 +149,9 @@ Route::post('/register', [AuthController::class, 'register'])->name('register');
 // Registration documents go from the browser straight to Blob storage (413 above 4.5 MB per request).
 Route::post('/register/uploads', [AuthController::class, 'registrationUploadToken'])->middleware('throttle:60,1')->name('register.upload-token');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+// "Continue with Google": only for accounts already registered with that Gmail address.
+Route::get('/auth/google', [AuthController::class, 'redirectToGoogle'])->middleware('throttle:20,1')->name('auth.google');
+Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback'])->middleware('throttle:20,1')->name('auth.google.callback');
 Route::middleware('guest')->group(function () {
     Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm'])->name('password.request');
     Route::post('/forgot-password', [AuthController::class, 'sendPasswordResetLink'])->name('password.email');

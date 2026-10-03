@@ -37,10 +37,12 @@ return [
         ],
     ],
 
-    'google' =>[
+    // "Continue with Google" on the sign-in form (AuthController). Hidden until both are set;
+    // the callback URL follows the site (route auth.google.callback) unless one is given here.
+    'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
-        'redirect' => env('GOOGLE_CALLBACK_REDIRECTS')
+        'redirect' => env('GOOGLE_REDIRECT_URI', env('GOOGLE_CALLBACK_REDIRECTS')),
     ],
 
     'vercel_blob' => [
