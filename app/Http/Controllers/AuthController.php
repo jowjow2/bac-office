@@ -615,6 +615,10 @@ class AuthController extends Controller
                 ->user();
         } catch (Throwable $exception) {
             report($exception);
+            // Only the shape of the configured secret, never its value: Google client secrets start with GOCSPX-.
+            $secret = (string) config('services.google.client_secret');
+            error_log(sprintf('[google-signin] token exchange failed; client secret starts with GOCSPX-: %s, length: %d, contains *: %s',
+                str_starts_with($secret, 'GOCSPX-') ? 'yes' : 'no', strlen($secret), str_contains($secret, '*') ? 'yes' : 'no'));
 
             return $fail('Google sign-in did not finish. Try again, or sign in with your email and password.');
         }
