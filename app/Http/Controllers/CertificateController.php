@@ -59,7 +59,8 @@ class CertificateController extends Controller
             'qr_token' => $award->qr_token,
         ]);
 
-        return response()->file(Storage::disk('local')->path($award->certificate_file_path), [
+        // Contents, not a file path: the disk may be remote (private Blob storage on Vercel).
+        return response(Storage::disk('local')->get($award->certificate_file_path), 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="' . $award->getCertificateFileName() . '"',
             'X-Content-Type-Options' => 'nosniff',

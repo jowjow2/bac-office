@@ -92,6 +92,19 @@ Route::get('/procurement/projects/{project}/documents/{document}/pdf', [PublicPr
 Route::get('/procurement/projects/{project}/qr.svg', [PublicProcurementController::class, 'qr'])->name('public.procurement.qr');
 Route::get('/procurement/projects/{project}', [PublicProcurementController::class, 'show'])->name('public.procurement.show');
 
+// Files on a private Vercel Blob disk, through the short-lived signed links its temporaryUrl() builds.
+Route::get('/files/{disk}/{path}', function (string $disk, string $path) {
+    abort_unless(in_array($disk, ['local', 'public'], true) && config("filesystems.disks.$disk.driver") === 'vercel-blob', 404);
+    abort_if(str_contains($path, '..'), 404);
+    $storage = \Illuminate\Support\Facades\Storage::disk($disk);
+    abort_unless($storage->exists($path), 404);
+
+    return $storage->response($path, basename($path), [
+        'X-Content-Type-Options' => 'nosniff',
+        'Cache-Control' => 'private, no-cache',
+    ]);
+})->where('path', '.*')->middleware('signed')->name('files.blob');
+
 // Public award verification is read-only and always loads the award record fresh.
 Route::get('/certificate/verify/{award}', [CertificateController::class, 'verify'])->name('certificate.verify');
 

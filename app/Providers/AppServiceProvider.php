@@ -25,6 +25,21 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Private Vercel Blob disks (config/filesystems.php): files open through
+        // short-lived signed links to the app, never a public Blob URL.
+        \Illuminate\Support\Facades\Storage::extend('vercel-blob', function ($app, array $config) {
+            $adapter = new \App\Support\VercelBlobAdapter((string) ($config['prefix'] ?? ''));
+            $disk = new \Illuminate\Filesystem\FilesystemAdapter(new \League\Flysystem\Filesystem($adapter, $config), $adapter, $config);
+            $name = $config['name'] ?? null;
+            $disk->buildTemporaryUrlsUsing(fn (string $path, \DateTimeInterface $expiration) => \Illuminate\Support\Facades\URL::temporarySignedRoute(
+                'files.blob',
+                $expiration,
+                ['disk' => $name ?: 'local', 'path' => $path]
+            ));
+
+            return $disk;
+        });
+
         if (! $this->app->runningInConsole()) {
             $host = request()->getHost();
 

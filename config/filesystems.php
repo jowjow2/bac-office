@@ -32,7 +32,17 @@ return [
 
     'disks' => [
 
-        'local' => [
+        // On Vercel the app's own filesystem is read-only: with a Blob token, the
+        // local and public disks keep their files in private Vercel Blob storage
+        // (App\Support\VercelBlobAdapter), served through signed app links.
+        // FILESYSTEM_BLOB=false turns this off.
+        'local' => filled(env('BLOB_READ_WRITE_TOKEN')) && env('FILESYSTEM_BLOB', true) ? [
+            'driver' => 'vercel-blob',
+            'prefix' => 'private',
+            'name' => 'local',
+            'throw' => false,
+            'report' => false,
+        ] : [
             'driver' => 'local',
             'root' => storage_path('app/private'),
             'serve' => true,
@@ -40,7 +50,13 @@ return [
             'report' => false,
         ],
 
-        'public' => [
+        'public' => filled(env('BLOB_READ_WRITE_TOKEN')) && env('FILESYSTEM_BLOB', true) ? [
+            'driver' => 'vercel-blob',
+            'prefix' => 'public',
+            'name' => 'public',
+            'throw' => false,
+            'report' => false,
+        ] : [
             'driver' => 'local',
             'root' => storage_path('app/public'),
             'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',

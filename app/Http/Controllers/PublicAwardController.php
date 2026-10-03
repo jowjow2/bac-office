@@ -131,8 +131,10 @@ class PublicAwardController extends Controller
         $fileName = $award->getCertificateFileName();
 
         // Security headers and inline display
-        return response()->file(
-            Storage::disk('local')->path($filePath),
+        // Contents, not a file path: the disk may be remote (private Blob storage on Vercel).
+        return response(
+            Storage::disk('local')->get($filePath),
+            200,
             [
                 'Content-Type' => 'application/pdf',
                 'Content-Disposition' => 'inline; filename="' . $fileName . '"',

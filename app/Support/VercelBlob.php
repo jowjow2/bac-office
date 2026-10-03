@@ -92,6 +92,105 @@ class VercelBlob
         return $response->successful();
     }
 
+    /*
+     * Path-based access for the "vercel-blob" filesystem driver (VercelBlobAdapter):
+     * a pathname maps to a fixed URL in this store, so the database keeps the
+     * same relative paths as on a local disk.
+     */
+
+    public static function urlFor(string $pathname): string
+    {
+        return 'https://'.self::host().'/'.implode('/', array_map('rawurlencode', explode('/', ltrim($pathname, '/'))));
+    }
+
+    public static function putContents(string $pathname, string $contents, ?string $mimeType = null): string
+    {
+        $type = $mimeType ?: 'application/octet-stream';
+        $response = Http::withToken(self::token())
+            ->withHeaders(self::apiHeaders() + [
+                'x-vercel-blob-access' => 'private',
+                'x-content-type' => $type,
+                'x-add-random-suffix' => '0',
+                // Same semantics as a disk: writing a path again replaces the file.
+                'x-allow-overwrite' => '1',
+            ])
+            ->withBody($contents, $type)
+            ->timeout(50)
+            ->put(self::API.'/?'.http_build_query(['pathname' => ltrim($pathname, '/')]));
+
+        $url = $response->json('url');
+        if (! $response->successful() || ! is_string($url) || ! self::isUrl($url)) {
+            throw new RuntimeException('Unable to store the file in private Blob storage (HTTP '.$response->status().').');
+        }
+
+        return $url;
+    }
+
+    /** @return array{size: ?int, type: ?string, modified: ?int}|null null when the file does not exist */
+    public static function head(string $pathname): ?array
+    {
+        $response = Http::withToken(self::token())->timeout(15)->head(self::urlFor($pathname));
+        if ($response->status() === 404) {
+            return null;
+        }
+        if (! $response->successful()) {
+            throw new RuntimeException('Unable to check the private file (HTTP '.$response->status().').');
+        }
+
+        $length = $response->header('Content-Length');
+        $modified = $response->header('Last-Modified');
+
+        return [
+            'size' => is_numeric($length) ? (int) $length : null,
+            'type' => $response->header('Content-Type') ?: null,
+            'modified' => $modified !== '' ? (strtotime($modified) ?: null) : null,
+        ];
+    }
+
+    public static function readPath(string $pathname): ?string
+    {
+        return self::read(self::urlFor($pathname));
+    }
+
+    public static function deletePaths(array $pathnames): bool
+    {
+        if ($pathnames === []) {
+            return true;
+        }
+        $response = Http::withToken(self::token())
+            ->withHeaders(self::apiHeaders())
+            ->timeout(30)
+            ->post(self::API.'/delete', ['urls' => array_map([self::class, 'urlFor'], $pathnames)]);
+
+        return $response->successful();
+    }
+
+    /** @return list<array{pathname: string, size: ?int, modified: ?int}> */
+    public static function list(string $prefix, int $limit = 1000): array
+    {
+        $blobs = [];
+        $cursor = null;
+        do {
+            $response = Http::withToken(self::token())
+                ->withHeaders(self::apiHeaders())
+                ->timeout(30)
+                ->get(self::API, array_filter(['prefix' => ltrim($prefix, '/'), 'limit' => min($limit, 1000), 'cursor' => $cursor]));
+            if (! $response->successful()) {
+                throw new RuntimeException('Unable to list private files (HTTP '.$response->status().').');
+            }
+            foreach ((array) $response->json('blobs', []) as $blob) {
+                $blobs[] = [
+                    'pathname' => (string) ($blob['pathname'] ?? ''),
+                    'size' => isset($blob['size']) ? (int) $blob['size'] : null,
+                    'modified' => isset($blob['uploadedAt']) ? (strtotime((string) $blob['uploadedAt']) ?: null) : null,
+                ];
+            }
+            $cursor = $response->json('hasMore') ? $response->json('cursor') : null;
+        } while ($cursor && count($blobs) < $limit);
+
+        return $blobs;
+    }
+
     private static function assertOwnUrl(string $url): void
     {
         if (! self::isUrl($url) || strtolower((string) parse_url($url, PHP_URL_HOST)) !== self::host()) {
