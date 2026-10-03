@@ -2247,7 +2247,12 @@
         }
 
         document.querySelectorAll('[data-pin]').forEach(function (input) {
+            // A saved login password put here by autofill is not a PIN: clear it.
+            if (/[^0-9]/.test(input.value)) input.value = '';
             input.addEventListener('input', function () {
+                if (/[A-Za-z@]/.test(input.value)) {
+                    input.value = '';
+                }
                 const digits = input.value.replace(/[^0-9]/g, '').slice(0, 6);
                 if (digits !== input.value) input.value = digits;
                 const form = input.form;
@@ -2330,6 +2335,10 @@
             const amount = form.querySelector('[data-bid-amount]');
             if (!amount) return;
 
+            // Browser autofill can drop a saved email or name into the price; keeping
+            // only its digits would show a made-up amount (e.g. 14.00), so clear it.
+            const isAutofillText = function (value) { return /[A-Za-z@]/.test(String(value || '')); };
+            if (isAutofillText(amount.value)) amount.value = '';
             amount.value = formatBidAmount(amount.value, true);
 
             amount.addEventListener('keydown', function (event) {
@@ -2349,6 +2358,11 @@
             });
 
             amount.addEventListener('input', function () {
+                if (isAutofillText(amount.value)) {
+                    amount.value = '';
+                    updateBidFormState(form);
+                    return;
+                }
                 amount.dataset.touched = 'true';
                 amount.value = formatBidAmount(amount.value, false);
                 updateBidFormState(form);

@@ -195,7 +195,7 @@
                                 <p class="sb-hint">Enter the amount exactly as written on your Financial Bid Form. It must not exceed the ABC of &#8369;{{ number_format($abc, 2) }}.</p>
                                 <div class="sb-money">
                                     <span class="sb-money-prefix" aria-hidden="true">&#8369;</span>
-                                    <input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" name="bid_amount" id="bid-amount-{{ $pid }}" class="sb-input sb-money-input" value="{{ old('project_id') == $pid ? old('bid_amount') : ($prefillBid ? $myBid->bid_amount : '') }}" placeholder="0.00" data-bid-amount required aria-describedby="bid-amount-error-{{ $pid }} bid-amount-compare-{{ $pid }}">
+                                    <input type="text" inputmode="decimal" autocomplete="transaction-amount" data-lpignore="true" data-1p-ignore data-bwignore spellcheck="false" name="bid_amount" id="bid-amount-{{ $pid }}" class="sb-input sb-money-input" value="{{ old('project_id') == $pid ? old('bid_amount') : ($prefillBid ? $myBid->bid_amount : '') }}" placeholder="0.00" data-bid-amount required aria-describedby="bid-amount-error-{{ $pid }} bid-amount-compare-{{ $pid }}">
                                 </div>
                                 <p class="sb-compare" id="bid-amount-compare-{{ $pid }}" data-bid-compare aria-live="polite"></p>
                                 <span class="sb-error" id="bid-amount-error-{{ $pid }}" data-bid-amount-error role="alert" aria-live="polite">@if(old('project_id') == $pid){{ $errors->first('bid_amount') }}@endif</span>
@@ -208,11 +208,11 @@
                                     <div class="sb-pin-row">
                                         <label class="sb-pin-field" for="financial-password-{{ $pid }}">
                                             <span>PIN</span>
-                                            <input type="password" name="financial_password" id="financial-password-{{ $pid }}" class="sb-input sb-pin-input" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="off" placeholder="••••••" title="6 digits" data-pin required>
+                                            <input type="password" name="financial_password" id="financial-password-{{ $pid }}" class="sb-input sb-pin-input" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="new-password" data-lpignore="true" data-1p-ignore data-bwignore placeholder="••••••" title="6 digits" data-pin required>
                                         </label>
                                         <label class="sb-pin-field" for="financial-password-confirmation-{{ $pid }}">
                                             <span>Confirm PIN</span>
-                                            <input type="password" name="financial_password_confirmation" id="financial-password-confirmation-{{ $pid }}" class="sb-input sb-pin-input" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="off" placeholder="••••••" title="6 digits" data-pin required>
+                                            <input type="password" name="financial_password_confirmation" id="financial-password-confirmation-{{ $pid }}" class="sb-input sb-pin-input" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="new-password" data-lpignore="true" data-1p-ignore data-bwignore placeholder="••••••" title="6 digits" data-pin required>
                                         </label>
                                     </div>
                                     <span class="sb-error" data-pin-error role="alert" aria-live="polite">@if(old('project_id') == $pid){{ $errors->first('financial_password') }}@endif</span>
