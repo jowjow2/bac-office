@@ -94,6 +94,8 @@ class AdminController extends Controller
             ->latest()
             ->paginate(10)
             ->withQueryString();
+        // For assigning staff straight from an "Unassigned" chip in the list.
+        $assignableStaff = User::where('role', 'staff')->where('status', 'active')->orderBy('name')->get(['id', 'name', 'office']);
 
         return view('admin.projects', compact(
             'projects',
@@ -101,7 +103,8 @@ class AdminController extends Controller
             'status',
             'projectTotals',
             'showArchived',
-            'exportRows'
+            'exportRows',
+            'assignableStaff'
         ));
     }
 
@@ -1583,10 +1586,12 @@ public function destroyUser(User $user)
         ]);
 
         $staff = User::findOrFail($validated['staff_id']);
+        // Assigned from the Projects list ("Unassigned" chip): go back there.
+        $fromProjects = $request->input('return') === 'projects';
+        $back = fn () => $fromProjects ? redirect()->back() : redirect()->route('admin.assignments');
 
         if ($staff->role !== 'staff') {
-            return redirect()
-                ->route('admin.assignments')
+            return $back()
                 ->withErrors(['staff_id' => 'Only staff users can be assigned to projects.']);
         }
 
@@ -1595,8 +1600,7 @@ public function destroyUser(User $user)
             ->exists();
 
         if ($exists) {
-            return redirect()
-                ->route('admin.assignments')
+            return $back()
                 ->withErrors(['staff_id' => 'This staff member is already assigned to the selected project.']);
         }
 
@@ -1627,7 +1631,7 @@ public function destroyUser(User $user)
             ]);
         }
 
-        return redirect()->route('admin.assignments')->with('success', 'Staff assigned successfully.');
+        return $back()->with('success', $fromProjects ? $staff->name.' assigned to '.$projectTitle.'.' : 'Staff assigned successfully.');
     }
 
     public function destroyAssignment(Assignment $assignment)

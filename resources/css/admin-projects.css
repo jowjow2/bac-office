@@ -549,6 +549,13 @@ body .admin-dashboard.admin-role-page .main-area.projects-page {
     & .projects-staff-chip.is-empty { border-style: dashed !important; border-color: var(--ui-line-strong) !important; background: transparent !important; color: var(--ui-muted) !important; -webkit-text-fill-color: var(--ui-muted) !important; }
     & .projects-staff-chip.is-urgent { border-style: solid !important; border-color: var(--ui-danger-line) !important; background: var(--ui-danger-soft) !important; color: var(--ui-danger) !important; -webkit-text-fill-color: var(--ui-danger) !important; }
     & .projects-staff-chip.is-urgent > i { color: var(--ui-danger) !important; -webkit-text-fill-color: var(--ui-danger) !important; }
+    /* "Unassigned" opens the quick Assign staff dialog; the ID part outranks the dashboard button rules. */
+    & :is(.projects-staff-chip.is-action, #projects-x#projects-x) { color: var(--ui-primary) !important; -webkit-text-fill-color: var(--ui-primary) !important; font-weight: 600 !important; box-shadow: none !important; font-family: inherit !important; line-height: 1 !important; cursor: pointer !important; transition: border-color .15s ease, background .15s ease !important; }
+    & :is(.projects-staff-chip.is-action, #projects-x#projects-x):hover { border-color: var(--ui-primary) !important; border-style: solid !important; background: var(--ui-primary-soft) !important; }
+    & :is(.projects-staff-chip.is-action.is-urgent, #projects-x#projects-x) { color: var(--ui-danger) !important; -webkit-text-fill-color: var(--ui-danger) !important; }
+    & .projects-staff-chip.is-action > i { color: currentColor !important; -webkit-text-fill-color: currentColor !important; }
+    & :is(.projects-staff-chip.is-action.is-urgent, #projects-x#projects-x):hover { border-color: var(--ui-danger) !important; background: #fde8e8 !important; }
+    & :is(.projects-staff-chip.is-action, #projects-x#projects-x):focus-visible { outline: none !important; box-shadow: var(--ui-focus) !important; }
 
     & .projects-bids-cell { display: inline-flex !important; align-items: center !important; gap: 6px !important; }
 

@@ -66,14 +66,25 @@
         </span>
     </td>
     <td data-label="Staff">
-        <span class="projects-staff-chip {{ $assignedStaff ? '' : 'is-empty' }} {{ $needsUrgentStaffing ? 'is-urgent' : '' }}" @if($needsUrgentStaffing) title="Urgent staffing: project is due today or past due" @endif>
-            <i class="fas fa-user-check" aria-hidden="true"></i>
-            <span>{{ $assignedStaff ?: 'Unassigned' }}</span>
-            @if($needsUrgentStaffing)
-                <i class="fas fa-triangle-exclamation projects-staff-urgent-icon" aria-hidden="true"></i>
-                <span class="sr-only">Urgent staffing needed</span>
-            @endif
-        </span>
+        @if($assignedStaff || $project->archived_at)
+            <span class="projects-staff-chip {{ $assignedStaff ? '' : 'is-empty' }}">
+                <i class="fas fa-user-check" aria-hidden="true"></i>
+                <span>{{ $assignedStaff ?: 'Unassigned' }}</span>
+            </span>
+        @else
+            {{-- Opens the quick "Assign staff" dialog of the Projects page. --}}
+            <button type="button" class="projects-staff-chip is-empty is-action {{ $needsUrgentStaffing ? 'is-urgent' : '' }}"
+                data-quick-assign="{{ $project->id }}" data-project-title="{{ $project->title }}"
+                title="{{ $needsUrgentStaffing ? 'Urgent: due today or past due. Assign a staff member.' : 'Assign a staff member' }}">
+                <i class="fas fa-user-plus" aria-hidden="true"></i>
+                <span class="sr-only">Unassigned.</span>
+                <span>Assign staff</span>
+                @if($needsUrgentStaffing)
+                    <i class="fas fa-triangle-exclamation projects-staff-urgent-icon" aria-hidden="true"></i>
+                    <span class="sr-only">Urgent staffing needed</span>
+                @endif
+            </button>
+        @endif
     </td>
     <td data-label="Bids">
         <span class="projects-bids-cell">

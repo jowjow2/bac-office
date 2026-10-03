@@ -114,3 +114,24 @@ it('shows a bid anomaly link for projects with bids over 500 percent above budge
         ->assertSee('More actions: Edit, Archive, Delete', false)
         ->assertSee('View project details', false);
 });
+
+it('assigns staff straight from an Unassigned chip and returns to the list', function () {
+    $staff = User::create(['name' => 'Rhea Santos', 'email' => 'quick-staff@example.com', 'password' => bcrypt('password'), 'role' => 'staff', 'status' => 'active', 'office' => 'BAC Secretariat']);
+    $project = Project::create(['title' => 'Due Today Road', 'description' => 'x', 'budget' => 100000, 'deadline' => now()->addHours(2), 'status' => 'open']);
+
+    $this->actingAs($this->admin)->get(route('admin.projects'))->assertOk()
+        ->assertSee('data-quick-assign="'.$project->id.'"', false)
+        ->assertSee('id="quickAssignDialog"', false)
+        ->assertSee('Rhea Santos · BAC Secretariat');
+
+    $this->actingAs($this->admin)->from(route('admin.projects'))->post(route('admin.assignments.store'), [
+        'staff_id' => $staff->id, 'project_id' => $project->id, 'return' => 'projects',
+    ])->assertRedirect(route('admin.projects'))->assertSessionHas('success', 'Rhea Santos assigned to Due Today Road.');
+
+    // Assigned now: the name replaces the chip, and assigning again is refused back on the list.
+    $this->actingAs($this->admin)->get(route('admin.projects'))
+        ->assertDontSee('data-quick-assign="'.$project->id.'"', false)->assertSee('Rhea Santos');
+    $this->actingAs($this->admin)->from(route('admin.projects'))->post(route('admin.assignments.store'), [
+        'staff_id' => $staff->id, 'project_id' => $project->id, 'return' => 'projects',
+    ])->assertRedirect(route('admin.projects'))->assertSessionHasErrors('staff_id');
+});

@@ -251,6 +251,69 @@
 
 </div>
 
+{{-- Quick "Assign staff" from an Unassigned chip in the list (project-table-row). --}}
+<dialog class="portal-signout projects-assign" id="quickAssignDialog" aria-labelledby="quickAssignTitle" @if($errors->has('staff_id') && old('return') === 'projects') data-open-on-load @endif>
+    <form method="POST" action="{{ route('admin.assignments.store') }}" class="portal-signout__form">
+        @csrf
+        <input type="hidden" name="return" value="projects">
+        <input type="hidden" name="project_id" value="{{ old('project_id') }}" data-quick-assign-project>
+        <span class="portal-signout__icon" aria-hidden="true"><i class="fas fa-user-plus"></i></span>
+        <h2 id="quickAssignTitle">Assign staff</h2>
+        <p data-quick-assign-title>{{ old('project_id') ? optional(\App\Models\Project::find(old('project_id')))->title : '' }}</p>
+        @if($assignableStaff->isEmpty())
+            <p class="projects-assign__empty">No active staff accounts yet. Approve a staff registration in Suppliers &amp; users first.</p>
+            <div class="portal-signout__actions">
+                <button type="button" class="portal-signout__button" data-dialog-close>Close</button>
+                <a href="{{ route('admin.users') }}" class="portal-signout__button is-primary" style="display:grid;place-items:center;text-decoration:none">Suppliers &amp; users</a>
+            </div>
+        @else
+            <label class="projects-assign__field">
+                <span>Staff member</span>
+                <select name="staff_id" required>
+                    <option value="">Choose a staff member</option>
+                    @foreach($assignableStaff as $member)
+                        <option value="{{ $member->id }}" @selected((string) old('staff_id') === (string) $member->id)>{{ $member->name }}{{ $member->office ? ' · '.$member->office : '' }}</option>
+                    @endforeach
+                </select>
+            </label>
+            <label class="projects-assign__field">
+                <span>Role in the project <em>(optional)</em></span>
+                <input type="text" name="role_in_project" maxlength="255" value="{{ old('role_in_project') }}" placeholder="e.g. BAC Secretariat, Evaluator">
+            </label>
+            @error('staff_id')<p class="projects-assign__error" role="alert">{{ $message }}</p>@enderror
+            <div class="portal-signout__actions">
+                <button type="button" class="portal-signout__button" data-dialog-close>Cancel</button>
+                <button type="submit" class="portal-signout__button is-primary">Assign</button>
+            </div>
+        @endif
+    </form>
+</dialog>
+<style>
+    .projects-assign .portal-signout__form { text-align: left; justify-items: stretch; }
+    .projects-assign :is(.portal-signout__icon, h2) { justify-self: center; }
+    .projects-assign h2 { text-align: center; }
+    .projects-assign p[data-quick-assign-title] { margin-bottom: 6px; color: var(--ui-ink-2); font-weight: 600; text-align: center; }
+    .projects-assign__field { display: grid; gap: 5px; margin-top: 6px; color: var(--ui-ink-2); font-size: 12.5px; font-weight: 600; }
+    .projects-assign__field em { color: var(--ui-subtle); font-style: normal; font-weight: 500; }
+    .projects-assign__field :is(select, input) { height: 40px; padding: 0 10px; border: 1px solid var(--ui-line-strong); border-radius: var(--ui-radius); background: var(--ui-surface); color: var(--ui-ink); font: 400 13px var(--ui-font); }
+    .projects-assign__field :is(select, input):focus { outline: none; border-color: var(--ui-primary); box-shadow: var(--ui-focus); }
+    .projects-assign__error { color: var(--ui-danger); font-size: 12.5px; }
+    .projects-assign__empty { text-align: center; }
+</style>
+<script>
+    // An Unassigned chip opens the dialog for its project.
+    document.addEventListener('click', function (event) {
+        const chip = event.target.closest('[data-quick-assign]');
+        const dialog = document.getElementById('quickAssignDialog');
+        if (!chip || !dialog || typeof dialog.showModal !== 'function') return;
+        const project = dialog.querySelector('[data-quick-assign-project]');
+        if (project) project.value = chip.dataset.quickAssign;
+        dialog.querySelector('[data-quick-assign-title]').textContent = chip.dataset.projectTitle || '';
+        dialog.showModal();
+        dialog.querySelector('select')?.focus();
+    });
+</script>
+
 <!-- PROJECT FILES MODAL -->
 <div id="projectFilesModal" style="display: none; position: fixed; inset: 0; padding: 20px; background: rgba(15, 23, 42, 0.45); z-index: 10000; justify-content: center; align-items: center; box-sizing: border-box;">
     <div style="background: white; border-radius: 14px; width: min(680px, 100%); max-height: calc(100vh - 20px); overflow: hidden; position: relative; box-shadow: 0 20px 44px rgba(15, 23, 42, 0.16); box-sizing: border-box;">
