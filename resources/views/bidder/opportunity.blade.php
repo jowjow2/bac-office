@@ -147,7 +147,7 @@
                             @if($canSubmit)
                                 <a href="{{ route('bidder.available-projects', ['bid_project' => $project->id]) }}" class="ui-btn ui-btn--primary">Prepare {{ $noun }}</a>
                             @else
-                                <span class="ui-hint">Submission opens once the BAC records your bidding documents fee.</span>
+                                <span class="ui-hint" @if($feeRequired && ! $feePaid) data-fee-locked-project="{{ $project->id }}" @endif>Submission opens once the BAC records your bidding documents fee.</span>
                             @endif
                         </div>
                     @endif
@@ -248,3 +248,7 @@
         </div>
     </div>
 @endsection
+
+@push('scripts')
+    @include('bidder.partials.payment-live')
+@endpush

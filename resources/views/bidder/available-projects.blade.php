@@ -2019,6 +2019,7 @@
 </div>
 
 @include('bidder.partials.submit-bid-assets')
+@include('bidder.partials.payment-live')
 <script>
     (function () {
         const BID_SUCCESS_HIDE_DELAY = 5000;

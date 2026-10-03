@@ -145,6 +145,8 @@ class SystemNotification
             'created_at' => $notification->created_at?->toISOString(),
             'is_read' => $notification->read_at !== null,
             'url' => self::targetUrl($notification, $viewer),
+            // Lets an open page react live (e.g. unlock a bid once the fee is recorded).
+            'project_id' => is_numeric(Arr::get($notification->data ?? [], 'project_id')) ? (int) Arr::get($notification->data, 'project_id') : null,
         ];
     }
 

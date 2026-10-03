@@ -332,3 +332,26 @@ it('shows the payments board to the admin and staff only', function () {
         ->and(testCase()->actingAs($this->bidder)->get(route('staff.payments'))->status())->not->toBe(200)
         ->and(testCase()->actingAs($this->staff)->get(route('admin.payments'))->status())->not->toBe(200);
 });
+
+it('notifies the bidder when the payment is recorded so an open page can unlock the bid live', function () {
+    // While unpaid, the bid form is locked and marked with its project for the live check.
+    testCase()->actingAs($this->bidder)->get(route('bidder.available-projects'))
+        ->assertOk()
+        ->assertSee('data-payment-locked="true" data-project-id="'.$this->project->id.'"', false)
+        ->assertSee("bac:notifications-updated", false);
+
+    ($this->record)()->assertSessionHasNoErrors();
+
+    $feed = testCase()->actingAs($this->bidder)->getJson(route('notifications.feed'))->assertOk();
+    $notification = collect($feed->json('notifications'))->firstWhere('type', 'bidding_fee_paid');
+    expect($notification)->not->toBeNull()
+        ->and($notification['title'])->toBe('Payment recorded')
+        ->and($notification['project_id'])->toBe($this->project->id)
+        ->and($notification['is_read'])->toBeFalse()
+        ->and($notification['url'])->toContain('bid_project='.$this->project->id)
+        ->and($notification['message'])->toContain('OR No. OR-7654321')->toContain('You can now submit your bid online');
+
+    // The same page now opens unlocked.
+    testCase()->actingAs($this->bidder)->get(route('bidder.available-projects', ['bid_project' => $this->project->id]))
+        ->assertSee('data-payment-locked="false" data-project-id="'.$this->project->id.'"', false);
+});
