@@ -1810,16 +1810,24 @@
                 flex: 1 1 auto;
             }
         }
-        .sb-steps { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; padding:14px 24px; border-bottom:1px solid #e7e1d6; background:#fff; }
-        .sb-step { display:flex; align-items:center; gap:10px; min-width:0; padding:10px 12px; border:1px solid #e7e1d6; border-radius:12px; background:#fff; color:#47534e; text-align:left; cursor:pointer; }
-        .sb-step.is-current { border-color:#9bc9b7; background:#e9f2ed; color:#173f32; }
-        .sb-step__number { display:grid; place-items:center; flex:0 0 34px; width:34px; height:34px; border:2px solid #d8d1c4; border-radius:50%; font-weight:700; }
-        .sb-step.is-current .sb-step__number { border-color:#205846; background:#205846; color:#fff; }
-        .sb-step strong,.sb-step small { display:block; }
-        .sb-step strong { font-size:14px; }
-        .sb-step small { margin-top:2px; color:#65736d; font-size:12px; }
+        /* Bid steps: compact stepper, pinned while the form scrolls. */
+        .sb-steps { position:sticky; top:-18px; z-index:3; display:flex; align-items:flex-start; margin:-18px -22px 16px; padding:16px 22px 14px; border-bottom:1px solid #e7e1d6; background:#fff; }
+        .sb-step { position:relative; display:flex; flex:1 1 0; flex-direction:column; align-items:center; gap:6px; min-width:0; padding:0 8px; border:0; border-radius:10px; background:none; color:#65736d; font:inherit; text-align:center; cursor:pointer; }
+        .sb-step::before { content:''; position:absolute; top:16px; right:calc(50% + 22px); left:calc(-50% + 22px); height:2px; border-radius:2px; background:#e2dccf; }
+        .sb-step:first-child::before { display:none; }
+        .sb-step.is-current::before, .sb-step.is-done::before { background:#205846; }
+        .sb-step:focus-visible { outline:3px solid #9bc9b7; outline-offset:2px; }
+        .sb-step__number { position:relative; z-index:1; display:grid; place-items:center; width:32px; height:32px; border:2px solid #d8d1c4; border-radius:50%; background:#fff; color:#65736d; font-size:13px; font-weight:700; transition:background .15s ease, border-color .15s ease; }
+        .sb-step:hover .sb-step__number { border-color:#9bc9b7; }
+        .sb-step.is-current .sb-step__number { border-color:#205846; background:#205846; color:#fff; box-shadow:0 0 0 4px #e9f2ed; }
+        .sb-step.is-done:not(.is-current) .sb-step__number { border-color:#205846; background:#e9f2ed; color:transparent; }
+        .sb-step.is-done:not(.is-current) .sb-step__number::after { content:'\f00c'; position:absolute; color:#205846; font-family:'Font Awesome 6 Free'; font-size:13px; font-weight:900; }
+        .sb-step strong, .sb-step small { display:block; }
+        .sb-step strong { color:#3a4641; font-size:13px; font-weight:600; line-height:1.3; }
+        .sb-step.is-current strong { color:#173f32; }
+        .sb-step small { margin-top:1px; color:#7a8680; font-size:11.5px; line-height:1.35; }
         .sb-panel[hidden],.sb-bulk-upload[hidden],.sb-foot-actions [hidden] { display:none !important; }
-        @media(max-width:700px) { .sb-steps { gap:6px; padding:10px 12px; } .sb-step { justify-content:center; padding:8px 5px; } .sb-step small { display:none; } .sb-step strong { font-size:12px; } .sb-step__number { flex-basis:28px; width:28px; height:28px; } }
+        @media(max-width:700px) { .sb-steps { margin:-14px -16px 14px; padding:12px 8px 10px; top:-14px; } .sb-step { padding:0 4px; } .sb-step small { display:none; } .sb-step strong { font-size:11.5px; } .sb-step__number { width:28px; height:28px; } .sb-step::before { top:14px; } }
     </style>
 
         @include('partials.bidder-sidebar')
@@ -2021,6 +2029,9 @@
 @include('bidder.partials.submit-bid-assets')
 @include('bidder.partials.payment-live')
 @include('bidder.partials.bid-file-memory')
+@if(\App\Support\VercelBlob::enabled())
+    @vite(['resources/js/bid-direct-upload.js'])
+@endif
 <script>
     (function () {
         const BID_SUCCESS_HIDE_DELAY = 5000;
@@ -2374,8 +2385,29 @@
                 if (body) body.scrollTop = 0;
             };
 
+            // A step shows a check once its required items are actually complete.
+            const stepComplete = function (step) {
+                const panel = form.querySelector('[data-sb-panel="' + step + '"]');
+                const filesReady = !panel || Array.from(panel.querySelectorAll('[data-upload-input][data-required-upload]'))
+                    .every(function (input) { return input.files && input.files.length > 0; });
+                if (step === 1) return filesReady;
+                if (step === 2) {
+                    const amount = form.querySelector('[data-bid-amount]');
+                    return filesReady && (!amount || validateBidAmount(amount, false)) && pinState(form).valid;
+                }
+                return false;
+            };
+            const markSteps = function () {
+                tabs.forEach(function (tab) { tab.classList.toggle('is-done', stepComplete(Number(tab.dataset.sbGo))); });
+            };
+            form.addEventListener('input', markSteps);
+            form.addEventListener('change', markSteps);
+            form.querySelectorAll('[data-upload-remove]').forEach(function (button) {
+                button.addEventListener('click', function () { setTimeout(markSteps, 0); });
+            });
+
             tabs.forEach(function (tab) {
-                tab.addEventListener('click', function () { showStep(tab.dataset.sbGo); });
+                tab.addEventListener('click', function () { showStep(tab.dataset.sbGo); markSteps(); });
             });
             if (back) back.addEventListener('click', function () { showStep(activeStep - 1); });
             if (next) next.addEventListener('click', function () { showStep(activeStep + 1); });
@@ -2385,6 +2417,7 @@
                 showStep(firstMissing && firstMissing.closest('[data-sb-panel="1"]') ? 1 : 2);
             });
             showStep(1);
+            markSteps();
         });
         document.querySelectorAll('.bidder-bid-form, [data-bid-form]').forEach(function (form) {
             const amount = form.querySelector('[data-bid-amount]');

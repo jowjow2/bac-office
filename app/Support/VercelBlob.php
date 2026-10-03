@@ -92,6 +92,39 @@ class VercelBlob
         return $response->successful();
     }
 
+    /**
+     * A short-lived token that lets the browser upload one file straight to
+     * Blob storage (@vercel/blob "upload"), so large files never pass through
+     * the serverless function, whose request body is limited to 4.5 MB.
+     * Same format as the SDK's generateClientTokenFromReadWriteToken.
+     *
+     * @param  list<string>  $allowedContentTypes
+     */
+    public static function clientToken(string $pathname, int $maximumSizeInBytes, array $allowedContentTypes, int $validForSeconds = 300): string
+    {
+        $payload = base64_encode((string) json_encode(array_filter([
+            'pathname' => ltrim($pathname, '/'),
+            'maximumSizeInBytes' => $maximumSizeInBytes,
+            'allowedContentTypes' => $allowedContentTypes === [] ? null : array_values($allowedContentTypes),
+            'addRandomSuffix' => true,
+            'validUntil' => (int) round(microtime(true) * 1000) + $validForSeconds * 1000,
+        ], fn ($value) => $value !== null), JSON_UNESCAPED_SLASHES));
+        $signature = hash_hmac('sha256', $payload, self::token());
+
+        return 'vercel_blob_client_'.self::storeId().'_'.base64_encode($signature.'.'.$payload);
+    }
+
+    /** Whether a URL is a file in this store under the given folder. */
+    public static function isOwnUrlUnder(string $url, string $folder): bool
+    {
+        if (! self::isUrl($url) || strtolower((string) parse_url($url, PHP_URL_HOST)) !== self::host()) {
+            return false;
+        }
+        $path = rawurldecode(ltrim((string) parse_url($url, PHP_URL_PATH), '/'));
+
+        return str_starts_with($path, trim($folder, '/').'/') && ! str_contains($path, '..');
+    }
+
     /*
      * Path-based access for the "vercel-blob" filesystem driver (VercelBlobAdapter):
      * a pathname maps to a fixed URL in this store, so the database keeps the

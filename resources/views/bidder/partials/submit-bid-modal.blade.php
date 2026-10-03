@@ -51,7 +51,7 @@
 
 <div class="sb-body" data-scroll-body>
             <div class="sb-main">
-                <form method="POST" action="{{ route('bidder.bids.store', $project) }}" enctype="multipart/form-data" class="sb-form" id="{{ $formId }}" novalidate data-bid-form data-abc="{{ number_format($abc, 2, '.', '') }}" data-payment-locked="{{ $paymentLocked ? 'true' : 'false' }}" data-project-id="{{ $pid }}" data-owner="{{ auth()->id() }}" data-electronic="{{ $electronic ? 'true' : 'false' }}">
+                <form method="POST" action="{{ route('bidder.bids.store', $project) }}" enctype="multipart/form-data" class="sb-form" id="{{ $formId }}" novalidate data-bid-form data-abc="{{ number_format($abc, 2, '.', '') }}" data-payment-locked="{{ $paymentLocked ? 'true' : 'false' }}" data-project-id="{{ $pid }}" data-owner="{{ auth()->id() }}" @if($electronic && \App\Support\VercelBlob::enabled()) data-direct-upload-url="{{ route('bidder.bids.upload-token', $project) }}" data-direct-upload-folder="bid-uploads/{{ auth()->id() }}/{{ $pid }}" @endif data-electronic="{{ $electronic ? 'true' : 'false' }}">
                     @csrf
                     <input type="hidden" name="project_id" value="{{ $pid }}">
 

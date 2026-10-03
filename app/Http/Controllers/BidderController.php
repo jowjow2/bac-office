@@ -405,6 +405,19 @@ class BidderController extends Controller
         $validationData['financial_password_confirmation'] = $financialPasswordConfirmation;
         $electronic = $project->acceptsElectronicSubmission();
         $maxKb = (int) config('bac-office.registration.max_document_size_kb', 20480);
+
+        // Files the browser uploaded straight to Blob storage (bidUploadToken) arrive as
+        // references; fetch them so they get exactly the same checks and storage as posted files.
+        try {
+            [$blobFiles, $blobUrls, $tempPaths] = $this->pullDirectBidUploads($request, $project, $user);
+        } catch (ValidationException $exception) {
+            return redirect()
+                ->route('bidder.available-projects', ['bid_project' => $project->id])
+                ->withErrors($exception->errors())
+                ->withInput($request->except('documents', 'uploaded_documents', 'uploaded_document_names'));
+        }
+        $documentFiles = $blobFiles + $request->file('documents', []);
+        $validationData['documents'] = $documentFiles;
         $validated = validator($validationData, [
             'bid_amount' => ['required', 'string', 'max:30'],
             'documents' => ['nullable', 'array'],
@@ -415,22 +428,35 @@ class BidderController extends Controller
             'financial_password.required' => 'Set a 6-digit financial PIN.',
             'financial_password.digits' => 'The financial PIN must be exactly 6 digits.',
             'financial_password.confirmed' => 'The two financial PINs do not match.',
-        ])->validate();
-        unset($validated['financial_password'], $validated['financial_password_confirmation']);
-
+        ]);
         try {
+            $validated = $validated->validate();
+            unset($validated['financial_password'], $validated['financial_password_confirmation']);
+
             $bid = app(BidSubmission::class)->submit(
                 $project,
                 $user,
                 (string) $validated['bid_amount'],
-                $request->file('documents', []),
+                $documentFiles,
                 $validated['notes'] ?? null, $financialPassword
             );
         } catch (ValidationException $exception) {
             return redirect()
                 ->route('bidder.available-projects', ['bid_project' => $project->id])
                 ->withErrors($exception->errors())
-                ->withInput($request->except('documents'));
+                ->withInput($request->except('documents', 'uploaded_documents', 'uploaded_document_names'));
+        } finally {
+            // The bid keeps its own stored copies; the temporary direct uploads go.
+            foreach ($tempPaths as $path) {
+                @unlink($path);
+            }
+            foreach ($blobUrls as $url) {
+                try {
+                    \App\Support\VercelBlob::delete($url);
+                } catch (\Throwable) {
+                    // Left in the private store; it is never linked to the bid.
+                }
+            }
         }
 
         if ($bid->isDraft()) {
@@ -448,6 +474,93 @@ class BidderController extends Controller
         return redirect()
             ->route('bidder.available-projects')
             ->with('success', ($modified ? 'Bid modification received. It replaces your earlier submission. Receipt No. ' : 'Bid submitted online. Receipt No. ') . $bid->receipt_no . ' (' . $bid->submitted_at->timezone(config('bac-office.display_timezone'))->format('M d, Y h:i:s A') . ').');
+    }
+
+    /** Folder in Blob storage for one bidder's direct uploads to one project. */
+    private function bidUploadFolder(User $user, Project $project): string
+    {
+        return 'bid-uploads/'.$user->id.'/'.$project->id;
+    }
+
+    /**
+     * Issues the short-lived token @vercel/blob "upload" asks for, so a bid file
+     * goes from the browser straight to private Blob storage instead of through
+     * this function (whose request body Vercel limits to 4.5 MB). Only for an
+     * approved bidder with a verified fee, on an open online project, into that
+     * bidder's own folder.
+     */
+    public function bidUploadToken(Request $request, Project $project)
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        abort_unless(\App\Support\VercelBlob::enabled(), 404);
+
+        $refusal = match (true) {
+            ! $user->isApprovedBidder() => 'Your bidder account is not authorized to participate in procurement at this time.',
+            ! $project->isOpenForBidding() => 'Bid submission for this project is closed.',
+            ! $project->acceptsElectronicSubmission() => 'This project does not take online bids.',
+            ! $project->hasPaidBiddingFee($user) => 'Pay the bidding documents fee first.',
+            $request->input('type') !== 'blob.generate-client-token' => 'Unsupported upload request.',
+            default => null,
+        };
+        if ($refusal !== null) {
+            return response()->json(['error' => $refusal], 403);
+        }
+
+        $pathname = (string) $request->input('payload.pathname');
+        $folder = $this->bidUploadFolder($user, $project);
+        if (! preg_match('#^'.preg_quote($folder, '#').'/[A-Za-z0-9._-]{1,150}\.(pdf|doc|docx|xls|xlsx)$#i', $pathname)) {
+            return response()->json(['error' => 'Use PDF, DOC, DOCX, XLS or XLSX files.'], 422);
+        }
+
+        $maxKb = (int) config('bac-office.registration.max_document_size_kb', 20480);
+
+        return response()->json([
+            'type' => 'blob.generate-client-token',
+            'clientToken' => \App\Support\VercelBlob::clientToken($pathname, $maxKb * 1024, []),
+        ]);
+    }
+
+    /**
+     * Turns the references of files uploaded straight to Blob storage into
+     * temporary files the normal bid checks and storage can use.
+     *
+     * @return array{0: array<string, \Illuminate\Http\UploadedFile>, 1: list<string>, 2: list<string>}
+     *
+     * @throws ValidationException
+     */
+    private function pullDirectBidUploads(Request $request, Project $project, User $user): array
+    {
+        $references = (array) $request->input('uploaded_documents', []);
+        if ($references === []) {
+            return [[], [], []];
+        }
+        if (! \App\Support\VercelBlob::enabled()) {
+            throw ValidationException::withMessages(['documents' => 'Direct uploads are not available here. Attach the files again.']);
+        }
+
+        $names = (array) $request->input('uploaded_document_names', []);
+        $folder = $this->bidUploadFolder($user, $project);
+        $files = [];
+        $urls = [];
+        $temps = [];
+        foreach ($references as $key => $url) {
+            if (! is_string($key) || ! is_string($url) || ! \App\Support\VercelBlob::isOwnUrlUnder($url, $folder)) {
+                throw ValidationException::withMessages(['documents' => 'An uploaded file could not be verified. Attach it again.']);
+            }
+            $urls[] = $url;
+            $contents = \App\Support\VercelBlob::read($url);
+            if ($contents === null) {
+                throw ValidationException::withMessages(['documents.'.$key => 'An uploaded file was not found. Attach it again.']);
+            }
+            $temp = tempnam(sys_get_temp_dir(), 'bid');
+            file_put_contents($temp, $contents);
+            $temps[] = $temp;
+            $name = basename(str_replace('\\', '/', (string) ($names[$key] ?? basename((string) parse_url($url, PHP_URL_PATH)))));
+            $files[$key] = new \Illuminate\Http\UploadedFile($temp, $name !== '' ? $name : 'document.pdf', null, null, true);
+        }
+
+        return [$files, $urls, $temps];
     }
 
     protected function bidderPageData(Request $request): array

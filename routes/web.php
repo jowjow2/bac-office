@@ -371,6 +371,7 @@ Route::middleware(['auth', 'approved.bidder'])->group(function () {
     Route::post('/bidder/awards/{award}/contract-implementation/delivery', [\App\Http\Controllers\ContractImplementationController::class, 'supplierDelivery'])->name('bidder.contract-implementation.delivery');
     Route::post('/bidder/bids/{bid}/documents/{bidDocument}/replacement', [\App\Http\Controllers\BidDocumentReviewController::class, 'replace'])->name('bidder.bid-document.replace');
     Route::post('/bidder/projects/{project}/bids', [BidderController::class, 'submitBid'])->name('bidder.bids.store');
+    Route::post('/bidder/projects/{project}/bid-uploads', [BidderController::class, 'bidUploadToken'])->name('bidder.bids.upload-token');
 });
 
 

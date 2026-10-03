@@ -17,6 +17,7 @@
         "vite": "^7.0.7"
     },
     "dependencies": {
+        "@vercel/blob": "^2.8.0",
         "openai": "^6.35.0"
     }
 }

@@ -21,6 +21,7 @@ export default defineConfig({
                 'resources/css/bid-management.css',
                 'resources/css/admin-projects.css',
                 'resources/js/bid-management.js',
+                'resources/js/bid-direct-upload.js',
             ],
             refresh: true,
         }),
