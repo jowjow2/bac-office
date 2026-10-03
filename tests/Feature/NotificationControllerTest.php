@@ -51,7 +51,7 @@ it('returns only important notifications in the live feed', function () {
         ->assertJsonPath('unread_count', 2)
         ->assertJsonCount(2, 'notifications')
         ->assertJsonFragment(['type' => 'message'])
-        ->assertJsonFragment(['url' => route('admin.messages', ['user' => $staff->id, 'tab' => 'staff'])]);
+        ->assertJsonFragment(['url' => route('admin.messages', ['user' => $staff->id, 'tab' => 'staff'], false)]);
 });
 
 it('returns unread message count in the live feed', function () {
@@ -127,4 +127,32 @@ it('marks all important notifications read over ajax', function () {
         ->assertJsonPath('unread_count', 0);
 
     expect(UserNotification::query()->whereNull('read_at')->count())->toBe(0);
+});
+
+it('opens notification links on the current site even when saved with another host', function () {
+    $bidder = notificationUser('bidder');
+
+    // Saved elsewhere (e.g. created locally, then the data moved to production).
+    $old = UserNotification::create([
+        'user_id' => $bidder->id, 'title' => 'Not Awarded', 'message' => 'The contract was awarded to another bidder.',
+        'type' => 'bid_progress', 'data' => ['url' => 'http://localhost:8000/bidder/my-bids?tab=ended#bid-7'],
+    ]);
+    $old->forceFill(['created_at' => now()->addWeeks(2)])->save();
+    $external = UserNotification::create([
+        'user_id' => $bidder->id, 'title' => 'PhilGEPS notice', 'message' => 'See the notice.',
+        'type' => 'bid_progress', 'data' => ['url' => 'https://notices.philgeps.gov.ph/GEPSNONPILOT/Tender/SplashBidNoticeAbstractUI.aspx?refid=1'],
+    ]);
+
+    testCase()->actingAs($bidder)->get(route('notifications.open', $old))
+        ->assertRedirect('/bidder/my-bids?tab=ended#bid-7');
+    testCase()->actingAs($bidder)->get(route('notifications.open', $external))
+        ->assertRedirect('https://notices.philgeps.gov.ph/GEPSNONPILOT/Tender/SplashBidNoticeAbstractUI.aspx?refid=1');
+
+    $feed = collect(testCase()->actingAs($bidder)->getJson(route('notifications.feed'))->json('notifications'))->keyBy('id');
+    expect($feed[$old->id]['url'] ?? null)->toBe('/bidder/my-bids?tab=ended#bid-7')
+        ->and($feed[$old->id]['time'] ?? null)->toBe($old->created_at->format('M d, Y'));
+
+    // New notifications are saved as paths on this site.
+    SystemNotification::createForUser($bidder->id, 'Payment recorded', 'Recorded.', 'bidding_fee_paid', ['url' => route('bidder.available-projects', ['bid_project' => 5])]);
+    expect(UserNotification::latest('id')->first()->data['url'])->toBe('/bidder/available-projects?bid_project=5');
 });

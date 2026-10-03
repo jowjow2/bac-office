@@ -141,7 +141,9 @@ class SystemNotification
             'title' => $notification->title,
             'message' => $notification->message,
             'type' => $notification->type,
-            'time' => $notification->created_at?->diffForHumans() ?? 'Recently',
+            // A date ahead of the clock (e.g. made under a local demo clock, then copied) shows as a date, not "2 weeks from now".
+            'time' => $notification->created_at === null ? 'Recently'
+                : ($notification->created_at->isFuture() ? $notification->created_at->format('M d, Y') : $notification->created_at->diffForHumans()),
             'created_at' => $notification->created_at?->toISOString(),
             'is_read' => $notification->read_at !== null,
             'url' => self::targetUrl($notification, $viewer),
@@ -163,10 +165,33 @@ class SystemNotification
         $storedUrl = Arr::get($data, 'url') ?: Arr::get($data, 'target_url');
 
         if (filled($storedUrl)) {
-            return (string) $storedUrl;
+            return self::localUrl((string) $storedUrl);
         }
 
-        return self::resolveTargetUrl($viewer ?? $notification->user, $notification->type, $data);
+        return self::localUrl(self::resolveTargetUrl($viewer ?? $notification->user, $notification->type, $data));
+    }
+
+    /**
+     * A link to one of this app's own pages, as a path on the current site.
+     * Notifications saved with a full address (e.g. http://localhost:8000/...)
+     * keep working after the data moves to another host, such as production.
+     * Links to other sites are left as they are.
+     */
+    public static function localUrl(string $url): string
+    {
+        $parts = parse_url($url);
+        if ($parts === false || ! isset($parts['host'])) {
+            return $url;
+        }
+
+        $path = ($parts['path'] ?? '') !== '' ? $parts['path'] : '/';
+        try {
+            app('router')->getRoutes()->match(\Illuminate\Http\Request::create($path, 'GET'));
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface) {
+            return $url;
+        }
+
+        return $path.(isset($parts['query']) ? '?'.$parts['query'] : '').(isset($parts['fragment']) ? '#'.$parts['fragment'] : '');
     }
 
     public static function isImportantType(string $type, array $data = []): bool
@@ -179,6 +204,12 @@ class SystemNotification
     {
         if (! filled(Arr::get($data, 'url')) && ! filled(Arr::get($data, 'target_url'))) {
             $data['url'] = self::resolveTargetUrl($recipient, $type, $data);
+        }
+        // Saved as a path, so the link works on whichever host shows it.
+        foreach (['url', 'target_url'] as $key) {
+            if (is_string($data[$key] ?? null)) {
+                $data[$key] = self::localUrl($data[$key]);
+            }
         }
 
         return $data;

@@ -115,7 +115,7 @@ it('blocks the online bid until the BAC records the bidding fee payment', functi
 
     $notification = UserNotification::where('user_id', $this->bidder->id)->where('type', 'bidding_fee_paid')->firstOrFail();
     expect($notification->message)->toContain('OR No. OR-7654321')
-        ->and($notification->data['url'])->toBe(route('bidder.available-projects', ['bid_project' => $this->project->id]));
+        ->and($notification->data['url'])->toBe(route('bidder.available-projects', ['bid_project' => $this->project->id], false));
 
     testCase()->actingAs($this->bidder)->get(route('bidder.available-projects'))
         ->assertSee('Bidding fee paid')
