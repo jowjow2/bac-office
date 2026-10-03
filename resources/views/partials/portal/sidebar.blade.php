@@ -26,9 +26,13 @@
 @endphp
 
 <aside class="portal-sidebar" id="portalSidebar" aria-label="Main navigation">
-    <a href="{{ $portalHome }}" class="portal-brand">
-        <span class="portal-brand__name">SJBAC Procurement</span>
-        <span class="portal-brand__sub">Bids and Awards Committee · San Jose, Occ. Mindoro</span>
+    <a href="{{ $portalHome }}" class="portal-brand" aria-label="SJBAC Procurement home">
+        <span class="portal-brand__logo"><img src="{{ asset('favicon-bac-192.png') }}" alt="" width="38" height="38"></span>
+        <span class="portal-brand__text">
+            <span class="portal-brand__name">SJBAC Procurement</span>
+            <span class="portal-brand__sub">Bids &amp; Awards Committee</span>
+            <span class="portal-brand__place">San Jose, Occ. Mindoro</span>
+        </span>
     </a>
 
     <button type="button" class="portal-sidebar__close" data-portal-nav-close aria-label="Close navigation">

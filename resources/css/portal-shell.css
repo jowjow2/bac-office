@@ -34,25 +34,74 @@
     box-sizing: border-box;
 }
 
+/* Brand: BAC seal and name, set apart from the navigation by a hairline. */
 .portal-brand {
-    display: grid;
-    gap: 2px;
-    padding: 22px 20px 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 10px 6px;
+    padding: 16px 6px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, .1);
     color: #fff;
     text-decoration: none;
 }
 
+.portal-brand__logo {
+    display: grid;
+    flex: 0 0 40px;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    overflow: hidden;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, .18), 0 4px 10px rgba(0, 0, 0, .18);
+    transition: transform .2s ease;
+}
+
+.portal-brand__logo img {
+    display: block;
+    width: 38px;
+    height: 38px;
+    object-fit: contain;
+}
+
+.portal-brand:hover .portal-brand__logo {
+    transform: rotate(-6deg) scale(1.04);
+}
+
+.portal-brand__text {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+}
+
 .portal-brand__name {
-    font-size: 16px;
+    font-size: 14px;
+    white-space: nowrap;
     font-weight: 700;
     letter-spacing: -.01em;
     line-height: 1.2;
 }
 
 .portal-brand__sub {
-    color: var(--ui-sidebar-muted);
+    color: #d7e8df;
     font-size: 11px;
-    line-height: 1.35;
+    font-weight: 600;
+    white-space: nowrap;
+    line-height: 1.3;
+}
+
+.portal-brand__place {
+    color: var(--ui-sidebar-muted);
+    font-size: 10.5px;
+    white-space: nowrap;
+    line-height: 1.3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .portal-brand__logo { transition: none; }
+    .portal-brand:hover .portal-brand__logo { transform: none; }
 }
 
 .portal-brand:focus-visible,

@@ -14,7 +14,7 @@
   },
   "routes": [
     {
-      "src": "/(favicon\\.ico|robots\\.txt)",
+      "src": "/(favicon\\.ico|favicon-bac-[A-Za-z0-9]+\\.(?:png|ico)|bac-favicon\\.svg|robots\\.txt)",
       "dest": "/public/$1"
     },
     {
