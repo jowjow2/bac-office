@@ -363,20 +363,33 @@
                         <span class="ui-error" id="required_documents-error" data-pw-error @unless($err('required_documents')) hidden @endunless>{{ $err('required_documents') }}</span>
                     </fieldset>
 
-                    <fieldset class="pw-section">
+                    <fieldset class="pw-section" data-pw-notes>
                         <legend class="pw-section__title">Requirement details <span class="ui-optional">(optional)</span></legend>
-                        <p class="ui-hint">Notes shown with the requirements, for example minimum experience or license classifications.</p>
-                        <div class="pw-grid">
-                            @foreach([
-                                'eligibility_requirements' => ['Eligibility requirements', 'e.g. PCAB license category C or higher'],
-                                'technical_requirements' => ['Technical requirements', 'e.g. Delivery within 30 calendar days; 1-year warranty'],
-                                'financial_requirements' => ['Financial requirements', 'e.g. NFCC equal to the ABC or a committed line of credit'],
-                                'qualification_notes' => ['Qualification notes', 'Anything bidders should know about post-qualification'],
-                                'special_instructions' => ['Special instructions', 'e.g. Submit two copies of the technical proposal'],
-                            ] as $field => [$label, $placeholder])
-                                <div class="ui-field">
-                                    <label class="ui-label" for="{{ $field }}">{{ $label }}</label>
-                                    <textarea id="{{ $field }}" name="{{ $field }}" class="ui-input" rows="3" placeholder="{{ $placeholder }}" aria-describedby="{{ $field }}-error">{{ old($field) }}</textarea>
+                        <p class="ui-hint">Notes shown with the requirements, for example minimum experience or license classifications. Add only the ones this project needs.</p>
+                        @php
+                            $requirementNotes = [
+                                'eligibility_requirements' => ['Eligibility', 'Eligibility requirements', 'e.g. PCAB license category C or higher'],
+                                'technical_requirements' => ['Technical', 'Technical requirements', 'e.g. Delivery within 30 calendar days; 1-year warranty'],
+                                'financial_requirements' => ['Financial', 'Financial requirements', 'e.g. NFCC equal to the ABC or a committed line of credit'],
+                                'qualification_notes' => ['Qualification notes', 'Qualification notes', 'Anything bidders should know about post-qualification'],
+                                'special_instructions' => ['Special instructions', 'Special instructions', 'e.g. Submit two copies of the technical proposal'],
+                            ];
+                            // A note with text (a draft, the PR, an error) is shown open; the rest wait behind "+".
+                            $openNotes = collect($requirementNotes)->keys()->filter(fn ($field) => filled(old($field)) || filled($err($field)))->all();
+                        @endphp
+                        <div class="pw-notes__add" role="group" aria-label="Add a requirement note" data-pw-notes-add @if(count($openNotes) === count($requirementNotes)) hidden @endif>
+                            @foreach($requirementNotes as $field => [$short])
+                                <button type="button" class="pw-note-add" data-pw-note-add="{{ $field }}" @if(in_array($field, $openNotes, true)) hidden @endif><i class="fas fa-plus" aria-hidden="true"></i> {{ $short }}</button>
+                            @endforeach
+                        </div>
+                        <div class="pw-notes__list">
+                            @foreach($requirementNotes as $field => [$short, $label, $placeholder])
+                                <div class="ui-field pw-note" data-pw-note="{{ $field }}" @unless(in_array($field, $openNotes, true)) hidden @endunless>
+                                    <div class="pw-note__head">
+                                        <label class="ui-label" for="{{ $field }}">{{ $label }}</label>
+                                        <button type="button" class="pw-note__remove" data-pw-note-remove aria-label="Remove {{ strtolower($label) }}"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+                                    </div>
+                                    <textarea id="{{ $field }}" name="{{ $field }}" class="ui-input pw-note__input" rows="2" placeholder="{{ $placeholder }}" data-pw-autogrow aria-describedby="{{ $field }}-error">{{ old($field) }}</textarea>
                                     <span class="ui-error" id="{{ $field }}-error" data-pw-error @unless($err($field)) hidden @endunless>{{ $err($field) }}</span>
                                 </div>
                             @endforeach

@@ -739,3 +739,85 @@ body.pw-open {
     flex-wrap: wrap;
     gap: 6px 18px;
 }
+
+/* Requirement notes: "+" buttons; only the notes added are shown. */
+.pw-notes__add {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.pw-notes__add[hidden],
+.pw-note[hidden],
+.pw-note-add[hidden] {
+    display: none;
+}
+
+.pw-note-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 0 12px;
+    border: 1px dashed var(--ui-line-strong);
+    border-radius: 999px;
+    background: var(--ui-surface);
+    color: var(--ui-ink-2);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.pw-note-add:hover,
+.pw-note-add:focus-visible {
+    border-color: var(--ui-primary);
+    border-style: solid;
+    color: var(--ui-primary);
+}
+
+.pw-note-add i {
+    font-size: 11px;
+}
+
+.pw-notes__list {
+    display: grid;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.pw-notes__list:not(:has(.pw-note:not([hidden]))) {
+    display: none;
+}
+
+.pw-note__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.pw-note__remove {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border: 0;
+    border-radius: var(--ui-radius);
+    background: transparent;
+    color: var(--ui-subtle);
+    cursor: pointer;
+}
+
+.pw-note__remove:hover,
+.pw-note__remove:focus-visible {
+    background: var(--ui-danger-soft);
+    color: var(--ui-danger);
+}
+
+textarea.ui-input.pw-note__input {
+    min-height: 60px;
+    overflow: hidden;
+    resize: none;
+}

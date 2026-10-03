@@ -354,6 +354,54 @@ if (root && form) {
         dirty = true;
     });
 
+    /* ------------------------------------------------------------------ */
+    /* Requirement notes: only the ones the BAC adds take up space         */
+    /* ------------------------------------------------------------------ */
+
+    const notesAdd = $('[data-pw-notes-add]');
+
+    function autogrow(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight + 2}px`;
+    }
+
+    function syncNotesAdd() {
+        if (notesAdd) notesAdd.hidden = $$('[data-pw-note-add]').every((button) => button.hidden);
+    }
+
+    $$('[data-pw-note-add]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const note = $(`[data-pw-note="${button.dataset.pwNoteAdd}"]`);
+            note.hidden = false;
+            button.hidden = true;
+            syncNotesAdd();
+            const input = $('textarea', note);
+            autogrow(input);
+            input.focus();
+        });
+    });
+
+    $$('[data-pw-note-remove]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const note = button.closest('[data-pw-note]');
+            const input = $('textarea', note);
+            // A hidden note is still submitted, so removing it clears its text.
+            if (input.value.trim() && !window.confirm('Remove this note and its text?')) return;
+            input.value = '';
+            note.hidden = true;
+            const add = $(`[data-pw-note-add="${note.dataset.pwNote}"]`);
+            add.hidden = false;
+            syncNotesAdd();
+            add.focus();
+            dirty = true;
+        });
+    });
+
+    $$('[data-pw-autogrow]').forEach((textarea) => {
+        textarea.addEventListener('input', () => autogrow(textarea));
+        if (!textarea.closest('[hidden]')) autogrow(textarea);
+    });
+
     const submissionMode = $('[data-pw-submission-mode]');
     const fee = $('[data-pw-fee]');
     const security = $('[data-pw-security]');
@@ -924,6 +972,7 @@ function nextWorkingDay(date, inclusive = true) {
         current = Math.min(Math.max(step, 1), TOTAL);
 
         $$('[data-pw-step]').forEach((panel) => { panel.hidden = Number(panel.dataset.pwStep) !== current; });
+        $$(`[data-pw-step="${current}"] [data-pw-autogrow]`).forEach((textarea) => { if (!textarea.closest('[hidden]')) autogrow(textarea); });
         $$('[data-pw-marker]').forEach((marker) => {
             const n = Number(marker.dataset.pwMarker);
             marker.classList.toggle('is-current', n === current);
@@ -1024,11 +1073,14 @@ function nextWorkingDay(date, inclusive = true) {
             .map((input) => (input.type === 'checkbox' ? input.nextElementSibling.textContent.trim() : input.value.trim()));
         fill(2, [
             ['Required documents', required.join(', ') || 'None selected'],
-            ['Eligibility', val('eligibility_requirements')],
-            ['Technical', val('technical_requirements')],
-            ['Financial', val('financial_requirements')],
-            ['Qualification notes', val('qualification_notes')],
-            ['Special instructions', val('special_instructions')],
+            // Only the requirement notes that were added.
+            ...[
+                ['Eligibility', val('eligibility_requirements')],
+                ['Technical', val('technical_requirements')],
+                ['Financial', val('financial_requirements')],
+                ['Qualification notes', val('qualification_notes')],
+                ['Special instructions', val('special_instructions')],
+            ].filter(([, value]) => value.trim() !== ''),
             ...(weighted() ? [['Evaluation criteria', criteriaRows().map((row) => `${row.name} ${row.weight}%`).join(', '), true]] : []),
             ...(weighted() && criterionSelect.value === 'mearb' ? [['Quality-price ratio', qprInput.value ? `${qprInput.value}% technical / ${100 - Number(qprInput.value)}% price` : '', true]] : []),
             ['Submission', submissionMode.value === 'manual' ? `Manual, sealed — ${val('submission_venue')}` : `Online, through this system${val('electronic_submission_authority') ? ` — ${val('electronic_submission_authority')}` : ''}`],
