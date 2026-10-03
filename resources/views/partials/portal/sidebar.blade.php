@@ -69,6 +69,14 @@
         @endif
     </nav>
 
+    @if($portalUser?->role === 'admin')
+        {{-- Time preview (App\Http\Middleware\ApplyTimePreview): see the system as of another date, nothing saved. --}}
+        <button type="button" class="portal-preview-btn {{ isset($timePreviewAt) ? 'is-on' : '' }}" data-dialog-open="portalTimePreviewDialog" aria-haspopup="dialog">
+            <i class="fas fa-clock-rotate-left" aria-hidden="true"></i>
+            <span>{{ isset($timePreviewAt) ? 'Preview: '.$timePreviewAt->format('M d, h:i A') : 'Time preview' }}</span>
+        </button>
+    @endif
+
     <div class="portal-user">
         <span class="portal-user__avatar" aria-hidden="true">{{ $portalInitials ?: 'U' }}</span>
         <span class="portal-user__meta">
@@ -82,6 +90,52 @@
     </div>
 </aside>
 <div class="portal-backdrop" data-portal-nav-close></div>
+
+@if($portalUser?->role === 'admin')
+    @php
+        // Real time even while previewing: PHP's own clock, which Carbon's test time doesn't touch.
+        $portalRealNow = new \DateTimeImmutable('now', new \DateTimeZone(\App\Http\Middleware\ApplyTimePreview::TIMEZONE));
+        $portalPreviewValue = isset($timePreviewAt) ? $timePreviewAt->format('Y-m-d\TH:i') : $portalRealNow->format('Y-m-d\TH:i');
+    @endphp
+
+    @isset($timePreviewAt)
+        <div class="portal-preview-bar" role="status">
+            <i class="fas fa-clock-rotate-left" aria-hidden="true"></i>
+            <span class="portal-preview-bar__text">
+                <strong>Time preview: {{ $timePreviewAt->format('M d, Y h:i A') }}</strong>
+                <span>Pages show the system as of this time. Nothing is saved. Only you see this; everyone else is on real time.</span>
+            </span>
+            <button type="button" class="portal-preview-bar__change" data-dialog-open="portalTimePreviewDialog">Change</button>
+            <form method="POST" action="{{ route('admin.time-preview.destroy') }}" class="portal-preview-bar__form">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="portal-preview-bar__exit">Back to real time</button>
+            </form>
+        </div>
+    @endisset
+
+    <dialog class="portal-signout portal-preview" id="portalTimePreviewDialog" aria-labelledby="portalTimePreviewTitle">
+        <form method="POST" action="{{ route('admin.time-preview.update') }}" class="portal-signout__form">
+            @csrf
+            @method('PUT')
+            <span class="portal-signout__icon" aria-hidden="true"><i class="fas fa-clock-rotate-left"></i></span>
+            <h2 id="portalTimePreviewTitle">Time preview</h2>
+            <p>
+                See every page as of another date and time, for example after a submission deadline, to check that bid opening becomes available.
+                <strong>Nothing is saved while the preview is on</strong>, and other users stay on real time.
+            </p>
+            <label class="portal-preview__field">
+                <span>Preview date and time (Philippine time)</span>
+                <input type="datetime-local" name="preview_at" value="{{ $portalPreviewValue }}" required>
+            </label>
+            <p class="portal-preview__now">Real time now: {{ $portalRealNow->format('M d, Y h:i A') }}</p>
+            <div class="portal-signout__actions">
+                <button type="button" class="portal-signout__button" data-dialog-close>Cancel</button>
+                <button type="submit" class="portal-signout__button is-primary">Preview</button>
+            </div>
+        </form>
+    </dialog>
+@endif
 
 <dialog class="portal-signout" id="portalSignOutDialog" aria-labelledby="portalSignOutTitle" aria-describedby="portalSignOutText">
     {{-- Signing out also clears bid files kept in this browser (bidder.partials.bid-file-memory). --}}

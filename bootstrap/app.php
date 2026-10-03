@@ -18,6 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
             \App\Http\Middleware\TouchUserPresence::class,
+            // Last, so presence tracking keeps the real time and only the page itself is previewed.
+            \App\Http\Middleware\ApplyTimePreview::class,
         ]);
 
         $middleware->trustProxies(

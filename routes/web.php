@@ -257,6 +257,8 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
     Route::put('/admin/demo-clock', [\App\Http\Controllers\DemoClockController::class, 'update'])->name('admin.demo-clock.update');
     Route::delete('/admin/demo-clock', [\App\Http\Controllers\DemoClockController::class, 'reset'])->name('admin.demo-clock.reset');
+    Route::put('/admin/time-preview', [\App\Http\Controllers\TimePreviewController::class, 'update'])->name('admin.time-preview.update');
+    Route::delete('/admin/time-preview', [\App\Http\Controllers\TimePreviewController::class, 'destroy'])->name('admin.time-preview.destroy');
     Route::get('/admin/awards', [AdminController::class, 'awards'])->name('admin.awards.index');
     Route::get('/admin/awards/{award}/infrastructure', [\App\Http\Controllers\InfrastructureImplementationController::class, 'showAdmin'])->name('admin.infrastructure.show');
     Route::put('/admin/awards/{award}/infrastructure', [\App\Http\Controllers\InfrastructureImplementationController::class, 'configure'])->name('admin.infrastructure.configure');

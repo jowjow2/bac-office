@@ -739,3 +739,145 @@
         transition: none;
     }
 }
+
+/* ---------- Time preview (admin): sidebar button, bar and dialog ---------- */
+
+.portal-preview-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 12px 8px;
+    padding: 9px 10px;
+    border: 1px dashed var(--ui-sidebar-line);
+    border-radius: var(--ui-radius);
+    background: transparent;
+    color: var(--ui-sidebar-muted);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.portal-preview-btn:hover {
+    color: #fff;
+    border-color: var(--ui-sidebar-muted);
+}
+
+.portal-preview-btn.is-on {
+    border-style: solid;
+    border-color: #e8b04b;
+    background: rgba(232, 176, 75, 0.14);
+    color: #f4d08f;
+    font-weight: 600;
+}
+
+.portal-preview-bar {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: min(620px, calc(100vw - 32px));
+    padding: 12px 14px;
+    border: 1px solid var(--ui-warning-line);
+    border-radius: var(--ui-radius-lg);
+    background: var(--ui-warning-soft);
+    box-shadow: var(--ui-shadow-lg);
+    color: var(--ui-warning);
+    font-family: var(--ui-font);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.portal-preview-bar > i {
+    font-size: 18px;
+}
+
+.portal-preview-bar__text {
+    display: grid;
+    flex: 1;
+    gap: 2px;
+    min-width: 0;
+}
+
+.portal-preview-bar__text strong {
+    color: #5c3b02;
+    font-size: 14px;
+}
+
+.portal-preview-bar__form {
+    margin: 0;
+}
+
+.portal-preview-bar__change,
+.portal-preview-bar__exit {
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid var(--ui-warning-line);
+    border-radius: var(--ui-radius);
+    background: #fff;
+    color: #5c3b02;
+    font: inherit;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.portal-preview-bar__exit {
+    border-color: #5c3b02;
+    background: #5c3b02;
+    color: #fff;
+}
+
+.portal-preview-bar__change:focus-visible,
+.portal-preview-bar__exit:focus-visible,
+.portal-preview-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--ui-focus);
+}
+
+.portal-preview__field {
+    display: grid;
+    gap: 6px;
+    width: 100%;
+    margin-top: 8px;
+    color: var(--ui-ink-2);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+}
+
+.portal-preview__field input {
+    height: 40px;
+    padding: 0 10px;
+    border: 1px solid var(--ui-line-strong);
+    border-radius: var(--ui-radius);
+    background: var(--ui-surface);
+    color: var(--ui-ink);
+    font: inherit;
+    font-weight: 400;
+}
+
+.portal-preview__field input:focus {
+    outline: none;
+    border-color: var(--ui-primary);
+    box-shadow: var(--ui-focus);
+}
+
+.portal-preview p.portal-preview__now {
+    width: 100%;
+    font-size: 12px;
+    text-align: left;
+}
+
+@media (max-width: 640px) {
+    .portal-preview-bar {
+        flex-wrap: wrap;
+    }
+
+    .portal-preview-bar__text {
+        flex-basis: calc(100% - 30px);
+    }
+}
