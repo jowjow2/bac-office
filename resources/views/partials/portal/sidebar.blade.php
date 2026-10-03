@@ -80,7 +80,8 @@
 <div class="portal-backdrop" data-portal-nav-close></div>
 
 <dialog class="portal-signout" id="portalSignOutDialog" aria-labelledby="portalSignOutTitle" aria-describedby="portalSignOutText">
-    <form method="POST" action="{{ route('logout') }}" class="portal-signout__form">
+    {{-- Signing out also clears bid files kept in this browser (bidder.partials.bid-file-memory). --}}
+    <form method="POST" action="{{ route('logout') }}" class="portal-signout__form" onsubmit="try { window.indexedDB && indexedDB.deleteDatabase('bac-bid-files'); } catch (e) {}">
         @csrf
         <span class="portal-signout__icon" aria-hidden="true"><i class="fas fa-arrow-right-from-bracket"></i></span>
         <h2 id="portalSignOutTitle">Sign out of SJBAC?</h2>

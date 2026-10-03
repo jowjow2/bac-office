@@ -2020,6 +2020,7 @@
 
 @include('bidder.partials.submit-bid-assets')
 @include('bidder.partials.payment-live')
+@include('bidder.partials.bid-file-memory')
 <script>
     (function () {
         const BID_SUCCESS_HIDE_DELAY = 5000;
