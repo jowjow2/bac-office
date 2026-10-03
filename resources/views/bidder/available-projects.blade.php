@@ -2243,7 +2243,7 @@
             const pin = pins[0].value;
             const confirm = pins[1].value;
             if (!/^[0-9]{6}$/.test(pin)) return { valid: false, message: 'a 6-digit PIN' };
-            if (confirm !== pin) return { valid: false, message: confirm.length === 6 ? 'matching PINs' : 'the PIN confirmation' };
+            if (confirm !== pin) return { valid: false, message: confirm.length === 6 ? 'matching PINs (they differ)' : 'the PIN confirmation' };
             return { valid: true };
         }
 
@@ -2257,14 +2257,68 @@
                 const digits = input.value.replace(/[^0-9]/g, '').slice(0, 6);
                 if (digits !== input.value) input.value = digits;
                 const form = input.form;
+                // A server message from the last attempt no longer applies once the bidder types.
                 const error = form ? form.querySelector('[data-pin-error]') : null;
-                const pins = form ? form.querySelectorAll('[data-pin]') : [];
-                if (error && pins.length === 2) {
-                    error.textContent = pins[1].value.length === 6 && pins[0].value !== pins[1].value ? 'The two PINs do not match.' : '';
-                }
+                if (error) error.textContent = '';
+                renderPinStatus(form);
                 updateBidFormState(form);
             });
         });
+
+        // Live PIN feedback: digit counts, and a clear alert as soon as the confirmation stops matching.
+        function renderPinStatus(form) {
+            const box = form ? form.querySelector('[data-pin-box]') : null;
+            if (!box) return;
+            const pins = box.querySelectorAll('[data-pin]');
+            const pin = pins[0].value;
+            const confirm = pins[1].value;
+            box.querySelectorAll('[data-pin-count]').forEach(function (count, index) {
+                const length = pins[index].value.length;
+                count.textContent = length + ' / 6 digits';
+                count.classList.toggle('is-complete', length === 6);
+            });
+
+            // Mismatch: the confirmation is not the start of the PIN, or both are complete and differ.
+            const mismatch = confirm !== '' && (pin.slice(0, confirm.length) !== confirm || (confirm.length === 6 && pin.length === 6 && pin !== confirm) || confirm.length > pin.length);
+            const state = mismatch ? 'mismatch'
+                : (pin.length === 6 && confirm === pin) ? 'match'
+                : pin === '' && confirm === '' ? 'idle'
+                : pin.length < 6 ? 'short'
+                : 'confirm';
+            const text = {
+                idle: 'Type the same 6 digits in both boxes.',
+                short: 'Enter ' + (6 - pin.length) + ' more ' + (6 - pin.length === 1 ? 'digit' : 'digits') + ' for your PIN.',
+                confirm: confirm === '' ? 'Now type the same PIN in Confirm PIN.' : 'Keep typing to confirm your PIN.',
+                match: 'PINs match. Remember this PIN for the financial opening.',
+                mismatch: 'The PINs do not match. Check the Confirm PIN and type it again.',
+            }[state];
+            const icon = { idle: 'fa-circle-info', short: 'fa-circle-info', confirm: 'fa-circle-info', match: 'fa-circle-check', mismatch: 'fa-triangle-exclamation' }[state];
+            const status = box.querySelector('[data-pin-status]');
+            if (status && status.dataset.state + status.textContent !== state + ' ' + text) {
+                status.dataset.state = state;
+                status.innerHTML = '<i class="fas ' + icon + '" aria-hidden="true"></i> <span></span>';
+                status.querySelector('span').textContent = text;
+                status.setAttribute('role', state === 'mismatch' ? 'alert' : 'status');
+            }
+            pins[1].classList.toggle('is-mismatch', mismatch);
+            pins[1].setAttribute('aria-invalid', mismatch ? 'true' : 'false');
+            pins[0].classList.toggle('is-match', state === 'match');
+            pins[1].classList.toggle('is-match', state === 'match');
+        }
+
+        document.querySelectorAll('[data-pin-toggle]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const input = document.getElementById(button.getAttribute('aria-controls'));
+                if (!input) return;
+                const show = input.type === 'password';
+                input.type = show ? 'text' : 'password';
+                button.setAttribute('aria-pressed', show ? 'true' : 'false');
+                button.setAttribute('aria-label', (show ? 'Hide ' : 'Show ') + button.getAttribute('aria-label').replace(/^(Show|Hide) /, ''));
+                button.innerHTML = '<i class="fas ' + (show ? 'fa-eye-slash' : 'fa-eye') + '" aria-hidden="true"></i>';
+                input.focus();
+            });
+        });
+        document.querySelectorAll('[data-pin-box]').forEach(function (box) { renderPinStatus(box.closest('form')); });
 
         function updateBidFormState(form) {
             if (!form) return false;

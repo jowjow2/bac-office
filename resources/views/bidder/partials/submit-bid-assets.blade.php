@@ -120,10 +120,29 @@
     .sb b.is-over { color: var(--ui-danger); }
     .sb-error { display: block; color: var(--ui-danger); font-size: 12px; font-weight: 600; }
     .sb-error:empty { display: none; }
-    .sb-pin-row { display: flex; flex-wrap: wrap; gap: 12px 16px; }
-    .sb-pin-field { display: grid; gap: 4px; color: var(--ui-muted); font-size: 12px; font-weight: 600; }
-    :is(.sb, #sb-x#sb-x) .sb-pin-input { width: 11rem !important; max-width: 100%; padding-left: calc(12px + .5em) !important; font-size: 20px !important; letter-spacing: .5em; text-align: center; }
+    .sb-pin { display: grid; gap: 12px; }
+    .sb-pin-head { display: flex; align-items: flex-start; gap: 12px; }
+    .sb-pin-icon { display: grid; place-items: center; flex: 0 0 36px; height: 36px; border-radius: 10px; background: #fff; color: var(--ui-primary); }
+    .sb-pin-head .sb-hint { margin: 2px 0 0; }
+    .sb-pin-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 220px)); gap: 12px 18px; }
+    .sb-pin-field { display: grid; gap: 5px; min-width: 0; }
+    .sb-pin-field > label { color: var(--ui-ink-2); font-size: 12.5px; font-weight: 600; }
+    .sb-pin-control { position: relative; }
+    :is(.sb, #sb-x#sb-x) .sb-pin-input { width: 100% !important; min-height: 48px !important; padding: 8px 44px 8px calc(12px + .45em) !important; font-family: var(--ui-mono), monospace; font-size: 20px !important; letter-spacing: .45em; text-align: center; }
+    :is(.sb, #sb-x#sb-x) .sb-pin-input.is-match { border-color: var(--ui-success) !important; }
+    :is(.sb, #sb-x#sb-x) .sb-pin-input.is-mismatch { border-color: var(--ui-danger) !important; background: var(--ui-danger-soft) !important; animation: sb-pin-shake .25s ease 1; }
     .sb .sb-pin-input::placeholder { letter-spacing: .3em; }
+    .sb .sb-pin-eye { position: absolute; top: 50%; right: 6px; display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 8px; background: transparent; color: var(--ui-muted); transform: translateY(-50%); cursor: pointer; }
+    .sb .sb-pin-eye:hover, .sb .sb-pin-eye:focus-visible { background: var(--sb-soft); color: var(--ui-ink); }
+    .sb-pin-count { color: var(--ui-subtle); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+    .sb-pin-count.is-complete { color: var(--ui-success); font-weight: 600; }
+    .sb-pin-status { display: flex; align-items: center; gap: 8px; margin: 0; padding: 9px 12px; border: 1px solid var(--sb-line); border-radius: 9px; background: #fff; color: var(--ui-muted); font-size: 12.5px; font-weight: 600; }
+    .sb-pin-status[data-state="match"] { border-color: var(--ui-success-line); background: var(--ui-success-soft); color: var(--ui-success); }
+    .sb-pin-status[data-state="mismatch"] { border-color: var(--ui-danger-line); border-left: 4px solid var(--ui-danger); background: var(--ui-danger-soft); color: var(--ui-danger); }
+    .sb-pin-tips { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; color: var(--ui-muted); font-size: 12px; }
+    .sb-pin-tips i { width: 16px; color: var(--ui-subtle); }
+    @keyframes sb-pin-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+    @media (prefers-reduced-motion: reduce) { :is(.sb, #sb-x#sb-x) .sb-pin-input.is-mismatch { animation: none; } }
     :is(.sb, #sb-x#sb-x) .sb-textarea { min-height: 80px !important; resize: vertical; }
 
     .sb-review-offer { display: grid; gap: 2px; padding: 14px 16px; border: 1px solid var(--ui-primary-line); border-radius: 10px; background: var(--ui-primary-soft); }
@@ -190,6 +209,7 @@
         .sb-review-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 640px) {
+        .sb-pin-grid { grid-template-columns: 1fr; }
         .bidder-submit-modal-overlay .sb { width: 100%; max-height: calc(100dvh - 16px); border-radius: 12px; }
         .sb-head { padding: 14px 16px 12px; }
         .sb-title { font-size: 18px; }

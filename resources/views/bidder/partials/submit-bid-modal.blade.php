@@ -202,20 +202,32 @@
                             </div>
 
                             @if($electronic)
-                                <div class="sb-pin">
-                                    <span class="sb-label">Financial PIN <span class="sb-req" aria-hidden="true">*</span></span>
-                                    <p class="sb-hint">Set a 6-digit PIN{{ $isModifying ? ' (a new one or the same as before)' : '' }}. You give it to the BAC at the scheduled financial opening to open your financial component. Keep it private: do not put it in your bid documents or email.</p>
-                                    <div class="sb-pin-row">
-                                        <label class="sb-pin-field" for="financial-password-{{ $pid }}">
-                                            <span>PIN</span>
-                                            <input type="password" name="financial_password" id="financial-password-{{ $pid }}" class="sb-input sb-pin-input" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="new-password" data-lpignore="true" data-1p-ignore data-bwignore placeholder="••••••" title="6 digits" data-pin required>
-                                        </label>
-                                        <label class="sb-pin-field" for="financial-password-confirmation-{{ $pid }}">
-                                            <span>Confirm PIN</span>
-                                            <input type="password" name="financial_password_confirmation" id="financial-password-confirmation-{{ $pid }}" class="sb-input sb-pin-input" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="new-password" data-lpignore="true" data-1p-ignore data-bwignore placeholder="••••••" title="6 digits" data-pin required>
-                                        </label>
+                                <div class="sb-pin" data-pin-box>
+                                    <div class="sb-pin-head">
+                                        <span class="sb-pin-icon" aria-hidden="true"><i class="fas fa-key"></i></span>
+                                        <div>
+                                            <span class="sb-label">Financial PIN <span class="sb-req" aria-hidden="true">*</span></span>
+                                            <p class="sb-hint">6 digits that seal your financial component{{ $isModifying ? ' (a new PIN, or the same as before)' : '' }}. You give it to the BAC at the scheduled financial opening.</p>
+                                        </div>
                                     </div>
-                                    <span class="sb-error" data-pin-error role="alert" aria-live="polite">@if(old('project_id') == $pid){{ $errors->first('financial_password') }}@endif</span>
+                                    <div class="sb-pin-grid">
+                                        @foreach([['financial_password', 'financial-password-'.$pid, 'Create PIN'], ['financial_password_confirmation', 'financial-password-confirmation-'.$pid, 'Confirm PIN']] as [$pinName, $pinId, $pinLabel])
+                                            <div class="sb-pin-field">
+                                                <label for="{{ $pinId }}">{{ $pinLabel }}</label>
+                                                <div class="sb-pin-control">
+                                                    <input type="password" name="{{ $pinName }}" id="{{ $pinId }}" class="sb-input sb-pin-input" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="new-password" data-lpignore="true" data-1p-ignore data-bwignore placeholder="••••••" title="6 digits" data-pin required aria-describedby="pin-status-{{ $pid }}">
+                                                    <button type="button" class="sb-pin-eye" data-pin-toggle aria-controls="{{ $pinId }}" aria-pressed="false" aria-label="Show {{ strtolower($pinLabel) }}"><i class="fas fa-eye" aria-hidden="true"></i></button>
+                                                </div>
+                                                <span class="sb-pin-count" data-pin-count>0 / 6 digits</span>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                    <p class="sb-pin-status" id="pin-status-{{ $pid }}" data-pin-status data-state="idle" role="status" aria-live="polite"><i class="fas fa-circle-info" aria-hidden="true"></i> <span>Type the same 6 digits in both boxes.</span></p>
+                                    <span class="sb-error" data-pin-error role="alert">@if(old('project_id') == $pid){{ $errors->first('financial_password') }}@endif</span>
+                                    <ul class="sb-pin-tips">
+                                        <li><i class="fas fa-lock" aria-hidden="true"></i> Keep it somewhere safe: the BAC asks for it to open your financial component.</li>
+                                        <li><i class="fas fa-eye-slash" aria-hidden="true"></i> Do not write it in your bid documents or send it by email.</li>
+                                    </ul>
                                 </div>
                             @endif
 
