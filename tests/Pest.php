@@ -1,5 +1,7 @@
 <?php
 
+use Carbon\CarbonInterface;
+use Illuminate\Support\Carbon;
 use Pest\Support\HigherOrderTapProxy;
 use Tests\TestCase;
 
@@ -64,9 +66,16 @@ function testCase(): TestCase
  * A moment on a working day (Mon-Fri), at least $daysAhead days from now, at the
  * given local time. Schedules must fall within LGU office hours.
  */
-function workdayAt(int $daysAhead, int $hour, int $minute = 0): \Illuminate\Support\Carbon
+function workdayAt(int $daysAhead, int $hour, int $minute = 0): Carbon
 {
-    $day = now()->addDays($daysAhead);
+    // Count from a weekday: run on a weekend, pushing each date off the weekend
+    // separately would shrink the gaps between them (e.g. +7 and +20 on a
+    // Saturday became 11 days apart, under the 12-day pre-bid rule).
+    $base = now();
+    if ($base->isWeekend()) {
+        $base = $base->copy()->next(CarbonInterface::MONDAY)->setTimeFrom(now());
+    }
+    $day = $base->copy()->addDays($daysAhead);
     while ($day->isWeekend()) {
         $day->addDay();
     }

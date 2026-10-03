@@ -320,7 +320,11 @@ it('requires a BAC resolution to recommend the award and keeps supporting docume
     $decide = fn (string $action, array $extra = []) => testCase()->actingAs($this->admin)->post(route('admin.bid.decision', $bid), ['action' => $action] + $extra);
     $decide(BidWorkflow::PASS_PRELIMINARY, ['verified_requirements' => $bid->fresh()->documentChecklist() ? collect($bid->fresh()->documentChecklist())->pluck('key')->all() : []]);
     // The bid has no uploaded files in this test, so pass it the way legacy bids pass.
-    Bid::whereKey($bid->id)->update(['workflow_step' => Bid::STEP_DOCUMENTS_VALIDATED, 'documents_validated_at' => now(), 'eligibility_status' => Bid::ELIGIBILITY_VALID]);
+    // Evaluation needs the authorized financial opening recorded too.
+    Bid::whereKey($bid->id)->update([
+        'workflow_step' => Bid::STEP_DOCUMENTS_VALIDATED, 'documents_validated_at' => now(), 'documents_validated_by' => $this->admin->id,
+        'eligibility_status' => Bid::ELIGIBILITY_VALID, 'financial_opened_at' => now(), 'financial_opened_by' => $this->admin->id,
+    ]);
 
     $decide(BidWorkflow::START_EVALUATION)->assertSessionHasNoErrors();
     $decide(BidWorkflow::EVALUATE, ['evaluation_result' => 'responsive', 'evaluation_findings' => 'Responsive against the configured project criteria.', 'supporting_document' => ($this->pdf)('evaluation-report.pdf')])->assertSessionHasNoErrors();
@@ -360,13 +364,21 @@ it('requires a BAC resolution to recommend the award and keeps supporting docume
 it('receives manual sealed bids only on manual projects and only after the fee is paid', function () {
     $project = ($this->openProject)(['submission_mode' => Project::SUBMISSION_MANUAL, 'bidding_documents_fee' => 5000]);
 
+    // Told up front that the upload is not the official bid, and that the fee comes first.
     testCase()->actingAs($this->bidder)->get(route('bidder.available-projects'))
         ->assertSee('this website upload is NOT an official bid')
-        ->assertSee('Save Draft Record');
+        ->assertSee('Payment required');
 
+    // Even the draft upload waits for the BAC-verified payment.
     testCase()->actingAs($this->bidder)->post(route('bidder.bids.store', $project), ['project_id' => $project->id, 'bid_amount' => '2400000'])
-        ->assertSessionHasNoErrors();
-    $bid = Bid::firstOrFail();
+        ->assertSessionHasErrors('payment');
+    expect(Bid::count())->toBe(0);
+
+    // A draft kept from before (the sealed bid is what counts) is received only after payment.
+    $bid = Bid::create([
+        'project_id' => $project->id, 'user_id' => $this->bidder->id, 'bid_amount' => 2400000,
+        'status' => 'pending', 'workflow_step' => Bid::STEP_SUBMITTED, 'submission_channel' => Bid::CHANNEL_MANUAL,
+    ]);
     expect($bid->isDraft())->toBeTrue()->and($bid->submission_channel)->toBe(Bid::CHANNEL_MANUAL);
 
     $receive = fn () => testCase()->actingAs($this->staff)->post(route('admin.bid.decision', $bid), []);
@@ -377,7 +389,10 @@ it('receives manual sealed bids only on manual projects and only after the fee i
 
     // The fee is recorded first.
     $record()->assertSessionHasErrors('milestone');
-    BiddingFeePayment::create(['project_id' => $project->id, 'user_id' => $this->bidder->id, 'amount' => 5000, 'or_number' => 'OR-1', 'paid_at' => now()->toDateString(), 'recorded_by' => $this->staff->id]);
+    // A pending payment does not count; the BAC-verified one with its OR does.
+    $payment = BiddingFeePayment::create(['project_id' => $project->id, 'user_id' => $this->bidder->id, 'amount' => 5000, 'or_number' => 'OR-1', 'status' => BiddingFeePayment::STATUS_PENDING, 'paid_at' => now()->toDateString(), 'recorded_by' => $this->staff->id]);
+    $record()->assertSessionHasErrors('milestone');
+    $payment->update(['status' => BiddingFeePayment::STATUS_VERIFIED, 'verified_at' => now()]);
 
     $record()->assertSessionHasNoErrors();
     expect($bid->fresh()->isDraft())->toBeFalse()->and($bid->fresh()->receipt_no)->toBe('LOG-2026-031');

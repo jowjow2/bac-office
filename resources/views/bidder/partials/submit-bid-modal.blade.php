@@ -70,6 +70,16 @@
                     @endif
 
                     @if($paymentLocked)
+                        @unless($electronic)
+                            {{-- Said up front, even before payment: the sealed bid is the official one. --}}
+                            <div class="sb-alert is-warning" role="note">
+                                <i class="fas fa-envelope" aria-hidden="true"></i>
+                                <div>
+                                    <strong>Manual submission &mdash; this website upload is NOT an official bid</strong>
+                                    <p>Submit your sealed bid envelopes to the BAC Secretariat{{ $project->submission_venue ? ', '.$project->submission_venue.',' : '' }} on or before {{ $deadlineLocal ? $deadlineLocal->format('M d, Y h:i A') : 'the deadline' }}. The BAC records receipt of a sealed bid only after your Official Receipt is recorded.</p>
+                                </div>
+                            </div>
+                        @endunless
                         <section class="sb-pay" aria-labelledby="bsm-pay-title-{{ $pid }}">
                             <span class="sb-pay-icon" aria-hidden="true"><i class="fas fa-receipt"></i></span>
                             <div>
