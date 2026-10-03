@@ -40,8 +40,9 @@ return [
     // "Continue with Google" on the sign-in form (AuthController). Hidden until both are set;
     // the callback URL follows the site (route auth.google.callback) unless one is given here.
     'google' => [
-        'client_id' => env('GOOGLE_CLIENT_ID'),
-        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        // Trimmed: a space or line break pasted with a key makes Google answer 401.
+        'client_id' => trim((string) env('GOOGLE_CLIENT_ID')) ?: null,
+        'client_secret' => trim((string) env('GOOGLE_CLIENT_SECRET')) ?: null,
         'redirect' => env('GOOGLE_REDIRECT_URI', env('GOOGLE_CALLBACK_REDIRECTS')),
     ],
 
