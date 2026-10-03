@@ -565,9 +565,19 @@ class AuthController extends Controller
         return filled(config('services.google.client_id')) && filled(config('services.google.client_secret'));
     }
 
+    /** Opened before the Google keys are set (e.g. typed in): back to the sign-in form with a reason. */
+    private function googleSignInUnavailable()
+    {
+        return redirect()->route('home')
+            ->with('error', 'Google sign-in is not available yet. Sign in with your email and password.')
+            ->with('auth_tab', 'login');
+    }
+
     public function redirectToGoogle(Request $request)
     {
-        abort_unless(self::googleSignInEnabled(), 404);
+        if (! self::googleSignInEnabled()) {
+            return $this->googleSignInUnavailable();
+        }
         if (Auth::check()) {
             return redirect()->to($this->redirectForUser(Auth::user()));
         }
@@ -588,7 +598,9 @@ class AuthController extends Controller
      */
     public function handleGoogleCallback(Request $request)
     {
-        abort_unless(self::googleSignInEnabled(), 404);
+        if (! self::googleSignInEnabled()) {
+            return $this->googleSignInUnavailable();
+        }
         $fail = fn (string $message, string $tab = 'login') => redirect()->route('home')
             ->with('error', $message)
             ->with('auth_tab', $tab);

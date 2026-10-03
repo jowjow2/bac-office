@@ -32,7 +32,23 @@ it('shows the Google button only once the OAuth client is configured', function 
 
     config()->set('services.google', ['client_id' => null, 'client_secret' => null, 'redirect' => null]);
     testCase()->get('/')->assertOk()->assertDontSee('Continue with Google');
-    testCase()->get(route('auth.google'))->assertNotFound();
+    // Opened directly before the keys are set: back to the sign-in form with a reason, not a 404.
+    foreach (['auth.google', 'auth.google.callback'] as $route) {
+        testCase()->get(route($route))->assertRedirect(route('home'))
+            ->assertSessionHas('error', fn ($message) => str_contains($message, 'not available yet'))
+            ->assertSessionHas('auth_tab', 'login');
+    }
+});
+
+it('explains a callback opened directly, without coming from Google', function () {
+    $provider = Mockery::mock(GoogleProvider::class);
+    $provider->shouldReceive('redirectUrl')->andReturnSelf();
+    $provider->shouldReceive('user')->andThrow(new \Laravel\Socialite\Two\InvalidStateException);
+    Socialite::shouldReceive('driver')->once()->with('google')->andReturn($provider);
+
+    testCase()->get(route('auth.google.callback'))->assertRedirect(route('home'))
+        ->assertSessionHas('error', fn ($message) => str_contains($message, 'did not finish'));
+    testCase()->assertGuest();
 });
 
 it('sends the visitor to Google with this site\'s callback', function () {
