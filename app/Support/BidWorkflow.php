@@ -754,8 +754,13 @@ class BidWorkflow
                 throw ValidationException::withMessages(['failed_bidding_reason' => 'An archived project cannot be declared a failed bidding.']);
             }
 
-            if ($locked->status !== 'closed' || ! $locked->bidsAreOpened()) {
+            // Competitive bidding fails after its recorded opening; SVP, negotiated and direct
+            // procurement have no opening event and fail after their deadline (checked below).
+            if ($locked->requiresRecordedBidOpening() && ($locked->status !== 'closed' || ! $locked->bidsAreOpened())) {
                 throw ValidationException::withMessages(['failed_bidding_reason' => 'Open the bids and complete the bidding stage before declaring a failed bidding.']);
+            }
+            if (! in_array($locked->status, ['open', 'closed'], true)) {
+                throw ValidationException::withMessages(['failed_bidding_reason' => 'Only a posted procurement can be declared a failure.']);
             }
 
             $deadline = $locked->bidSubmissionDeadline();
@@ -1261,7 +1266,10 @@ class BidWorkflow
                 continue;
             }
 
-            if ($other->post_qualification_result !== Bid::POST_QUALIFICATION_FAILED) {
+            // A higher-ranked bidder is out of the way once post-disqualified, or once its
+            // award was disapproved by the HoPE or cancelled (e.g. it refused to sign).
+            if ($other->post_qualification_result !== Bid::POST_QUALIFICATION_FAILED
+                && ! in_array($other->award_decision, [Bid::AWARD_DECISION_DISAPPROVED, Bid::AWARD_DECISION_CANCELLED], true)) {
                 return 'Post-qualify the highest-ranked eligible bidder first. A lower-ranked bidder may proceed only after the higher-ranked bidder is formally post-disqualified.';
             }
         }
@@ -1281,7 +1289,7 @@ class BidWorkflow
         return $this->projectHasOtherBid(
             $bid,
             fn (Bid $other) => $other->bac_recommended_at !== null
-                && $other->award_decision !== Bid::AWARD_DECISION_DISAPPROVED
+                && ! in_array($other->award_decision, [Bid::AWARD_DECISION_DISAPPROVED, Bid::AWARD_DECISION_CANCELLED], true)
                 && $other->disqualified_at === null
         );
     }
