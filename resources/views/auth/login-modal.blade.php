@@ -146,6 +146,7 @@
                 </button>
 
                 <p class="auth-switch">Don't have an account? <button type="button" onclick="activateAuthTab('register')">Register as a bidder</button></p>
+                <p class="auth-switch auth-privacy-link"><a href="{{ route('privacy') }}" target="_blank" rel="noopener">Privacy Policy</a></p>
             </form>
 
             {{-- Bidder login: emailed code --}}
@@ -378,7 +379,7 @@
                 </div>
 
                 <div class="auth-register-submit">
-                    <p>Your account is reviewed by the BAC Secretariat before you can bid.</p>
+                    <p>Your account is reviewed by the BAC Secretariat before you can bid. See our <a href="{{ route('privacy') }}" target="_blank" rel="noopener">Privacy Policy</a>.</p>
                     <button type="submit" class="auth-button" data-loading-text="Submitting...">Submit registration</button>
                 </div>
             </form>

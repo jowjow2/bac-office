@@ -1464,3 +1464,19 @@
         width: 100%;
     }
 }
+
+/* Privacy Policy link under the forms. */
+#authModal .auth-privacy-link {
+    margin-top: -4px;
+    font-size: 12px;
+}
+
+#authModal :is(.auth-privacy-link, .auth-register-submit) a {
+    color: var(--ui-muted);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+#authModal :is(.auth-privacy-link, .auth-register-submit) a:hover {
+    color: var(--ui-primary);
+}

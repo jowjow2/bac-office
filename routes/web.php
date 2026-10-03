@@ -95,6 +95,9 @@ Route::get('/contact', function () {
     return view('pages.contact');
 });
 
+// Linked from the sign-in form and required by Google for "Continue with Google".
+Route::view('/privacy', 'pages.privacy')->name('privacy');
+
 Route::get('/procurement', [PublicProcurementController::class, 'index'])->name('public.procurement');
 Route::get('/procurement/projects/{project}/documents/{document}', [PublicProcurementController::class, 'previewDocument'])->name('public.procurement.document.preview');
 Route::get('/procurement/projects/{project}/documents/{document}/pdf', [PublicProcurementController::class, 'streamDocumentPdf'])->name('public.procurement.document.pdf');

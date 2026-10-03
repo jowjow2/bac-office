@@ -114,3 +114,10 @@ it('handles a cancelled Google sign-in', function () {
         ->assertRedirect(route('home'))
         ->assertSessionHas('error', 'Google sign-in was cancelled.');
 });
+
+it('publishes a privacy policy linked from the sign-in form', function () {
+    testCase()->get(route('privacy'))->assertOk()
+        ->assertSee('Data Privacy Act of 2012')
+        ->assertSee('Continue with Google');
+    testCase()->get('/')->assertOk()->assertSee(route('privacy'), false);
+});
