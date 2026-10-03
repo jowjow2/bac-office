@@ -536,7 +536,7 @@
                 {{-- ============================== Step 4 ============================== --}}
                 <section class="pw-step" data-pw-step="4" aria-labelledby="pw-step4-title" hidden>
                     <h3 class="pw-step__title" id="pw-step4-title">Dates</h3>
-                    <p class="ui-hint">In the order they happen. All dates and times are Philippine Standard Time. Meetings, deadlines and openings fall on working days between 8:00 AM and 5:00 PM.</p>
+                    <p class="ui-hint">In the order they happen. All dates and times are Philippine Standard Time. Any day and time the BAC sets is accepted; the posting and pre-bid periods still apply.</p>
                     <button type="button" class="ui-btn ui-btn--secondary ui-btn--sm" data-pw-suggest-dates><i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i> Suggest dates</button>
                     <p class="ui-hint" data-pw-schedule-suggestion role="status" aria-live="polite" hidden></p>
 

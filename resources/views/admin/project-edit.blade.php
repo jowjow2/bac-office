@@ -162,7 +162,7 @@
             <section class="pe-section" aria-labelledby="pe-schedule-title">
                 <div class="pe-section-head">
                     <h3 id="pe-schedule-title">Schedule</h3>
-                    <p>Philippine time. Bid deadlines fall on working days, 8:00 AM to 5:00 PM.</p>
+                    <p>Philippine time. Any day and time the BAC sets; the posting and pre-bid periods still apply.</p>
                 </div>
                 <div class="pe-grid">
                     <div class="pe-field">

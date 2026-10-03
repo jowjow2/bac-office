@@ -149,9 +149,9 @@ it('does not let a schedule change reopen a closed submission or rewrite an open
 it('rejects conflicting schedules and keeps a held pre-bid conference', function () {
     $project = ($this->makeProject)([], ['pre_bid_conference_date' => Carbon::parse('2026-10-05 09:00', 'Asia/Manila')]);
 
-    // Opening before the deadline, and outside office hours.
+    // Opening before the deadline, and a deadline under 7 days after publication (Oct 1).
     ($this->editSchedule)($project, '2026-10-22T10:00', '2026-10-22T09:00')->assertSessionHasErrors('bid_opening_date');
-    ($this->editSchedule)($project, '2026-10-24T10:00', '2026-10-24T10:30')->assertSessionHasErrors('deadline'); // a Saturday
+    ($this->editSchedule)($project, '2026-10-06T10:00', '2026-10-06T10:30')->assertSessionHasErrors('date_posted');
 
     ProjectProceeding::create(['project_id' => $project->id, 'type' => ProjectProceeding::TYPE_PRE_BID, 'title' => 'Pre-bid conference', 'occurred_at' => Carbon::parse('2026-10-05 09:00', 'Asia/Manila'), 'recorded_by' => $this->admin->id]);
     testCase()->actingAs($this->admin)->from(route('admin.projects'))->put(route('admin.project.update', $project), [

@@ -383,7 +383,6 @@ final class ProcurementMode
             'postingDays' => ['competitive' => 7, 'rfq' => 3],
             'prebidDaysBeforeDeadline' => 12,
             'prebidDaysAfterPublication' => 7,
-            'officeHours' => [Project::OFFICE_OPENS_AT, Project::OFFICE_CLOSES_AT],
             // Award criteria per legal basis and category (Project::awardCriteriaFor, IRR Sec. 50.2(d), (g)).
             'awardCriteria' => collect([self::RA_12009 => true, self::RA_9184 => false])->map(fn (bool $ra12009) => [
                 'default' => Project::awardCriteriaFor($ra12009, 'goods'),

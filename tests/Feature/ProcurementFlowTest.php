@@ -331,23 +331,35 @@ it('runs the full LGU procurement flow from posting to Notice to Proceed', funct
     expect($trackB['outcome']['key'])->toBe('not_awarded');
 });
 
-it('schedules the deadline, bid opening and pre-bid conference within LGU office hours', function () {
+it('takes any day and time the BAC sets, but keeps the posting period', function () {
+    // A Saturday morning and a weekday evening are the BAC's call.
     $saturday = now()->addDays(20)->next(\Carbon\CarbonInterface::SATURDAY)->setTime(9, 0);
-
     testCase()->actingAs($this->admin)->post(route('admin.projects.wizard.store'), ($this->wizard)([
+        'title' => 'Saturday deadline',
         'bid_submission_deadline' => ($this->local)($saturday),
         'bid_opening_date' => ($this->local)($saturday->copy()->setTime(9, 30)),
-    ]))->assertSessionHas('error', fn (string $message) => str_contains($message, 'working day (Monday to Friday), between 8:00 AM and 5:00 PM'));
+    ]))->assertSessionHas('success');
 
     $evening = workdayAt(20, 19, 0);
     testCase()->actingAs($this->admin)->post(route('admin.projects.wizard.store'), ($this->wizard)([
         'title' => 'Evening deadline',
         'bid_submission_deadline' => ($this->local)($evening),
         'bid_opening_date' => ($this->local)($evening->copy()->setTime(19, 30)),
+    ]))->assertSessionHas('success');
+
+    // Fewer than 7 calendar days after publication is still refused.
+    $early = now()->addDays(3)->setTime(10, 0);
+    testCase()->actingAs($this->admin)->post(route('admin.projects.wizard.store'), ($this->wizard)([
+        'title' => 'Too early',
+        'pre_bid_conference_date' => null,
+        'bid_submission_deadline' => ($this->local)($early),
+        'bid_opening_date' => ($this->local)($early->copy()->setTime(10, 30)),
     ]));
 
-    expect(Project::where('status', 'open')->count())->toBe(0)
-        ->and(Project::where('title', 'Evening deadline')->firstOrFail()->publicationBlockers())->toHaveKey('bid_submission_deadline');
+    expect(Project::where('title', 'Saturday deadline')->firstOrFail()->status)->toBe('open')
+        ->and(Project::where('title', 'Evening deadline')->firstOrFail()->status)->toBe('open')
+        ->and(Project::where('title', 'Too early')->firstOrFail()->status)->toBe('draft')
+        ->and(Project::where('title', 'Too early')->firstOrFail()->publicationBlockers())->toHaveKey('date_posted');
 });
 
 it('closes bidding at the Philippine time typed in the wizard', function () {

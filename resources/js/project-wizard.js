@@ -650,13 +650,6 @@ if (root && form) {
         return text;
     }
 
-    const officeHours = rules.officeHours || ['08:00', '17:00'];
-    const inOfficeHours = (value) => {
-        const day = weekday(datePart(value));
-        const time = value.slice(11, 16);
-        return day >= 1 && day <= 5 && time >= officeHours[0] && time <= officeHours[1];
-    };
-
     const val = (id) => byId(id)?.value || '';
 
     function refreshDateHints() {
@@ -685,14 +678,12 @@ if (root && form) {
         const award = val('expected_award_date');
         const deadlineName = $('[data-pw-deadline-label]').textContent.toLowerCase();
         const openingName = $('[data-pw-opening-label]').textContent.toLowerCase();
-        const outsideHours = 'must be on a working day (Monday to Friday) between 8:00 AM and 5:00 PM.';
 
+        // Any day and time the BAC chooses; only the periods between the dates are checked.
         if (!deadline) {
             errors.bid_submission_deadline = `Set the ${deadlineName}.`;
         } else if (deadline <= now) {
             errors.bid_submission_deadline = `The ${deadlineName} must be in the future.`;
-        } else if (!inOfficeHours(deadline)) {
-            errors.bid_submission_deadline = `The ${deadlineName} ${outsideHours}`;
         } else if (postingDays() && datePart(deadline) < addDays(today, postingDays())) {
             errors.bid_submission_deadline = `Publishing today, the ${deadlineName} must be on or after ${phLabel(addDays(today, postingDays()))} (${postingDays()} calendar days).`;
         }
@@ -703,8 +694,6 @@ if (root && form) {
             errors.bid_opening_date = `The ${openingName} must be after the ${deadlineName}.`;
         } else if (opening && deadline && isCompetitive() && datePart(opening) !== datePart(deadline)) {
             errors.bid_opening_date = 'The bid opening must be on the same day as the deadline, right after it.';
-        } else if (opening && !inOfficeHours(opening)) {
-            errors.bid_opening_date = `The ${openingName} ${outsideHours}`;
         }
 
         if (prebidRequired() && !prebid) {
@@ -715,8 +704,6 @@ if (root && form) {
             errors.pre_bid_conference_date = `Hold it at least ${rules.prebidDaysBeforeDeadline} calendar days before the ${deadlineName}.`;
         } else if (prebid && isCompetitive() && basis() === 'ra_12009' && datePart(prebid) < addDays(today, rules.prebidDaysAfterPublication)) {
             errors.pre_bid_conference_date = `Publishing today, hold it on or after ${phLabel(addDays(today, rules.prebidDaysAfterPublication))} (${rules.prebidDaysAfterPublication} days after publication).`;
-        } else if (prebid && !inOfficeHours(prebid)) {
-            errors.pre_bid_conference_date = `The pre-bid conference ${outsideHours}`;
         }
 
         if (clarification && deadline && clarification >= deadline) {

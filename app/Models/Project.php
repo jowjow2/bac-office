@@ -552,7 +552,7 @@ class Project extends Model
             }
         }
 
-        // The posting period wins over the other date_posted messages; the "future deadline" message wins over office hours.
+        // The posting period wins over the other date_posted messages.
         foreach ($this->scheduleConflicts($posted) as $field => $message) {
             if ($field === 'date_posted' || ! isset($blockers[$field])) {
                 $blockers[$field] = $message;
@@ -565,7 +565,7 @@ class Project extends Model
     /**
      * Whether the schedule hangs together, for posting and for every later
      * change: posting period, pre-bid conference, opening right after the
-     * deadline, and office hours.
+     * deadline. Any day or hour the BAC sets is accepted.
      *
      * @return array<string, string> field => message
      */
@@ -604,34 +604,8 @@ class Project extends Model
             $blockers['bid_opening_date'] = 'The '.strtolower($mode->openingLabel()).' cannot be before the '.lcfirst($deadlineLabel).'.';
         }
 
-        // The deadline, opening and pre-bid conference happen at the LGU /
-        // BAC office: working days, regular office hours (PST).
-        foreach ([
-            'bid_submission_deadline' => ['The '.$deadlineLabel, $deadline],
-            'bid_opening_date' => ['The '.strtolower($mode->openingLabel()), $opening],
-            'pre_bid_conference_date' => ['The pre-bid conference', $preBid],
-        ] as $field => [$label, $moment]) {
-            if ($moment !== null && ! isset($blockers[$field]) && ! self::isWithinOfficeHours($moment)) {
-                $blockers[$field] = "{$label} must be on a working day (Monday to Friday), between 8:00 AM and 5:00 PM Philippine time.";
-            }
-        }
-
+        // Any day and time the BAC chooses: only the periods between the dates are checked.
         return $blockers;
-    }
-
-    public const OFFICE_OPENS_AT = '08:00';
-
-    public const OFFICE_CLOSES_AT = '17:00';
-
-    /**
-     * Regular government office hours of the LGU (Philippine Standard Time).
-     */
-    public static function isWithinOfficeHours(\Carbon\CarbonInterface $moment): bool
-    {
-        $local = $moment->copy()->timezone(config('app.timezone'));
-        $time = $local->format('H:i');
-
-        return $local->isWeekday() && $time >= self::OFFICE_OPENS_AT && $time <= self::OFFICE_CLOSES_AT;
     }
 
     public function electronicSubmissionAuthorizedByUser()
