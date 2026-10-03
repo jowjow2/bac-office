@@ -12,7 +12,8 @@
         .meta { margin: 0 0 14px; color: #6b736e; }
         .filters { margin-bottom: 14px; padding: 8px 10px; border: 1px solid #dbe3ed; background: #faf8f3; }
         .grid { width: 100%; border-collapse: separate; border-spacing: 6px; margin: -6px; }
-        .card { width: 16.66%; padding: 10px; border: 1px solid #dbe3ed; background: #fff; }
+        .card { width: 25%; padding: 10px; border: 1px solid #dbe3ed; background: #fff; }
+        .card small { display: block; margin-top: 3px; color: #99a19c; font-size: 8px; }
         .card strong { display: block; margin-top: 5px; font-size: 17px; color: #1b2420; }
         .card span { color: #6b736e; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
@@ -35,11 +36,24 @@
     </div>
 
     <table class="grid">
-        <tr>
-            @foreach($summaryCards as $card)
-                <td class="card"><span>{{ $card['label'] }}</span><strong>{{ number_format((int) $card['value']) }}</strong></td>
+        @foreach(array_chunk($summaryCards, 4) as $row)
+            <tr>
+                @foreach($row as $card)
+                    <td class="card"><span>{{ $card['label'] }}</span><strong>{{ $card['display'] }}</strong><small>{{ $card['note'] }}</small></td>
+                @endforeach
+            </tr>
+        @endforeach
+    </table>
+
+    <h2>Procurement Pipeline</h2>
+    <table>
+        <thead><tr><th>Stage</th><th>Projects reached</th><th>At this stage now</th></tr></thead>
+        <tbody>
+            @foreach($pipeline['stages'] as $stage)
+                <tr><td>{{ $stage['label'] }}</td><td>{{ $stage['reached'] }}</td><td>{{ $stage['here'] }}</td></tr>
             @endforeach
-        </tr>
+            <tr><td>Failed bidding</td><td>{{ $pipeline['failed'] }}</td><td></td></tr>
+        </tbody>
     </table>
 
                 <h2>Procurement Status Distribution</h2>
@@ -98,10 +112,22 @@
         <thead><tr><th>Queue</th><th>Count</th></tr></thead>
         <tbody>
             <tr><td>Upcoming Deadlines</td><td>{{ $monitoring['upcoming_deadlines']['count'] }}</td></tr>
-            <tr><td>Overdue Projects</td><td>{{ $monitoring['overdue_projects']['count'] }}</td></tr>
+            <tr><td>Needs Action</td><td>{{ $monitoring['needs_action']['count'] }}</td></tr>
             <tr><td>Pending Bidder Validations</td><td>{{ $monitoring['pending_bidder_validations']['count'] }}</td></tr>
             <tr><td>Projects Awaiting BAC Evaluation</td><td>{{ $monitoring['awaiting_bac_evaluation']['count'] }}</td></tr>
         </tbody>
     </table>
+
+    @if($monitoring['needs_action']['count'] > 0)
+        <h2>Needs Action</h2>
+        <table>
+            <thead><tr><th>Project</th><th>Waiting on</th></tr></thead>
+            <tbody>
+                @foreach($monitoring['needs_action']['items'] as $row)
+                    <tr><td>{{ $row['project']->title }}</td><td>{{ $row['reason'] }}</td></tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
 </body>
 </html>

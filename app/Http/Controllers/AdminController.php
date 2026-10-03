@@ -2468,8 +2468,16 @@ public function destroyUser(User $user)
             fputcsv($handle, ['Analytics Summary']);
             fputcsv($handle, ['Metric', 'Value']);
             foreach ($report['summaryCards'] as $card) {
-                fputcsv($handle, [$card['label'], $card['value']]);
+                fputcsv($handle, [$card['label'], $card['display'], $card['note']]);
             }
+            fputcsv($handle, []);
+
+            fputcsv($handle, ['Procurement Pipeline']);
+            fputcsv($handle, ['Stage', 'Projects reached', 'Projects at this stage']);
+            foreach ($report['pipeline']['stages'] as $stage) {
+                fputcsv($handle, [$stage['label'], $stage['reached'], $stage['here']]);
+            }
+            fputcsv($handle, ['Failed bidding', $report['pipeline']['failed'], '']);
             fputcsv($handle, []);
 
             fputcsv($handle, ['Procurement Status Distribution']);
@@ -2516,7 +2524,10 @@ public function destroyUser(User $user)
 
             fputcsv($handle, ['Monitoring']);
             fputcsv($handle, ['Upcoming Deadlines', $report['monitoring']['upcoming_deadlines']['count']]);
-            fputcsv($handle, ['Overdue Projects', $report['monitoring']['overdue_projects']['count']]);
+            fputcsv($handle, ['Needs Action', $report['monitoring']['needs_action']['count']]);
+            foreach ($report['monitoring']['needs_action']['items'] as $row) {
+                fputcsv($handle, ['', $row['project']->title, $row['reason']]);
+            }
             fputcsv($handle, ['Pending Bidder Validations', $report['monitoring']['pending_bidder_validations']['count']]);
             fputcsv($handle, ['Projects Awaiting BAC Evaluation', $report['monitoring']['awaiting_bac_evaluation']['count']]);
 
@@ -3045,7 +3056,7 @@ public function destroyUser(User $user)
             : null;
 
         $projects = Project::query()
-            ->with(['bids.user', 'awards.bid', 'schedule'])
+            ->with(['bids.user', 'awards.bid', 'schedule', 'assignments'])
             ->when($dateFrom, fn ($query) => $query->where('created_at', '>=', $dateFrom->copy()->startOfDay()))
             ->when($dateTo, fn ($query) => $query->where('created_at', '<=', $dateTo->copy()->endOfDay()))
             ->when($selectedStatus, fn ($query) => $query->where('status', $selectedStatus))
@@ -3053,7 +3064,8 @@ public function destroyUser(User $user)
             ->orderByDesc('created_at')
             ->get();
 
-        $bids = $projects->flatMap(fn ($project) => $project->bids)->values();
+        // Drafts saved by bidders are not bids: every count uses official submissions.
+        $bids = $projects->flatMap(fn ($project) => $project->bids)->reject(fn (Bid $bid) => $bid->isDraft())->values();
         $awards = $projects->flatMap(fn ($project) => $project->awards)->values();
         $bidderUsers = User::query()
             ->where('role', 'bidder')
@@ -3069,22 +3081,24 @@ public function destroyUser(User $user)
         $pendingBidders = $bidderUsers->filter(
             fn ($user) => $user->bidderProfile?->approval_status === 'pending'
         )->values();
-        $activeProjects = $projects->whereIn('status', ['approved_for_bidding', 'open'])->count();
-        $awardedProjects = $projects->filter(
-            fn ($project) => $project->status === 'awarded' || $project->awards->isNotEmpty()
-        )->count();
-
-        $summaryCards = [
-            ['label' => 'Total Projects', 'value' => $projects->count(), 'note' => 'Selected procurement records', 'icon' => 'fa-folder-open', 'tone' => 'blue'],
-            ['label' => 'Active Projects', 'value' => $activeProjects, 'note' => 'Open or approved for bidding', 'icon' => 'fa-bolt', 'tone' => 'green'],
-            ['label' => 'Total Bids', 'value' => $bids->count(), 'note' => 'Submitted bid records', 'icon' => 'fa-gavel', 'tone' => 'violet'],
-            ['label' => 'Awarded Projects', 'value' => $awardedProjects, 'note' => 'Projects with a winning award', 'icon' => 'fa-trophy', 'tone' => 'gold'],
-            ['label' => 'Registered Bidders', 'value' => $bidderUsers->count(), 'note' => 'Bidder accounts in range', 'icon' => 'fa-users', 'tone' => 'sky'],
-            ['label' => 'Blacklisted Bidders', 'value' => $blacklistedBidders->count(), 'note' => 'Active procurement sanctions', 'icon' => 'fa-user-slash', 'tone' => 'red'],
-        ];
-
+        $summaryCards = $this->buildReportKpis($projects, $bids);
         $charts = $this->buildReportCharts($projects, $bids, $awards, $dateFrom, $dateTo);
         $monitoring = $this->buildReportMonitoring($projects, $pendingBidders);
+        $today = now(config('bac-office.display_timezone', 'Asia/Manila'))->startOfDay();
+        $presetQuery = array_filter([
+            'status' => $selectedStatus,
+            'procurement_type' => $selectedProcurementType,
+        ]);
+        $datePresets = collect([
+            'month' => ['This month', $today->copy()->startOfMonth(), $today->copy()->endOfMonth()],
+            'quarter' => ['This quarter', $today->copy()->startOfQuarter(), $today->copy()->endOfQuarter()],
+            'year' => ['This year (FY '.$today->year.')', $today->copy()->startOfYear(), $today->copy()->endOfYear()],
+            'last12' => ['Last 12 months', $today->copy()->startOfMonth()->subMonths(11), $today->copy()->endOfMonth()],
+        ])->map(fn ($preset) => [
+            'label' => $preset[0],
+            'url' => route('admin.reports', $presetQuery + ['date_from' => $preset[1]->toDateString(), 'date_to' => $preset[2]->toDateString()]),
+            'active' => $dateFrom?->toDateString() === $preset[1]->toDateString() && $dateTo?->toDateString() === $preset[2]->toDateString(),
+        ])->all();
         $filters = [
             'date_from' => $dateFrom?->format('Y-m-d') ?: '',
             'date_to' => $dateTo?->format('Y-m-d') ?: '',
@@ -3104,9 +3118,141 @@ public function destroyUser(User $user)
             ], fn ($value) => $value !== ''),
             'statusOptions' => $statusLabels,
             'procurementTypeOptions' => $procurementTypeLabels,
+            'datePresets' => $datePresets,
             'summaryCards' => $summaryCards,
             'monitoring' => $monitoring,
+            'pipeline' => $this->buildReportPipeline($projects),
+            'upcomingSchedule' => $this->buildReportUpcomingSchedule($projects),
+            'bidderTotals' => ['registered' => $bidderUsers->count(), 'blacklisted' => $blacklistedBidders->count()],
         ] + $charts;
+    }
+
+    /**
+     * Headline figures: volume, competition, savings against the ABC, failed
+     * biddings, and how long procurement takes. Each card says how it is
+     * computed; "—" when there is nothing to measure yet.
+     *
+     * @return list<array{label: string, value: ?float, format: string, note: string, icon: string, tone: string}>
+     */
+    protected function buildReportKpis(Collection $projects, Collection $bids): array
+    {
+        $now = now(config('bac-office.display_timezone', 'Asia/Manila'));
+        $officialBids = $bids->groupBy('project_id');
+        $closed = $projects->filter(fn (Project $project) => $project->submissionDeadlinePassed() || $project->bids_opened_at !== null);
+        $reachedOpening = $projects->filter(fn (Project $project) => $project->bids_opened_at !== null || $project->isFailedBidding());
+
+        // Savings: ABC minus the awarded contract amount, over awarded projects.
+        $awarded = $projects->map(function (Project $project) {
+            $award = $project->awards->sortByDesc('contract_date')->first();
+            $amount = $award?->contract_amount ?? $award?->bid?->bid_amount;
+
+            return $award && $amount !== null && (float) $project->budget > 0
+                ? ['abc' => (float) $project->budget, 'amount' => (float) $amount]
+                : null;
+        })->filter();
+        $abcTotal = $awarded->sum('abc');
+        $savings = $abcTotal - $awarded->sum('amount');
+
+        // Days from publication to the Notice of Award.
+        $daysToAward = $projects->map(function (Project $project) {
+            $notice = $project->bids->pluck('notice_of_award_at')->filter()->min();
+            $published = $project->publicationTime();
+
+            return $notice && $published ? max(0, $published->copy()->startOfDay()->diffInDays($notice->copy()->startOfDay())) : null;
+        })->filter(fn ($days) => $days !== null);
+
+        $display = fn (array $card) => $card + ['display' => $card['value'] === null ? '—' : match ($card['format']) {
+            'peso' => '₱'.number_format($card['value'], 2),
+            'percent' => number_format($card['value'], 1).'%',
+            'decimal' => number_format($card['value'], 1),
+            default => number_format($card['value']),
+        }];
+
+        return array_map($display, [
+            ['label' => 'Projects', 'value' => $projects->count(), 'format' => 'int', 'note' => 'In the selected range', 'icon' => 'fa-folder-open', 'tone' => 'blue'],
+            ['label' => 'Accepting bids now', 'value' => $projects->filter(fn (Project $project) => $project->isOpenForBidding($now))->count(), 'format' => 'int', 'note' => 'Published, before the deadline', 'icon' => 'fa-bolt', 'tone' => 'green'],
+            ['label' => 'Official bids', 'value' => $bids->count(), 'format' => 'int', 'note' => 'Drafts not counted', 'icon' => 'fa-gavel', 'tone' => 'violet'],
+            ['label' => 'Awarded', 'value' => $projects->filter(fn (Project $project) => $project->awards->isNotEmpty())->count(), 'format' => 'int', 'note' => 'Notice of Award issued', 'icon' => 'fa-trophy', 'tone' => 'gold'],
+            ['label' => 'Savings vs ABC', 'value' => $awarded->isEmpty() ? null : $savings, 'format' => 'peso', 'note' => $awarded->isEmpty() ? 'No awards yet' : number_format($abcTotal > 0 ? $savings / $abcTotal * 100 : 0, 1).'% below the ABC of awarded projects', 'icon' => 'fa-piggy-bank', 'tone' => 'green'],
+            ['label' => 'Bidders per project', 'value' => $closed->isEmpty() ? null : round($closed->sum(fn (Project $project) => $officialBids->get($project->id)?->count() ?? 0) / $closed->count(), 1), 'format' => 'decimal', 'note' => 'Average, projects past the deadline', 'icon' => 'fa-users', 'tone' => 'sky'],
+            ['label' => 'Failed bidding rate', 'value' => $reachedOpening->isEmpty() ? null : round($reachedOpening->filter(fn (Project $project) => $project->isFailedBidding())->count() / $reachedOpening->count() * 100, 1), 'format' => 'percent', 'note' => 'Of projects that reached opening', 'icon' => 'fa-circle-xmark', 'tone' => 'red'],
+            ['label' => 'Days to award', 'value' => $daysToAward->isEmpty() ? null : round($daysToAward->avg()), 'format' => 'int', 'note' => 'Average, publication to Notice of Award', 'icon' => 'fa-stopwatch', 'tone' => 'gold'],
+        ]);
+    }
+
+    /**
+     * How far each project has gone, stage by stage: "reached" counts every
+     * project at or past the stage, "here" the ones currently stopped there.
+     *
+     * @return array{stages: list<array{key: string, label: string, reached: int, here: int}>, failed: int, total: int}
+     */
+    protected function buildReportPipeline(Collection $projects): array
+    {
+        $stages = [
+            'published' => 'Published',
+            'closed' => 'Submission closed',
+            'opened' => 'Bids opened',
+            'evaluated' => 'Evaluated',
+            'post_qualified' => 'Post-qualified',
+            'notice_of_award' => 'Notice of Award',
+            'contract' => 'Contract signed',
+            'ntp' => 'Notice to Proceed',
+            'completed' => 'Completed',
+        ];
+        $keys = array_keys($stages);
+        $any = fn (Project $project, string $field) => $project->bids->contains(fn (Bid $bid) => $bid->{$field} !== null);
+        $furthest = $projects->reject(fn (Project $project) => $project->isFailedBidding())->map(function (Project $project) use ($any) {
+            return match (true) {
+                $project->isCompleted() => 'completed',
+                $any($project, 'notice_to_proceed_at') => 'ntp',
+                $any($project, 'contract_signed_at') => 'contract',
+                $any($project, 'notice_of_award_at') || $project->awards->isNotEmpty() => 'notice_of_award',
+                $any($project, 'post_qualification_completed_at') => 'post_qualified',
+                $any($project, 'evaluated_at') => 'evaluated',
+                $project->bidsAreOpened() || (! $project->requiresRecordedBidOpening() && $project->submissionDeadlinePassed()) => 'opened',
+                in_array($project->status, Project::PUBLIC_STATUSES, true) && $project->submissionDeadlinePassed() => 'closed',
+                in_array($project->status, Project::PUBLIC_STATUSES, true) => 'published',
+                default => null,
+            };
+        })->filter()->countBy();
+
+        return [
+            'stages' => collect($stages)->map(fn ($label, $key) => [
+                'key' => $key,
+                'label' => $label,
+                'reached' => collect($keys)->slice(array_search($key, $keys, true))->sum(fn ($later) => $furthest->get($later, 0)),
+                'here' => $furthest->get($key, 0),
+            ])->values()->all(),
+            'failed' => $projects->filter(fn (Project $project) => $project->isFailedBidding())->count(),
+            'total' => $projects->count(),
+        ];
+    }
+
+    /**
+     * Pre-bid conferences, submission deadlines and bid openings in the next
+     * 14 days (Philippine time), grouped by day.
+     *
+     * @return list<array{date: \Carbon\Carbon, events: list<array{time: \Carbon\Carbon, type: string, label: string, project: Project}>}>
+     */
+    protected function buildReportUpcomingSchedule(Collection $projects): array
+    {
+        $zone = config('bac-office.display_timezone', 'Asia/Manila');
+        $now = now($zone);
+        $until = $now->copy()->addDays(14)->endOfDay();
+
+        return $projects
+            ->filter(fn (Project $project) => $project->archived_at === null && ! $project->isFailedBidding() && in_array($project->status, Project::PUBLIC_STATUSES, true))
+            ->flatMap(fn (Project $project) => collect([
+                ['pre_bid', 'Pre-bid conference', $project->schedule?->pre_bid_conference_date],
+                ['deadline', $project->mode()->deadlineLabel(), $project->bidSubmissionDeadline()],
+                ['opening', $project->mode()->openingLabel(), $project->requiresRecordedBidOpening() ? $project->schedule?->bid_opening_date : null],
+            ])->filter(fn ($event) => $event[2] !== null && $event[2]->between($now, $until))
+                ->map(fn ($event) => ['time' => $event[2]->copy()->timezone($zone), 'type' => $event[0], 'label' => $event[1], 'project' => $project]))
+            ->sortBy(fn ($event) => $event['time']->getTimestamp())
+            ->groupBy(fn ($event) => $event['time']->toDateString())
+            ->map(fn ($events) => ['date' => $events->first()['time']->copy()->startOfDay(), 'events' => $events->values()->all()])
+            ->values()
+            ->all();
     }
 
     protected function buildReportCharts(Collection $projects, Collection $bids, Collection $awards, ?\Carbon\Carbon $dateFrom, ?\Carbon\Carbon $dateTo): array
@@ -3127,33 +3273,41 @@ public function destroyUser(User $user)
 
     protected function buildReportProjectCharts(Collection $projects, Collection $bids, Collection $awards, ?\Carbon\Carbon $dateFrom, ?\Carbon\Carbon $dateTo): array
     {
-        $statusLabels = [
-            'draft' => 'Draft',
-            'approved_for_bidding' => 'Approved for bidding',
-            'open' => 'Open',
-            'closed' => 'Closed',
-            'awarded' => 'Awarded',
+        // Where each project stands now, by its saved schedule and recorded decisions.
+        $phases = [
+            'draft' => ['Draft', '#94a3b8'],
+            'approved_for_bidding' => ['Approved for bidding', '#8b5cf6'],
+            'scheduled' => ['Scheduled for publication', '#0ea5e9'],
+            'accepting' => ['Accepting bids', '#10b981'],
+            'awaiting_opening' => ['Submission closed · awaiting opening', '#eab308'],
+            'evaluation' => ['Bids opened · evaluation', '#64748b'],
+            'awarded' => ['Awarded', '#f59e0b'],
+            'completed' => ['Completed', '#047857'],
+            'failed' => ['Failed bidding', '#ef4444'],
         ];
-        $statusColors = [
-            'draft' => '#94a3b8',
-            'approved_for_bidding' => '#8b5cf6',
-            'open' => '#10b981',
-            'closed' => '#64748b',
-            'awarded' => '#f59e0b',
-        ];
-        $procurementStatusDistribution = collect($statusLabels)->map(function ($label, $status) use ($projects, $statusColors) {
-            return [
-                'key' => $status,
-                'label' => $label,
-                'value' => $projects->where('status', $status)->count(),
-                'color' => $statusColors[$status],
-            ];
-        })->values()->all();
+        $phaseOf = fn (Project $project): string => match (true) {
+            $project->isFailedBidding() => 'failed',
+            $project->isCompleted() => 'completed',
+            $project->status === 'awarded' || $project->awards->isNotEmpty() => 'awarded',
+            $project->status === 'closed' || $project->bidsAreOpened() => 'evaluation',
+            $project->status === 'open' && $project->isScheduledForPublication() => 'scheduled',
+            $project->status === 'open' && $project->submissionDeadlinePassed() => 'awaiting_opening',
+            $project->status === 'open' => 'accepting',
+            $project->status === 'approved_for_bidding' => 'approved_for_bidding',
+            default => 'draft',
+        };
+        $phaseCounts = $projects->map($phaseOf)->countBy();
+        $procurementStatusDistribution = collect($phases)->map(fn ($phase, $key) => [
+            'key' => $key,
+            'label' => $phase[0],
+            'value' => $phaseCounts->get($key, 0),
+            'color' => $phase[1],
+        ])->values()->all();
 
         $activityEnd = ($dateTo ?: now())->copy()->endOfMonth();
-        $activityStart = ($dateFrom ?: $activityEnd->copy()->subMonths(11))->copy()->startOfMonth();
+        $activityStart = ($dateFrom ?: $activityEnd->copy()->startOfMonth()->subMonths(11))->copy()->startOfMonth();
         if ($activityStart->diffInMonths($activityEnd) > 11) {
-            $activityStart = $activityEnd->copy()->subMonths(11)->startOfMonth();
+            $activityStart = $activityEnd->copy()->startOfMonth()->subMonths(11);
         }
         $monthlyActivity = [];
         for ($cursor = $activityStart->copy(); $cursor->lessThanOrEqualTo($activityEnd); $cursor->addMonth()) {
@@ -3170,11 +3324,12 @@ public function destroyUser(User $user)
             ];
         }
 
+        $officialBidCounts = $bids->countBy('project_id');
         $bidsPerProject = $projects
             ->map(fn ($project) => [
                 'label' => Str::limit((string) $project->title, 34),
                 'full_label' => $project->title,
-                'value' => $project->bids->count(),
+                'value' => $officialBidCounts->get($project->id, 0),
             ])
             ->filter(fn ($row) => $row['value'] > 0)
             ->sortByDesc('value')
@@ -3265,10 +3420,32 @@ public function destroyUser(User $user)
             ->filter(fn ($row) => $row['deadline'] && $row['deadline']->greaterThanOrEqualTo(today()) && $row['deadline']->lessThanOrEqualTo(today()->addDays(30)))
             ->sortBy(fn ($row) => $row['deadline'])
             ->values();
-        $overdueProjects = $monitoringProjects
-            ->map(fn ($project) => ['project' => $project, 'deadline' => $projectDeadline($project)])
-            ->filter(fn ($row) => $row['deadline'] && $row['deadline']->isPast())
-            ->sortByDesc(fn ($row) => $row['deadline'])
+        // What is waiting on the BAC, by the saved schedule and the recorded decisions.
+        $needsAction = $projects
+            ->reject(fn (Project $project) => $project->archived_at !== null || $project->isFailedBidding() || $project->isCompleted())
+            ->map(function (Project $project) {
+                $bids = $project->bids;
+                $awardDue = $project->bidsAreOpened() && $project->awards->isEmpty() && ! $bids->contains(fn (Bid $bid) => $bid->notice_of_award_at !== null)
+                    ? $project->mode()->awardDueDate($project->bids_opened_at)
+                    : null;
+                $reason = match (true) {
+                    $project->status === 'open' && $project->requiresRecordedBidOpening() && $project->submissionDeadlinePassed() && ! $project->bidsAreOpened()
+                        => ['Submission closed · awaiting opening', 'warning'],
+                    $awardDue !== null && $awardDue->isPast()
+                        => ['Past the award period ('.$awardDue->timezone(config('bac-office.display_timezone'))->format('M d').')', 'danger'],
+                    $bids->contains(fn (Bid $bid) => $bid->contract_signed_at !== null && $bid->notice_to_proceed_at === null)
+                        => ['Contract signed · Notice to Proceed pending', 'warning'],
+                    $bids->contains(fn (Bid $bid) => $bid->notice_of_award_at !== null && $bid->contract_signed_at === null)
+                        => ['Notice of Award issued · contract not signed', 'warning'],
+                    $project->isOpenForBidding() && $project->assignments->isEmpty()
+                        => ['Open for bidding · no staff assigned', 'info'],
+                    default => null,
+                };
+
+                return $reason ? ['project' => $project, 'reason' => $reason[0], 'tone' => $reason[1]] : null;
+            })
+            ->filter()
+            ->sortBy(fn ($row) => ['danger' => 0, 'warning' => 1, 'info' => 2][$row['tone']])
             ->values();
         $awaitingEvaluation = $projects
             ->map(function ($project) {
@@ -3284,9 +3461,9 @@ public function destroyUser(User $user)
                 'count' => $upcomingDeadlines->count(),
                 'items' => $upcomingDeadlines->take(6),
             ],
-            'overdue_projects' => [
-                'count' => $overdueProjects->count(),
-                'items' => $overdueProjects->take(6),
+            'needs_action' => [
+                'count' => $needsAction->count(),
+                'items' => $needsAction->take(8),
             ],
             'pending_bidder_validations' => [
                 'count' => $pendingBidders->count(),

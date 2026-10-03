@@ -1,451 +1,523 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 @include('partials.dashboard-viewport')
+@php
+    $tz = config('bac-office.display_timezone', 'Asia/Manila');
+    $statusTotal = max(1, collect($procurementStatusDistribution)->sum('value'));
+    $pipelineTotal = max(1, $pipeline['total']);
+    // Donut: circumference of r = 48.
+    $donutC = 2 * M_PI * 48;
+    $donutOffset = 0;
+    $activeFilters = array_filter([
+        'date' => ($filters['date_from'] || $filters['date_to'])
+            ? (($filters['date_from'] ? \Carbon\Carbon::parse($filters['date_from'])->format('M d, Y') : 'Any date').' – '.($filters['date_to'] ? \Carbon\Carbon::parse($filters['date_to'])->format('M d, Y') : 'today'))
+            : null,
+        'status' => $filters['status'] ? $filters['status_label'] : null,
+        'procurement_type' => $filters['procurement_type'] ? $filters['procurement_type_label'] : null,
+    ]);
+    $withoutFilter = fn (string $key) => route('admin.reports', \Illuminate\Support\Arr::except($filterQuery, $key === 'date' ? ['date_from', 'date_to'] : [$key]));
+    $eventIcons = ['pre_bid' => 'fa-people-group', 'deadline' => 'fa-hourglass-end', 'opening' => 'fa-envelope-open'];
+@endphp
 <div class="admin-dashboard admin-role-page">
     @vite(['resources/css/dashboard.css'])
 
     <style id="report-analytics-page-styles">
         .report-analytics-page { background: var(--ui-page) !important; color: var(--ui-ink) !important; }
-        .report-analytics-page .ra-intro {
-            display: flex !important;
-            align-items: flex-start !important;
-            justify-content: space-between !important;
-            gap: 20px !important;
-            margin: 0 0 18px !important;
-        }
-        .report-analytics-page .ra-intro h1 {
-            margin: 0 0 5px !important;
-            color: var(--ui-ink) !important;
-            font-size: 25px !important;
-            font-weight: 700 !important;
-            letter-spacing: -.025em !important;
-        }
-        .report-analytics-page .ra-intro p { margin: 0 !important; color: var(--ui-muted) !important; font-size: 13px !important; }
-        .report-analytics-page .ra-filter-card,
-        .report-analytics-page .ra-monitor-card,
-        .report-analytics-page .ra-chart-card,
-        .report-analytics-page .ra-summary-card {
+        .report-analytics-page .ra-card {
+            min-width: 0 !important;
             border: 1px solid var(--ui-line) !important;
             border-radius: var(--ui-radius-lg) !important;
             background: #ffffff !important;
             box-shadow: var(--ui-shadow) !important;
         }
-        .report-analytics-page .ra-filter-card {
-            display: flex !important;
-            align-items: flex-end !important;
-            gap: 12px !important;
-            flex-wrap: wrap !important;
-            margin-bottom: 18px !important;
-            padding: 14px !important;
-        }
-        .report-analytics-page .ra-filter-field {
-            display: flex !important;
-            flex: 1 1 155px !important;
-            flex-direction: column !important;
-            gap: 6px !important;
-            min-width: 145px !important;
-        }
-        .report-analytics-page .ra-filter-field span {
-            color: var(--ui-muted) !important;
-            font-size: 10px !important;
-            font-weight: 700 !important;
-            letter-spacing: normal !important;
-            text-transform: none !important;
-        }
-        .report-analytics-page .ra-filter-field input,
-        .report-analytics-page .ra-filter-field select {
-            width: 100% !important;
-            height: 36px !important;
-            box-sizing: border-box !important;
-            border: 1px solid var(--ui-line-strong) !important;
-            border-radius: var(--ui-radius) !important;
-            background: #ffffff !important;
-            color: var(--ui-ink) !important;
-            font: 500 13px/1.2 Inter, sans-serif !important;
-        }
-        .report-analytics-page .ra-filter-field input:focus,
-        .report-analytics-page .ra-filter-field select:focus {
-            border-color: var(--ui-primary) !important;
-            box-shadow: 0 0 0 3px rgba(29, 79, 64, .12) !important;
-            outline: none !important;
-        }
-        .report-analytics-page .ra-filter-actions { display: flex !important; align-items: center !important; gap: 8px !important; }
-        .report-analytics-page .ra-primary-button,
-        .report-analytics-page .ra-secondary-button {
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            min-height: 36px !important;
-            padding: 0 14px !important;
-            border-radius: var(--ui-radius) !important;
-            font-size: 12px !important;
-            font-weight: 600 !important;
-            text-decoration: none !important;
-            white-space: nowrap !important;
-            cursor: pointer !important;
-        }
-        .report-analytics-page .ra-primary-button { border: 1px solid var(--ui-primary) !important; background: var(--ui-primary) !important; color: #ffffff !important; }
-        .report-analytics-page .ra-primary-button:hover { border-color: var(--ui-primary) !important; background: var(--ui-primary-hover) !important; }
-        .report-analytics-page .ra-secondary-button { border: 1px solid var(--ui-line-strong) !important; background: #ffffff !important; color: var(--ui-ink-2) !important; }
-        .report-analytics-page .ra-secondary-button:hover { border-color: var(--ui-primary-line) !important; background: var(--ui-primary-soft) !important; color: var(--ui-primary) !important; }
-        .report-analytics-page .ra-export-wrap { position: relative !important; }
-        .report-analytics-page .ra-export-menu {
-            position: absolute !important;
-            top: calc(100% + 7px) !important;
-            right: 0 !important;
-            z-index: 30 !important;
-            min-width: 178px !important;
-            padding: 5px !important;
-            border: 1px solid var(--ui-line-strong) !important;
-            border-radius: var(--ui-radius-lg) !important;
-            background: #ffffff !important;
-            box-shadow: 0 16px 32px rgba(27, 36, 32, .15) !important;
-        }
-        .report-analytics-page .ra-export-menu a {
-            display: flex !important;
-            align-items: center !important;
-            gap: 9px !important;
-            min-height: 34px !important;
-            padding: 0 10px !important;
-            border-radius: 7px !important;
-            color: var(--ui-ink-2) !important;
-            font-size: 12px !important;
-            font-weight: 600 !important;
-            text-decoration: none !important;
-        }
-        .report-analytics-page .ra-export-menu a:hover { background: var(--ui-primary-soft) !important; color: var(--ui-primary) !important; }
-        .report-analytics-page .ra-summary-grid {
-            display: grid !important;
-            grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
-            gap: 12px !important;
-            margin-bottom: 18px !important;
-        }
-        .report-analytics-page .ra-summary-card { min-width: 0 !important; padding: 15px !important; }
-        .report-analytics-page .ra-summary-top { display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 8px !important; }
-        .report-analytics-page .ra-summary-icon {
-            display: grid !important;
-            width: 34px !important;
-            height: 34px !important;
-            place-items: center !important;
-            border-radius: var(--ui-radius-lg) !important;
-            font-size: 14px !important;
-        }
-        .report-analytics-page .ra-summary-icon.blue { background: var(--ui-primary-soft) !important; color: var(--ui-primary) !important; }
-        .report-analytics-page .ra-summary-icon.green { background: #ecfdf5 !important; color: #059669 !important; }
-        .report-analytics-page .ra-summary-icon.violet { background: #f5f3ff !important; color: #7c3aed !important; }
-        .report-analytics-page .ra-summary-icon.gold { background: #fffbeb !important; color: #d97706 !important; }
-        .report-analytics-page .ra-summary-icon.sky { background: #f0f9ff !important; color: var(--ui-info) !important; }
-        .report-analytics-page .ra-summary-icon.red { background: #fef2f2 !important; color: #dc2626 !important; }
-        .report-analytics-page .ra-summary-label { display: block !important; margin-top: 12px !important; color: var(--ui-muted) !important; font-size: 11px !important; font-weight: 600 !important; }
-        .report-analytics-page .ra-summary-value { display: block !important; margin-top: 3px !important; color: var(--ui-ink) !important; font-size: 25px !important; font-weight: 700 !important; line-height: 1 !important; }
-        .report-analytics-page .ra-summary-note { display: block !important; margin-top: 7px !important; overflow: hidden !important; color: var(--ui-subtle) !important; font-size: 10px !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
-        .report-analytics-page .ra-monitor-grid { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 12px !important; margin-bottom: 18px !important; }
-        .report-analytics-page .ra-monitor-card { min-width: 0 !important; padding: 15px !important; }
-        .report-analytics-page .ra-monitor-head { display: flex !important; align-items: flex-start !important; justify-content: space-between !important; gap: 10px !important; margin-bottom: 13px !important; }
-        .report-analytics-page .ra-monitor-head h3 { margin: 0 !important; color: var(--ui-ink) !important; font-size: 13px !important; font-weight: 700 !important; }
-        .report-analytics-page .ra-monitor-head p { margin: 4px 0 0 !important; color: var(--ui-subtle) !important; font-size: 10px !important; }
-        .report-analytics-page .ra-monitor-count { display: inline-flex !important; min-width: 27px !important; height: 27px !important; align-items: center !important; justify-content: center !important; border-radius: 999px !important; background: var(--ui-primary-soft) !important; color: var(--ui-primary) !important; font-size: 12px !important; font-weight: 700 !important; }
-        .report-analytics-page .ra-monitor-list { display: grid !important; gap: 8px !important; margin: 0 !important; padding: 0 !important; list-style: none !important; }
-        .report-analytics-page .ra-monitor-item { display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 10px !important; min-width: 0 !important; padding-top: 8px !important; border-top: 1px solid var(--ui-line-soft) !important; }
-        .report-analytics-page .ra-monitor-item:first-child { padding-top: 0 !important; border-top: 0 !important; }
-        .report-analytics-page .ra-monitor-item strong,
-        .report-analytics-page .ra-monitor-item span { overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
-        .report-analytics-page .ra-monitor-item strong { color: var(--ui-ink-2) !important; font-size: 11px !important; font-weight: 600 !important; }
-        .report-analytics-page .ra-monitor-item span { color: var(--ui-subtle) !important; font-size: 10px !important; }
-        .report-analytics-page .ra-empty { color: var(--ui-subtle) !important; font-size: 11px !important; }
-        .report-analytics-page .ra-chart-grid { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 14px !important; margin-bottom: 18px !important; }
-        .report-analytics-page .ra-chart-card { min-width: 0 !important; padding: 18px !important; overflow: hidden !important; }
-        .report-analytics-page .ra-chart-card.ra-chart-wide { grid-column: 1 / -1 !important; }
-        .report-analytics-page .ra-chart-head { display: flex !important; align-items: flex-start !important; justify-content: space-between !important; gap: 10px !important; margin-bottom: 16px !important; }
-        .report-analytics-page .ra-chart-head h3 { margin: 0 !important; color: var(--ui-ink) !important; font-size: 14px !important; font-weight: 700 !important; }
-        .report-analytics-page .ra-chart-head p { margin: 4px 0 0 !important; color: var(--ui-subtle) !important; font-size: 11px !important; }
-        .report-analytics-page .ra-chart-legend { display: flex !important; flex-wrap: wrap !important; justify-content: flex-end !important; gap: 8px 12px !important; }
-        .report-analytics-page .ra-legend-item { display: inline-flex !important; align-items: center !important; gap: 5px !important; color: var(--ui-muted) !important; font-size: 10px !important; }
-        .report-analytics-page .ra-legend-dot { width: 7px !important; height: 7px !important; border-radius: 50% !important; }
-        .report-analytics-page .ra-segmented-bar { display: flex !important; width: 100% !important; height: 22px !important; overflow: hidden !important; border-radius: 7px !important; background: var(--ui-line-soft) !important; }
-        .report-analytics-page .ra-segment { min-width: 2px !important; height: 100% !important; }
-        .report-analytics-page .ra-stat-list { display: grid !important; gap: 10px !important; margin-top: 16px !important; }
-        .report-analytics-page .ra-stat-row { display: grid !important; grid-template-columns: minmax(100px, 1fr) minmax(80px, 2fr) 42px !important; align-items: center !important; gap: 10px !important; }
-        .report-analytics-page .ra-stat-label { overflow: hidden !important; color: var(--ui-ink-2) !important; font-size: 11px !important; font-weight: 600 !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
-        .report-analytics-page .ra-track { width: 100% !important; height: 8px !important; overflow: hidden !important; border-radius: 999px !important; background: var(--ui-line-soft) !important; }
+        .report-analytics-page .ra-section { margin-bottom: 16px !important; }
+        .report-analytics-page h3 { margin: 0 !important; color: var(--ui-ink) !important; font-size: 14px !important; font-weight: 700 !important; letter-spacing: normal !important; }
+        .report-analytics-page .ra-sub { margin: 3px 0 0 !important; color: var(--ui-subtle) !important; font-size: 11.5px !important; }
+        .report-analytics-page .ra-head { display: flex !important; align-items: flex-start !important; justify-content: space-between !important; gap: 12px !important; margin-bottom: 16px !important; }
+        .report-analytics-page .ra-empty { color: var(--ui-subtle) !important; font-size: 12px !important; }
+        .report-analytics-page a.ra-link { color: inherit !important; -webkit-text-fill-color: currentColor !important; text-decoration: none !important; }
+        .report-analytics-page a.ra-link:hover strong { color: var(--ui-primary) !important; text-decoration: underline !important; }
+
+        /* Export menu (page header) */
+        .ra-export-wrap { position: relative; }
+        .ra-export-wrap .ra-button { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border: 1px solid var(--ui-line-strong); border-radius: var(--ui-radius); background: #fff; color: var(--ui-ink-2); font: 600 12.5px/1 var(--ui-font); cursor: pointer; }
+        .ra-export-wrap .ra-button:hover { border-color: var(--ui-primary-line); background: var(--ui-primary-soft); color: var(--ui-primary); }
+        .ra-export-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 40; min-width: 180px; padding: 5px; border: 1px solid var(--ui-line-strong); border-radius: var(--ui-radius-lg); background: #fff; box-shadow: 0 16px 32px rgba(27, 36, 32, .15); }
+        .ra-export-menu a { display: flex; align-items: center; gap: 9px; min-height: 34px; padding: 0 10px; border-radius: 7px; color: var(--ui-ink-2); font: 600 12.5px/1 var(--ui-font); text-decoration: none; }
+        .ra-export-menu a:hover { background: var(--ui-primary-soft); color: var(--ui-primary); }
+
+        /* Filters */
+        .report-analytics-page .ra-filters { padding: 14px 16px !important; }
+        .report-analytics-page .ra-presets { display: flex !important; flex-wrap: wrap !important; gap: 6px !important; margin-bottom: 12px !important; }
+        .report-analytics-page .ra-preset { display: inline-flex !important; align-items: center !important; height: 30px !important; padding: 0 12px !important; border: 1px solid var(--ui-line-strong) !important; border-radius: 999px !important; background: #fff !important; color: var(--ui-ink-2) !important; -webkit-text-fill-color: var(--ui-ink-2) !important; font-size: 12px !important; font-weight: 600 !important; text-decoration: none !important; transition: background .15s ease, border-color .15s ease !important; }
+        .report-analytics-page .ra-preset:hover { border-color: var(--ui-primary-line) !important; background: var(--ui-primary-soft) !important; }
+        .report-analytics-page .ra-preset.is-active { border-color: var(--ui-primary) !important; background: var(--ui-primary) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; }
+        .report-analytics-page .ra-filter-row { display: flex !important; flex-wrap: wrap !important; align-items: flex-end !important; gap: 10px !important; }
+        .report-analytics-page .ra-field { display: flex !important; flex: 1 1 150px !important; flex-direction: column !important; gap: 5px !important; min-width: 140px !important; }
+        .report-analytics-page .ra-field span { color: var(--ui-muted) !important; font-size: 11.5px !important; font-weight: 600 !important; }
+        .report-analytics-page .ra-field input,
+        .report-analytics-page .ra-field select { width: 100% !important; height: 38px !important; box-sizing: border-box !important; margin: 0 !important; padding: 0 10px !important; border: 1px solid var(--ui-line-strong) !important; border-radius: var(--ui-radius) !important; background: #fff !important; color: var(--ui-ink) !important; font: 400 13px/1.2 var(--ui-font) !important; box-shadow: none !important; }
+        .report-analytics-page .ra-field input:focus,
+        .report-analytics-page .ra-field select:focus { border-color: var(--ui-primary) !important; box-shadow: var(--ui-focus) !important; outline: none !important; }
+        .report-analytics-page .ra-filter-actions { display: flex !important; gap: 8px !important; }
+        .report-analytics-page .ra-btn { display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 7px !important; height: 38px !important; padding: 0 16px !important; border: 1px solid var(--ui-line-strong) !important; border-radius: var(--ui-radius) !important; background: #fff !important; color: var(--ui-ink-2) !important; -webkit-text-fill-color: var(--ui-ink-2) !important; font: 600 12.5px/1 var(--ui-font) !important; text-decoration: none !important; box-shadow: none !important; cursor: pointer !important; }
+        .report-analytics-page .ra-btn:hover { background: var(--ui-surface-2) !important; }
+        .report-analytics-page :is(.ra-btn.is-primary, #ra-x#ra-x) { border-color: var(--ui-primary) !important; background: var(--ui-primary) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; }
+        .report-analytics-page :is(.ra-btn.is-primary, #ra-x#ra-x):hover { background: var(--ui-primary-hover) !important; }
+        .report-analytics-page .ra-chips { display: flex !important; flex-wrap: wrap !important; align-items: center !important; gap: 6px !important; margin-top: 12px !important; color: var(--ui-muted) !important; font-size: 12px !important; }
+        .report-analytics-page .ra-chip { display: inline-flex !important; align-items: center !important; gap: 7px !important; height: 26px !important; padding: 0 6px 0 10px !important; border-radius: 999px !important; background: var(--ui-primary-soft) !important; color: var(--ui-primary) !important; font-size: 12px !important; font-weight: 600 !important; }
+        .report-analytics-page .ra-chip a { display: grid !important; width: 18px !important; height: 18px !important; place-items: center !important; border-radius: 50% !important; color: var(--ui-primary) !important; -webkit-text-fill-color: var(--ui-primary) !important; text-decoration: none !important; font-size: 10px !important; }
+        .report-analytics-page .ra-chip a:hover { background: rgba(29, 79, 64, .15) !important; }
+
+        /* KPI cards */
+        .report-analytics-page .ra-kpis { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 12px !important; }
+        .report-analytics-page .ra-kpi { position: relative !important; padding: 16px !important; overflow: hidden !important; }
+        .report-analytics-page .ra-kpi-top { display: flex !important; align-items: center !important; gap: 10px !important; }
+        .report-analytics-page .ra-kpi-icon { display: grid !important; flex: 0 0 34px !important; width: 34px !important; height: 34px !important; place-items: center !important; border-radius: var(--ui-radius-lg) !important; font-size: 14px !important; }
+        .report-analytics-page .ra-kpi-label { color: var(--ui-muted) !important; font-size: 12px !important; font-weight: 600 !important; }
+        .report-analytics-page .ra-kpi-value { display: block !important; margin-top: 12px !important; color: var(--ui-ink) !important; font-size: 26px !important; font-weight: 700 !important; line-height: 1.05 !important; font-variant-numeric: tabular-nums !important; letter-spacing: -.02em !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+        .report-analytics-page .ra-kpi-note { display: block !important; margin-top: 6px !important; color: var(--ui-subtle) !important; font-size: 11.5px !important; line-height: 1.4 !important; }
+        .report-analytics-page .tone-blue .ra-kpi-icon { background: var(--ui-primary-soft) !important; color: var(--ui-primary) !important; }
+        .report-analytics-page .tone-green .ra-kpi-icon { background: #ecfdf5 !important; color: #059669 !important; }
+        .report-analytics-page .tone-violet .ra-kpi-icon { background: #f5f3ff !important; color: #7c3aed !important; }
+        .report-analytics-page .tone-gold .ra-kpi-icon { background: #fffbeb !important; color: #d97706 !important; }
+        .report-analytics-page .tone-sky .ra-kpi-icon { background: #f0f9ff !important; color: #0284c7 !important; }
+        .report-analytics-page .tone-red .ra-kpi-icon { background: #fef2f2 !important; color: #dc2626 !important; }
+
+        /* Pipeline funnel */
+        .report-analytics-page .ra-pipeline { padding: 18px !important; }
+        .report-analytics-page .ra-funnel { display: grid !important; gap: 8px !important; margin: 0 !important; padding: 0 !important; list-style: none !important; }
+        .report-analytics-page .ra-funnel li { display: grid !important; grid-template-columns: 150px minmax(0, 1fr) 44px 92px !important; align-items: center !important; gap: 12px !important; }
+        .report-analytics-page .ra-funnel-label { color: var(--ui-ink-2) !important; font-size: 12.5px !important; font-weight: 600 !important; }
+        .report-analytics-page .ra-funnel-track { position: relative !important; height: 22px !important; border-radius: 6px !important; background: var(--ui-line-soft) !important; overflow: hidden !important; }
+        .report-analytics-page .ra-funnel-fill { display: block !important; width: var(--bar-width) !important; height: 100% !important; border-radius: 6px !important; background: linear-gradient(90deg, #1d4f40, #2f7d63) !important; }
+        .report-analytics-page .ra-funnel-count { color: var(--ui-ink) !important; font-size: 13px !important; font-weight: 700 !important; text-align: right !important; font-variant-numeric: tabular-nums !important; }
+        .report-analytics-page .ra-funnel-here { justify-self: start !important; padding: 2px 8px !important; border-radius: 999px !important; background: var(--ui-surface-2) !important; color: var(--ui-muted) !important; font-size: 11px !important; font-weight: 600 !important; white-space: nowrap !important; }
+        .report-analytics-page .ra-funnel-here.is-busy { background: #fffbeb !important; color: #b45309 !important; }
+        .report-analytics-page .ra-funnel-foot { display: flex !important; flex-wrap: wrap !important; gap: 14px !important; margin-top: 14px !important; color: var(--ui-muted) !important; font-size: 12px !important; }
+
+        /* Monitoring */
+        .report-analytics-page .ra-monitor-grid { display: grid !important; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) !important; gap: 12px !important; }
+        .report-analytics-page .ra-monitor { padding: 16px !important; }
+        .report-analytics-page .ra-count { display: inline-grid !important; min-width: 28px !important; height: 28px !important; padding: 0 8px !important; place-items: center !important; border-radius: 999px !important; background: var(--ui-primary-soft) !important; color: var(--ui-primary) !important; font-size: 12.5px !important; font-weight: 700 !important; }
+        .report-analytics-page .ra-count.is-danger { background: #fef2f2 !important; color: #b91c1c !important; }
+        .report-analytics-page .ra-count.is-warning { background: #fffbeb !important; color: #b45309 !important; }
+        .report-analytics-page .ra-list { display: grid !important; margin: 0 !important; padding: 0 !important; list-style: none !important; }
+        .report-analytics-page .ra-list li { display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 12px !important; min-width: 0 !important; padding: 9px 0 !important; border-top: 1px solid var(--ui-line-soft) !important; }
+        .report-analytics-page .ra-list li:first-child { padding-top: 0 !important; border-top: 0 !important; }
+        .report-analytics-page .ra-list strong { overflow: hidden !important; color: var(--ui-ink-2) !important; font-size: 12.5px !important; font-weight: 600 !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
+        .report-analytics-page .ra-list span { flex: 0 0 auto !important; color: var(--ui-subtle) !important; font-size: 11.5px !important; }
+        .report-analytics-page .ra-reason { padding: 3px 9px !important; border-radius: 999px !important; font-size: 11.5px !important; font-weight: 600 !important; white-space: nowrap !important; }
+        .report-analytics-page .ra-reason.is-danger { background: #fef2f2 !important; color: #b91c1c !important; }
+        .report-analytics-page .ra-reason.is-warning { background: #fffbeb !important; color: #b45309 !important; }
+        .report-analytics-page .ra-reason.is-info { background: #f0f9ff !important; color: #0369a1 !important; }
+
+        /* Upcoming schedule */
+        .report-analytics-page .ra-agenda { padding: 18px !important; }
+        .report-analytics-page .ra-days { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)) !important; gap: 12px !important; }
+        .report-analytics-page .ra-day { padding: 12px !important; border: 1px solid var(--ui-line) !important; border-radius: var(--ui-radius-lg) !important; background: var(--ui-surface-2) !important; }
+        .report-analytics-page .ra-day.is-today { border-color: var(--ui-primary-line) !important; background: var(--ui-primary-soft) !important; }
+        .report-analytics-page .ra-day-head { display: flex !important; align-items: baseline !important; gap: 8px !important; margin-bottom: 8px !important; }
+        .report-analytics-page .ra-day-head strong { color: var(--ui-ink) !important; font-size: 13px !important; }
+        .report-analytics-page .ra-day-head span { color: var(--ui-muted) !important; font-size: 11.5px !important; }
+        .report-analytics-page .ra-event { display: grid !important; grid-template-columns: 28px minmax(0, 1fr) !important; gap: 8px !important; align-items: start !important; padding: 7px 0 !important; border-top: 1px solid rgba(0, 0, 0, .05) !important; }
+        .report-analytics-page .ra-event:first-of-type { border-top: 0 !important; }
+        .report-analytics-page .ra-event-icon { display: grid !important; width: 28px !important; height: 28px !important; place-items: center !important; border-radius: 8px !important; background: #fff !important; font-size: 12px !important; }
+        .report-analytics-page .ra-event.is-deadline .ra-event-icon { color: #b45309 !important; }
+        .report-analytics-page .ra-event.is-opening .ra-event-icon { color: var(--ui-primary) !important; }
+        .report-analytics-page .ra-event.is-pre_bid .ra-event-icon { color: #0369a1 !important; }
+        .report-analytics-page .ra-event strong { display: block !important; overflow: hidden !important; color: var(--ui-ink-2) !important; font-size: 12.5px !important; font-weight: 600 !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
+        .report-analytics-page .ra-event small { display: block !important; color: var(--ui-muted) !important; font-size: 11.5px !important; }
+
+        /* Charts */
+        .report-analytics-page .ra-chart-grid { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px !important; }
+        .report-analytics-page .ra-chart { position: relative !important; padding: 18px !important; }
+        .report-analytics-page .ra-chart.is-wide { grid-column: 1 / -1 !important; }
+        .report-analytics-page .ra-legend { display: flex !important; flex-wrap: wrap !important; justify-content: flex-end !important; gap: 6px 12px !important; }
+        .report-analytics-page .ra-legend span { display: inline-flex !important; align-items: center !important; gap: 6px !important; color: var(--ui-muted) !important; font-size: 11.5px !important; }
+        .report-analytics-page .ra-dot { display: inline-block !important; flex: 0 0 8px !important; width: 8px !important; height: 8px !important; border-radius: 50% !important; background: var(--dot) !important; }
+        .report-analytics-page .ra-donut-wrap { display: grid !important; grid-template-columns: 170px minmax(0, 1fr) !important; gap: 20px !important; align-items: center !important; }
+        .report-analytics-page .ra-donut { width: 170px !important; height: 170px !important; }
+        .report-analytics-page .ra-donut circle { fill: none !important; stroke-width: 16 !important; }
+        .report-analytics-page .ra-donut-total { fill: var(--ui-ink) !important; font: 700 22px var(--ui-font) !important; }
+        .report-analytics-page .ra-donut-caption { fill: var(--ui-muted) !important; font: 600 8px var(--ui-font) !important; }
+        .report-analytics-page .ra-rows { display: grid !important; gap: 9px !important; }
+        .report-analytics-page .ra-row { display: grid !important; grid-template-columns: minmax(110px, 1.1fr) minmax(70px, 2fr) 36px !important; align-items: center !important; gap: 10px !important; }
+        .report-analytics-page .ra-row-label { display: flex !important; align-items: center !important; gap: 7px !important; min-width: 0 !important; overflow: hidden !important; color: var(--ui-ink-2) !important; font-size: 12px !important; font-weight: 600 !important; white-space: nowrap !important; text-overflow: ellipsis !important; }
+        .report-analytics-page .ra-row-label > span:last-child { overflow: hidden !important; text-overflow: ellipsis !important; }
+        /* Stage names next to the donut are long: give them room and let them wrap. */
+        .report-analytics-page .ra-donut-wrap .ra-row { grid-template-columns: minmax(150px, 1.7fr) minmax(50px, 1fr) 28px !important; }
+        .report-analytics-page .ra-donut-wrap .ra-row-label { white-space: normal !important; line-height: 1.3 !important; }
+        .report-analytics-page .ra-track { height: 8px !important; border-radius: 999px !important; background: var(--ui-line-soft) !important; overflow: hidden !important; }
         .report-analytics-page .ra-fill { display: block !important; width: var(--bar-width) !important; height: 100% !important; border-radius: inherit !important; background: var(--bar-color, var(--ui-primary)) !important; }
-        .report-analytics-page .ra-stat-value { color: var(--ui-ink) !important; font-size: 11px !important; font-weight: 700 !important; text-align: right !important; }
-        .report-analytics-page .ra-month-chart { display: grid !important; grid-template-columns: repeat(12, minmax(30px, 1fr)) !important; align-items: end !important; gap: 8px !important; min-height: 160px !important; padding: 8px 0 0 !important; border-bottom: 1px solid var(--ui-line) !important; }
-        .report-analytics-page .ra-month-column { display: flex !important; flex-direction: column !important; justify-content: flex-end !important; gap: 5px !important; min-width: 0 !important; height: 145px !important; }
-        .report-analytics-page .ra-month-bars { display: flex !important; align-items: flex-end !important; justify-content: center !important; gap: 2px !important; height: 116px !important; }
-        .report-analytics-page .ra-month-bar { width: 7px !important; min-height: 2px !important; height: var(--bar-height) !important; border-radius: 3px 3px 0 0 !important; background: var(--bar-color) !important; }
-        .report-analytics-page .ra-month-label { overflow: hidden !important; color: var(--ui-subtle) !important; font-size: 9px !important; text-align: center !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
-        .report-analytics-page .ra-chart-note { margin-top: 10px !important; color: var(--ui-subtle) !important; font-size: 10px !important; }
-        .report-analytics-page .ra-compare-row { display: grid !important; grid-template-columns: 125px minmax(0, 1fr) 94px !important; align-items: center !important; gap: 10px !important; margin-bottom: 12px !important; }
-        .report-analytics-page .ra-compare-label { overflow: hidden !important; color: var(--ui-ink-2) !important; font-size: 11px !important; font-weight: 600 !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
+        .report-analytics-page .ra-row-value { color: var(--ui-ink) !important; font-size: 12px !important; font-weight: 700 !important; text-align: right !important; font-variant-numeric: tabular-nums !important; }
+        .report-analytics-page .ra-months { display: grid !important; grid-template-columns: repeat(12, minmax(34px, 1fr)) !important; align-items: end !important; gap: 8px !important; height: 190px !important; padding-top: 6px !important; border-bottom: 1px solid var(--ui-line) !important; }
+        .report-analytics-page .ra-month { display: flex !important; flex-direction: column !important; justify-content: flex-end !important; gap: 6px !important; height: 100% !important; min-width: 0 !important; border-radius: 6px !important; outline: none !important; cursor: default !important; }
+        .report-analytics-page .ra-month:hover,
+        .report-analytics-page .ra-month:focus-visible { background: var(--ui-surface-2) !important; }
+        .report-analytics-page .ra-month-bars { display: flex !important; align-items: flex-end !important; justify-content: center !important; gap: 3px !important; height: 150px !important; }
+        .report-analytics-page .ra-month-bar { width: 8px !important; height: var(--bar-height) !important; min-height: 2px !important; border-radius: 3px 3px 0 0 !important; background: var(--bar-color) !important; transform-origin: bottom !important; }
+        .report-analytics-page .ra-month-label { overflow: hidden !important; color: var(--ui-subtle) !important; font-size: 10.5px !important; text-align: center !important; white-space: nowrap !important; text-overflow: ellipsis !important; }
+        .report-analytics-page .ra-tooltip { position: absolute !important; z-index: 5 !important; padding: 8px 10px !important; border-radius: 8px !important; background: #1b2420 !important; color: #fff !important; font-size: 11.5px !important; line-height: 1.5 !important; white-space: nowrap !important; pointer-events: none !important; box-shadow: 0 10px 24px rgba(0, 0, 0, .18) !important; transform: translate(-50%, -100%) !important; }
+        .report-analytics-page .ra-tooltip[hidden] { display: none !important; }
+        .report-analytics-page .ra-compare { display: grid !important; grid-template-columns: 130px minmax(0, 1fr) 110px !important; align-items: center !important; gap: 10px !important; margin-bottom: 12px !important; }
         .report-analytics-page .ra-compare-bars { display: grid !important; gap: 4px !important; }
-        .report-analytics-page .ra-compare-bar { display: block !important; width: var(--bar-width) !important; height: 7px !important; border-radius: 999px !important; background: var(--bar-color) !important; }
-        .report-analytics-page .ra-compare-amount { color: var(--ui-muted) !important; font-size: 10px !important; text-align: right !important; white-space: nowrap !important; }
-        .report-analytics-page .ra-compare-key { display: flex !important; gap: 12px !important; margin-top: 12px !important; }
-        .report-analytics-page .ra-compare-key span { display: inline-flex !important; align-items: center !important; gap: 5px !important; color: var(--ui-muted) !important; font-size: 10px !important; }
-        .report-analytics-page .ra-compare-key i { width: 8px !important; height: 8px !important; border-radius: 2px !important; }
-        .report-analytics-page .ra-monitor-card.ra-danger .ra-monitor-count { background: #fef2f2 !important; color: #b91c1c !important; }
-        .report-analytics-page .ra-monitor-card.ra-warning .ra-monitor-count { background: #fffbeb !important; color: #b45309 !important; }
-        @media (max-width: 1250px) {
-            .report-analytics-page .ra-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
-            .report-analytics-page .ra-monitor-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        .report-analytics-page .ra-compare-bars .ra-fill { height: 8px !important; border-radius: 999px !important; }
+        .report-analytics-page .ra-compare-amount { color: var(--ui-ink-2) !important; font-size: 11.5px !important; font-weight: 600 !important; text-align: right !important; white-space: nowrap !important; }
+        .report-analytics-page .ra-compare-amount small { display: block !important; color: #047857 !important; font-size: 10.5px !important; font-weight: 600 !important; }
+
+        /* Animation: only when JS runs and motion is welcome (see the script below). */
+        .report-analytics-page.ra-animate .ra-anim .ra-fill,
+        .report-analytics-page.ra-animate .ra-anim .ra-funnel-fill { width: 0 !important; transition: width .9s cubic-bezier(.2, .8, .2, 1) calc(var(--i, 0) * 70ms) !important; }
+        .report-analytics-page.ra-animate .ra-anim.is-visible .ra-fill,
+        .report-analytics-page.ra-animate .ra-anim.is-visible .ra-funnel-fill { width: var(--bar-width) !important; }
+        .report-analytics-page.ra-animate .ra-anim .ra-month-bar { transform: scaleY(0) !important; transition: transform .8s cubic-bezier(.2, .8, .2, 1) calc(var(--i, 0) * 45ms) !important; }
+        .report-analytics-page.ra-animate .ra-anim.is-visible .ra-month-bar { transform: scaleY(1) !important; }
+        .report-analytics-page.ra-animate .ra-anim .ra-donut-seg { stroke-dasharray: 0 999 !important; transition: stroke-dasharray 1s cubic-bezier(.2, .8, .2, 1) calc(var(--i, 0) * 90ms) !important; }
+        .report-analytics-page.ra-animate .ra-anim.is-visible .ra-donut-seg { stroke-dasharray: var(--len) 999 !important; }
+        .report-analytics-page.ra-animate .ra-rise { opacity: 0; transform: translateY(8px); transition: opacity .5s ease calc(var(--i, 0) * 60ms), transform .5s ease calc(var(--i, 0) * 60ms); }
+        .report-analytics-page.ra-animate .ra-rise.is-visible { opacity: 1; transform: none; }
+
+        @media (max-width: 1200px) {
+            .report-analytics-page .ra-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+            .report-analytics-page .ra-monitor-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
+            .report-analytics-page .ra-monitor-grid > :first-child { grid-column: 1 / -1 !important; }
         }
         @media (max-width: 760px) {
-            .report-analytics-page .ra-intro { flex-direction: column !important; }
-            .report-analytics-page .ra-filter-card { align-items: stretch !important; }
-            .report-analytics-page .ra-filter-field { flex-basis: calc(50% - 8px) !important; }
+            .report-analytics-page .ra-chart-grid,
+            .report-analytics-page .ra-monitor-grid { grid-template-columns: minmax(0, 1fr) !important; }
+            .report-analytics-page .ra-chart.is-wide { grid-column: auto !important; }
+            .report-analytics-page .ra-months { overflow-x: auto !important; grid-template-columns: repeat(12, 40px) !important; }
+            .report-analytics-page .ra-donut-wrap { grid-template-columns: minmax(0, 1fr) !important; justify-items: center !important; }
+            .report-analytics-page .ra-donut-wrap .ra-rows { width: 100% !important; }
+            .report-analytics-page .ra-funnel li { grid-template-columns: 110px minmax(0, 1fr) 32px !important; }
+            .report-analytics-page .ra-funnel-here { display: none !important; }
             .report-analytics-page .ra-filter-actions { width: 100% !important; }
             .report-analytics-page .ra-filter-actions > * { flex: 1 1 0 !important; }
-            .report-analytics-page .ra-chart-grid { grid-template-columns: 1fr !important; }
-            .report-analytics-page .ra-chart-card.ra-chart-wide { grid-column: auto !important; }
-            .report-analytics-page .ra-month-chart { overflow-x: auto !important; grid-template-columns: repeat(12, 42px) !important; }
         }
         @media (max-width: 520px) {
-            .report-analytics-page .ra-summary-grid,
-            .report-analytics-page .ra-monitor-grid { grid-template-columns: 1fr !important; }
-            .report-analytics-page .ra-filter-field { flex-basis: 100% !important; }
-            .report-analytics-page .ra-filter-actions { flex-wrap: wrap !important; }
-            .report-analytics-page .ra-filter-actions > * { flex-basis: calc(50% - 4px) !important; }
-            .report-analytics-page .ra-stat-row { grid-template-columns: 1fr 1.3fr 32px !important; }
-            .report-analytics-page .ra-compare-row { grid-template-columns: 90px minmax(0, 1fr) 78px !important; }
+            .report-analytics-page .ra-kpis { grid-template-columns: minmax(0, 1fr) !important; }
+            .report-analytics-page .ra-field { flex-basis: 100% !important; }
+            .report-analytics-page .ra-compare { grid-template-columns: 90px minmax(0, 1fr) 90px !important; }
+            .report-analytics-page .ra-head { flex-direction: column !important; }
+            .report-analytics-page .ra-legend { justify-content: flex-start !important; }
         }
     </style>
 
     @include('partials.admin-sidebar')
 
     <div class="main-area">
-        <x-page-header title="Report analytics" subtitle="BAC procurement performance and monitoring dashboard" />
-
-        <main class="dashboard-content reports-page report-analytics-page">
-            <section class="ra-intro">
-                <div>
-                    <h1>Report Analytics</h1>
-                    <p>Monitor procurement performance, bid outcomes, and bidder activity from live BAC records.</p>
-                </div>
+        <x-page-header title="Report analytics" subtitle="Procurement performance and what needs the BAC's attention, from live records">
+            <x-slot:actions>
                 <div class="ra-export-wrap">
-                    <button type="button" id="reportExportToggle" class="ra-secondary-button" aria-expanded="false" aria-controls="reportExportMenu">
-                        <i class="fas fa-download" aria-hidden="true"></i>
-                        <span>Export Analytics</span>
-                        <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                    <button type="button" id="reportExportToggle" class="ra-button" aria-expanded="false" aria-controls="reportExportMenu">
+                        <i class="fas fa-download" aria-hidden="true"></i> Export <i class="fas fa-chevron-down" aria-hidden="true"></i>
                     </button>
                     <div id="reportExportMenu" class="ra-export-menu" hidden>
-                        <a href="{{ route('admin.reports.print', $filterQuery) }}"><i class="fas fa-file-pdf" aria-hidden="true"></i>Export PDF</a>
-                        <a href="{{ route('admin.reports.export.csv', $filterQuery) }}"><i class="fas fa-file-excel" aria-hidden="true"></i>Export Excel</a>
+                        <a href="{{ route('admin.reports.print', $filterQuery) }}"><i class="fas fa-file-pdf" aria-hidden="true"></i>PDF report</a>
+                        <a href="{{ route('admin.reports.export.csv', $filterQuery) }}"><i class="fas fa-file-excel" aria-hidden="true"></i>Excel (CSV)</a>
                     </div>
                 </div>
-            </section>
+            </x-slot:actions>
+        </x-page-header>
 
-            <form method="GET" action="{{ route('admin.reports') }}" class="ra-filter-card" aria-label="Report filters">
-                <label class="ra-filter-field">
-                    <span>Date from</span>
-                    <input type="date" name="date_from" value="{{ $filters['date_from'] }}">
-                </label>
-                <label class="ra-filter-field">
-                    <span>Date to</span>
-                    <input type="date" name="date_to" value="{{ $filters['date_to'] }}">
-                </label>
-                <label class="ra-filter-field">
-                    <span>Status</span>
-                    <select name="status">
-                        <option value="">All statuses</option>
-                        @foreach($statusOptions as $statusKey => $statusLabel)
-                            <option value="{{ $statusKey }}" @selected($filters['status'] === $statusKey)>{{ $statusLabel }}</option>
-                        @endforeach
-                    </select>
-                </label>
-                <label class="ra-filter-field">
-                    <span>Procurement type</span>
-                    <select name="procurement_type">
-                        <option value="">All procurement types</option>
-                        @foreach($procurementTypeOptions as $typeKey => $typeLabel)
-                            <option value="{{ $typeKey }}" @selected($filters['procurement_type'] === $typeKey)>{{ $typeLabel }}</option>
-                        @endforeach
-                    </select>
-                </label>
-                <div class="ra-filter-actions">
-                    <button type="submit" class="ra-primary-button"><i class="fas fa-filter" aria-hidden="true"></i>&nbsp;Apply</button>
-                    <a href="{{ route('admin.reports') }}" class="ra-secondary-button">Reset</a>
+        <main class="dashboard-content reports-page report-analytics-page">
+            <script>
+                // Animate only with JS and when the viewer has not asked for reduced motion.
+                if (!window.matchMedia || !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                    document.currentScript.parentElement.classList.add('ra-animate');
+                }
+            </script>
+
+            <form method="GET" action="{{ route('admin.reports') }}" class="ra-card ra-filters ra-section" aria-label="Report filters">
+                <div class="ra-presets" aria-label="Quick date ranges">
+                    @foreach($datePresets as $preset)
+                        <a href="{{ $preset['url'] }}" class="ra-preset {{ $preset['active'] ? 'is-active' : '' }}" @if($preset['active']) aria-current="true" @endif>{{ $preset['label'] }}</a>
+                    @endforeach
                 </div>
+                <div class="ra-filter-row">
+                    <label class="ra-field">
+                        <span>Date from</span>
+                        <input type="date" name="date_from" value="{{ $filters['date_from'] }}">
+                    </label>
+                    <label class="ra-field">
+                        <span>Date to</span>
+                        <input type="date" name="date_to" value="{{ $filters['date_to'] }}">
+                    </label>
+                    <label class="ra-field">
+                        <span>Status</span>
+                        <select name="status">
+                            <option value="">All statuses</option>
+                            @foreach($statusOptions as $statusKey => $statusLabel)
+                                <option value="{{ $statusKey }}" @selected($filters['status'] === $statusKey)>{{ $statusLabel }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                    <label class="ra-field">
+                        <span>Procurement type</span>
+                        <select name="procurement_type">
+                            <option value="">All procurement types</option>
+                            @foreach($procurementTypeOptions as $typeKey => $typeLabel)
+                                <option value="{{ $typeKey }}" @selected($filters['procurement_type'] === $typeKey)>{{ $typeLabel }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                    <div class="ra-filter-actions">
+                        <button type="submit" class="ra-btn is-primary"><i class="fas fa-filter" aria-hidden="true"></i> Apply</button>
+                        <a href="{{ route('admin.reports') }}" class="ra-btn">Reset</a>
+                    </div>
+                </div>
+                @if($activeFilters !== [])
+                    <div class="ra-chips">
+                        <span>Showing:</span>
+                        @foreach($activeFilters as $key => $label)
+                            <span class="ra-chip">{{ $label }} <a href="{{ $withoutFilter($key) }}" aria-label="Remove filter {{ $label }}"><i class="fas fa-xmark" aria-hidden="true"></i></a></span>
+                        @endforeach
+                    </div>
+                @endif
             </form>
 
-            <section class="ra-summary-grid" aria-label="Analytics summary">
+            <section class="ra-kpis ra-section" aria-label="Key figures">
                 @foreach($summaryCards as $card)
-                    <article class="ra-summary-card">
-                        <div class="ra-summary-top">
-                            <span class="ra-summary-icon {{ $card['tone'] }}"><i class="fas {{ $card['icon'] }}" aria-hidden="true"></i></span>
+                    <article class="ra-card ra-kpi tone-{{ $card['tone'] }} ra-rise" style="--i: {{ $loop->index }}">
+                        <div class="ra-kpi-top">
+                            <span class="ra-kpi-icon"><i class="fas {{ $card['icon'] }}" aria-hidden="true"></i></span>
+                            <span class="ra-kpi-label">{{ $card['label'] }}</span>
                         </div>
-                        <span class="ra-summary-label">{{ $card['label'] }}</span>
-                        <strong class="ra-summary-value">{{ number_format((int) $card['value']) }}</strong>
-                        <span class="ra-summary-note">{{ $card['note'] }}</span>
+                        <strong class="ra-kpi-value" @if($card['value'] !== null) data-count="{{ $card['value'] }}" data-format="{{ $card['format'] }}" @endif>{{ $card['display'] }}</strong>
+                        <span class="ra-kpi-note">{{ $card['note'] }}</span>
                     </article>
                 @endforeach
             </section>
 
-            <section class="ra-monitor-grid" aria-label="Procurement monitoring">
-                <article class="ra-monitor-card">
-                    <div class="ra-monitor-head">
-                        <div><h3>Upcoming Deadlines</h3><p>Next 30 days</p></div>
-                        <span class="ra-monitor-count">{{ $monitoring['upcoming_deadlines']['count'] }}</span>
+            <section class="ra-card ra-pipeline ra-section ra-anim" aria-label="Procurement pipeline">
+                <div class="ra-head">
+                    <div>
+                        <h3>Procurement pipeline</h3>
+                        <p class="ra-sub">How far the projects have gone. The bar counts every project that reached the stage; the tag shows the ones stopped there now.</p>
                     </div>
-                    <ul class="ra-monitor-list">
-                        @forelse($monitoring['upcoming_deadlines']['items'] as $row)
-                            <li class="ra-monitor-item"><strong>{{ $row['project']->title }}</strong><span>{{ $row['deadline']->format('M d, Y') }}</span></li>
+                </div>
+                <ol class="ra-funnel">
+                    @foreach($pipeline['stages'] as $stage)
+                        <li>
+                            <span class="ra-funnel-label">{{ $stage['label'] }}</span>
+                            <span class="ra-funnel-track"><span class="ra-funnel-fill" style="--bar-width: {{ $stage['reached'] / $pipelineTotal * 100 }}%; --i: {{ $loop->index }}"></span></span>
+                            <span class="ra-funnel-count">{{ $stage['reached'] }}</span>
+                            <span class="ra-funnel-here {{ $stage['here'] > 0 && $stage['key'] !== 'completed' ? 'is-busy' : '' }}">{{ $stage['here'] }} here now</span>
+                        </li>
+                    @endforeach
+                </ol>
+                <div class="ra-funnel-foot">
+                    <span><i class="fas fa-folder-open" aria-hidden="true"></i> {{ $pipeline['total'] }} {{ \Illuminate\Support\Str::plural('project', $pipeline['total']) }} in range</span>
+                    <span><i class="fas fa-circle-xmark" aria-hidden="true" style="color:#ef4444"></i> {{ $pipeline['failed'] }} failed {{ \Illuminate\Support\Str::plural('bidding', $pipeline['failed']) }}</span>
+                </div>
+            </section>
+
+            <section class="ra-monitor-grid ra-section" aria-label="Needs attention">
+                <article class="ra-card ra-monitor ra-rise">
+                    <div class="ra-head">
+                        <div><h3>Needs action</h3><p class="ra-sub">Waiting on the BAC, by the saved schedule and recorded decisions</p></div>
+                        <span class="ra-count {{ $monitoring['needs_action']['count'] ? 'is-danger' : '' }}">{{ $monitoring['needs_action']['count'] }}</span>
+                    </div>
+                    <ul class="ra-list">
+                        @forelse($monitoring['needs_action']['items'] as $row)
+                            <li>
+                                <a href="{{ route('admin.project.view', $row['project']) }}" class="ra-link" style="min-width:0"><strong>{{ $row['project']->title }}</strong></a>
+                                <span class="ra-reason is-{{ $row['tone'] }}">{{ $row['reason'] }}</span>
+                            </li>
                         @empty
-                            <li class="ra-empty">No upcoming deadlines in the selected data.</li>
+                            <li class="ra-empty">Nothing is waiting on the BAC.</li>
                         @endforelse
                     </ul>
                 </article>
-                <article class="ra-monitor-card ra-danger">
-                    <div class="ra-monitor-head">
-                        <div><h3>Overdue Projects</h3><p>Open or pending procurement</p></div>
-                        <span class="ra-monitor-count">{{ $monitoring['overdue_projects']['count'] }}</span>
+                <article class="ra-card ra-monitor ra-rise" style="--i: 1">
+                    <div class="ra-head">
+                        <div><h3>Bidder validations</h3><p class="ra-sub">Registrations to review</p></div>
+                        <span class="ra-count {{ $monitoring['pending_bidder_validations']['count'] ? 'is-warning' : '' }}">{{ $monitoring['pending_bidder_validations']['count'] }}</span>
                     </div>
-                    <ul class="ra-monitor-list">
-                        @forelse($monitoring['overdue_projects']['items'] as $row)
-                            <li class="ra-monitor-item"><strong>{{ $row['project']->title }}</strong><span>{{ $row['deadline']->format('M d, Y') }}</span></li>
-                        @empty
-                            <li class="ra-empty">No overdue projects in the selected data.</li>
-                        @endforelse
-                    </ul>
-                </article>
-                <article class="ra-monitor-card ra-warning">
-                    <div class="ra-monitor-head">
-                        <div><h3>Pending Bidder Validations</h3><p>Registration review queue</p></div>
-                        <span class="ra-monitor-count">{{ $monitoring['pending_bidder_validations']['count'] }}</span>
-                    </div>
-                    <ul class="ra-monitor-list">
+                    <ul class="ra-list">
                         @forelse($monitoring['pending_bidder_validations']['items'] as $user)
-                            <li class="ra-monitor-item"><strong>{{ $user->company ?: $user->name }}</strong><span>{{ $user->created_at?->format('M d, Y') }}</span></li>
+                            <li><a href="{{ route('admin.users.review', $user) }}" class="ra-link" style="min-width:0"><strong>{{ $user->company ?: $user->name }}</strong></a><span>{{ $user->created_at?->timezone($tz)->format('M d') }}</span></li>
                         @empty
-                            <li class="ra-empty">No pending bidder validations.</li>
+                            <li class="ra-empty">No pending registrations.</li>
                         @endforelse
                     </ul>
                 </article>
-                <article class="ra-monitor-card">
-                    <div class="ra-monitor-head">
-                        <div><h3>Awaiting BAC Evaluation</h3><p>Bids for committee review</p></div>
-                        <span class="ra-monitor-count">{{ $monitoring['awaiting_bac_evaluation']['count'] }}</span>
+                <article class="ra-card ra-monitor ra-rise" style="--i: 2">
+                    <div class="ra-head">
+                        <div><h3>Awaiting BAC evaluation</h3><p class="ra-sub">Bids for committee review</p></div>
+                        <span class="ra-count">{{ $monitoring['awaiting_bac_evaluation']['count'] }}</span>
                     </div>
-                    <ul class="ra-monitor-list">
+                    <ul class="ra-list">
                         @forelse($monitoring['awaiting_bac_evaluation']['items'] as $row)
-                            <li class="ra-monitor-item"><strong>{{ $row['project']->title }}</strong><span>{{ $row['bids'] }} {{ $row['bids'] === 1 ? 'bid' : 'bids' }}</span></li>
+                            <li><a href="{{ route('admin.project.view', $row['project']) }}" class="ra-link" style="min-width:0"><strong>{{ $row['project']->title }}</strong></a><span>{{ $row['bids'] }} {{ \Illuminate\Support\Str::plural('bid', $row['bids']) }}</span></li>
                         @empty
-                            <li class="ra-empty">No projects are awaiting evaluation.</li>
+                            <li class="ra-empty">No bids awaiting evaluation.</li>
                         @endforelse
                     </ul>
                 </article>
             </section>
 
-            @php
-                $statusTotal = max(1, collect($procurementStatusDistribution)->sum('value'));
-            @endphp
-            <section class="ra-chart-grid" aria-label="Procurement analytics charts">
-                <article class="ra-chart-card">
-                    <div class="ra-chart-head">
-                        <div><h3>Procurement Status Distribution</h3><p>Projects by current procurement status</p></div>
+            <section class="ra-card ra-agenda ra-section ra-rise" aria-label="Upcoming schedule">
+                <div class="ra-head">
+                    <div><h3>Next 14 days</h3><p class="ra-sub">Pre-bid conferences, submission deadlines and bid openings (Philippine time)</p></div>
+                    <div class="ra-legend">
+                        <span><i class="fas fa-people-group" style="color:#0369a1" aria-hidden="true"></i> Pre-bid</span>
+                        <span><i class="fas fa-hourglass-end" style="color:#b45309" aria-hidden="true"></i> Deadline</span>
+                        <span><i class="fas fa-envelope-open" style="color:var(--ui-primary)" aria-hidden="true"></i> Opening</span>
                     </div>
-                    <div class="ra-segmented-bar" role="img" aria-label="Procurement status distribution">
-                        @foreach($procurementStatusDistribution as $row)
-                            <span class="ra-segment" style="width: {{ ($row['value'] / $statusTotal) * 100 }}%; background: {{ $row['color'] }};" title="{{ $row['label'] }}: {{ $row['value'] }}"></span>
-                        @endforeach
-                    </div>
-                    <div class="ra-stat-list">
-                        @foreach($procurementStatusDistribution as $row)
-                            <div class="ra-stat-row">
-                                <span class="ra-stat-label">{{ $row['label'] }}</span>
-                                <span class="ra-track"><span class="ra-fill" style="--bar-width: {{ ($row['value'] / $chartMaxima['status']) * 100 }}%; --bar-color: {{ $row['color'] }};"></span></span>
-                                <strong class="ra-stat-value">{{ $row['value'] }}</strong>
+                </div>
+                @if($upcomingSchedule === [])
+                    <p class="ra-empty">Nothing scheduled in the next 14 days.</p>
+                @else
+                    <div class="ra-days">
+                        @foreach($upcomingSchedule as $day)
+                            <div class="ra-day {{ $day['date']->isToday() ? 'is-today' : '' }}">
+                                <div class="ra-day-head">
+                                    <strong>{{ $day['date']->isToday() ? 'Today' : ($day['date']->isTomorrow() ? 'Tomorrow' : $day['date']->format('D, M d')) }}</strong>
+                                    <span>{{ $day['date']->isToday() || $day['date']->isTomorrow() ? $day['date']->format('D, M d') : 'in '.(int) round(now($tz)->startOfDay()->diffInDays($day['date'])).' days' }}</span>
+                                </div>
+                                @foreach($day['events'] as $event)
+                                    <a href="{{ route('admin.project.view', $event['project']) }}" class="ra-event is-{{ $event['type'] }} ra-link">
+                                        <span class="ra-event-icon"><i class="fas {{ $eventIcons[$event['type']] }}" aria-hidden="true"></i></span>
+                                        <span style="min-width:0">
+                                            <strong>{{ $event['project']->title }}</strong>
+                                            <small>{{ $event['time']->format('h:i A') }} · {{ $event['label'] }}</small>
+                                        </span>
+                                    </a>
+                                @endforeach
                             </div>
                         @endforeach
+                    </div>
+                @endif
+            </section>
+
+            <section class="ra-chart-grid" aria-label="Charts">
+                <article class="ra-card ra-chart ra-anim">
+                    <div class="ra-head">
+                        <div><h3>Where projects stand</h3><p class="ra-sub">Current stage by schedule and recorded decisions</p></div>
+                    </div>
+                    <div class="ra-donut-wrap">
+                        <svg class="ra-donut" viewBox="0 0 120 120" role="img" aria-label="Projects by stage">
+                            <circle cx="60" cy="60" r="48" stroke="var(--ui-line-soft)"></circle>
+                            <g transform="rotate(-90 60 60)">
+                                @foreach($procurementStatusDistribution as $row)
+                                    @continue($row['value'] === 0)
+                                    @php $len = $row['value'] / $statusTotal * $donutC; @endphp
+                                    <circle class="ra-donut-seg" cx="60" cy="60" r="48" stroke="{{ $row['color'] }}"
+                                        style="--len: {{ $len }}; --i: {{ $loop->index }}; stroke-dasharray: {{ $len }} 999; stroke-dashoffset: {{ -$donutOffset }};">
+                                        <title>{{ $row['label'] }}: {{ $row['value'] }}</title>
+                                    </circle>
+                                    @php $donutOffset += $len; @endphp
+                                @endforeach
+                            </g>
+                            <text x="60" y="60" text-anchor="middle" class="ra-donut-total">{{ collect($procurementStatusDistribution)->sum('value') }}</text>
+                            <text x="60" y="74" text-anchor="middle" class="ra-donut-caption">PROJECTS</text>
+                        </svg>
+                        <div class="ra-rows">
+                            @foreach($procurementStatusDistribution as $row)
+                                @continue($row['value'] === 0 && ! in_array($row['key'], ['accepting', 'awaiting_opening', 'evaluation', 'awarded'], true))
+                                <div class="ra-row">
+                                    <span class="ra-row-label"><i class="ra-dot" style="--dot: {{ $row['color'] }}"></i><span>{{ $row['label'] }}</span></span>
+                                    <span class="ra-track"><span class="ra-fill" style="--bar-width: {{ $row['value'] / $chartMaxima['status'] * 100 }}%; --bar-color: {{ $row['color'] }}; --i: {{ $loop->index }}"></span></span>
+                                    <strong class="ra-row-value">{{ $row['value'] }}</strong>
+                                </div>
+                            @endforeach
+                        </div>
                     </div>
                 </article>
 
-                <article class="ra-chart-card">
-                    <div class="ra-chart-head">
-                        <div><h3>Bids per Project</h3><p>Highest participation in the selected range</p></div>
+                <article class="ra-card ra-chart ra-anim">
+                    <div class="ra-head">
+                        <div><h3>Bids per project</h3><p class="ra-sub">Official bids received, most first</p></div>
                     </div>
-                    <div class="ra-stat-list">
+                    <div class="ra-rows">
                         @forelse($bidsPerProject as $row)
-                            <div class="ra-stat-row" title="{{ $row['full_label'] }}">
-                                <span class="ra-stat-label">{{ $row['label'] }}</span>
-                                <span class="ra-track"><span class="ra-fill" style="--bar-width: {{ ($row['value'] / $chartMaxima['bids_per_project']) * 100 }}%; --bar-color: #235e4c;"></span></span>
-                                <strong class="ra-stat-value">{{ $row['value'] }}</strong>
+                            <div class="ra-row" title="{{ $row['full_label'] }}">
+                                <span class="ra-row-label"><span>{{ $row['label'] }}</span></span>
+                                <span class="ra-track"><span class="ra-fill" style="--bar-width: {{ $row['value'] / $chartMaxima['bids_per_project'] * 100 }}%; --bar-color: #235e4c; --i: {{ $loop->index }}"></span></span>
+                                <strong class="ra-row-value">{{ $row['value'] }}</strong>
                             </div>
                         @empty
-                            <div class="ra-empty">No bid records for the selected projects.</div>
+                            <p class="ra-empty">No official bids for the selected projects.</p>
                         @endforelse
                     </div>
                 </article>
 
-                <article class="ra-chart-card ra-chart-wide">
-                    <div class="ra-chart-head">
-                        <div><h3>Monthly Procurement Activity</h3><p>Projects, bids, and awards created in each month</p></div>
-                        <div class="ra-chart-legend">
-                            <span class="ra-legend-item"><i class="ra-legend-dot" style="background:#235e4c"></i>Projects</span>
-                            <span class="ra-legend-item"><i class="ra-legend-dot" style="background:#10b981"></i>Bids</span>
-                            <span class="ra-legend-item"><i class="ra-legend-dot" style="background:#f59e0b"></i>Awards</span>
+                <article class="ra-card ra-chart is-wide ra-anim" data-month-chart>
+                    <div class="ra-head">
+                        <div><h3>Monthly activity</h3><p class="ra-sub">Projects created, official bids and awards per month. Point at a month for the numbers.</p></div>
+                        <div class="ra-legend">
+                            <span><i class="ra-dot" style="--dot:#235e4c"></i>Projects</span>
+                            <span><i class="ra-dot" style="--dot:#10b981"></i>Bids</span>
+                            <span><i class="ra-dot" style="--dot:#f59e0b"></i>Awards</span>
                         </div>
                     </div>
-                    <div class="ra-month-chart">
+                    <div class="ra-months">
                         @foreach($monthlyActivity as $row)
-                            <div class="ra-month-column" title="{{ $row['label'] }}: {{ $row['projects'] }} projects, {{ $row['bids'] }} bids, {{ $row['awards'] }} awards">
+                            <div class="ra-month" tabindex="0" data-tip="{{ $row['label'] }}|{{ $row['projects'] }}|{{ $row['bids'] }}|{{ $row['awards'] }}"
+                                aria-label="{{ $row['label'] }}: {{ $row['projects'] }} projects, {{ $row['bids'] }} bids, {{ $row['awards'] }} awards">
                                 <div class="ra-month-bars">
-                                    <span class="ra-month-bar" style="--bar-height: {{ max(2, ($row['projects'] / $chartMaxima['activity']) * 100) }}%; --bar-color:#235e4c"></span>
-                                    <span class="ra-month-bar" style="--bar-height: {{ max(2, ($row['bids'] / $chartMaxima['activity']) * 100) }}%; --bar-color:#10b981"></span>
-                                    <span class="ra-month-bar" style="--bar-height: {{ max(2, ($row['awards'] / $chartMaxima['activity']) * 100) }}%; --bar-color:#f59e0b"></span>
+                                    <span class="ra-month-bar" style="--bar-height: {{ max(1.5, $row['projects'] / $chartMaxima['activity'] * 100) }}%; --bar-color:#235e4c; --i: {{ $loop->index }}"></span>
+                                    <span class="ra-month-bar" style="--bar-height: {{ max(1.5, $row['bids'] / $chartMaxima['activity'] * 100) }}%; --bar-color:#10b981; --i: {{ $loop->index }}"></span>
+                                    <span class="ra-month-bar" style="--bar-height: {{ max(1.5, $row['awards'] / $chartMaxima['activity'] * 100) }}%; --bar-color:#f59e0b; --i: {{ $loop->index }}"></span>
                                 </div>
-                                <span class="ra-month-label">{{ $row['label'] }}</span>
+                                <span class="ra-month-label">{{ \Carbon\Carbon::parse($row['key'].'-01')->format('M y') }}</span>
                             </div>
                         @endforeach
                     </div>
+                    <div class="ra-tooltip" role="status" hidden></div>
                 </article>
 
-                <article class="ra-chart-card">
-                    <div class="ra-chart-head">
-                        <div><h3>ABC vs Winning Bid Amount</h3><p>Approved budget compared with the recorded winning award</p></div>
+                <article class="ra-card ra-chart ra-anim">
+                    <div class="ra-head">
+                        <div><h3>ABC vs contract amount</h3><p class="ra-sub">Approved budget against the awarded amount</p></div>
+                        <div class="ra-legend"><span><i class="ra-dot" style="--dot:#99a19c"></i>ABC</span><span><i class="ra-dot" style="--dot:#235e4c"></i>Awarded</span></div>
                     </div>
                     @forelse($abcVsWinning as $row)
-                        <div class="ra-compare-row" title="{{ $row['full_label'] }}">
-                            <span class="ra-compare-label">{{ $row['label'] }}</span>
+                        <div class="ra-compare" title="{{ $row['full_label'] }}">
+                            <span class="ra-row-label"><span>{{ $row['label'] }}</span></span>
                             <span class="ra-compare-bars">
-                                <i class="ra-compare-bar" style="--bar-width: {{ ($row['abc'] / $chartMaxima['abc']) * 100 }}%; --bar-color:#99a19c"></i>
-                                <i class="ra-compare-bar" style="--bar-width: {{ ($row['winning'] / $chartMaxima['abc']) * 100 }}%; --bar-color:#235e4c"></i>
+                                <span class="ra-track"><span class="ra-fill" style="--bar-width: {{ $row['abc'] / $chartMaxima['abc'] * 100 }}%; --bar-color:#99a19c; --i: {{ $loop->index }}"></span></span>
+                                <span class="ra-track"><span class="ra-fill" style="--bar-width: {{ $row['winning'] / $chartMaxima['abc'] * 100 }}%; --bar-color:#235e4c; --i: {{ $loop->index }}"></span></span>
                             </span>
-                            <span class="ra-compare-amount">₱{{ number_format($row['winning'], 2) }}</span>
+                            <span class="ra-compare-amount">
+                                ₱{{ number_format($row['winning'], 2) }}
+                                @if($row['abc'] > 0 && $row['winning'] <= $row['abc'])<small>{{ number_format(($row['abc'] - $row['winning']) / $row['abc'] * 100, 1) }}% saved</small>@endif
+                            </span>
                         </div>
                     @empty
-                        <div class="ra-empty">No awarded bid amounts for the selected projects.</div>
+                        <p class="ra-empty">No awards for the selected projects.</p>
                     @endforelse
-                    <div class="ra-compare-key"><span><i style="background:#99a19c"></i>ABC</span><span><i style="background:#235e4c"></i>Winning bid</span></div>
                 </article>
 
-                <article class="ra-chart-card">
-                    <div class="ra-chart-head">
-                        <div><h3>Bid Result Distribution</h3><p>Current result and workflow outcomes</p></div>
+                <article class="ra-card ra-chart ra-anim">
+                    <div class="ra-head">
+                        <div><h3>Bid results</h3><p class="ra-sub">Official bids by outcome so far</p></div>
                     </div>
-                    <div class="ra-stat-list">
+                    <div class="ra-rows">
                         @foreach($bidResultDistribution as $row)
-                            <div class="ra-stat-row">
-                                <span class="ra-stat-label">{{ $row['label'] }}</span>
-                                <span class="ra-track"><span class="ra-fill" style="--bar-width: {{ ($row['value'] / $chartMaxima['bid_result']) * 100 }}%; --bar-color: {{ $row['color'] }};"></span></span>
-                                <strong class="ra-stat-value">{{ $row['value'] }}</strong>
+                            <div class="ra-row">
+                                <span class="ra-row-label"><i class="ra-dot" style="--dot: {{ $row['color'] }}"></i><span>{{ $row['label'] }}</span></span>
+                                <span class="ra-track"><span class="ra-fill" style="--bar-width: {{ $row['value'] / $chartMaxima['bid_result'] * 100 }}%; --bar-color: {{ $row['color'] }}; --i: {{ $loop->index }}"></span></span>
+                                <strong class="ra-row-value">{{ $row['value'] }}</strong>
                             </div>
                         @endforeach
                     </div>
                 </article>
 
-                <article class="ra-chart-card">
-                    <div class="ra-chart-head">
-                        <div><h3>Bidder Participation</h3><p>Bid submissions by registered bidder</p></div>
+                <article class="ra-card ra-chart is-wide ra-anim">
+                    <div class="ra-head">
+                        <div><h3>Bidder participation</h3><p class="ra-sub">Official bids by bidder · {{ number_format($bidderTotals['registered']) }} registered, {{ number_format($bidderTotals['blacklisted']) }} blacklisted</p></div>
                     </div>
-                    <div class="ra-stat-list">
+                    <div class="ra-rows">
                         @forelse($bidderParticipation as $row)
-                            <div class="ra-stat-row" title="{{ $row['full_label'] }}">
-                                <span class="ra-stat-label">{{ $row['label'] }}</span>
-                                <span class="ra-track"><span class="ra-fill" style="--bar-width: {{ ($row['value'] / $chartMaxima['bidder']) * 100 }}%; --bar-color: #7c3aed;"></span></span>
-                                <strong class="ra-stat-value">{{ $row['value'] }}</strong>
+                            <div class="ra-row" title="{{ $row['full_label'] }}">
+                                <span class="ra-row-label"><span>{{ $row['label'] }}</span></span>
+                                <span class="ra-track"><span class="ra-fill" style="--bar-width: {{ $row['value'] / $chartMaxima['bidder'] * 100 }}%; --bar-color: #7c3aed; --i: {{ $loop->index }}"></span></span>
+                                <strong class="ra-row-value">{{ $row['value'] }}</strong>
                             </div>
                         @empty
-                            <div class="ra-empty">No bidder participation for the selected projects.</div>
+                            <p class="ra-empty">No bidder participation for the selected projects.</p>
                         @endforelse
                     </div>
                 </article>
@@ -456,24 +528,86 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        // Export menu
         const toggle = document.getElementById('reportExportToggle');
         const menu = document.getElementById('reportExportMenu');
-        if (!toggle || !menu) return;
-
-        toggle.addEventListener('click', function (event) {
-            event.stopPropagation();
-            const isOpen = menu.hasAttribute('hidden') === false;
-            if (isOpen) {
-                menu.setAttribute('hidden', 'hidden');
+        if (toggle && menu) {
+            toggle.addEventListener('click', function (event) {
+                event.stopPropagation();
+                const open = menu.hasAttribute('hidden');
+                menu.toggleAttribute('hidden', !open);
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+            document.addEventListener('click', function () {
+                menu.setAttribute('hidden', '');
                 toggle.setAttribute('aria-expanded', 'false');
-            } else {
-                menu.removeAttribute('hidden');
-                toggle.setAttribute('aria-expanded', 'true');
-            }
-        });
-        document.addEventListener('click', function () {
-            menu.setAttribute('hidden', 'hidden');
-            toggle.setAttribute('aria-expanded', 'false');
+            });
+        }
+
+        const page = document.querySelector('.report-analytics-page');
+        const animate = page && page.classList.contains('ra-animate');
+
+        // Count-up for the key figures.
+        const format = function (value, kind) {
+            if (kind === 'peso') return '₱' + value.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (kind === 'percent') return value.toLocaleString('en-PH', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+            if (kind === 'decimal') return value.toLocaleString('en-PH', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+            return Math.round(value).toLocaleString('en-PH');
+        };
+        const countUp = function (element) {
+            const target = parseFloat(element.dataset.count);
+            if (!isFinite(target)) return;
+            const start = performance.now();
+            const duration = 900;
+            const step = function (now) {
+                const t = Math.min(1, (now - start) / duration);
+                const eased = 1 - Math.pow(1 - t, 3);
+                element.textContent = format(target * eased, element.dataset.format);
+                if (t < 1) requestAnimationFrame(step); else element.textContent = format(target, element.dataset.format);
+            };
+            requestAnimationFrame(step);
+        };
+
+        // Reveal each block as it scrolls into view, once.
+        const reveal = function (element) {
+            element.classList.add('is-visible');
+            if (animate) element.querySelectorAll('[data-count]').forEach(countUp);
+        };
+        const targets = document.querySelectorAll('.ra-anim, .ra-rise');
+        if (!animate || !('IntersectionObserver' in window)) {
+            targets.forEach(function (element) { element.classList.add('is-visible'); });
+        } else {
+            const observer = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (!entry.isIntersecting) return;
+                    reveal(entry.target);
+                    observer.unobserve(entry.target);
+                });
+            }, { threshold: 0.15 });
+            targets.forEach(function (element) { observer.observe(element); });
+        }
+
+        // Monthly activity tooltip (pointer and keyboard).
+        document.querySelectorAll('[data-month-chart]').forEach(function (chart) {
+            const tip = chart.querySelector('.ra-tooltip');
+            const show = function (month) {
+                const parts = month.dataset.tip.split('|');
+                tip.innerHTML = '';
+                const title = document.createElement('strong');
+                title.textContent = parts[0];
+                tip.append(title, document.createElement('br'), parts[1] + ' projects · ' + parts[2] + ' bids · ' + parts[3] + ' awards');
+                const box = chart.getBoundingClientRect();
+                const rect = month.getBoundingClientRect();
+                tip.style.left = (rect.left - box.left + rect.width / 2) + 'px';
+                tip.style.top = (rect.top - box.top + 4) + 'px';
+                tip.hidden = false;
+            };
+            chart.querySelectorAll('.ra-month').forEach(function (month) {
+                month.addEventListener('mouseenter', function () { show(month); });
+                month.addEventListener('focus', function () { show(month); });
+                month.addEventListener('mouseleave', function () { tip.hidden = true; });
+                month.addEventListener('blur', function () { tip.hidden = true; });
+            });
         });
     });
 </script>
