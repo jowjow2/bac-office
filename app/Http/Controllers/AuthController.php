@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password as PasswordRule;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class AuthController extends Controller
@@ -131,7 +132,75 @@ class AuthController extends Controller
         };
     }
 
+    /**
+     * Where this browser's registration documents go when it uploads them
+     * straight to Blob storage: a random folder kept in its session, so one
+     * visitor can neither use nor guess another's uploads.
+     */
+    public static function registrationUploadFolder(Request $request): string
+    {
+        $folder = $request->session()->get('registration_upload_folder');
+        if (! is_string($folder) || ! preg_match('#^registration-uploads/[A-Za-z0-9]{32}$#', $folder)) {
+            $folder = 'registration-uploads/'.Str::random(32);
+            $request->session()->put('registration_upload_folder', $folder);
+        }
+
+        return $folder;
+    }
+
+    /**
+     * Issues the short-lived token @vercel/blob "upload" asks for, so each
+     * registration document goes from the browser straight to private Blob
+     * storage: a serverless request takes at most 4.5 MB, which a full set of
+     * eligibility documents exceeds (413).
+     */
+    public function registrationUploadToken(Request $request)
+    {
+        abort_unless(\App\Support\VercelBlob::enabled(), 404);
+        if ($request->input('type') !== 'blob.generate-client-token') {
+            return response()->json(['error' => 'Unsupported upload request.'], 422);
+        }
+
+        $pathname = (string) $request->input('payload.pathname');
+        $folder = self::registrationUploadFolder($request);
+        if (! preg_match('#^'.preg_quote($folder, '#').'/[A-Za-z0-9._-]{1,150}\.(pdf|jpg|jpeg|png)$#i', $pathname)) {
+            return response()->json(['error' => 'Use PDF, JPG or PNG files.'], 422);
+        }
+        $maxKb = (int) config('bac-office.registration.max_document_size_kb', 20480);
+
+        return response()->json([
+            'type' => 'blob.generate-client-token',
+            'clientToken' => \App\Support\VercelBlob::clientToken($pathname, $maxKb * 1024, ['application/pdf', 'image/jpeg', 'image/png']),
+        ]);
+    }
+
     public function register(Request $request)
+    {
+        // Documents uploaded straight to Blob storage arrive as references: fetch them so
+        // they get exactly the same checks and storage as posted files, then discard them.
+        try {
+            [$uploaded, $urls, $temps] = \App\Support\VercelBlob::pullUploads(
+                (array) $request->input('uploaded_registration_documents', []),
+                (array) $request->input('uploaded_registration_document_names', []),
+                self::registrationUploadFolder($request),
+                'registration_documents'
+            );
+        } catch (ValidationException $exception) {
+            return $this->authResponse($request, false, collect($exception->errors())->flatten()->first(), 'register', 422, null, $exception->errors());
+        }
+
+        try {
+            if ($uploaded !== []) {
+                $request->files->set('registration_documents', $uploaded + (array) $request->files->get('registration_documents', []));
+            }
+
+            return $this->processRegistration($request);
+        } finally {
+            \App\Support\VercelBlob::discardUploads($urls, $temps);
+        }
+    }
+
+    private function processRegistration(Request $request)
     {
         if (! $this->authTablesAvailable()) {
             return $this->authResponse(

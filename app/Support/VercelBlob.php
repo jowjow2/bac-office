@@ -114,6 +114,70 @@ class VercelBlob
         return 'vercel_blob_client_'.self::storeId().'_'.base64_encode($signature.'.'.$payload);
     }
 
+    /**
+     * Files the browser uploaded straight to this store (with a clientToken),
+     * fetched into temporary uploaded files so they get the same checks and
+     * storage as posted files. Only references under $folder are accepted.
+     * Pass the returned URLs and temp paths to discardUploads() afterwards.
+     *
+     * @param  array<string, mixed>  $references  key => blob URL
+     * @param  array<string, mixed>  $names  key => original file name
+     * @return array{0: array<string, UploadedFile>, 1: list<string>, 2: list<string>}
+     *
+     * @throws \Illuminate\Validation\ValidationException
+     */
+    public static function pullUploads(array $references, array $names, string $folder, string $field): array
+    {
+        if ($references === []) {
+            return [[], [], []];
+        }
+        if (! self::enabled()) {
+            throw \Illuminate\Validation\ValidationException::withMessages([$field => 'Direct uploads are not available here. Attach the files again.']);
+        }
+
+        $files = [];
+        $urls = [];
+        $temps = [];
+        try {
+            foreach ($references as $key => $url) {
+                if (! is_string($key) || ! is_string($url) || ! self::isOwnUrlUnder($url, $folder)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([$field => 'An uploaded file could not be verified. Attach it again.']);
+                }
+                $urls[] = $url;
+                $contents = self::read($url);
+                if ($contents === null) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([$field.'.'.$key => 'An uploaded file was not found. Attach it again.']);
+                }
+                $temp = tempnam(sys_get_temp_dir(), 'upl');
+                file_put_contents($temp, $contents);
+                $temps[] = $temp;
+                $name = basename(str_replace('\\', '/', (string) ($names[$key] ?? basename((string) parse_url($url, PHP_URL_PATH)))));
+                $files[$key] = new UploadedFile($temp, $name !== '' ? $name : 'document.pdf', null, null, true);
+            }
+        } catch (\Throwable $exception) {
+            self::discardUploads($urls, $temps);
+
+            throw $exception;
+        }
+
+        return [$files, $urls, $temps];
+    }
+
+    /** Removes the temporary copies and the direct uploads once their contents are stored. */
+    public static function discardUploads(array $urls, array $temps): void
+    {
+        foreach ($temps as $path) {
+            @unlink($path);
+        }
+        foreach ($urls as $url) {
+            try {
+                self::delete($url);
+            } catch (\Throwable) {
+                // Left in the private store; nothing links to it.
+            }
+        }
+    }
+
     /** Whether a URL is a file in this store under the given folder. */
     public static function isOwnUrlUnder(string $url, string $folder): bool
     {

@@ -229,7 +229,12 @@
             </form>
 
             {{-- Register --}}
-            <form id="registerForm" method="POST" action="{{ route('register') }}" enctype="multipart/form-data" novalidate class="auth-form auth-register hidden">
+            {{-- With Blob storage, auth.js uploads the documents straight to it first (requests over 4.5 MB fail with 413). --}}
+            <form id="registerForm" method="POST" action="{{ route('register') }}" enctype="multipart/form-data" novalidate class="auth-form auth-register hidden"
+                @if(\App\Support\VercelBlob::enabled())
+                    data-direct-upload-url="{{ route('register.upload-token') }}"
+                    data-direct-upload-folder="{{ \App\Http\Controllers\AuthController::registrationUploadFolder(request()) }}"
+                @endif>
                 @csrf
                 <div class="auth-field">
                     <label for="registerRole" class="auth-label">I am registering as</label>

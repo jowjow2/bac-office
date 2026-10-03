@@ -871,6 +871,46 @@ async function maybeStoreLoginCredential(form) {
     }
 }
 
+/*
+ * Registration documents go from the browser straight to private Blob storage
+ * (@vercel/blob "upload"); the form then carries their references only. A
+ * serverless request takes at most 4.5 MB, which a full set of eligibility
+ * documents exceeds (413). The server issues one token per file, accepts only
+ * this browser's folder and runs the usual file checks before saving.
+ */
+async function uploadRegistrationDocuments(form, formData, csrfToken) {
+    const inputs = Array.from(form.querySelectorAll('input[type="file"][name^="registration_documents["]'))
+        .filter((input) => input.files && input.files.length);
+    if (!inputs.length || formData.get('role') !== 'bidder') return;
+
+    // Loaded only here, so the sign-in page stays light.
+    const { upload } = await import('@vercel/blob/client');
+    const total = inputs.reduce((sum, input) => sum + input.files[0].size, 0);
+    let sent = 0;
+
+    for (const [index, input] of inputs.entries()) {
+        const key = /registration_documents\[([^\]]+)\]/.exec(input.name)?.[1];
+        const file = input.files[0];
+        if (!key) continue;
+        const extension = (file.name.split('.').pop() || 'pdf').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const blob = await upload(`${form.dataset.directUploadFolder}/${key}.${extension}`, file, {
+            access: 'private',
+            handleUploadUrl: form.dataset.directUploadUrl,
+            headers: { 'X-CSRF-TOKEN': csrfToken || '', Accept: 'application/json' },
+            multipart: file.size > 4 * 1024 * 1024,
+            onUploadProgress: ({ loaded }) => {
+                const percent = total ? Math.min(99, Math.round(((sent + loaded) / total) * 100)) : 0;
+                renderAuthMessage('info', `Uploading your documents… ${percent}% (file ${index + 1} of ${inputs.length})`);
+            },
+        });
+        sent += file.size;
+        formData.delete(input.name);
+        formData.append(`uploaded_registration_documents[${key}]`, blob.url);
+        formData.append(`uploaded_registration_document_names[${key}]`, file.name);
+    }
+    renderAuthMessage('info', 'Documents uploaded. Submitting your registration…');
+}
+
 async function submitAuthForm(form, fallbackTab) {
     if (form.id === 'loginForm' && !validateLoginForm(form)) {
         return;
@@ -902,6 +942,17 @@ async function submitAuthForm(form, fallbackTab) {
     setAuthFormLoading(form, true);
 
     try {
+        if (form.id === 'registerForm' && form.dataset.directUploadUrl) {
+            await uploadRegistrationDocuments(form, formData, csrfToken);
+        }
+    } catch (error) {
+        console.error('[registration upload]', error);
+        showAuthMessage('error', 'Uploading your documents failed. Check your connection and press Submit registration again. Your files are still attached.');
+        setAuthFormLoading(form, false);
+        return;
+    }
+
+    try {
         const response = await fetch(form.action, {
             method: 'POST',
             credentials: 'same-origin',
@@ -912,6 +963,12 @@ async function submitAuthForm(form, fallbackTab) {
             },
             body: formData,
         });
+
+        if (response.status === 413) {
+            switchTab(fallbackTab);
+            showAuthMessage('error', 'The attached files are too large to send together. Use smaller files (scanned PDFs at a lower resolution) and try again.');
+            return;
+        }
 
         const data = await response.json();
 

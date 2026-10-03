@@ -146,6 +146,8 @@ Route::post('/login', [AuthController::class, 'login'])->name('login');
 Route::post('/login/verify-code', [AuthController::class, 'verifyLoginCode'])->name('login.verify-code');
 Route::post('/login/resend-code', [AuthController::class, 'resendLoginCode'])->name('login.resend-code');
 Route::post('/register', [AuthController::class, 'register'])->name('register');
+// Registration documents go from the browser straight to Blob storage (413 above 4.5 MB per request).
+Route::post('/register/uploads', [AuthController::class, 'registrationUploadToken'])->middleware('throttle:60,1')->name('register.upload-token');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::middleware('guest')->group(function () {
     Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm'])->name('password.request');

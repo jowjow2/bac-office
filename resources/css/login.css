@@ -1238,6 +1238,13 @@
     color: var(--ui-success);
 }
 
+/* Upload progress while registration documents go to storage. */
+#authModal .alert.info {
+    border-color: var(--ui-primary-line);
+    background: var(--ui-primary-soft);
+    color: var(--ui-primary);
+}
+
 #authModal .alert.fade-out {
     opacity: 0;
 }

@@ -447,16 +447,7 @@ class BidderController extends Controller
                 ->withInput($request->except('documents', 'uploaded_documents', 'uploaded_document_names'));
         } finally {
             // The bid keeps its own stored copies; the temporary direct uploads go.
-            foreach ($tempPaths as $path) {
-                @unlink($path);
-            }
-            foreach ($blobUrls as $url) {
-                try {
-                    \App\Support\VercelBlob::delete($url);
-                } catch (\Throwable) {
-                    // Left in the private store; it is never linked to the bid.
-                }
-            }
+            \App\Support\VercelBlob::discardUploads($blobUrls, $tempPaths);
         }
 
         if ($bid->isDraft()) {
@@ -531,36 +522,12 @@ class BidderController extends Controller
      */
     private function pullDirectBidUploads(Request $request, Project $project, User $user): array
     {
-        $references = (array) $request->input('uploaded_documents', []);
-        if ($references === []) {
-            return [[], [], []];
-        }
-        if (! \App\Support\VercelBlob::enabled()) {
-            throw ValidationException::withMessages(['documents' => 'Direct uploads are not available here. Attach the files again.']);
-        }
-
-        $names = (array) $request->input('uploaded_document_names', []);
-        $folder = $this->bidUploadFolder($user, $project);
-        $files = [];
-        $urls = [];
-        $temps = [];
-        foreach ($references as $key => $url) {
-            if (! is_string($key) || ! is_string($url) || ! \App\Support\VercelBlob::isOwnUrlUnder($url, $folder)) {
-                throw ValidationException::withMessages(['documents' => 'An uploaded file could not be verified. Attach it again.']);
-            }
-            $urls[] = $url;
-            $contents = \App\Support\VercelBlob::read($url);
-            if ($contents === null) {
-                throw ValidationException::withMessages(['documents.'.$key => 'An uploaded file was not found. Attach it again.']);
-            }
-            $temp = tempnam(sys_get_temp_dir(), 'bid');
-            file_put_contents($temp, $contents);
-            $temps[] = $temp;
-            $name = basename(str_replace('\\', '/', (string) ($names[$key] ?? basename((string) parse_url($url, PHP_URL_PATH)))));
-            $files[$key] = new \Illuminate\Http\UploadedFile($temp, $name !== '' ? $name : 'document.pdf', null, null, true);
-        }
-
-        return [$files, $urls, $temps];
+        return \App\Support\VercelBlob::pullUploads(
+            (array) $request->input('uploaded_documents', []),
+            (array) $request->input('uploaded_document_names', []),
+            $this->bidUploadFolder($user, $project),
+            'documents'
+        );
     }
 
     protected function bidderPageData(Request $request): array
