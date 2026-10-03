@@ -649,6 +649,23 @@ a.ui-stat:hover {
     font-weight: 500;
 }
 
+/* A schedule period the BAC may still choose not to meet (does not block). */
+.ui-warning {
+    display: block;
+    margin-top: 4px;
+    padding: 6px 9px;
+    border-radius: 6px;
+    background: var(--ui-warning-soft);
+    color: var(--ui-warning);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.45;
+}
+
+.ui-warning[hidden] {
+    display: none;
+}
+
 .ui-input {
     width: 100%;
     max-width: 100%;

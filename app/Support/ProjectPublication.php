@@ -52,6 +52,9 @@ final class ProjectPublication
                 'date_posted' => $publishedAt->toDateString(),
             ])->save();
 
+            // Legal periods the BAC chose not to meet are kept with the publication record.
+            $warnings = $project->setRelation('schedule', $schedule)->scheduleWarnings($project->postingDateForReview());
+
             AuditLog::log(
                 'project_published_locally',
                 $project,
@@ -62,7 +65,7 @@ final class ProjectPublication
                     'published_by' => $project->published_by,
                     'date_posted' => $schedule->date_posted,
                     'philgeps_posted_at' => $project->philgeps_posted_at,
-                ],
+                ] + ($warnings === [] ? [] : ['schedule_warnings' => array_values($warnings)]),
                 ['user_id' => $actor->id]
             );
 

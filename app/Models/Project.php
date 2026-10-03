@@ -476,13 +476,8 @@ class Project extends Model
     public function publicationBlockers(?Carbon $at = null, ?Carbon $publicationAt = null): array
     {
         $at ??= now(config('app.timezone', 'Asia/Manila'));
-        $publicationAt = $publicationAt?->copy()->timezone(config('app.timezone', 'Asia/Manila'));
-        $schedule = $this->relationLoaded('schedule') ? $this->schedule : $this->schedule()->first();
         $deadline = $this->bidSubmissionDeadline();
-        $posted = $this->published_at
-            ? Carbon::parse($this->published_at)->startOfDay()
-            : ($publicationAt?->copy()->startOfDay()
-                ?? ($schedule?->date_posted ? Carbon::parse($schedule->date_posted)->startOfDay() : null));
+        $posted = $this->postingDateForReview($publicationAt);
         $budget = (float) $this->budget;
         $mode = $this->mode();
         $deadlineLabel = $mode->deadlineLabel();
@@ -552,60 +547,98 @@ class Project extends Model
             }
         }
 
-        // The posting period wins over the other date_posted messages.
-        foreach ($this->scheduleConflicts($posted) as $field => $message) {
-            if ($field === 'date_posted' || ! isset($blockers[$field])) {
-                $blockers[$field] = $message;
-            }
-        }
+        // Impossible schedules block; the legal periods are only warnings (scheduleWarnings).
+        $blockers += $this->scheduleConflicts($posted);
 
         return $blockers;
     }
 
     /**
-     * Whether the schedule hangs together, for posting and for every later
-     * change: posting period, pre-bid conference, opening right after the
-     * deadline. Any day or hour the BAC sets is accepted.
+     * What makes the schedule impossible, for posting and for every later
+     * change: a missing bid opening or required pre-bid conference, or dates
+     * out of order (opening before the deadline, pre-bid after it). Any day
+     * or hour the BAC sets is accepted; the legal periods between the dates
+     * are warnings (scheduleWarnings), not blockers.
      *
      * @return array<string, string> field => message
      */
     public function scheduleConflicts(?Carbon $posted = null): array
+    {
+        return $this->scheduleReview($posted)['conflicts'];
+    }
+
+    /**
+     * Legal periods the schedule does not meet. The BAC may still go ahead
+     * with its dates; the deviation is shown and recorded in the audit log.
+     *
+     * @return array<string, string> field => message
+     */
+    public function scheduleWarnings(?Carbon $posted = null): array
+    {
+        return $this->scheduleReview($posted)['warnings'];
+    }
+
+    /** The warnings in one sentence for a flash message, or null when the schedule meets every period. */
+    public function scheduleWarningNote(?Carbon $publicationAt = null): ?string
+    {
+        $warnings = $this->scheduleWarnings($this->postingDateForReview($publicationAt));
+
+        return $warnings === [] ? null : 'Schedule warning: '.implode(' ', $warnings).' The BAC\'s dates were kept and this is recorded in the audit log.';
+    }
+
+    /** The publication date the warnings are measured from: recorded, or now when publishing. */
+    public function postingDateForReview(?Carbon $publicationAt = null): ?Carbon
+    {
+        $schedule = $this->relationLoaded('schedule') ? $this->schedule : $this->schedule()->first();
+
+        return $this->published_at
+            ? Carbon::parse($this->published_at)->startOfDay()
+            : ($publicationAt?->copy()->timezone(config('app.timezone', 'Asia/Manila'))->startOfDay()
+                ?? ($schedule?->date_posted ? Carbon::parse($schedule->date_posted)->startOfDay() : null));
+    }
+
+    /** @return array{conflicts: array<string, string>, warnings: array<string, string>} */
+    private function scheduleReview(?Carbon $posted): array
     {
         $schedule = $this->relationLoaded('schedule') ? $this->schedule : $this->schedule()->first();
         $deadline = $this->bidSubmissionDeadline();
         $opening = $schedule?->bid_opening_date;
         $preBid = $schedule?->pre_bid_conference_date;
         $mode = $this->mode();
-        $deadlineLabel = $mode->deadlineLabel();
-        $blockers = [];
+        $deadlineLabel = lcfirst($mode->deadlineLabel());
+        $conflicts = [];
+        $warnings = [];
 
         $minimumPostingDays = $mode->minimumPostingDays();
         if ($posted !== null && $deadline !== null && $minimumPostingDays > 0 && $posted->copy()->addDays($minimumPostingDays)->isAfter($deadline)) {
-            $blockers['date_posted'] = "The local BAC publication must be at least {$minimumPostingDays} calendar days before the ".lcfirst($deadlineLabel).".";
+            $warnings['date_posted'] = "The {$deadlineLabel} is less than {$minimumPostingDays} calendar days after the local BAC publication.";
         }
 
         if ($mode->isCompetitive()) {
             if ($opening === null) {
-                $blockers['bid_opening_date'] = 'Set the bid opening schedule.';
-            } elseif ($deadline !== null && ($opening->lessThan($deadline) || ! $opening->isSameDay($deadline))) {
-                $blockers['bid_opening_date'] = 'Bid opening must be immediately after the submission deadline, on the same day.';
+                $conflicts['bid_opening_date'] = 'Set the bid opening schedule.';
+            } elseif ($deadline !== null && $opening->lessThan($deadline)) {
+                $conflicts['bid_opening_date'] = 'The bid opening cannot be before the submission deadline.';
+            } elseif ($deadline !== null && ! $opening->isSameDay($deadline)) {
+                $warnings['bid_opening_date'] = 'The bid opening is not on the same day as the submission deadline.';
             }
 
             if ($deadline !== null && ($mode->requiresPrebid() || $preBid !== null)) {
                 if ($preBid === null) {
-                    $blockers['pre_bid_conference_date'] = 'Schedule a pre-bid conference: required for an ABC of ₱'.number_format($mode->prebidThreshold(), 0).' or more.';
+                    $conflicts['pre_bid_conference_date'] = 'Schedule a pre-bid conference: required for an ABC of ₱'.number_format($mode->prebidThreshold(), 0).' or more.';
+                } elseif ($preBid->greaterThanOrEqualTo($deadline)) {
+                    $conflicts['pre_bid_conference_date'] = 'The pre-bid conference must be before the submission deadline.';
                 } elseif ($preBid->copy()->addDays(12)->isAfter($deadline)) {
-                    $blockers['pre_bid_conference_date'] = 'The pre-bid conference must be at least 12 calendar days before the submission deadline.';
+                    $warnings['pre_bid_conference_date'] = 'The pre-bid conference is less than 12 calendar days before the submission deadline.';
                 } elseif ($mode->isRa12009() && $posted !== null && $preBid->copy()->startOfDay()->lessThan($posted->copy()->addDays(7))) {
-                    $blockers['pre_bid_conference_date'] = 'Under RA 12009, the pre-bid conference cannot be earlier than 7 calendar days after local BAC publication (IRR Sec. 51.2).';
+                    $warnings['pre_bid_conference_date'] = 'The pre-bid conference is less than 7 calendar days after the local BAC publication (RA 12009 IRR Sec. 51.2).';
                 }
             }
         } elseif ($opening !== null && $deadline !== null && $opening->lessThan($deadline)) {
-            $blockers['bid_opening_date'] = 'The '.strtolower($mode->openingLabel()).' cannot be before the '.lcfirst($deadlineLabel).'.';
+            $conflicts['bid_opening_date'] = 'The '.strtolower($mode->openingLabel()).' cannot be before the '.$deadlineLabel.'.';
         }
 
-        // Any day and time the BAC chooses: only the periods between the dates are checked.
-        return $blockers;
+        return ['conflicts' => $conflicts, 'warnings' => $warnings];
     }
 
     public function electronicSubmissionAuthorizedByUser()

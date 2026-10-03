@@ -37,6 +37,21 @@ if (root && form) {
 
     const errorKey = (field) => field.dataset.errorKey || (field.name || field.id || '').replace(/\[\]$/, '').replace(/_choice$/, '').replace(/_display$/, '');
 
+    /** A schedule warning under a field: shown, but it does not block the step. */
+    function setWarning(key, message) {
+        let el = byId(`${key}-warning`);
+        if (!el && message) {
+            el = document.createElement('span');
+            el.className = 'ui-warning';
+            el.id = `${key}-warning`;
+            el.setAttribute('role', 'status');
+            (byId(`${key}-error`) || byId(key))?.insertAdjacentElement('afterend', el);
+        }
+        if (!el) return;
+        el.textContent = message ? `Warning: ${message} You can still continue with this date.` : '';
+        el.hidden = !message;
+    }
+
     function setError(field, message) {
         const key = typeof field === 'string' ? field : errorKey(field);
         const el = byId(`${key}-error`);
@@ -665,9 +680,14 @@ if (root && form) {
         if (current === 4) scheduleErrors(true);
     }));
 
-    /** The schedule checks the server applies when publishing; returns field => message. */
+    /**
+     * The schedule checks the server applies when publishing; returns field => message.
+     * Impossible schedules are errors and block; the legal periods between the dates
+     * are warnings: shown, recorded on the server, but the BAC's dates are kept.
+     */
     function scheduleErrors(show) {
         const errors = {};
+        const warnings = {};
         const now = phNow();
         const today = datePart(now);
         const deadline = val('bid_submission_deadline');
@@ -685,7 +705,7 @@ if (root && form) {
         } else if (deadline <= now) {
             errors.bid_submission_deadline = `The ${deadlineName} must be in the future.`;
         } else if (postingDays() && datePart(deadline) < addDays(today, postingDays())) {
-            errors.bid_submission_deadline = `Publishing today, the ${deadlineName} must be on or after ${phLabel(addDays(today, postingDays()))} (${postingDays()} calendar days).`;
+            warnings.bid_submission_deadline = `Publishing today, the ${deadlineName} should be on or after ${phLabel(addDays(today, postingDays()))} (${postingDays()} calendar days).`;
         }
 
         if (isCompetitive() && !opening) {
@@ -693,7 +713,7 @@ if (root && form) {
         } else if (opening && deadline && opening <= deadline) {
             errors.bid_opening_date = `The ${openingName} must be after the ${deadlineName}.`;
         } else if (opening && deadline && isCompetitive() && datePart(opening) !== datePart(deadline)) {
-            errors.bid_opening_date = 'The bid opening must be on the same day as the deadline, right after it.';
+            warnings.bid_opening_date = 'The bid opening should be on the same day as the deadline, right after it.';
         }
 
         if (prebidRequired() && !prebid) {
@@ -701,9 +721,9 @@ if (root && form) {
         } else if (prebid && deadline && prebid >= deadline) {
             errors.pre_bid_conference_date = `The pre-bid conference must be before the ${deadlineName}.`;
         } else if (prebid && deadline && isCompetitive() && addDaysDateTime(prebid, rules.prebidDaysBeforeDeadline) > deadline) {
-            errors.pre_bid_conference_date = `Hold it at least ${rules.prebidDaysBeforeDeadline} calendar days before the ${deadlineName}.`;
+            warnings.pre_bid_conference_date = `It should be at least ${rules.prebidDaysBeforeDeadline} calendar days before the ${deadlineName}.`;
         } else if (prebid && isCompetitive() && basis() === 'ra_12009' && datePart(prebid) < addDays(today, rules.prebidDaysAfterPublication)) {
-            errors.pre_bid_conference_date = `Publishing today, hold it on or after ${phLabel(addDays(today, rules.prebidDaysAfterPublication))} (${rules.prebidDaysAfterPublication} days after publication).`;
+            warnings.pre_bid_conference_date = `Publishing today, it should be on or after ${phLabel(addDays(today, rules.prebidDaysAfterPublication))} (${rules.prebidDaysAfterPublication} days after publication).`;
         }
 
         if (clarification && deadline && clarification >= deadline) {
@@ -723,7 +743,10 @@ if (root && form) {
 
         if (show) {
             ['bid_submission_deadline', 'bid_opening_date', 'pre_bid_conference_date', 'clarification_deadline', 'evaluation_start_date', 'expected_award_date']
-                .forEach((key) => setError(key, errors[key] || ''));
+                .forEach((key) => {
+                    setError(key, errors[key] || '');
+                    setWarning(key, errors[key] ? '' : (warnings[key] || ''));
+                });
         }
         return errors;
     }

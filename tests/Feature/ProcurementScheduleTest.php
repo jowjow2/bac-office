@@ -149,9 +149,8 @@ it('does not let a schedule change reopen a closed submission or rewrite an open
 it('rejects conflicting schedules and keeps a held pre-bid conference', function () {
     $project = ($this->makeProject)([], ['pre_bid_conference_date' => Carbon::parse('2026-10-05 09:00', 'Asia/Manila')]);
 
-    // Opening before the deadline, and a deadline under 7 days after publication (Oct 1).
+    // An opening before the deadline is impossible.
     ($this->editSchedule)($project, '2026-10-22T10:00', '2026-10-22T09:00')->assertSessionHasErrors('bid_opening_date');
-    ($this->editSchedule)($project, '2026-10-06T10:00', '2026-10-06T10:30')->assertSessionHasErrors('date_posted');
 
     ProjectProceeding::create(['project_id' => $project->id, 'type' => ProjectProceeding::TYPE_PRE_BID, 'title' => 'Pre-bid conference', 'occurred_at' => Carbon::parse('2026-10-05 09:00', 'Asia/Manila'), 'recorded_by' => $this->admin->id]);
     testCase()->actingAs($this->admin)->from(route('admin.projects'))->put(route('admin.project.update', $project), [
@@ -160,4 +159,11 @@ it('rejects conflicting schedules and keeps a held pre-bid conference', function
     ])->assertSessionHasErrors('pre_bid_conference_date');
 
     expect($project->fresh(['schedule'])->schedule->bid_opening_date->format('Y-m-d H:i'))->toBe('2026-10-20 10:30');
+
+    // A deadline 11 days after the pre-bid conference misses the 12-day period: kept, with a warning on record.
+    ($this->editSchedule)($project, '2026-10-16T10:00', '2026-10-16T10:30')
+        ->assertSessionHasNoErrors()
+        ->assertSessionHas('success', fn (string $message) => str_contains($message, 'less than 12 calendar days'));
+    expect($project->fresh()->bidSubmissionDeadline()->format('Y-m-d H:i'))->toBe('2026-10-16 10:00')
+        ->and(AuditLog::where('action', 'project_schedule_changed')->latest('id')->first()->new_values['schedule_warnings'])->toHaveCount(1);
 });

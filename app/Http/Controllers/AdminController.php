@@ -550,8 +550,9 @@ class AdminController extends Controller
             $redirectUrl = $project->status === 'draft'
                 ? route('admin.projects') . '?status=draft'
                 : route('admin.projects');
+            $warning = $project->status === 'open' ? $project->fresh('schedule')->scheduleWarningNote() : null;
 
-            return redirect($redirectUrl)->with('success', 'Project created successfully.');
+            return redirect($redirectUrl)->with('success', 'Project created successfully.'.($warning ? ' '.$warning : ''));
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -2058,18 +2059,21 @@ public function destroyUser(User $user)
     /**
      * After a schedule change: what the new dates already require happens now
      * (bid opening when its time has passed), and everyone taking part is told.
+     * Returns the schedule warning to show, if the new dates miss a legal period.
      */
-    protected function applyScheduleChange(Project $project, array $before): void
+    protected function applyScheduleChange(Project $project, array $before): ?string
     {
         $after = [
             'deadline' => $project->bidSubmissionDeadline()?->toDateTimeString(),
             'bid_opening_date' => $project->schedule?->bid_opening_date?->toDateTimeString(),
         ];
         if ($after === $before || in_array($project->status, ['draft', 'approved_for_bidding'], true)) {
-            return;
+            return null;
         }
 
-        AuditLog::log('project_schedule_changed', $project, $before, $after);
+        // Legal periods the BAC chose not to meet are kept with the change.
+        $warnings = $project->scheduleWarnings($project->postingDateForReview());
+        AuditLog::log('project_schedule_changed', $project, $before, $after + ($warnings === [] ? [] : ['schedule_warnings' => array_values($warnings)]));
 
         $zone = config('bac-office.display_timezone', 'Asia/Manila');
         $format = fn (?string $moment) => $moment ? \Carbon\Carbon::parse($moment)->timezone($zone)->format('M d, Y h:i A') : 'not set';
@@ -2082,6 +2086,8 @@ public function destroyUser(User $user)
         SystemNotification::createForUsers($recipients, 'Schedule updated', $message, 'project_status', ['project_id' => $project->id]);
 
         app(\App\Support\BidOpening::class)->openScheduledTechnical($project);
+
+        return $warnings === [] ? null : $project->scheduleWarningNote();
     }
 
     protected function bidWorkflow(): BidWorkflow
@@ -2285,7 +2291,7 @@ public function destroyUser(User $user)
 
         $schedule->project_id = $project->id;
         $schedule->save();
-        $this->applyScheduleChange($project->fresh(['schedule']), $scheduleBefore);
+        $warning = $this->applyScheduleChange($project->fresh(['schedule']), $scheduleBefore);
         $this->storeProjectDocuments($project, $documentFiles, $documentType);
 
         if ($staffId) {
@@ -2298,10 +2304,10 @@ public function destroyUser(User $user)
         }
 
         if ($request->ajax() || $request->expectsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
-            return response()->json(['success' => true, 'message' => 'Project updated successfully!']);
+            return response()->json(['success' => true, 'message' => 'Project updated successfully!'.($warning ? ' '.$warning : ''), 'warning' => $warning]);
         }
 
-        return redirect()->route('admin.projects')->with('success', 'Project updated successfully!');
+        return redirect()->route('admin.projects')->with('success', 'Project updated successfully!'.($warning ? ' '.$warning : ''));
     }
 
     public function publishProject(Request $request, Project $project)
@@ -2329,15 +2335,17 @@ public function destroyUser(User $user)
         }
 
         app(\App\Support\ProjectPublication::class)->publish($project, Auth::user(), $publicationAt);
+        $warning = $project->fresh('schedule')->scheduleWarningNote();
 
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Project published successfully! It is now ready for bidding.',
+                'message' => 'Project published successfully! It is now ready for bidding.'.($warning ? ' '.$warning : ''),
+                'warning' => $warning,
             ]);
         }
 
-        return redirect()->route('admin.projects')->with('success', 'Project published successfully!');
+        return redirect()->route('admin.projects')->with('success', 'Project published successfully!'.($warning ? ' '.$warning : ''));
     }
 
     public function destroyProject(Request $request, Project $project)

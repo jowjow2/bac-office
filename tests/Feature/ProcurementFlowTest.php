@@ -93,7 +93,8 @@ it('keeps a project as a draft until the local BAC publication requirements are 
         ->assertSessionHas('error', fn (string $message) => ! str_contains($message, 'PhilGEPS reference number')
             && str_contains($message, 'Invitation to Bid')
             && str_contains($message, 'pre-bid conference')
-            && str_contains($message, 'same day'));
+            // An opening on another day is only a warning.
+            && ! str_contains($message, 'same day'));
 
     $project = Project::firstOrFail();
     expect($project->status)->toBe('draft')
@@ -104,10 +105,11 @@ it('keeps a project as a draft until the local BAC publication requirements are 
         ->assertStatus(422)
         ->assertJsonPath('success', false);
 
-    // A posting period shorter than 7 calendar days is refused as well.
+    // A posting period shorter than 7 calendar days is a warning, not a blocker.
     $short = Project::create(['title' => 'Short Posting', 'description' => 'x', 'category' => 'goods', 'procurement_mode' => 'public_bidding', 'budget' => 500000, 'philgeps_reference_no' => '1', 'deadline' => now()->addDays(3)->setTime(9, 0), 'status' => 'draft']);
     $short->schedule()->create(['date_posted' => now()->toDateString(), 'bid_submission_deadline' => now()->addDays(3)->setTime(9, 0), 'bid_opening_date' => now()->addDays(3)->setTime(9, 30)]);
-    expect($short->fresh()->publicationBlockers())->toHaveKey('date_posted');
+    expect($short->fresh()->publicationBlockers())->not->toHaveKey('date_posted')
+        ->and($short->fresh()->scheduleWarnings($short->fresh()->postingDateForReview()))->toHaveKey('date_posted');
 });
 
 it('publishes a forwarded purchase request locally and enforces the bidder deadline without PhilGEPS fields', function () {
@@ -331,7 +333,7 @@ it('runs the full LGU procurement flow from posting to Notice to Proceed', funct
     expect($trackB['outcome']['key'])->toBe('not_awarded');
 });
 
-it('takes any day and time the BAC sets, but keeps the posting period', function () {
+it('takes any day and time the BAC sets, and only warns about the legal periods', function () {
     // A Saturday morning and a weekday evening are the BAC's call.
     $saturday = now()->addDays(20)->next(\Carbon\CarbonInterface::SATURDAY)->setTime(9, 0);
     testCase()->actingAs($this->admin)->post(route('admin.projects.wizard.store'), ($this->wizard)([
@@ -347,19 +349,28 @@ it('takes any day and time the BAC sets, but keeps the posting period', function
         'bid_opening_date' => ($this->local)($evening->copy()->setTime(19, 30)),
     ]))->assertSessionHas('success');
 
-    // Fewer than 7 calendar days after publication is still refused.
+    // Fewer than 7 days of posting and a pre-bid 1 day before the deadline: published, with a warning on record.
     $early = now()->addDays(3)->setTime(10, 0);
     testCase()->actingAs($this->admin)->post(route('admin.projects.wizard.store'), ($this->wizard)([
-        'title' => 'Too early',
-        'pre_bid_conference_date' => null,
+        'title' => 'Short periods',
+        'pre_bid_conference_date' => ($this->local)($early->copy()->subDay()),
         'bid_submission_deadline' => ($this->local)($early),
         'bid_opening_date' => ($this->local)($early->copy()->setTime(10, 30)),
-    ]));
+    ]))->assertSessionHas('success', fn (string $message) => str_contains($message, 'Schedule warning')
+        && str_contains($message, 'less than 7 calendar days') && str_contains($message, 'less than 12 calendar days'));
 
+    $short = Project::where('title', 'Short periods')->firstOrFail();
     expect(Project::where('title', 'Saturday deadline')->firstOrFail()->status)->toBe('open')
         ->and(Project::where('title', 'Evening deadline')->firstOrFail()->status)->toBe('open')
-        ->and(Project::where('title', 'Too early')->firstOrFail()->status)->toBe('draft')
-        ->and(Project::where('title', 'Too early')->firstOrFail()->publicationBlockers())->toHaveKey('date_posted');
+        ->and($short->status)->toBe('open')
+        ->and(\App\Models\AuditLog::where('action', 'project_published_locally')->where('auditable_id', $short->id)->sole()->new_values['schedule_warnings'])->toHaveCount(2);
+
+    // Dates out of order still block: the opening before the deadline.
+    testCase()->actingAs($this->admin)->post(route('admin.projects.wizard.store'), ($this->wizard)([
+        'title' => 'Opening first',
+        'bid_submission_deadline' => ($this->local)($saturday),
+        'bid_opening_date' => ($this->local)($saturday->copy()->subHour()),
+    ]))->assertSessionHasErrors('bid_opening_date');
 });
 
 it('closes bidding at the Philippine time typed in the wizard', function () {

@@ -162,6 +162,7 @@ class StaffController extends Controller
 
         if ($validated['status'] === 'open') {
             app(\App\Support\ProjectPublication::class)->publish($project, Auth::user(), $publicationAt);
+            $warning = $project->fresh('schedule')->scheduleWarningNote();
         } else {
             $project->update(['status' => $validated['status']]);
         }
@@ -176,7 +177,7 @@ class StaffController extends Controller
 
         return redirect()
             ->back()
-            ->with('success', 'Project status updated successfully.');
+            ->with('success', 'Project status updated successfully.'.(isset($warning) && $warning ? ' '.$warning : ''));
     }
 
 
