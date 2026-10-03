@@ -456,7 +456,9 @@ class AuthController extends Controller
         }
 
         if ($user->role === 'bidder') {
-            $this->issueBidderLoginVerificationCode($request, $user, $request->boolean('remember'));
+            if (! $this->issueBidderLoginVerificationCode($request, $user, $request->boolean('remember'))) {
+                return $this->authResponse($request, false, 'We could not send your verification code right now. Please try again in a few minutes, or contact the BAC Secretariat.', 'login', 503);
+            }
 
             return $this->authResponse(
                 $request,
@@ -504,7 +506,9 @@ class AuthController extends Controller
             return $this->authResponse($request, false, 'Your bidder account is not available for login.', 'login', 422);
         }
 
-        $this->issueBidderLoginVerificationCode($request, $user, (bool) ($pending['remember'] ?? false));
+        if (! $this->issueBidderLoginVerificationCode($request, $user, (bool) ($pending['remember'] ?? false))) {
+            return $this->authResponse($request, false, 'We could not send your verification code right now. Please try again in a few minutes, or contact the BAC Secretariat.', 'verify', 503);
+        }
 
         return $this->authResponse(
             $request,
@@ -878,7 +882,8 @@ class AuthController extends Controller
         };
     }
 
-    protected function issueBidderLoginVerificationCode(Request $request, User $user, bool $remember): void
+    /** False when the code could not be emailed: the bidder sees a clear message, not a server error. */
+    protected function issueBidderLoginVerificationCode(Request $request, User $user, bool $remember): bool
     {
         $code = (string) random_int(100000, 999999);
 
@@ -889,7 +894,16 @@ class AuthController extends Controller
             'expires_at' => now()->addMinutes(10)->timestamp,
         ]);
 
-        Mail::to($user->email)->send(new LoginVerificationCodeMail($user, $code));
+        try {
+            Mail::to($user->email)->send(new LoginVerificationCodeMail($user, $code));
+        } catch (Throwable $exception) {
+            $request->session()->forget('bidder_login_verification');
+            report($exception);
+
+            return false;
+        }
+
+        return true;
     }
 
     protected function resetUserPassword(User $user, string $password): void

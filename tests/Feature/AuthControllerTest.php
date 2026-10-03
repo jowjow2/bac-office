@@ -539,3 +539,24 @@ it('shows the actual password reset code lifetime in the email', function () {
     $mail->assertSeeInHtml('This code expires in 3 minutes.');
     $mail->assertDontSeeInHtml('10 minutes');
 });
+
+it('answers clearly instead of a server error when the verification code cannot be emailed', function () {
+    // The real mailer, pointed at a server that refuses the connection.
+    config()->set('mail.default', 'smtp');
+    config()->set('mail.mailers.smtp.host', '127.0.0.1');
+    config()->set('mail.mailers.smtp.port', 1);
+    config()->set('mail.mailers.smtp.timeout', 2);
+
+    User::create([
+        'name' => 'Bidder User', 'email' => 'mailfail@example.com', 'password' => Hash::make('secret123'),
+        'role' => 'bidder', 'status' => 'active', 'company' => 'Example Company', 'registration_no' => 'REG-1002',
+    ]);
+
+    testCase()->postJson('/login', ['email' => 'mailfail@example.com', 'password' => 'secret123'])
+        ->assertStatus(503)
+        ->assertJsonPath('ok', false)
+        ->assertJsonPath('message', 'We could not send your verification code right now. Please try again in a few minutes, or contact the BAC Secretariat.');
+
+    testCase()->assertGuest();
+    expect(session()->has('bidder_login_verification'))->toBeFalse();
+});

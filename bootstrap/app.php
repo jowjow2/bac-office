@@ -38,5 +38,17 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // One short line per error first: serverless logs (Vercel) keep only the
+        // end of a long entry, which cut the message off the full stack trace.
+        $exceptions->report(function (\Throwable $exception): void {
+            if (app()->runningUnitTests()) {
+                return;
+            }
+            error_log(sprintf('[app-error] %s: %s at %s:%d',
+                $exception::class,
+                \Illuminate\Support\Str::limit(str_replace(["\r", "\n"], ' ', $exception->getMessage()), 500),
+                str_replace(base_path().DIRECTORY_SEPARATOR, '', $exception->getFile()),
+                $exception->getLine()
+            ));
+        });
     })->create();

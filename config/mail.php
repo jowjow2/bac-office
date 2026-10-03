@@ -39,13 +39,21 @@ return [
 
         'smtp' => [
             'transport' => 'smtp',
-            'scheme' => env('MAIL_SCHEME'),
+            // Laravel 12 takes "smtp" (STARTTLS when offered) or "smtps" (implicit TLS);
+            // the older MAIL_ENCRYPTION-style "tls" / "ssl" values are mapped to them.
+            'scheme' => match (strtolower(trim((string) env('MAIL_SCHEME', '')))) {
+                'tls', 'starttls', 'smtp' => 'smtp',
+                'ssl', 'smtps' => 'smtps',
+                '', 'null' => (int) env('MAIL_PORT') === 465 ? 'smtps' : null,
+                default => env('MAIL_SCHEME'),
+            },
             'url' => env('MAIL_URL'),
             'host' => env('MAIL_HOST', '127.0.0.1'),
             'port' => env('MAIL_PORT', 2525),
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
-            'timeout' => null,
+            // Fail fast instead of hanging a serverless request on an unreachable server.
+            'timeout' => (int) env('MAIL_TIMEOUT', 15),
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
         ],
 
