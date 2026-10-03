@@ -6,8 +6,11 @@
         && $project->deadline
         && $project->deadline->isPast()
         && (!$project->deadline->isToday() || $project->deadline->format('H:i:s') !== '00:00:00');
-    $displayStatusLabel = $isOverdue ? 'Overdue' : \Illuminate\Support\Str::ucfirst(str_replace('_', ' ', $project->status ?: 'draft'));
-    $displayStatusClass = $isOverdue ? 'overdue' : str_replace('_', '-', $project->status ?: 'draft');
+    // Past the deadline the project no longer takes bids: submissions are closed until the opening is recorded.
+    $displayStatusLabel = $isOverdue
+        ? ($project->requiresRecordedBidOpening() ? 'Awaiting opening' : 'Submission closed')
+        : \Illuminate\Support\Str::ucfirst(str_replace('_', ' ', $project->status ?: 'draft'));
+    $displayStatusClass = $isOverdue ? 'closed' : str_replace('_', '-', $project->status ?: 'draft');
     $hasBidAnomaly = $budget > 0 && $project->relationLoaded('bids') && $project->bids->contains(function ($bid) use ($budget) {
         return (((float) $bid->bid_amount - $budget) / $budget) * 100 > 500;
     });
@@ -17,7 +20,7 @@
     if ($project->deadline) {
         if ($isOverdue) {
             $deadlineTone = 'past';
-            $deadlineMeta = 'Past due';
+            $deadlineMeta = 'Submission closed';
         } elseif ($project->deadline->isToday()) {
             $deadlineTone = 'today';
             $deadlineMeta = 'Due today';

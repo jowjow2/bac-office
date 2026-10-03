@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Events\BidWorkflowUpdated;
 use App\Models\{AuditLog, Bid, Project, User};
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -70,31 +71,61 @@ class BidOpening
         });
     }
 
-    /** Open technical and eligibility files once the scheduled Manila time arrives. */
+    /**
+     * Open technical and eligibility files once the scheduled Manila time
+     * arrives, exactly like a recorded opening: submissions close and every
+     * bidder, the BAC and the assigned staff are told. Only a published,
+     * active competitive project whose deadline has also passed is opened.
+     */
     public function openScheduledTechnical(Project $project): bool
     {
-        return DB::transaction(function () use ($project) {
+        $opened = DB::transaction(function () use ($project) {
             $locked = Project::lockForUpdate()->with('schedule')->findOrFail($project->id);
+            $now = now('Asia/Manila');
             $openingAt = $locked->schedule?->bid_opening_date;
-            if (! $locked->requiresRecordedBidOpening() || ! $openingAt
-                || $openingAt->greaterThan(now('Asia/Manila')) || $locked->bids_opened_at !== null) {
-                return false;
+            $deadline = $locked->bidSubmissionDeadline();
+            $publishedAt = $locked->publicationTime();
+            if (! $locked->requiresRecordedBidOpening() || $locked->bids_opened_at !== null
+                || $locked->status !== 'open' || $locked->archived_at !== null || $locked->failed_bidding_at !== null
+                || ! $openingAt || $openingAt->greaterThan($now)
+                || ! $deadline || $deadline->greaterThan($now)
+                || ($publishedAt && $publishedAt->greaterThan($now))) {
+                return null;
             }
-            $at = now('Asia/Manila');
-            $locked->forceFill(['bids_opened_at' => $at, 'bids_opened_by' => null])->save();
-            AuditLog::log('bid_technical_documents_auto_opened', $locked, [], [
-                'opened_at' => $at->toIso8601String(),
+            app(BidWorkflow::class)->recordTechnicalOpening($locked, null, 'bid_technical_documents_auto_opened', [
+                'opened_at' => $now->toIso8601String(),
                 'scheduled_at' => $openingAt->timezone('Asia/Manila')->toIso8601String(),
-                'timezone' => 'Asia/Manila', 'method' => 'scheduled_automatic_opening',
+                'method' => 'scheduled_automatic_opening',
             ]);
-            return true;
+
+            return $locked;
         });
+        if ($opened === null) {
+            return false;
+        }
+
+        $message = 'Technical and eligibility components of '.$opened->title.' opened at the scheduled bid opening. Financial components stay sealed until opened by the BAC.';
+        SystemNotification::createForRole('admin', 'Bids opened as scheduled', $message, 'project_status', ['project_id' => $opened->id]);
+        SystemNotification::createForUsers($opened->assignments()->pluck('staff_id')->filter()->unique(), 'Bids opened as scheduled', $message, 'project_status', ['project_id' => $opened->id]);
+        Bid::where('project_id', $opened->id)->get()->each(fn (Bid $bid) => event(new BidWorkflowUpdated($bid)));
+
+        return true;
     }
-    /** Open every project whose bid-opening schedule has arrived (server time). */
+
+    /**
+     * Open every project whose bid-opening schedule has arrived (server
+     * time). Runs from the scheduler, the cron endpoint and each request
+     * (ApplyProcurementClock), so the opening never waits for a page visit
+     * of the project itself; the query is cheap when nothing is due.
+     */
     public function openDueTechnicalProjects(): int
     {
-        $projects = Project::query()->with('schedule')->whereNull('bids_opened_at')
-            ->whereHas('schedule', fn ($query) => $query->where('bid_opening_date', '<=', now('Asia/Manila')))
+        $alternativeModes = collect(ProcurementMode::MODES)->reject(fn ($mode) => $mode['family'] === ProcurementMode::FAMILY_COMPETITIVE)->keys()->all();
+        $now = now('Asia/Manila');
+        $projects = Project::query()->with('schedule')
+            ->where('status', 'open')->whereNull('bids_opened_at')->whereNull('archived_at')->whereNull('failed_bidding_at')
+            ->where(fn ($mode) => $mode->whereNull('procurement_mode')->orWhereNotIn('procurement_mode', $alternativeModes))
+            ->whereHas('schedule', fn ($query) => $query->where('bid_opening_date', '<=', $now))
             ->get();
         $opened = 0;
         foreach ($projects as $project) if ($this->openScheduledTechnical($project)) $opened++;

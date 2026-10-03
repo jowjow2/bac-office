@@ -190,7 +190,7 @@ it('blocks failed bidding until the bids have been opened after the deadline', f
     ProjectSchedule::create([
         'project_id' => $project->id,
         'bid_submission_deadline' => $deadline,
-        'bid_opening_date' => $deadline->copy()->addHour(),
+        'bid_opening_date' => now()->addHour(),
     ]);
 
     testCase()->actingAs($this->admin)->post(route('admin.project.failed-bidding', $project), [
@@ -199,6 +199,8 @@ it('blocks failed bidding until the bids have been opened after the deadline', f
 
     expect($project->fresh()->failed_bidding_at)->toBeNull();
 
+    // At the scheduled opening the bids open by themselves; the BAC records that it conducted the opening.
+    $this->travel(2)->hours();
     testCase()->actingAs($this->admin)->post(route('admin.project.open-bids', $project), [])->assertSessionHasNoErrors();
     testCase()->actingAs($this->admin)->post(route('admin.project.failed-bidding', $project), [
         'failed_bidding_reason' => 'No bids were received.',

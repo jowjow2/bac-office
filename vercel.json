@@ -12,6 +12,12 @@
       "excludeFiles": "{public/Images/**,public/documents/**,public/uploads/**,public/storage/**,storage/app/**,storage/logs/**,node_modules/**,tests/**,tools/**}"
     }
   },
+  "crons": [
+    {
+      "path": "/cron/procurement-schedule",
+      "schedule": "5 9 * * *"
+    }
+  ],
   "routes": [
     {
       "src": "/(favicon\\.ico|favicon-bac-[A-Za-z0-9]+\\.(?:png|ico)|bac-favicon\\.svg|robots\\.txt)",

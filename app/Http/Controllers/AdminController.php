@@ -1997,6 +1997,93 @@ public function destroyUser(User $user)
         };
     }
 
+    /**
+     * A schedule change may not undo a stage already reached: once the bids
+     * are opened (or the bidding failed, was awarded or completed) the dates
+     * are history, a passed deadline cannot be moved to reopen submissions,
+     * and a held pre-bid conference keeps its date. A changed schedule must
+     * also hang together (Project::scheduleConflicts).
+     *
+     * @return array<string, string> field => message
+     */
+    protected function scheduleChangeErrors(Project $project, string $deadline, \App\Models\ProjectSchedule $schedule): array
+    {
+        $zone = config('app.timezone', 'Asia/Manila');
+        $newDeadline = \Carbon\Carbon::parse($deadline, $zone);
+        $oldDeadline = $project->bidSubmissionDeadline();
+        $changed = array_filter([
+            // The form works to the minute; stored times may carry seconds.
+            'deadline' => $oldDeadline === null || ! $oldDeadline->copy()->startOfMinute()->equalTo($newDeadline->copy()->startOfMinute()),
+            'bid_opening_date' => $schedule->isDirty('bid_opening_date'),
+            'pre_bid_conference_date' => $schedule->isDirty('pre_bid_conference_date'),
+            'date_posted' => $schedule->isDirty('date_posted'),
+        ]);
+
+        // Drafts are checked in full when they are published.
+        if ($changed === [] || in_array($project->status, ['draft', 'approved_for_bidding'], true)) {
+            return [];
+        }
+
+        $lockedBy = match (true) {
+            $project->isCompleted() => 'the project is completed',
+            $project->failed_bidding_at !== null => 'a failure of bidding was declared',
+            $project->status === 'awarded' || $project->awards()->exists() => 'the contract was awarded',
+            $project->archived_at !== null => 'the project is archived',
+            $project->bidsAreOpened() => 'the bids were opened on '.$project->bids_opened_at->timezone($zone)->format('M d, Y h:i A'),
+            default => null,
+        };
+        if ($lockedBy !== null) {
+            return [array_key_first($changed) => "The schedule can no longer change: {$lockedBy}."];
+        }
+
+        $errors = [];
+        if (isset($changed['deadline']) && $oldDeadline !== null && ! $oldDeadline->isAfter(now($zone))) {
+            $errors['deadline'] = 'Submissions closed on '.$oldDeadline->timezone($zone)->format('M d, Y h:i A').'. The deadline cannot be moved after it has passed, since that would reopen or rewrite the submission period.';
+        }
+        if (isset($changed['pre_bid_conference_date']) && $project->proceedings()->where('type', \App\Models\ProjectProceeding::TYPE_PRE_BID)->exists()) {
+            $errors['pre_bid_conference_date'] = 'The pre-bid conference was already held and recorded; its date cannot change.';
+        }
+
+        $candidate = $project->replicate()->forceFill(['deadline' => $newDeadline]);
+        $candidate->id = $project->id;
+        $candidate->exists = true;
+        $candidate->setRelation('schedule', $schedule);
+        foreach ($candidate->scheduleConflicts($project->publicationTime()?->copy()->startOfDay()) as $field => $message) {
+            $errors[$field === 'bid_submission_deadline' ? 'deadline' : $field] ??= $message;
+        }
+
+        return $errors;
+    }
+
+    /**
+     * After a schedule change: what the new dates already require happens now
+     * (bid opening when its time has passed), and everyone taking part is told.
+     */
+    protected function applyScheduleChange(Project $project, array $before): void
+    {
+        $after = [
+            'deadline' => $project->bidSubmissionDeadline()?->toDateTimeString(),
+            'bid_opening_date' => $project->schedule?->bid_opening_date?->toDateTimeString(),
+        ];
+        if ($after === $before || in_array($project->status, ['draft', 'approved_for_bidding'], true)) {
+            return;
+        }
+
+        AuditLog::log('project_schedule_changed', $project, $before, $after);
+
+        $zone = config('bac-office.display_timezone', 'Asia/Manila');
+        $format = fn (?string $moment) => $moment ? \Carbon\Carbon::parse($moment)->timezone($zone)->format('M d, Y h:i A') : 'not set';
+        $message = 'Schedule updated for '.$project->title.': '.lcfirst($project->mode()->deadlineLabel()).' '.$format($after['deadline'])
+            .($project->requiresRecordedBidOpening() ? ', bid opening '.$format($after['bid_opening_date']) : '').'.';
+        $recipients = Bid::where('project_id', $project->id)->pluck('user_id')
+            ->merge(\App\Models\BiddingFeePayment::where('project_id', $project->id)->pluck('user_id'))
+            ->merge($project->assignments()->pluck('staff_id'))
+            ->filter()->unique();
+        SystemNotification::createForUsers($recipients, 'Schedule updated', $message, 'project_status', ['project_id' => $project->id]);
+
+        app(\App\Support\BidOpening::class)->openScheduledTechnical($project);
+    }
+
     protected function bidWorkflow(): BidWorkflow
     {
         return app(BidWorkflow::class);
@@ -2167,6 +2254,18 @@ public function destroyUser(User $user)
         $schedule->fill($scheduleData);
         unset($validated['date_posted'], $validated['pre_bid_conference_date'], $validated['bid_opening_date']);
 
+        $scheduleBefore = [
+            'deadline' => $project->bidSubmissionDeadline()?->toDateTimeString(),
+            'bid_opening_date' => $schedule->getOriginal('bid_opening_date')?->toDateTimeString(),
+        ];
+        if ($scheduleErrors = $this->scheduleChangeErrors($project, $validated['deadline'], $schedule)) {
+            if ($request->ajax() || $request->expectsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+                return response()->json(['success' => false, 'message' => implode(' ', $scheduleErrors), 'errors' => array_map(fn ($message) => [$message], $scheduleErrors)], 422);
+            }
+
+            return back()->withInput()->withErrors($scheduleErrors);
+        }
+
         $statusError = ($validated['status'] === 'open' && $project->status !== 'open')
             ? 'Use the Publish to BAC System action to make a draft visible to bidders.'
             : $this->projectStatusChangeError($project, $validated['status'], $validated['deadline'], $schedule);
@@ -2186,6 +2285,7 @@ public function destroyUser(User $user)
 
         $schedule->project_id = $project->id;
         $schedule->save();
+        $this->applyScheduleChange($project->fresh(['schedule']), $scheduleBefore);
         $this->storeProjectDocuments($project, $documentFiles, $documentType);
 
         if ($staffId) {

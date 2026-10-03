@@ -21,6 +21,15 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Http\Request;
 
+// Scheduled procurement transitions without a page visit (Vercel Cron, see vercel.json).
+// Idempotent: it only does what the saved schedule and server time already require.
+Route::get('/cron/procurement-schedule', function (Request $request) {
+    $secret = config('services.cron.secret');
+    abort_if(filled($secret) && ! hash_equals('Bearer '.$secret, (string) $request->header('Authorization')), 401);
+
+    return response()->json(['opened' => app(\App\Support\BidOpening::class)->openDueTechnicalProjects()]);
+})->name('cron.procurement-schedule');
+
 Route::get('/', function () {
     try {
         $hasProjectsTable = Schema::hasTable('projects');

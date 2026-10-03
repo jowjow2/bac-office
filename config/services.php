@@ -48,4 +48,9 @@ return [
         'token' => env('BLOB_READ_WRITE_TOKEN'),
     ],
 
+    // Vercel Cron sends "Authorization: Bearer <CRON_SECRET>" when the variable is set.
+    'cron' => [
+        'secret' => env('CRON_SECRET'),
+    ],
+
 ];

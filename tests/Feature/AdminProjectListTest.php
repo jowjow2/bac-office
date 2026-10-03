@@ -51,7 +51,7 @@ it('filters from the five summary cards and keeps filtered pagination counts acc
     expect($response->viewData('projects')->total())->toBe(2);
 });
 
-it('renders Overdue for past open projects and flags urgent unassigned staffing', function () {
+it('shows past-deadline open projects as closed for submission and flags urgent unassigned staffing', function () {
     $overdue = Project::create([
         'title' => 'Overdue Open Project',
         'description' => 'Past deadline',
@@ -71,8 +71,8 @@ it('renders Overdue for past open projects and flags urgent unassigned staffing'
     $response = $this->actingAs($this->admin)->get(route('admin.projects'));
 
     $response->assertOk()
-        ->assertSee('Overdue')
-        ->assertSee('Past due')
+        ->assertSee('Awaiting opening')
+        ->assertSee('Submission closed')
         ->assertSee('Urgent staffing needed')
         ->assertSee('Due today')
         ->assertSee('Due Today Project')

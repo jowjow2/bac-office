@@ -384,7 +384,14 @@ class Project extends Model
             default => match ($this->status) {
                 'draft' => ['label' => 'Draft', 'tone' => 'neutral'],
                 'approved_for_bidding' => ['label' => 'Approved for bidding', 'tone' => 'info'],
-                'open' => ['label' => 'Open for bidding', 'tone' => 'success'],
+                'open' => match (true) {
+                    $this->isScheduledForPublication() => ['label' => 'Scheduled for publication', 'tone' => 'info'],
+                    // The deadline closed submissions; the status column changes at the opening.
+                    $this->submissionDeadlinePassed() => $this->requiresRecordedBidOpening()
+                        ? ['label' => 'Submission closed · awaiting opening', 'tone' => 'warning']
+                        : ['label' => 'Submission closed', 'tone' => 'warning'],
+                    default => ['label' => 'Open for bidding', 'tone' => 'success'],
+                },
                 'closed' => ['label' => 'Bidding closed', 'tone' => 'warning'],
                 'awarded' => ['label' => 'Awarded', 'tone' => 'success'],
                 default => ['label' => ucfirst(str_replace('_', ' ', (string) $this->status)), 'tone' => 'neutral'],
@@ -472,8 +479,6 @@ class Project extends Model
         $publicationAt = $publicationAt?->copy()->timezone(config('app.timezone', 'Asia/Manila'));
         $schedule = $this->relationLoaded('schedule') ? $this->schedule : $this->schedule()->first();
         $deadline = $this->bidSubmissionDeadline();
-        $opening = $schedule?->bid_opening_date;
-        $preBid = $schedule?->pre_bid_conference_date;
         $posted = $this->published_at
             ? Carbon::parse($this->published_at)->startOfDay()
             : ($publicationAt?->copy()->startOfDay()
@@ -514,11 +519,6 @@ class Project extends Model
             $blockers['date_posted'] = 'The local BAC publication date cannot be in the future.';
         }
 
-        $minimumPostingDays = $mode->minimumPostingDays();
-        if ($posted !== null && $deadline !== null && $minimumPostingDays > 0 && $posted->copy()->addDays($minimumPostingDays)->isAfter($deadline)) {
-            $blockers['date_posted'] = "The local BAC publication must be at least {$minimumPostingDays} calendar days before the ".lcfirst($deadlineLabel).".";
-        }
-
         if ($mode->isCompetitive()) {
             $hasInvitation = $this->officialDocuments()->contains(fn (ProjectDocument $document) => $document->document_type === 'invitation_to_bid');
             if (! $hasInvitation) {
@@ -550,7 +550,41 @@ class Project extends Model
             if ($this->preProcurementConferenceRequired() && ! $this->proceedings()->where('type', ProjectProceeding::TYPE_PRE_PROCUREMENT)->exists()) {
                 $blockers['pre_procurement_conference'] = 'Record the pre-procurement conference before publishing: it is mandatory for this ABC (IRR Sec. 49.1).';
             }
+        }
 
+        // The posting period wins over the other date_posted messages; the "future deadline" message wins over office hours.
+        foreach ($this->scheduleConflicts($posted) as $field => $message) {
+            if ($field === 'date_posted' || ! isset($blockers[$field])) {
+                $blockers[$field] = $message;
+            }
+        }
+
+        return $blockers;
+    }
+
+    /**
+     * Whether the schedule hangs together, for posting and for every later
+     * change: posting period, pre-bid conference, opening right after the
+     * deadline, and office hours.
+     *
+     * @return array<string, string> field => message
+     */
+    public function scheduleConflicts(?Carbon $posted = null): array
+    {
+        $schedule = $this->relationLoaded('schedule') ? $this->schedule : $this->schedule()->first();
+        $deadline = $this->bidSubmissionDeadline();
+        $opening = $schedule?->bid_opening_date;
+        $preBid = $schedule?->pre_bid_conference_date;
+        $mode = $this->mode();
+        $deadlineLabel = $mode->deadlineLabel();
+        $blockers = [];
+
+        $minimumPostingDays = $mode->minimumPostingDays();
+        if ($posted !== null && $deadline !== null && $minimumPostingDays > 0 && $posted->copy()->addDays($minimumPostingDays)->isAfter($deadline)) {
+            $blockers['date_posted'] = "The local BAC publication must be at least {$minimumPostingDays} calendar days before the ".lcfirst($deadlineLabel).".";
+        }
+
+        if ($mode->isCompetitive()) {
             if ($opening === null) {
                 $blockers['bid_opening_date'] = 'Set the bid opening schedule.';
             } elseif ($deadline !== null && ($opening->lessThan($deadline) || ! $opening->isSameDay($deadline))) {
@@ -697,7 +731,7 @@ class Project extends Model
             return 'This procurement mode uses quotation/offer review after its deadline; no competitive bid-opening event is required.';
         }
 
-        if ($this->bidsAreOpened()) {
+        if ($this->bidsAreOpened() && $this->bids_opened_by !== null) {
             return 'Bids for this project were already opened.';
         }
 
@@ -707,6 +741,11 @@ class Project extends Model
 
         if ($this->failed_bidding_at !== null) {
             return 'Bids cannot be opened after failure of bidding has been declared.';
+        }
+
+        // Opened at its scheduled time: the BAC can still record that it conducted the opening.
+        if ($this->bidsAreOpened()) {
+            return null;
         }
 
         if (in_array($this->status, ['draft', 'approved_for_bidding'], true)) {
