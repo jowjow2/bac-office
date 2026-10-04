@@ -1821,24 +1821,7 @@
                 flex: 1 1 auto;
             }
         }
-        /* Bid steps: compact stepper, pinned while the form scrolls. */
-        .sb-steps { position:sticky; top:-18px; z-index:3; display:flex; align-items:flex-start; margin:-18px -22px 16px; padding:16px 22px 14px; border-bottom:1px solid #e7e1d6; background:#fff; }
-        .sb-step { position:relative; display:flex; flex:1 1 0; flex-direction:column; align-items:center; gap:6px; min-width:0; padding:0 8px; border:0; border-radius:10px; background:none; color:#65736d; font:inherit; text-align:center; cursor:pointer; }
-        .sb-step::before { content:''; position:absolute; top:16px; right:calc(50% + 22px); left:calc(-50% + 22px); height:2px; border-radius:2px; background:#e2dccf; }
-        .sb-step:first-child::before { display:none; }
-        .sb-step.is-current::before, .sb-step.is-done::before { background:#205846; }
-        .sb-step:focus-visible { outline:3px solid #9bc9b7; outline-offset:2px; }
-        .sb-step__number { position:relative; z-index:1; display:grid; place-items:center; width:32px; height:32px; border:2px solid #d8d1c4; border-radius:50%; background:#fff; color:#65736d; font-size:13px; font-weight:700; transition:background .15s ease, border-color .15s ease; }
-        .sb-step:hover .sb-step__number { border-color:#9bc9b7; }
-        .sb-step.is-current .sb-step__number { border-color:#205846; background:#205846; color:#fff; box-shadow:0 0 0 4px #e9f2ed; }
-        .sb-step.is-done:not(.is-current) .sb-step__number { border-color:#205846; background:#e9f2ed; color:transparent; }
-        .sb-step.is-done:not(.is-current) .sb-step__number::after { content:'\f00c'; position:absolute; color:#205846; font-family:'Font Awesome 6 Free'; font-size:13px; font-weight:900; }
-        .sb-step strong, .sb-step small { display:block; }
-        .sb-step strong { color:#3a4641; font-size:13px; font-weight:600; line-height:1.3; }
-        .sb-step.is-current strong { color:#173f32; }
-        .sb-step small { margin-top:1px; color:#7a8680; font-size:11.5px; line-height:1.35; }
         .sb-panel[hidden],.sb-bulk-upload[hidden],.sb-foot-actions [hidden] { display:none !important; }
-        @media(max-width:700px) { .sb-steps { margin:-14px -16px 14px; padding:12px 8px 10px; top:-14px; } .sb-step { padding:0 4px; } .sb-step small { display:none; } .sb-step strong { font-size:11.5px; } .sb-step__number { width:28px; height:28px; } .sb-step::before { top:14px; } }
     </style>
 
         @include('partials.bidder-sidebar')
