@@ -10,10 +10,7 @@
     </header>
     <div class="ui-card__body">
         @if($upcoming->isEmpty())
-            <div class="ui-empty">
-                <i class="far fa-calendar" aria-hidden="true"></i>
-                <span>No pre-bid conferences, deadlines or openings scheduled in the next two weeks.</span>
-            </div>
+            <p class="ui-empty-line"><i class="far fa-calendar" aria-hidden="true"></i> Nothing scheduled in the next two weeks.</p>
         @else
             <ul class="ui-upcoming">
                 @foreach($upcoming as $event)

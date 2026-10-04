@@ -59,7 +59,9 @@ class AdminController extends Controller
             'role' => 'admin',
             'filters' => $filters,
             'rows' => $pipeline->paginate($filters, 12),
-            'kpis' => $pipeline->kpis(),
+            'kpis' => $kpis = $pipeline->kpis(),
+            // What is waiting for this person, in place of bare totals.
+            'actions' => \App\Support\DashboardActions::for('admin', $kpis),
             'buckets' => $pipeline->bucketCounts($filters),
             'upcoming' => $pipeline->upcoming(),
             'pendingRegistrations' => $pendingRegistrations,

@@ -91,7 +91,7 @@
                             @if($row['mode_family'])
                                 <span class="ui-mode ui-mode--{{ $row['mode_family'] }}" title="{{ $row['mode_label'] }} · {{ $row['legal_basis'] }}">{{ $row['mode_short'] }}</span>
                             @else
-                                <span class="ui-muted">Not set</span>
+                                <span class="ui-muted" title="Mode of procurement not set yet">—</span>
                             @endif
                         </td>
                         <td data-label="ABC (₱)" class="is-num">{{ $row['abc'] > 0 ? number_format($row['abc'], 2) : '—' }}</td>

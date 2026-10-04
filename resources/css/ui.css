@@ -392,6 +392,78 @@ a.ui-stat:hover {
     font-variant-numeric: tabular-nums;
 }
 
+/* ---------- Needs your action ---------- */
+
+.ui-todo {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.ui-todo__item {
+    display: grid;
+    grid-template-columns: 34px 44px minmax(0, 1fr) 12px;
+    align-items: center;
+    gap: 12px;
+    height: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--ui-line);
+    border-left: 3px solid var(--todo-accent, var(--ui-line-strong));
+    border-radius: var(--ui-radius);
+    background: var(--ui-surface);
+    color: inherit;
+    text-decoration: none;
+    transition: border-color .15s ease, background-color .15s ease;
+}
+
+.ui-todo__item:hover { background: var(--ui-surface-2); border-color: var(--ui-line-strong); border-left-color: var(--todo-accent, var(--ui-line-strong)); }
+.ui-todo__item:focus-visible { outline: 2px solid var(--ui-focus-color); outline-offset: 2px; }
+.ui-todo__item--action { --todo-accent: var(--ui-primary); --todo-soft: var(--ui-primary-soft); }
+.ui-todo__item--info { --todo-accent: var(--ui-info); --todo-soft: var(--ui-info-soft); }
+.ui-todo__item--warning { --todo-accent: var(--ui-warning); --todo-soft: var(--ui-warning-soft); }
+.ui-todo__item--danger { --todo-accent: var(--ui-danger); --todo-soft: var(--ui-danger-soft); }
+
+.ui-todo__icon {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--todo-soft, var(--ui-surface-2));
+    color: var(--todo-accent, var(--ui-muted));
+    font-size: 14px;
+}
+
+.ui-todo__count {
+    color: var(--ui-ink);
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+.ui-todo__text { display: grid; gap: 2px; min-width: 0; }
+.ui-todo__text strong { color: var(--ui-ink); font-size: 13.5px; font-weight: 600; line-height: 1.3; }
+.ui-todo__text small { color: var(--ui-muted); font-size: 12px; line-height: 1.4; }
+.ui-todo__go { color: var(--ui-subtle); font-size: 11px; }
+
+.ui-allclear, .ui-empty-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    color: var(--ui-muted);
+    font-size: 13px;
+}
+
+.ui-allclear i { color: var(--ui-success); }
+.ui-empty-line i { color: #a6ada8; }
+
 /* ---------- Pipeline ---------- */
 
 .ui-pipeline {
@@ -444,6 +516,13 @@ a.ui-stat:hover {
 .ui-pipeline__stage[aria-current="true"] .ui-pipeline__count {
     color: var(--ui-primary);
 }
+
+.ui-pipeline__stage.is-empty:not([aria-current="true"]) { background: transparent; border-style: dashed; }
+.ui-pipeline__stage.is-empty:not([aria-current="true"]) .ui-pipeline__count { color: var(--ui-subtle); font-weight: 500; }
+
+.ui-pipeline__bar { display: block; height: 3px; border-radius: 3px; background: var(--ui-line-soft); overflow: hidden; }
+.ui-pipeline__bar > span { display: block; height: 100%; border-radius: 3px; background: var(--ui-primary); }
+
 
 /* ---------- Buttons ---------- */
 
@@ -1057,8 +1136,7 @@ select.ui-input {
 
 .ui-table .is-num {
     text-align: right;
-    font-family: var(--ui-mono);
-    font-size: 12px;
+    font-size: 12.5px;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }

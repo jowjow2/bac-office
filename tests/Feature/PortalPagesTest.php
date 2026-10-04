@@ -163,3 +163,23 @@ it('guides end-user offices through a stepped purchase request with a review ste
         ->assertSee('Review and submit')
         ->assertSee('Planning documents');
 });
+
+it('leads the overview with the work waiting for each role, and leaves out what is not', function () {
+    User::create(['name' => 'New Supplier', 'email' => 'portal-new-bidder@example.com', 'password' => Hash::make('password'), 'role' => 'bidder', 'status' => 'pending', 'company' => 'New Supplier Co.']);
+
+    testCase()->actingAs($this->admin)->get(route('admin.dashboard'))->assertOk()
+        ->assertSeeInOrder(['Needs your action', 'Purchase requests to review', 'Bidder registrations', 'Pipeline by stage'])
+        ->assertSee(route('admin.users', ['filter' => 'pending']), false)
+        ->assertDontSee('Notices to Proceed to issue')
+        ->assertDontSee('Past the IRR award period');
+
+    // The Secretariat reviews requests; bidder registrations stay with the BAC admin.
+    testCase()->actingAs($this->staff)->get(route('staff.dashboard'))->assertOk()
+        ->assertSee('Purchase requests to review')
+        ->assertDontSee('Bidder registrations');
+
+    ProcurementRequest::query()->delete();
+    User::where('status', 'pending')->delete();
+    testCase()->actingAs($this->staff)->get(route('staff.dashboard'))->assertOk()
+        ->assertDontSee('Purchase requests to review');
+});

@@ -35,27 +35,33 @@
         @endif
     @endunless
 
-    <section class="ui-kpis" aria-label="Key figures">
-        <a href="{{ route($routeName) }}" class="ui-kpi">
-            <span class="ui-kpi__label">Open procurements</span>
-            <span class="ui-kpi__value">{{ number_format($kpis['open']['count']) }}</span>
-            <span class="ui-kpi__foot">{{ Format::pesoShort($kpis['open']['abc']) }} total ABC</span>
-        </a>
-        <a href="{{ $flagUrl('posting') }}" class="ui-kpi {{ $kpis['awaiting_posting']['count'] > 0 ? 'ui-kpi--warning' : '' }}">
-            <span class="ui-kpi__label">Awaiting PhilGEPS posting record</span>
-            <span class="ui-kpi__value">{{ number_format($kpis['awaiting_posting']['count']) }}</span>
-            <span class="ui-kpi__foot">ITB or RFQ posting date not recorded</span>
-        </a>
-        <a href="{{ $flagUrl('week') }}" class="ui-kpi">
-            <span class="ui-kpi__label">Deadlines this week</span>
-            <span class="ui-kpi__value">{{ number_format($kpis['openings_week']['count']) }}</span>
-            <span class="ui-kpi__foot">Bid and quotation deadlines, next 7 days</span>
-        </a>
-        <a href="{{ $flagUrl('late') }}" class="ui-kpi {{ $kpis['past_period']['count'] > 0 ? 'ui-kpi--danger' : '' }}">
-            <span class="ui-kpi__label">Past IRR award period</span>
-            <span class="ui-kpi__value">{{ number_format($kpis['past_period']['count']) }}</span>
-            <span class="ui-kpi__foot">{{ $kpis['past_period']['count'] > 0 ? 'Needs BAC action' : 'Bid opening to award within the limit' }}</span>
-        </a>
+    {{-- What is waiting for this person (DashboardActions); nothing is shown for a zero. --}}
+    <section class="ui-card" aria-labelledby="actions-title">
+        <header class="ui-card__head ui-card__head--plain">
+            <h2 class="ui-card__title" id="actions-title">Needs your action</h2>
+            <a href="{{ route($routeName) }}" class="ui-card__aside ui-link">{{ number_format($kpis['open']['count']) }} open {{ \Illuminate\Support\Str::plural('procurement', $kpis['open']['count']) }} · {{ Format::pesoShort($kpis['open']['abc']) }} total ABC</a>
+        </header>
+        <div class="ui-card__body">
+            @if($actions === [])
+                <p class="ui-allclear"><i class="fas fa-circle-check" aria-hidden="true"></i> All caught up. Nothing is waiting for you right now.</p>
+            @else
+                <ul class="ui-todo">
+                    @foreach($actions as $action)
+                        <li>
+                            <a href="{{ $action['url'] }}" class="ui-todo__item ui-todo__item--{{ $action['tone'] }}">
+                                <span class="ui-todo__icon" aria-hidden="true"><i class="fas {{ $action['icon'] }}"></i></span>
+                                <span class="ui-todo__count">{{ number_format($action['count']) }}</span>
+                                <span class="ui-todo__text">
+                                    <strong>{{ $action['label'] }}</strong>
+                                    <small>{{ $action['hint'] }}</small>
+                                </span>
+                                <i class="fas fa-chevron-right ui-todo__go" aria-hidden="true"></i>
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </div>
     </section>
 
     @include('partials.portal.pipeline', ['routeName' => $routeName])
