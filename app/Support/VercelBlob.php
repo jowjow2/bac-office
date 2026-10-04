@@ -41,20 +41,30 @@ class VercelBlob
             throw new RuntimeException('Unable to read the uploaded file.');
         }
 
-        $response = Http::withToken(self::token())
-            ->withHeaders(self::apiHeaders() + [
-                'x-vercel-blob-access' => 'private',
-                'x-content-type' => $file->getMimeType() ?: 'application/octet-stream',
-                'x-add-random-suffix' => '0',
-            ])
-            ->withBody($bytes, $file->getMimeType() ?: 'application/octet-stream')
-            ->timeout(50)
-            ->put(self::API.'/?'.http_build_query(['pathname' => $pathname]));
+        // A busy or briefly unavailable store (429/5xx) gets two more tries.
+        $attempt = 0;
+        do {
+            $response = Http::withToken(self::token())
+                ->withHeaders(self::apiHeaders() + [
+                    'x-vercel-blob-access' => 'private',
+                    'x-content-type' => $file->getMimeType() ?: 'application/octet-stream',
+                    'x-add-random-suffix' => '0',
+                ])
+                ->withBody($bytes, $file->getMimeType() ?: 'application/octet-stream')
+                ->timeout(50)
+                ->put(self::API.'/?'.http_build_query(['pathname' => $pathname]));
+            $retry = ($response->status() === 429 || $response->serverError()) && ++$attempt < 3;
+            if ($retry) {
+                usleep(400000 * $attempt);
+            }
+        } while ($retry);
 
         $url = $response->json('url');
         if (! $response->successful() || ! is_string($url) || ! self::isUrl($url)
             || strtolower((string) parse_url($url, PHP_URL_HOST)) !== self::host()) {
-            throw new RuntimeException('Unable to store the attachment in private Blob storage (HTTP '.$response->status().').');
+            // The store's own error code (e.g. a suspended store or a reached limit), never the token.
+            $reason = $response->json('error.code') ?: $response->json('error.message') ?: '';
+            throw new RuntimeException('Unable to store the attachment in private Blob storage (HTTP '.$response->status().($reason !== '' ? ', '.$reason : '').').');
         }
 
         return $url;

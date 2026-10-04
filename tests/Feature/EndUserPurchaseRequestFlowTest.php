@@ -301,3 +301,25 @@ it('shows a request saved before items as one item row', function () {
     testCase()->actingAs($office)->get(route('end-user.requests.edit', $request))->assertOk()
         ->assertSee('value="650,000.00"', false)->assertSee('value="lot"', false);
 });
+
+it('keeps the form and explains a failed attachment upload instead of a server error', function () {
+    $office = User::create(['name' => 'MEO Down', 'email' => 'meo-down@example.com', 'password' => Hash::make('password'), 'role' => 'end_user', 'status' => 'active', 'office' => 'Municipal Engineering Office']);
+    config()->set('services.vercel_blob', ['enabled' => true, 'token' => 'vercel_blob_rw_SjfNUHhmSlUWvEhs_test']);
+    $attempts = 0;
+    Http::fake(function ($request) use (&$attempts) {
+        $attempts++;
+
+        return Http::response(['error' => ['code' => 'service_unavailable']], 503);
+    });
+
+    testCase()->actingAs($office)->from(route('end-user.requests.create'))->post(route('end-user.requests.store'), $this->details + [
+        'action' => 'draft',
+        'documents' => [UploadedFile::fake()->createWithContent('TOR.pdf', "%PDF-1.4\nattachment")],
+        'document_types' => ['tor'],
+    ])->assertRedirect(route('end-user.requests.create'))
+        ->assertSessionHasErrors('documents')
+        ->assertSessionHasInput('title', 'Supply of survey equipment');
+
+    // Tried three times, and nothing was half-saved.
+    expect($attempts)->toBe(3)->and(ProcurementRequest::count())->toBe(0);
+});

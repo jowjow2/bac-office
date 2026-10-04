@@ -86,18 +86,22 @@ class ProcurementRequestController extends Controller
         $validated = $this->validateRequest($request);
         $submit = $request->input('action') === 'submit';
 
-        $procurementRequest = DB::transaction(function () use ($validated, $request) {
-            $procurementRequest = ProcurementRequest::create($this->attributes($validated) + [
-                'reference_no' => ProcurementRequest::nextReferenceNo(),
-                'end_user_office' => Auth::user()->office,
-                'requested_by' => Auth::id(),
-                'status' => ProcurementRequest::STATUS_DRAFT,
-            ]);
+        try {
+            $procurementRequest = DB::transaction(function () use ($validated, $request) {
+                $procurementRequest = ProcurementRequest::create($this->attributes($validated) + [
+                    'reference_no' => ProcurementRequest::nextReferenceNo(),
+                    'end_user_office' => Auth::user()->office,
+                    'requested_by' => Auth::id(),
+                    'status' => ProcurementRequest::STATUS_DRAFT,
+                ]);
 
-            $this->storeDocuments($procurementRequest, $request);
+                $this->storeDocuments($procurementRequest, $request);
 
-            return $procurementRequest;
-        });
+                return $procurementRequest;
+            });
+        } catch (\RuntimeException $exception) {
+            return $this->uploadFailed($request, $exception);
+        }
 
         AuditLog::log('procurement_request_created', $procurementRequest, null, ['reference_no' => $procurementRequest->reference_no]);
 
@@ -139,10 +143,14 @@ class ProcurementRequestController extends Controller
         $validated = $this->validateRequest($request);
         $before = $procurementRequest->only(array_keys($this->attributes($validated)));
 
-        DB::transaction(function () use ($procurementRequest, $validated, $request) {
-            $procurementRequest->update($this->attributes($validated));
-            $this->storeDocuments($procurementRequest, $request);
-        });
+        try {
+            DB::transaction(function () use ($procurementRequest, $validated, $request) {
+                $procurementRequest->update($this->attributes($validated));
+                $this->storeDocuments($procurementRequest, $request);
+            });
+        } catch (\RuntimeException $exception) {
+            return $this->uploadFailed($request, $exception);
+        }
 
         AuditLog::log('procurement_request_updated', $procurementRequest, $before, $procurementRequest->only(array_keys($before)));
 
@@ -481,6 +489,16 @@ class ProcurementRequestController extends Controller
         ] + (array_key_exists('items', $validated) && ProcurementRequest::storesItems()
             ? ['items' => $validated['items'] === [] ? null : $validated['items']]
             : []);
+    }
+
+    /** Nothing was saved (the transaction rolled back): back to the form with what was typed. */
+    private function uploadFailed(Request $request, \RuntimeException $exception)
+    {
+        report($exception);
+
+        return back()
+            ->withInput($request->except('documents'))
+            ->withErrors(['documents' => 'The attachment could not be uploaded right now, so nothing was saved. Try again in a few minutes, or save without the attachment and add it later.']);
     }
 
     private function storeDocuments(ProcurementRequest $procurementRequest, Request $request): void
