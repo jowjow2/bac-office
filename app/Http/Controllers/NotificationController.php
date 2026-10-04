@@ -16,6 +16,14 @@ class NotificationController extends Controller
     {
         $user = $request->user();
         $limit = min(max((int) $request->query('limit', 10), 1), 30);
+
+        // Deadlines that just passed are announced before the feed is read.
+        try {
+            \App\Support\BiddingClosedNotices::sweep();
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+
         $notifications = SystemNotification::forUser($user?->id, $limit);
 
         return response()->json([
@@ -23,6 +31,8 @@ class NotificationController extends Controller
             'unread_count' => SystemNotification::unreadCount($user?->id),
             'unread_messages_count' => $this->unreadMessagesCount($user?->id),
             'notifications' => SystemNotification::payloads($notifications, $user),
+            // The page reloads itself when what it shows has changed.
+            'live_version' => \App\Support\LiveVersion::for($request->query('live'), $user),
         ]);
     }
 

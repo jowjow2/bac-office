@@ -7,6 +7,8 @@
             openUrlTemplate: @json(route('notifications.open', ['notification' => '__ID__'])),
             biddingTrackUrl: @json(auth()->user()?->role === 'bidder' ? route('bidder.bidding-track.data', [], false) : null),
             csrfToken: @json(csrf_token()),
+            // What this page shows (LiveVersion); it reloads itself when that changes.
+            liveScope: @json(\App\Support\LiveVersion::scopeForRoute(\Illuminate\Support\Facades\Route::currentRouteName())),
         };
     </script>
 
@@ -91,7 +93,7 @@
 
             async function syncNotifications(highlightNew) {
                 try {
-                    const response = await fetch(config.feedUrl, {
+                    const response = await fetch(config.feedUrl + (config.liveScope ? '?live=' + encodeURIComponent(config.liveScope) : ''), {
                         headers: {
                             'Accept': 'application/json',
                             'X-Requested-With': 'XMLHttpRequest',
@@ -103,6 +105,7 @@
                     const data = await response.json();
                     if (!data.ok) return;
 
+                    handleLiveVersion(data.live_version);
                     const notifications = data.notifications || [];
                     const incomingIds = new Set(notifications.map(function (item) { return String(item.id); }));
                     const hasNew = highlightNew && notifications.some(function (item) {
@@ -227,6 +230,96 @@
                     toast.style.transition = 'opacity 0.3s';
                     setTimeout(function () { toast.remove(); }, 300);
                 }, 4000);
+            }
+
+            /*
+             * Live pages. The feed returns a fingerprint of what this page shows
+             * (App\Support\LiveVersion); when it changes, the page reloads itself,
+             * but never under an open dialog, a focused field or unsaved input.
+             * A bid deadline passing closes its row and dialog at that second.
+             */
+            let liveVersion = null;
+            let liveReloadPending = false;
+            const LIVE_TOAST_KEY = 'bac-live-toast';
+
+            try {
+                const carried = sessionStorage.getItem(LIVE_TOAST_KEY);
+                if (carried) {
+                    sessionStorage.removeItem(LIVE_TOAST_KEY);
+                    showLiveToast(carried);
+                }
+            } catch (error) {}
+
+            function handleLiveVersion(version) {
+                if (!version) return;
+                if (liveVersion !== null && version !== liveVersion) liveReloadPending = true;
+                liveVersion = version;
+                if (liveReloadPending) reloadWhenIdle();
+            }
+
+            function pageIsBusy() {
+                if (document.hidden) return true;
+                const openDialog = Array.from(document.querySelectorAll('.bidder-modal-overlay.show, .modal.show, dialog[open], [aria-modal="true"]'))
+                    .some(function (element) {
+                        if (element.getClientRects().length === 0) return false;
+                        const style = getComputedStyle(element);
+                        return style.visibility !== 'hidden' && style.opacity !== '0';
+                    });
+                if (openDialog) return true;
+                const active = document.activeElement;
+                if (active && active.matches('input:not([type=button]):not([type=submit]):not([type=checkbox]):not([type=radio]), textarea, select, [contenteditable="true"]')) return true;
+                return Array.from(document.querySelectorAll('form input, form textarea, form select')).some(function (field) {
+                    // Only fields the person can see: a closed dialog's form does not hold the page.
+                    if (field.type === 'hidden' || field.disabled || field.getClientRects().length === 0) return false;
+                    if (field.type === 'file') return field.files && field.files.length > 0;
+                    if (field.type === 'checkbox' || field.type === 'radio') return field.checked !== field.defaultChecked;
+                    if (field.tagName === 'SELECT') return Array.from(field.options).some(function (option) { return option.selected !== option.defaultSelected; });
+                    return field.value !== field.defaultValue;
+                });
+            }
+
+            function reloadWhenIdle() {
+                if (!liveReloadPending || pageIsBusy()) return;
+                liveReloadPending = false;
+                window.location.reload();
+            }
+
+            // Retry a held reload as soon as the dialog closes or the tab comes back.
+            document.addEventListener('visibilitychange', reloadWhenIdle);
+            document.addEventListener('focusout', function () { setTimeout(reloadWhenIdle, 300); });
+            document.addEventListener('click', function () { setTimeout(reloadWhenIdle, 300); });
+
+            // Deadlines: [data-live-deadline] holds the epoch milliseconds the bidding closes.
+            function closeAtDeadline(row) {
+                const at = Number(row.dataset.liveDeadline || 0);
+                if (!at) return;
+                const wait = at - Date.now();
+                if (wait > 2147483647) return;
+                setTimeout(function () {
+                    row.querySelectorAll('[data-live-close]').forEach(function (button) {
+                        button.disabled = true;
+                        button.textContent = 'Closed';
+                        button.classList.add('is-closed');
+                    });
+                    const message = 'Bidding closed for ' + (row.dataset.liveTitle || 'this project') + '. Submissions are no longer accepted.';
+                    const modal = row.dataset.liveModal ? document.getElementById(row.dataset.liveModal) : null;
+                    if (modal && !modal.hidden) {
+                        modal.querySelector('[data-close-modal]')?.click();
+                    }
+                    try { sessionStorage.setItem(LIVE_TOAST_KEY, message); } catch (error) { showLiveToast(message); }
+                    liveReloadPending = true;
+                    reloadWhenIdle();
+                }, Math.max(0, wait));
+            }
+            document.querySelectorAll('[data-live-deadline]').forEach(closeAtDeadline);
+
+            function showLiveToast(message) {
+                const toast = document.createElement('div');
+                toast.setAttribute('role', 'status');
+                toast.textContent = message;
+                toast.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:min(460px,calc(100vw - 32px));padding:12px 16px;border-radius:12px;background:#1b2420;color:#fff;font-size:13.5px;line-height:1.45;box-shadow:0 18px 40px rgba(27,36,32,.28);z-index:10060';
+                document.body.appendChild(toast);
+                setTimeout(function () { toast.remove(); }, 6000);
             }
 
             function showNotificationToast(notification) {

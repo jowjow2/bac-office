@@ -1930,7 +1930,8 @@
                     $paymentLocked = $requiresFee && ! $feePayment;
                     $feeLabel = '₱' . number_format((float) $project->bidding_documents_fee, 2);
                 @endphp
-                <div class="bidder-row is-{{ $tone }}">
+                {{-- Closes itself the second the deadline passes (partials.notification-live). --}}
+                <div class="bidder-row is-{{ $tone }}" @if($isOpen && $deadline) data-live-deadline="{{ $deadline->getTimestampMs() }}" data-live-title="{{ $project->title }}" data-live-modal="bid-modal-{{ $project->id }}" @endif>
                     <div class="bidder-cell-project">
                         <div class="bidder-row-meta">
                             <span class="bidder-ref">{{ $project->reference_no ?: 'REF PENDING' }}</span>
@@ -1969,9 +1970,9 @@
                     <div class="bidder-cell-action">
                         @if($isModifying)
                             <a href="{{ route('bidder.bidding-track', ['bid' => $myBid->id]) }}" class="bidder-action-btn bidder-action-outline">View your bid</a>
-                            <button type="button" class="bidder-action-btn bidder-action-primary bidder-submit-trigger" data-target="bid-modal-{{ $project->id }}" title="Replace your price or documents before the deadline">Modify bid</button>
+                            <button type="button" class="bidder-action-btn bidder-action-primary bidder-submit-trigger" data-target="bid-modal-{{ $project->id }}" title="Replace your price or documents before the deadline" data-live-close>Modify bid</button>
                         @elseif($canPrepare)
-                            <button type="button" class="bidder-action-btn bidder-action-primary bidder-submit-trigger" data-target="bid-modal-{{ $project->id }}">{{ ! $electronic ? 'How to submit' : ($paymentLocked ? 'How to pay' : ($isDraftBid ? 'Continue draft' : 'Submit bid')) }}</button>
+                            <button type="button" class="bidder-action-btn bidder-action-primary bidder-submit-trigger" data-target="bid-modal-{{ $project->id }}" data-live-close>{{ ! $electronic ? 'How to submit' : ($paymentLocked ? 'How to pay' : ($isDraftBid ? 'Continue draft' : 'Submit bid')) }}</button>
                         @elseif($myBid && $isOpen)
                             <a href="{{ route('bidder.bidding-track', ['bid' => $myBid->id]) }}" class="bidder-action-btn bidder-action-outline">View your bid</a>
                         @else
