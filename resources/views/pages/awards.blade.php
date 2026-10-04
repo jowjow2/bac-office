@@ -10,6 +10,9 @@
         $cardUrl = fn (array $record) => route('public.awards', array_filter(['q' => $query, 'award' => $record['id'], 'page' => $postings->currentPage() > 1 ? $postings->currentPage() : null])).'#award-document';
         $pageUrl = fn (int $page) => route('public.awards', array_filter(['q' => $query, 'award' => $selected['id'] ?? null, 'page' => $page > 1 ? $page : null]));
         $postTitle = fn (array $record) => trim(($record['date_code'] ? $record['date_code'].' – ' : '').'Notice of Award');
+        $docs = $selected['documents'] ?? [];
+        $docIndex = max(0, (int) collect($docs)->search(fn ($doc) => $doc['key'] === request()->query('doc')));
+        $doc = $docs[$docIndex] ?? null;
     @endphp
 
     <main class="public-shell award-posts" data-award-docs>
@@ -48,7 +51,7 @@
             {{-- The selected posting: title, posting date and reference, then its document. --}}
             <article id="award-document" class="award-post" aria-labelledby="award-post-title" tabindex="-1">
                 <header class="award-post-head">
-                    <h2 id="award-post-title" class="award-post-title" data-award-field="post_title">{{ $postTitle($selected) }}</h2>
+                    <h2 id="award-post-title" class="award-post-title" data-award-field="post_title">{{ $doc['title'] ?? $postTitle($selected) }}</h2>
                     <p class="award-post-subject" data-award-field="title">{{ $selected['title'] }}</p>
                     <p class="award-post-posted">
                         <span>Posted: <time data-award-field="date" datetime="{{ $selected['date_iso'] }}">{{ $selected['date'] }}</time></span>
@@ -57,18 +60,35 @@
                     </p>
                 </header>
 
-                <div class="award-post-viewer">
-                    <iframe
-                        class="award-post-frame"
-                        title="Notice of Award: {{ $selected['title'] }}"
-                        src="{{ $selected['document_url'] ?? 'about:blank' }}"
-                        data-award-frame
-                        @unless($selected['document_url']) hidden @endunless
-                    ></iframe>
-                    <div class="award-post-missing" data-award-missing @if($selected['document_url']) hidden @endif>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="m9.5 12.5 5 5m0-5-5 5"/></svg>
-                        <strong>Document not available</strong>
-                        <span>The signed Notice of Award for this record has not been published online.</span>
+                {{-- The award's documents, paged with the arrows or the tabs (public-awards.js). --}}
+                <div class="award-post-viewer" data-award-viewer data-doc-index="{{ $docIndex }}">
+                    <div class="award-doc-bar" data-award-doc-bar @if(count($docs) < 2) hidden @endif>
+                        <div class="award-doc-tabs" role="tablist" aria-label="Award documents" data-award-doc-tabs>
+                            @foreach($docs as $i => $item)
+                                <button type="button" role="tab" class="award-doc-tab" data-award-doc="{{ $i }}" aria-selected="{{ $i === $docIndex ? 'true' : 'false' }}">{{ $item['label'] }}</button>
+                            @endforeach
+                        </div>
+                        <span class="award-doc-count" data-award-doc-count>{{ $docIndex + 1 }} of {{ count($docs) }}</span>
+                    </div>
+                    <div class="award-doc-stage">
+                        <button type="button" class="award-doc-nav is-prev" data-award-doc-prev aria-label="Previous document" @if(count($docs) < 2) hidden @endif @disabled($docIndex === 0)>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+                        </button>
+                        <iframe
+                            class="award-post-frame"
+                            title="{{ $doc['label'] ?? 'Notice of Award' }}: {{ $selected['title'] }}"
+                            src="{{ $doc['url'] ?? 'about:blank' }}"
+                            data-award-frame
+                            @unless($doc['url'] ?? null) hidden @endunless
+                        ></iframe>
+                        <div class="award-post-missing" data-award-missing @if($doc['url'] ?? null) hidden @endif>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="m9.5 12.5 5 5m0-5-5 5"/></svg>
+                            <strong>Document not available</strong>
+                            <span data-award-missing-text>{{ $doc['missing'] ?? 'This document has not been published online.' }}</span>
+                        </div>
+                        <button type="button" class="award-doc-nav is-next" data-award-doc-next aria-label="Next document" @if(count($docs) < 2) hidden @endif @disabled($docIndex >= count($docs) - 1)>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                        </button>
                     </div>
                 </div>
 
@@ -77,14 +97,14 @@
                         <div><dt>Winning bidder</dt><dd data-award-field="winner">{{ $selected['winner'] }}</dd></div>
                         <div><dt>Contract amount</dt><dd class="award-post-amount" data-award-field="amount">{{ $selected['amount'] }}</dd></div>
                         <div><dt>Status</dt><dd><span class="award-post-status" data-award-field="status">{{ $selected['status'] }}</span></dd></div>
-                        <div><dt>Notice to Proceed</dt><dd data-award-ntp>@if($selected['ntp_url'] ?? null)Issued {{ $selected['ntp_issued'] }} &middot; <a href="{{ $selected['ntp_url'] }}" target="_blank" rel="noopener">View PDF</a>@else Not yet issued @endif</dd></div>
+                        <div><dt>Notice to Proceed</dt><dd data-award-ntp>@if($selected['ntp_url'] ?? null)Issued {{ $selected['ntp_issued'] }} &middot; <button type="button" class="award-doc-link" data-award-doc-goto="ntp">View</button>@else Not yet issued @endif</dd></div>
                     </dl>
                     <div class="award-post-actions">
                         <a href="{{ $selected['bidder_verify_url'] ?? '#' }}" class="award-post-qr public-qr-preview-trigger" data-public-qr-trigger="award-bidder-qr-modal" data-award-bidder data-award-bidder-link aria-label="QR code of the winning bidder's awarded bids" @unless($selected['bidder_qr_url']) hidden @endunless>
                             <img src="{{ $selected['bidder_qr_url'] ?? '' }}" alt="" data-award-bidder-qr>
                         </a>
                         <a href="{{ $selected['verify_url'] }}" class="btn-outline" data-award-verify>View award details</a>
-                        <a href="{{ $selected['document_url'] ?? '#' }}" target="_blank" rel="noopener" class="btn" data-award-open @unless($selected['document_url']) hidden @endunless>Open document</a>
+                        <a href="{{ $doc['url'] ?? '#' }}" target="_blank" rel="noopener" class="btn" data-award-open @unless($doc['url'] ?? null) hidden @endunless>Open document</a>
                     </div>
                 </div>
             </article>
@@ -126,6 +146,7 @@
                                     <strong>{{ $postTitle($record) }} – {{ $record['title'] }}</strong>
                                     <small>{{ $record['date'] }}</small>
                                     <small class="award-post-mono">{{ $record['reference'] }}</small>
+                                    @if(count($record['documents'] ?? []) > 1)<small class="award-post-card-docs">Notice of Award &middot; Notice to Proceed</small>@endif
                                 </span>
                                 <span class="award-post-card-flag">Now viewing</span>
                             </a>
@@ -158,46 +179,34 @@
                 @endif
             </section>
 
-            {{-- Awards & Contracts → Notice to Proceed: the signed NTP of each posted award (PublicAwardController::index). --}}
-            <section class="award-post-list award-ntp-list" id="notice-to-proceed" aria-labelledby="award-ntp-title">
-                <header class="award-post-list-head">
-                    <h2 id="award-ntp-title">Notice to Proceed</h2>
-                    <p>{{ $noticesToProceed->count() }} issued</p>
-                </header>
-                @if($noticesToProceed->isEmpty())
-                    <p class="award-ntp-empty">No Notice to Proceed has been published yet.</p>
-                @else
-                    <ul class="award-ntp-rows">
-                        @foreach($noticesToProceed as $ntp)
-                            <li class="award-ntp-row">
-                                <div>
-                                    <strong>{{ $ntp['title'] }}</strong>
-                                    <small>
-                                        @if($ntp['project_reference'])<span class="award-post-mono">{{ $ntp['project_reference'] }}</span> &middot; @endif
-                                        {{ $ntp['winner'] }} &middot; Issued {{ $ntp['issued_on'] }}
-                                    </small>
-                                </div>
-                                <span class="award-ntp-actions">
-                                    <a href="{{ $ntp['view_url'] }}" target="_blank" rel="noopener" class="btn-outline">View PDF</a>
-                                    <a href="{{ $ntp['download_url'] }}" class="btn">Download</a>
-                                </span>
-                            </li>
-                        @endforeach
-                    </ul>
-                @endif
-            </section>
         @endif
     </main>
 
     <style>
-        .award-ntp-list { margin-top: 28px; }
-        .award-ntp-rows { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
-        .award-ntp-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border: 1px solid #e5dfd2; border-radius: 12px; background: #fff; }
-        .award-ntp-row strong { display: block; font-size: 15px; }
-        .award-ntp-row small { display: block; margin-top: 3px; color: #6b736e; font-size: 13px; }
-        .award-ntp-actions { display: flex; flex: 0 0 auto; gap: 8px; }
-        .award-ntp-empty { padding: 14px 16px; border: 1px dashed #d9d2c3; border-radius: 12px; color: #6b736e; }
-        @media (max-width: 640px) { .award-ntp-row { flex-direction: column; align-items: flex-start; } }
+        .award-doc-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; margin: 0 0 12px; }
+        .award-doc-bar[hidden] { display: none; }
+        .award-doc-tabs { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(255, 255, 255, .14); }
+        .award-doc-tab { min-height: 34px; padding: 0 16px; border: 0; border-radius: 999px; background: transparent; color: #fff; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+        .award-doc-tab[aria-selected="true"] { background: #fff; color: var(--ui-ink, #1b2420); }
+        .award-doc-tab:focus-visible, .award-doc-nav:focus-visible { outline: 3px solid #9bc9b7; outline-offset: 2px; }
+        .award-doc-count { color: rgba(255, 255, 255, .85); font-size: 13px; font-variant-numeric: tabular-nums; }
+        .award-doc-stage { position: relative; display: flex; width: 100%; }
+        .award-doc-nav { position: absolute; top: 50%; z-index: 2; display: grid; width: 46px; height: 46px; place-items: center; padding: 0; border: 0; border-radius: 50%; background: #fff; color: var(--ui-ink, #1b2420); box-shadow: 0 6px 18px rgba(27, 36, 32, .3); cursor: pointer; transform: translateY(-50%); transition: transform .15s ease, opacity .15s ease; }
+        .award-doc-nav svg { width: 22px; height: 22px; }
+        .award-doc-nav.is-prev { left: 4px; }
+        .award-doc-nav.is-next { right: 4px; }
+        .award-doc-nav:hover:not(:disabled) { transform: translateY(-50%) scale(1.06); }
+        .award-doc-nav:disabled { opacity: .35; cursor: default; box-shadow: none; }
+        .award-doc-nav[hidden] { display: none; }
+        .award-post-viewer { flex-direction: column; }
+        .award-doc-link { padding: 0; border: 0; background: none; color: var(--ui-primary, #1d4f40); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+        .award-post-card-docs { color: var(--ui-primary, #1d4f40) !important; font-weight: 600; }
+        @media (max-width: 640px) {
+            .award-doc-bar { flex-wrap: wrap; }
+            .award-doc-tabs { width: 100%; }
+            .award-doc-tab { flex: 1; padding: 0 8px; font-size: 12.5px; }
+            .award-doc-nav { width: 38px; height: 38px; }
+        }
     </style>
 
     @vite('resources/js/public-awards.js')

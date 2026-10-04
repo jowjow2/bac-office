@@ -105,6 +105,23 @@ class PublicAwardController extends Controller
             // The signed Notice to Proceed, once issued and published.
             'ntp_issued' => $award->hasPublishedNoticeToProceed() ? $award->ntp_issued_on->format('F d, Y') : null,
             'ntp_url' => $award->noticeToProceedUrl(),
+            // What the viewer pages through: the Notice of Award, then the Notice to Proceed.
+            'documents' => array_values(array_filter([
+                [
+                    'key' => 'noa',
+                    'label' => 'Notice of Award',
+                    'title' => trim(($award->awardDate()?->format('m-d-Y') ? $award->awardDate()->format('m-d-Y').' – ' : '').'Notice of Award'),
+                    'url' => $award->isCertificateViewable() ? route('public.awards.document', $award->qr_token) : null,
+                    'missing' => 'The signed Notice of Award for this record has not been published online.',
+                ],
+                $award->hasPublishedNoticeToProceed() ? [
+                    'key' => 'ntp',
+                    'label' => 'Notice to Proceed',
+                    'title' => $award->ntp_issued_on->format('m-d-Y').' – Notice to Proceed',
+                    'url' => $award->noticeToProceedUrl(),
+                    'missing' => null,
+                ] : null,
+            ])),
             'verify_url' => route('certificate.verify', $award),
             'bidder_verify_url' => $profile?->verificationUrl(),
             'bidder_qr_url' => $profile?->tokenQrUrl(),
