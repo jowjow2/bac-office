@@ -172,7 +172,7 @@ it('accepts an estimated total cost typed with thousands separators', function (
     testCase()->actingAs($office)->get(route('end-user.requests.create'))
         ->assertOk()
         ->assertSee('Estimated total cost')
-        ->assertSee('not the price of one unit');
+        ->assertSee('quantity × estimated unit cost');
 
     testCase()->actingAs($office)
         ->post(route('end-user.requests.store'), array_merge($this->details, ['estimated_cost' => '1,250,000.50', 'action' => 'draft']))
@@ -244,4 +244,60 @@ it('points a search in the wrong queue to the queue that holds the request', fun
         ->assertSee('For PPMP/APP review (1)')
         ->assertSee(route('admin.requests', ['tab' => 'review', 'q' => $reference]))
         ->assertSee('Clear search');
+});
+
+it('saves an itemized request, derives the totals, and shows the items to the office and the reviewer', function () {
+    $office = User::create(['name' => 'MEO Items', 'email' => 'meo-items@example.com', 'password' => Hash::make('password'), 'role' => 'end_user', 'status' => 'active', 'office' => 'Municipal Engineering Office']);
+    $base = collect($this->details)->except(['quantity', 'unit', 'estimated_cost'])->all();
+    $items = [
+        ['description' => 'Bond paper, A4, 80 gsm', 'quantity' => '50', 'unit' => 'ream', 'unit_cost' => '245.50'],
+        ['description' => 'Toner cartridge', 'quantity' => '3', 'unit' => 'piece', 'unit_cost' => '3,200'],
+        ['description' => '', 'quantity' => '', 'unit' => '', 'unit_cost' => ''], // empty row is ignored
+    ];
+
+    // Draft first, then load it back for editing.
+    testCase()->actingAs($office)->post(route('end-user.requests.store'), $base + ['items' => $items, 'action' => 'draft'])->assertSessionHasNoErrors();
+    $request = ProcurementRequest::firstOrFail();
+    expect($request->items)->toHaveCount(2)
+        ->and($request->estimated_cost)->toBe('21875.00')   // 50 × 245.50 + 3 × 3,200
+        ->and($request->quantity)->toBe('1.00')
+        ->and($request->unit)->toBe('lot')
+        ->and($request->quantityLabel())->toBe('2 items');
+
+    testCase()->actingAs($office)->get(route('end-user.requests.edit', $request))->assertOk()
+        ->assertSee('value="Bond paper, A4, 80 gsm"', false)
+        ->assertSee('value="245.50"', false)
+        ->assertSee('value="3,200.00"', false)
+        ->assertSee('Add item');
+
+    // Submitting needs valid items.
+    testCase()->actingAs($office)->put(route('end-user.requests.update', $request), $base + ['items' => [['description' => '', 'quantity' => '0', 'unit' => 'box', 'unit_cost' => '-5']], 'action' => 'submit'])
+        ->assertSessionHasErrors(['items.0.description', 'items.0.quantity', 'items.0.unit_cost']);
+    testCase()->actingAs($office)->put(route('end-user.requests.update', $request), $base + ['items' => [], 'action' => 'submit'])
+        ->assertSessionHasErrors('items');
+
+    // One item keeps its own quantity and unit.
+    testCase()->actingAs($office)->put(route('end-user.requests.update', $request), $base + ['items' => [$items[0]], 'action' => 'submit'])
+        ->assertSessionHasNoErrors();
+    $request->refresh();
+    expect($request->status)->toBe(ProcurementRequest::STATUS_SUBMITTED)
+        ->and($request->quantity)->toBe('50.00')
+        ->and($request->unit)->toBe('ream')
+        ->and($request->estimated_cost)->toBe('12275.00');
+
+    testCase()->actingAs($office)->get(route('end-user.requests.show', $request))->assertOk()
+        ->assertSee('Bond paper, A4, 80 gsm')->assertSee('₱245.50')->assertSee('₱12,275.00');
+    testCase()->actingAs($this->staff)->get(route('staff.requests'))->assertOk()
+        ->assertSee('Bond paper, A4, 80 gsm')->assertSee('₱245.50');
+});
+
+it('shows a request saved before items as one item row', function () {
+    $office = User::create(['name' => 'MEO Legacy', 'email' => 'meo-legacy@example.com', 'password' => Hash::make('password'), 'role' => 'end_user', 'status' => 'active', 'office' => 'Municipal Engineering Office']);
+    testCase()->actingAs($office)->post(route('end-user.requests.store'), $this->details + ['action' => 'draft'])->assertSessionHasNoErrors();
+    $request = ProcurementRequest::firstOrFail();
+
+    expect($request->items)->toBeNull()
+        ->and($request->itemRows())->toBe([['description' => 'Supply of survey equipment', 'quantity' => 1.0, 'unit' => 'lot', 'unit_cost' => 650000.0, 'total' => 650000.0]]);
+    testCase()->actingAs($office)->get(route('end-user.requests.edit', $request))->assertOk()
+        ->assertSee('value="650,000.00"', false)->assertSee('value="lot"', false);
 });

@@ -52,6 +52,11 @@
         // e.g. "Concreting of farm-to-market road (250 lm)"
         $suggestedItem = ['description' => $sized[1], 'quantity' => str_replace(',', '', $sized[2]), 'unit' => trim($sized[3])];
     }
+    // The purchase request's own item list, when it has one.
+    $requestItems = is_array($request?->items) ? $request->items : [];
+    $suggestedItems = $requestItems !== []
+        ? array_map(fn ($item) => ['description' => $item['description'] ?? '', 'quantity' => rtrim(rtrim(number_format((float) ($item['quantity'] ?? 0), 2, '.', ''), '0'), '.'), 'unit' => $item['unit'] ?? ''], $requestItems)
+        : [$suggestedItem];
     // Old input only refills the form that was actually sent (record or correct).
     $termsOld = function (string $form, $default, ?string $field = null) {
         $mine = old('infra_form') === $form;
@@ -151,7 +156,7 @@
                     'delivery_location' => $project->location,
                     'signed_contract_reference' => $project->reference_no,
                 ]),
-                'items' => $termsOld('record', [$suggestedItem], 'contract_items'),
+                'items' => $termsOld('record', $suggestedItems, 'contract_items'),
                 'deadlineHint' => $suggestedDeadline ? 'NTP date + '.$project->contract_duration.'.' : null,
                 'note' => 'Filled in from the project. Check each value against the signed contract before saving.',
             ])

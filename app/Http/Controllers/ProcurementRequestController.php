@@ -352,6 +352,10 @@ class ProcurementRequestController extends Controller
     {
         $required = $request->input('action') === 'submit' ? 'required' : 'nullable';
 
+        if ($request->has('items')) {
+            return $this->validateItemizedRequest($request, $required);
+        }
+
         // The cost field shows thousands separators (e.g. 500,000.00).
         if (is_string($request->input('estimated_cost'))) {
             $request->merge(['estimated_cost' => str_replace([',', '₱', ' '], '', $request->input('estimated_cost'))]);
@@ -383,6 +387,83 @@ class ProcurementRequestController extends Controller
         ]);
     }
 
+    /**
+     * The form lists items (description, quantity, unit, estimated unit cost);
+     * the request's quantity, unit and estimated total cost are derived from
+     * them. Rows left completely empty are ignored.
+     */
+    private function validateItemizedRequest(Request $request, string $required): array
+    {
+        $number = fn ($value) => is_string($value) ? str_replace([',', '₱', ' '], '', $value) : $value;
+        $items = collect((array) $request->input('items', []))
+            ->filter(fn ($item) => is_array($item))
+            ->map(fn (array $item) => [
+                'description' => trim((string) ($item['description'] ?? '')),
+                'quantity' => $number($item['quantity'] ?? ''),
+                'unit' => trim((string) ($item['unit'] ?? '')),
+                'unit_cost' => $number($item['unit_cost'] ?? ''),
+            ])
+            ->reject(fn (array $item) => $item['description'] === '' && (string) $item['quantity'] === '' && $item['unit'] === '' && (string) $item['unit_cost'] === '')
+            ->values()
+            ->all();
+        $request->merge(['items' => $items]);
+
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'category' => [$required, Rule::in(['goods', 'services', 'infrastructure', 'consultancy'])],
+            'specifications' => [$required, 'string', 'max:20000'],
+            'items' => [$required, 'array', $required === 'required' ? 'min:1' : 'min:0', 'max:100'],
+            'items.*.description' => [$required, 'string', 'max:500'],
+            'items.*.quantity' => [$required, 'numeric', 'gt:0', 'lte:9999999999999'],
+            'items.*.unit' => [$required, 'string', 'max:40'],
+            'items.*.unit_cost' => [$required, 'numeric', 'min:0', 'lte:9999999999999.99'],
+            'fund_source' => [$required, 'string', 'max:255'],
+            'delivery_period' => [$required, 'string', 'max:255'],
+            'justification' => ['nullable', 'string', 'max:5000'],
+            'documents' => ['nullable', 'array', 'max:10'],
+            'documents.*' => ['file', 'mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png', 'max:20480'],
+            'document_types' => ['nullable', 'array'],
+            'document_types.*' => ['nullable', Rule::in(array_keys(ProcurementRequest::DOCUMENT_TYPES))],
+            'action' => ['nullable', Rule::in(['draft', 'submit'])],
+        ], [
+            'specifications.required' => 'Describe the technical specifications or terms of reference.',
+            'items.required' => 'Add at least one item to procure.',
+            'items.min' => 'Add at least one item to procure.',
+            'items.*.description.required' => 'Describe item :position.',
+            'items.*.quantity.required' => 'Enter the quantity of item :position.',
+            'items.*.quantity.gt' => 'The quantity of item :position must be greater than zero.',
+            'items.*.quantity.numeric' => 'The quantity of item :position must be a number.',
+            'items.*.unit.required' => 'Enter the unit of item :position (e.g. piece, box, lot).',
+            'items.*.unit_cost.required' => 'Enter the estimated unit cost of item :position.',
+            'items.*.unit_cost.numeric' => 'The unit cost of item :position must be an amount in pesos.',
+            'items.*.unit_cost.min' => 'The unit cost of item :position cannot be negative.',
+        ], [
+            'fund_source' => 'source of funds',
+            'delivery_period' => 'delivery or contract duration',
+        ]);
+
+        $items = array_map(fn (array $item) => [
+            'description' => $item['description'] ?? '',
+            'quantity' => isset($item['quantity']) && $item['quantity'] !== '' ? round((float) $item['quantity'], 2) : null,
+            'unit' => $item['unit'] ?? '',
+            'unit_cost' => isset($item['unit_cost']) && $item['unit_cost'] !== '' ? round((float) $item['unit_cost'], 2) : null,
+        ], $validated['items'] ?? []);
+        $total = round(array_sum(array_map(fn (array $item) => (float) $item['quantity'] * (float) $item['unit_cost'], $items)), 2);
+
+        if ($required === 'required' && $total <= 0) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['items' => 'The estimated total cost must be greater than zero. Enter the unit cost of each item.']);
+        }
+
+        // One item keeps its own quantity and unit; several are one lot.
+        $single = count($items) === 1 ? $items[0] : null;
+        $validated['items'] = $items;
+        $validated['quantity'] = $items === [] ? null : ($single ? $single['quantity'] : 1);
+        $validated['unit'] = $items === [] ? null : ($single ? $single['unit'] : 'lot');
+        $validated['estimated_cost'] = $items === [] ? null : $total;
+
+        return $validated;
+    }
+
     private function attributes(array $validated): array
     {
         $text = fn (string $field) => filled($validated[$field] ?? null) ? trim((string) $validated[$field]) : null;
@@ -397,7 +478,9 @@ class ProcurementRequestController extends Controller
             'fund_source' => $text('fund_source'),
             'delivery_period' => $text('delivery_period'),
             'justification' => $text('justification'),
-        ];
+        ] + (array_key_exists('items', $validated) && ProcurementRequest::storesItems()
+            ? ['items' => $validated['items'] === [] ? null : $validated['items']]
+            : []);
     }
 
     private function storeDocuments(ProcurementRequest $procurementRequest, Request $request): void

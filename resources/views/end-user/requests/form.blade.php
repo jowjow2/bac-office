@@ -107,33 +107,73 @@
             {{-- Step 2 --}}
             <fieldset class="ui-fieldset ui-step-panel" data-step>
                 <legend class="ui-fieldset__legend">Quantity, cost and schedule</legend>
-                <p class="ui-fieldset__desc">The estimated total cost helps the reviewer check the funds. The BAC sets the final Approved Budget for the Contract (ABC) and the mode of procurement.</p>
-                <div class="ui-fields">
-                    <div class="ui-field">
-                        <label class="ui-label" for="quantity">Quantity <span class="ui-required" aria-hidden="true">*</span></label>
-                        <input id="quantity" name="quantity" type="number" min="0.01" step="0.01" inputmode="decimal" class="ui-input" required value="{{ $value('quantity') !== null ? rtrim(rtrim(number_format((float) $value('quantity'), 2, '.', ''), '0'), '.') : '' }}" aria-invalid="{{ $invalid('quantity') }}" aria-describedby="quantity-error" data-review-label="Quantity">
-                        <span class="ui-error" id="quantity-error" data-client @unless($errors->has('quantity')) hidden @endunless>{{ $errors->first('quantity') }}</span>
+                <p class="ui-fieldset__desc">List each item to procure with its quantity and estimated unit cost. The estimated total cost helps the reviewer check the funds; the BAC sets the final Approved Budget for the Contract (ABC) and the mode of procurement.</p>
+                @php
+                    // Rows to show: what was just sent back, the saved items, or one empty row.
+                    $formItems = old('items');
+                    if (! is_array($formItems) || $formItems === []) {
+                        $formItems = array_map(fn ($row) => [
+                            'description' => $row['description'],
+                            'quantity' => rtrim(rtrim(number_format($row['quantity'], 2, '.', ''), '0'), '.'),
+                            'unit' => $row['unit'],
+                            'unit_cost' => number_format($row['unit_cost'], 2),
+                        ], $procurementRequest->itemRows());
+                    }
+                    $formItems = array_values($formItems ?: [['description' => '', 'quantity' => '', 'unit' => '', 'unit_cost' => '']]);
+                    $itemsError = $errors->first('items') ?: collect($errors->getMessages())->filter(fn ($messages, $key) => str_starts_with($key, 'items.'))->flatten()->first();
+                @endphp
+                <div class="pr-items" data-items aria-describedby="items-error" data-review-label="Items" data-review-required>
+                    <div class="pr-items__head" aria-hidden="true">
+                        <span>Item description / specifications</span>
+                        <span>Quantity</span>
+                        <span>Unit</span>
+                        <span>Est. unit cost (₱)</span>
+                        <span class="is-num">Item total</span>
+                        <span></span>
                     </div>
-                    <div class="ui-field">
-                        <label class="ui-label" for="unit">Unit <span class="ui-required" aria-hidden="true">*</span></label>
-                        <input id="unit" name="unit" class="ui-input" required maxlength="40" value="{{ $value('unit') }}" list="unit-options" aria-invalid="{{ $invalid('unit') }}" aria-describedby="unit-error" placeholder="e.g. lot, pcs, units" data-review-label="Unit">
-                        <datalist id="unit-options">
-                            @foreach(['lot', 'pcs', 'units', 'sets', 'boxes', 'reams', 'months', 'job'] as $unit)
-                                <option value="{{ $unit }}"></option>
-                            @endforeach
-                        </datalist>
-                        <span class="ui-error" id="unit-error" data-client @unless($errors->has('unit')) hidden @endunless>{{ $errors->first('unit') }}</span>
+                    <div class="pr-items__rows" data-item-rows>
+                        @foreach($formItems as $i => $row)
+                            <div class="pr-items__row" data-item-row>
+                                <label class="pr-items__cell pr-items__cell--desc">
+                                    <span class="pr-items__label">Item description / specifications</span>
+                                    <input name="items[{{ $i }}][description]" class="ui-input" maxlength="500" required value="{{ $row['description'] ?? '' }}" placeholder="e.g. Bond paper, A4, 80 gsm" data-item-field="description">
+                                </label>
+                                <label class="pr-items__cell">
+                                    <span class="pr-items__label">Quantity</span>
+                                    <input name="items[{{ $i }}][quantity]" type="number" min="0.01" step="0.01" inputmode="decimal" class="ui-input ui-num" required value="{{ $row['quantity'] ?? '' }}" placeholder="0" data-item-field="quantity">
+                                </label>
+                                <label class="pr-items__cell">
+                                    <span class="pr-items__label">Unit</span>
+                                    <input name="items[{{ $i }}][unit]" class="ui-input" maxlength="40" required list="unit-options" value="{{ $row['unit'] ?? '' }}" placeholder="piece" data-item-field="unit">
+                                </label>
+                                <label class="pr-items__cell">
+                                    <span class="pr-items__label">Est. unit cost (₱)</span>
+                                    <input name="items[{{ $i }}][unit_cost]" type="text" inputmode="decimal" autocomplete="off" pattern="\s*[0-9][0-9,]*(\.[0-9]{1,2})?\s*" title="Enter an amount in pesos, e.g. 1,250.00" class="ui-input ui-num" required value="{{ $row['unit_cost'] ?? '' }}" placeholder="0.00" data-item-field="unit_cost">
+                                </label>
+                                <div class="pr-items__cell pr-items__total">
+                                    <span class="pr-items__label">Item total</span>
+                                    <output class="ui-num" data-item-total>₱0.00</output>
+                                </div>
+                                <button type="button" class="pr-items__remove" data-item-remove aria-label="Remove this item"><i class="fas fa-trash-can" aria-hidden="true"></i></button>
+                            </div>
+                        @endforeach
                     </div>
-                    <div class="ui-field">
-                        <label class="ui-label" for="estimated_cost">Estimated total cost <span class="ui-required" aria-hidden="true">*</span></label>
-                        <div class="ui-input-group">
-                            <span class="ui-input-group__prefix" aria-hidden="true">₱</span>
-                            <input id="estimated_cost" name="estimated_cost" type="text" inputmode="decimal" autocomplete="off" pattern="\s*[0-9][0-9,]*(\.[0-9]{1,2})?\s*" title="Enter an amount in pesos, e.g. 500,000.00" class="ui-input ui-num" required value="{{ filled($value('estimated_cost')) && is_numeric(str_replace(',', '', (string) $value('estimated_cost'))) ? number_format((float) str_replace(',', '', (string) $value('estimated_cost')), 2) : $value('estimated_cost') }}" aria-invalid="{{ $invalid('estimated_cost') }}" aria-describedby="cost-hint cost-summary estimated_cost-error" placeholder="0.00" data-money data-money-quantity="#quantity" data-money-unit="#unit" data-money-summary="#cost-summary" data-review-label="Estimated total cost" data-review-format="money">
+                    <datalist id="unit-options">
+                        @foreach(['piece', 'pcs', 'box', 'ream', 'set', 'lot', 'unit', 'pack', 'bottle', 'gallon', 'kg', 'meter', 'roll', 'month', 'job'] as $unit)
+                            <option value="{{ $unit }}"></option>
+                        @endforeach
+                    </datalist>
+                    <div class="pr-items__foot">
+                        <button type="button" class="ui-btn ui-btn--secondary ui-btn--sm" data-item-add><i class="fas fa-plus" aria-hidden="true"></i> Add item</button>
+                        <div class="pr-items__grand">
+                            <span>Estimated total cost</span>
+                            <strong class="ui-num" data-items-total>₱0.00</strong>
                         </div>
-                        <span class="ui-hint" id="cost-hint">The total for the whole quantity, not the price of one unit. Base it on market research or the latest canvass.</span>
-                        <span class="ui-money-summary" id="cost-summary" aria-live="polite" hidden></span>
-                        <span class="ui-error" id="estimated_cost-error" data-client @unless($errors->has('estimated_cost')) hidden @endunless>{{ $errors->first('estimated_cost') }}</span>
                     </div>
+                    <span class="ui-hint">The total is the sum of quantity × estimated unit cost of every item. Base the unit costs on market research or the latest canvass.</span>
+                    <span class="ui-error" id="items-error" role="alert" @unless($itemsError) hidden @endunless>{{ $itemsError }}</span>
+                </div>
+                <div class="ui-fields ui-mt">
                     <div class="ui-field">
                         <label class="ui-label" for="fund_source">Source of funds <span class="ui-required" aria-hidden="true">*</span></label>
                         <input id="fund_source" name="fund_source" class="ui-input" required maxlength="255" value="{{ $value('fund_source') }}" list="fund-options" aria-invalid="{{ $invalid('fund_source') }}" aria-describedby="fund_source-error" placeholder="e.g. General Fund" data-review-label="Source of funds">
@@ -232,8 +272,127 @@
     @endif
 @endsection
 
+@push('head')
+<style>
+    .pr-items { display: grid; gap: 10px; min-width: 0; }
+    .pr-items__head,
+    .pr-items__row { display: grid; grid-template-columns: minmax(0, 3fr) minmax(76px, 0.8fr) minmax(90px, 0.9fr) minmax(120px, 1.2fr) minmax(110px, 1.1fr) 40px; gap: 8px; align-items: center; }
+    .pr-items__head { padding: 0 2px; color: var(--ui-muted); font-size: 12px; font-weight: 600; }
+    .pr-items__head .is-num, .pr-items__total { text-align: right; }
+    .pr-items__rows { display: grid; gap: 8px; }
+    .pr-items__cell { display: grid; gap: 4px; min-width: 0; margin: 0; }
+    .pr-items__label { display: none; color: var(--ui-muted); font-size: 12px; font-weight: 600; }
+    .pr-items__total output { color: var(--ui-ink); font-weight: 600; white-space: nowrap; }
+    .pr-items__remove { display: grid; width: 40px; height: 40px; place-items: center; border: 1px solid var(--ui-line-strong); border-radius: var(--ui-radius); background: var(--ui-surface); color: var(--ui-muted); cursor: pointer; }
+    .pr-items__remove:hover { border-color: var(--ui-danger); color: var(--ui-danger); }
+    .pr-items__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-top: 10px; border-top: 1px solid var(--ui-line); }
+    .pr-items__grand { display: flex; align-items: baseline; gap: 12px; }
+    .pr-items__grand span { color: var(--ui-muted); font-size: 13px; font-weight: 600; }
+    .pr-items__grand strong { color: var(--ui-ink); font-size: 20px; }
+
+    /* Phones: each item becomes a small card. */
+    @media (max-width: 760px) {
+        .pr-items__head { display: none; }
+        .pr-items__row { position: relative; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 12px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg); background: var(--ui-surface-2); }
+        .pr-items__label { display: block; }
+        .pr-items__cell--desc { grid-column: 1 / -1; }
+        .pr-items__total { text-align: left; }
+        /* Remove sits in the card corner, beside the description label. */
+        .pr-items__remove { position: absolute; top: 6px; right: 6px; width: 36px; height: 36px; }
+        .pr-items__cell--desc .pr-items__label { display: flex; align-items: center; min-height: 32px; padding-right: 40px; }
+        .pr-items__grand { width: 100%; justify-content: space-between; }
+    }
+</style>
+@endpush
+
 @push('scripts')
 <script>
+    // Items: add/remove rows, item totals and the estimated total cost.
+    (function () {
+        const box = document.querySelector('[data-items]');
+        if (!box) return;
+        const rows = box.querySelector('[data-item-rows]');
+        const error = document.getElementById('items-error');
+        const peso = (amount) => '₱' + amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const number = (value) => {
+            const parsed = Number(String(value).replace(/[,\s₱]/g, ''));
+            return String(value).trim() !== '' && Number.isFinite(parsed) ? parsed : 0;
+        };
+
+        const recalc = () => {
+            let grand = 0;
+            const lines = [];
+            rows.querySelectorAll('[data-item-row]').forEach((row) => {
+                const field = (name) => row.querySelector('[data-item-field="' + name + '"]');
+                const quantity = number(field('quantity').value);
+                const cost = number(field('unit_cost').value);
+                const total = Math.round(quantity * cost * 100) / 100;
+                grand += total;
+                row.querySelector('[data-item-total]').textContent = peso(total);
+                const description = field('description').value.trim();
+                if (description || quantity) {
+                    lines.push((description || 'Item') + ' — ' + quantity.toLocaleString('en-PH') + ' ' + (field('unit').value.trim() || 'unit')
+                        + ' × ' + peso(cost) + ' = ' + peso(total));
+                }
+            });
+            box.querySelector('[data-items-total]').textContent = peso(grand);
+            // Read by the Review step.
+            box.dataset.reviewSummary = lines.length ? lines.join('\n') + '\nEstimated total cost: ' + peso(grand) : '';
+        };
+
+        const renumber = () => {
+            rows.querySelectorAll('[data-item-row]').forEach((row, index) => {
+                row.querySelectorAll('[data-item-field]').forEach((input) => {
+                    input.name = 'items[' + index + '][' + input.dataset.itemField + ']';
+                });
+                row.querySelector('[data-item-remove]').setAttribute('aria-label', 'Remove item ' + (index + 1));
+            });
+        };
+
+        box.addEventListener('input', (event) => {
+            if (event.target.matches('[data-item-field]')) {
+                recalc();
+                if (error && !error.hidden) error.hidden = true;
+            }
+        });
+        box.addEventListener('focusout', (event) => {
+            const input = event.target;
+            if (input.matches('[data-item-field="unit_cost"]') && input.value.trim() !== '') {
+                const value = number(input.value);
+                if (value || input.value.trim() === '0') input.value = value.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+        });
+        box.addEventListener('click', (event) => {
+            if (event.target.closest('[data-item-add]')) {
+                if (rows.children.length >= 100) return;
+                const row = rows.firstElementChild.cloneNode(true);
+                row.querySelectorAll('[data-item-field]').forEach((input) => {
+                    input.value = '';
+                    input.removeAttribute('aria-invalid');
+                });
+                rows.appendChild(row);
+                renumber();
+                recalc();
+                row.querySelector('[data-item-field="description"]').focus();
+                return;
+            }
+            const remove = event.target.closest('[data-item-remove]');
+            if (remove) {
+                const row = remove.closest('[data-item-row]');
+                if (rows.children.length > 1) {
+                    row.remove();
+                } else {
+                    row.querySelectorAll('[data-item-field]').forEach((input) => { input.value = ''; });
+                }
+                renumber();
+                recalc();
+            }
+        });
+
+        renumber();
+        recalc();
+    })();
+
     (function () {
         const errors = document.getElementById('form-errors');
         if (errors) errors.focus();

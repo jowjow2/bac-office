@@ -56,6 +56,7 @@ class ProcurementRequest extends Model
         'specifications',
         'quantity',
         'unit',
+        'items',
         'estimated_cost',
         'fund_source',
         'delivery_period',
@@ -75,6 +76,7 @@ class ProcurementRequest extends Model
 
     protected $casts = [
         'quantity' => 'decimal:2',
+        'items' => 'array',
         'estimated_cost' => 'decimal:2',
         'budget_available' => 'boolean',
         'budget_confirmed_at' => 'datetime',
@@ -142,8 +144,55 @@ class ProcurementRequest extends Model
             ->all();
     }
 
+    /** Whether the database has the items column yet (its migration may still be pending). */
+    public static function storesItems(): bool
+    {
+        static $stores = null;
+
+        return $stores ??= \Illuminate\Support\Facades\Schema::hasColumn('procurement_requests', 'items');
+    }
+
+    /**
+     * The requested items with their totals. A request saved before items were
+     * listed shows its single quantity and estimated cost as one row.
+     *
+     * @return list<array{description: string, quantity: float, unit: string, unit_cost: float, total: float}>
+     */
+    public function itemRows(): array
+    {
+        $items = is_array($this->items) ? $this->items : [];
+        if ($items !== []) {
+            return array_values(array_map(fn (array $item) => [
+                'description' => (string) ($item['description'] ?? ''),
+                'quantity' => (float) ($item['quantity'] ?? 0),
+                'unit' => (string) ($item['unit'] ?? ''),
+                'unit_cost' => (float) ($item['unit_cost'] ?? 0),
+                'total' => round((float) ($item['quantity'] ?? 0) * (float) ($item['unit_cost'] ?? 0), 2),
+            ], $items));
+        }
+
+        if ($this->quantity === null || (float) $this->quantity <= 0) {
+            return [];
+        }
+
+        $total = (float) $this->estimated_cost;
+
+        return [[
+            'description' => (string) $this->title,
+            'quantity' => (float) $this->quantity,
+            'unit' => (string) $this->unit,
+            'unit_cost' => round($total / (float) $this->quantity, 2),
+            'total' => $total,
+        ]];
+    }
+
     public function quantityLabel(): string
     {
+        $count = is_array($this->items) ? count($this->items) : 0;
+        if ($count > 1) {
+            return $count.' items';
+        }
+
         if ($this->quantity === null) {
             return '—';
         }

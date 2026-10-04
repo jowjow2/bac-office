@@ -125,6 +125,17 @@
                 </div>
             </section>
 
+            @if($procurementRequest->itemRows() !== [])
+                <section class="ui-card" aria-labelledby="items-title">
+                    <div class="ui-card__head">
+                        <h2 class="ui-card__title" id="items-title">Items</h2>
+                    </div>
+                    <div class="ui-card__body">
+                        @include('procurement.partials.request-items', ['procurementRequest' => $procurementRequest])
+                    </div>
+                </section>
+            @endif
+
             <section class="ui-card" aria-labelledby="spec-title">
                 <div class="ui-card__head">
                     <h2 class="ui-card__title" id="spec-title">Specifications / TOR</h2>

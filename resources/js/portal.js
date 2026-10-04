@@ -225,6 +225,11 @@ function escapeHtml(value) {
 /* ---------- Stepped forms with a review step ---------- */
 
 function reviewValue(field) {
+    // A non-field block (e.g. an item table) provides its own summary text.
+    if (!['INPUT', 'SELECT', 'TEXTAREA'].includes(field.tagName)) {
+        return field.dataset.reviewSummary || '';
+    }
+
     if (field.type === 'file') {
         return Array.from(field.files || []).map((file) => file.name).join(', ');
     }
@@ -291,7 +296,7 @@ function setupSteppedForms() {
                 panel.querySelectorAll('[data-review-label]').forEach((field) => {
                     if (field.type === 'radio' && !field.checked) return;
                     const value = reviewValue(field);
-                    const required = field.required;
+                    const required = field.required ?? field.hasAttribute('data-review-required');
                     rows.push({ label: field.dataset.reviewLabel, value, missing: required && value === '' });
                 });
             });

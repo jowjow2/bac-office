@@ -178,6 +178,12 @@
                     <div><dt>Review remarks</dt><dd>{{ $item->review_remarks }}</dd></div>
                 @endif
             </dl>
+            @if($item->itemRows() !== [])
+                <div>
+                    <p class="ui-label">Items</p>
+                    @include('procurement.partials.request-items', ['procurementRequest' => $item])
+                </div>
+            @endif
             <div>
                 <p class="ui-label">Specifications / TOR</p>
                 <p class="ui-prose-box">{{ $item->specifications }}</p>
