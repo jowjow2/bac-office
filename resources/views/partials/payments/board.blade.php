@@ -343,6 +343,11 @@
                 <h2 id="fee-ledger-title">Payment records</h2>
                 <p>Every Official Receipt recorded. A payment already used for a submitted bid can be corrected but not removed.</p>
             </div>
+            @unless($payments->isEmpty())
+                <a href="{{ route($routePrefix . '.payments.export', array_filter(['q' => $search, 'project' => $projectFilter])) }}" class="fee-btn fee-btn-ghost" download>
+                    <i class="fas fa-file-csv" aria-hidden="true"></i> {{ $hasFilters ? 'Export filtered (CSV)' : 'Export CSV' }}
+                </a>
+            @endunless
         </div>
         <div class="fee-card-body" style="padding-bottom: 14px;">
             <form method="GET" action="{{ route($routePrefix . '.payments') }}" class="fee-toolbar" role="search">

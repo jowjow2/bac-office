@@ -2926,7 +2926,11 @@ public function destroyUser(User $user)
                 'required',
                 'string',
                 'max:255',
-                Rule::in($request->input('role') === 'end_user' ? User::endUserOfficeOptions() : User::staffOfficeOptions()),
+                // An account may keep an office that is no longer on the list (older records), e.g. to reset its password.
+                Rule::in(array_merge(
+                    $request->input('role') === 'end_user' ? User::endUserOfficeOptions() : User::staffOfficeOptions(),
+                    $user && $user->role === $request->input('role') && filled($user->office) ? [$user->office] : [],
+                )),
             ],
             'password' => $passwordRule,
             'company' => [

@@ -1611,7 +1611,16 @@
         document.getElementById('edit_username').value = data.username || '';
         document.getElementById('edit_role').value = data.role || 'bidder';
         document.getElementById('edit_status').value = data.status || 'active';
-        document.getElementById('edit_office').value = data.office || '';
+        const editOffice = document.getElementById('edit_office');
+        editOffice.querySelectorAll('[data-legacy-office]').forEach(function (option) { option.remove(); });
+        // Keep an office that is no longer on the list, so the account can still be edited.
+        if (data.office && !Array.from(editOffice.options).some(function (option) { return option.value === data.office; })) {
+            const legacy = new Option(data.office, data.office);
+            legacy.dataset.officeRole = data.role || '';
+            legacy.dataset.legacyOffice = '1';
+            editOffice.add(legacy);
+        }
+        editOffice.value = data.office || '';
         document.getElementById('edit_company').value = data.company || '';
         document.getElementById('edit_registration_no').value = data.registration || '';
         toggleOfficeField('edit_role', 'editOfficeField', 'edit_office');

@@ -223,6 +223,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/admin/procurements/{project}/inspection', [ProcurementLifecycleController::class, 'recordInspection'])->name('admin.procurement.inspection');
     Route::post('/admin/procurements/{project}/acceptance', [ProcurementLifecycleController::class, 'recordAcceptance'])->name('admin.procurement.acceptance');
     Route::get('/admin/payments', [BiddingFeePaymentController::class, 'index'])->name('admin.payments');
+    Route::get('/admin/payments/export', [BiddingFeePaymentController::class, 'export'])->name('admin.payments.export');
     Route::post('/admin/payments', [BiddingFeePaymentController::class, 'store'])->name('admin.payments.store');
     Route::put('/admin/payments/{payment}', [BiddingFeePaymentController::class, 'update'])->name('admin.payments.update');
     Route::delete('/admin/payments/{payment}', [BiddingFeePaymentController::class, 'destroy'])->name('admin.payments.destroy');
@@ -322,6 +323,7 @@ Route::middleware(['auth', 'staff'])->group(function () {
     Route::post('/staff/procurements/{project}/inspection', [ProcurementLifecycleController::class, 'recordInspection'])->name('staff.procurement.inspection');
     Route::post('/staff/procurements/{project}/acceptance', [ProcurementLifecycleController::class, 'recordAcceptance'])->name('staff.procurement.acceptance');
     Route::get('/staff/payments', [BiddingFeePaymentController::class, 'index'])->name('staff.payments');
+    Route::get('/staff/payments/export', [BiddingFeePaymentController::class, 'export'])->name('staff.payments.export');
     Route::post('/staff/payments', [BiddingFeePaymentController::class, 'store'])->name('staff.payments.store');
     Route::put('/staff/payments/{payment}', [BiddingFeePaymentController::class, 'update'])->name('staff.payments.update');
     Route::delete('/staff/payments/{payment}', [BiddingFeePaymentController::class, 'destroy'])->name('staff.payments.destroy');

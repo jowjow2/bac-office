@@ -46,30 +46,11 @@ class BiddingFeePaymentController extends Controller
             ->filter->isApprovedBidder()
             ->values();
 
-        $payments = BiddingFeePayment::query()
-            ->with(['project', 'bidder', 'recorder'])
-            ->when($projectFilter, fn ($query) => $query->where('project_id', $projectFilter))
-            ->when($search !== '', function ($query) use ($search) {
-                $like = '%'.$search.'%';
-                $query->where(function ($inner) use ($like) {
-                    $inner->where('or_number', 'like', $like)
-                        ->orWhereHas('bidder', fn ($bidder) => $bidder->where('name', 'like', $like)->orWhere('company', 'like', $like))
-                        ->orWhereHas('project', fn ($project) => $project->where('title', 'like', $like)->orWhere('reference_no', 'like', $like));
-                });
-            })
-            ->orderByDesc('paid_at')
-            ->orderByDesc('id')
+        $payments = $this->filteredPayments($search, $projectFilter)
             ->paginate(15)
             ->withQueryString();
 
-        // Which listed payments have already been used for an official bid.
-        $submittedKeys = Bid::query()
-            ->whereIn('project_id', $payments->pluck('project_id')->unique())
-            ->whereIn('user_id', $payments->pluck('user_id')->unique())
-            ->get(['project_id', 'user_id', 'submission_channel', 'submitted_at'])
-            ->reject(fn (Bid $bid) => $bid->isDraft())
-            ->map(fn (Bid $bid) => $bid->project_id.':'.$bid->user_id)
-            ->flip();
+        $submittedKeys = $this->submittedKeys($payments->getCollection());
 
         $today = now()->toDateString();
         $stats = [
@@ -90,6 +71,72 @@ class BiddingFeePaymentController extends Controller
             'search' => $search,
             'projectFilter' => $projectFilter,
         ]);
+    }
+
+    /** The payment records as CSV, with the same search and project filter as the page. */
+    public function export(Request $request)
+    {
+        $this->role($request);
+        $query = $this->filteredPayments(trim((string) $request->query('q', '')), $request->integer('project') ?: null);
+        $zone = config('bac-office.display_timezone', 'Asia/Manila');
+        $filename = 'bidding-fee-payments-'.now($zone)->format('Ymd-His').'.csv';
+
+        return response()->streamDownload(function () use ($query, $zone) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF"); // byte-order mark so Excel reads ñ and accents correctly
+            fputcsv($out, ['Date paid', 'Official Receipt No.', 'Project reference', 'Project', 'Bidder', 'Contact person', 'Amount (PHP)', 'Used for a submitted bid', 'Recorded by', 'Recorded on (Asia/Manila)', 'Notes']);
+            $total = 0.0;
+            $query->chunk(500, function ($payments) use ($out, $zone, &$total) {
+                $submitted = $this->submittedKeys($payments);
+                foreach ($payments as $payment) {
+                    $total += (float) $payment->amount;
+                    fputcsv($out, [
+                        $payment->paid_at?->format('Y-m-d'),
+                        $payment->or_number,
+                        $payment->project?->reference_no,
+                        $payment->project?->title,
+                        $payment->bidder?->company ?: $payment->bidder?->name,
+                        $payment->bidder?->company ? $payment->bidder?->name : null,
+                        number_format((float) $payment->amount, 2, '.', ''),
+                        $submitted->has($payment->project_id.':'.$payment->user_id) ? 'Yes' : 'No',
+                        $payment->recorder?->name,
+                        $payment->created_at?->timezone($zone)->format('Y-m-d H:i'),
+                        $payment->notes,
+                    ]);
+                }
+            });
+            fputcsv($out, ['', '', '', '', '', 'Total', number_format($total, 2, '.', '')]);
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8', 'Cache-Control' => 'no-store']);
+    }
+
+    private function filteredPayments(string $search, ?int $projectFilter)
+    {
+        return BiddingFeePayment::query()
+            ->with(['project', 'bidder', 'recorder'])
+            ->when($projectFilter, fn ($query) => $query->where('project_id', $projectFilter))
+            ->when($search !== '', function ($query) use ($search) {
+                $like = '%'.$search.'%';
+                $query->where(function ($inner) use ($like) {
+                    $inner->where('or_number', 'like', $like)
+                        ->orWhereHas('bidder', fn ($bidder) => $bidder->where('name', 'like', $like)->orWhere('company', 'like', $like))
+                        ->orWhereHas('project', fn ($project) => $project->where('title', 'like', $like)->orWhere('reference_no', 'like', $like));
+                });
+            })
+            ->orderByDesc('paid_at')
+            ->orderByDesc('id');
+    }
+
+    /** Which of these payments have already been used for an official bid ("project:user" keys). */
+    private function submittedKeys($payments)
+    {
+        return Bid::query()
+            ->whereIn('project_id', $payments->pluck('project_id')->unique())
+            ->whereIn('user_id', $payments->pluck('user_id')->unique())
+            ->get(['project_id', 'user_id', 'submission_channel', 'submitted_at'])
+            ->reject(fn (Bid $bid) => $bid->isDraft())
+            ->map(fn (Bid $bid) => $bid->project_id.':'.$bid->user_id)
+            ->flip();
     }
 
     public function store(Request $request)

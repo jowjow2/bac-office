@@ -190,3 +190,17 @@ it('prevents deleting the last remaining admin account', function () {
         'email' => 'admin-staff-office@example.com',
     ]);
 });
+
+it('lets the admin reset the password of an end-user whose office is no longer on the list', function () {
+    $admin = createAdminStaffOfficeUser();
+    $office = User::create(['name' => 'TEST Municipal Engineering Office', 'email' => 'old.office@example.com', 'password' => Hash::make('old-secret'), 'role' => 'end_user', 'status' => 'active', 'office' => 'TEST Municipal Engineering Office']);
+    $payload = ['name' => $office->name, 'email' => $office->email, 'role' => 'end_user', 'status' => 'active', 'office' => 'TEST Municipal Engineering Office', 'password' => 'new-secret'];
+
+    testCase()->actingAs($admin)->put(route('admin.users.update', $office), $payload)->assertSessionHasNoErrors();
+    expect(Hash::check('new-secret', $office->fresh()->password))->toBeTrue()
+        ->and($office->fresh()->office)->toBe('TEST Municipal Engineering Office');
+
+    // A new account still has to pick an office from the list.
+    testCase()->actingAs($admin)->post(route('admin.users.store'), array_merge($payload, ['email' => 'new.office@example.com']))
+        ->assertSessionHasErrors('office');
+});

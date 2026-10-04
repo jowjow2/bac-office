@@ -355,3 +355,24 @@ it('notifies the bidder when the payment is recorded so an open page can unlock 
     testCase()->actingAs($this->bidder)->get(route('bidder.available-projects', ['bid_project' => $this->project->id]))
         ->assertSee('data-payment-locked="false" data-project-id="'.$this->project->id.'"', false);
 });
+
+it('exports the payment records as CSV with the page filters', function () {
+    BiddingFeePayment::create(['project_id' => $this->project->id, 'user_id' => $this->bidder->id, 'amount' => 5000, 'or_number' => 'OR-1001', 'paid_at' => now()->toDateString(), 'recorded_by' => $this->staff->id, 'notes' => 'Paid by representative']);
+    $other = ($this->makeProject)(['reference_no' => 'SJOM-2026-G-099', 'title' => 'Laptops for the RHU']);
+    BiddingFeePayment::create(['project_id' => $other->id, 'user_id' => $this->otherBidder->id, 'amount' => 1000, 'or_number' => 'OR-2002', 'paid_at' => now()->toDateString(), 'recorded_by' => $this->admin->id]);
+
+    testCase()->actingAs($this->admin)->get(route('admin.payments'))->assertOk()->assertSee(route('admin.payments.export'), false);
+
+    $all = testCase()->actingAs($this->admin)->get(route('admin.payments.export'));
+    $all->assertOk();
+    expect($all->headers->get('content-type'))->toContain('text/csv');
+    $csv = $all->streamedContent();
+    expect($csv)->toContain('Official Receipt No.')
+        ->toContain('OR-1001')->toContain('Mindoro Builders')->toContain('Juan Builder')->toContain('Paid by representative')
+        ->toContain('OR-2002')->toContain('Total,6000.00');
+
+    $filtered = testCase()->actingAs($this->staff)->get(route('staff.payments.export', ['project' => $other->id]))->assertOk()->streamedContent();
+    expect($filtered)->toContain('OR-2002')->not->toContain('OR-1001')->toContain('Total,1000.00');
+
+    testCase()->actingAs($this->bidder)->get(route('admin.payments.export'))->assertForbidden();
+});
