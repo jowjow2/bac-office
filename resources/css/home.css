@@ -18,7 +18,7 @@
   padding: 64px 24px 56px;
   overflow: hidden;
   /* Front of the BAC Office building, framed on the BAC Office sign. */
-  background: #163d31 url("/Images/bac-office-front.webp") 52% 42% / cover no-repeat;
+  background: #163d31 url("/Images/bac-office-front-clean.webp") 52% 42% / cover no-repeat;
   border-bottom: 1px solid var(--ui-line);
 }
 
@@ -725,5 +725,66 @@
   [data-home-reveal] {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* Wide screens: the copy sits on the left over a dark gradient; the BAC Office facade stays clear on the right. */
+.home-hero-caption {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  body.home-page .home-page-hero {
+    justify-content: flex-start;
+    min-height: 520px;
+    padding: 64px max(32px, calc((100vw - 1200px) / 2)) 56px;
+    background-position: 13% 35%;
+    background-size: 150% auto;
+  }
+
+  body.home-page .home-page-hero::before {
+    background:
+      linear-gradient(90deg, rgba(10, 26, 20, 0.92) 0%, rgba(10, 26, 20, 0.84) 36%, rgba(10, 26, 20, 0.38) 64%, rgba(10, 26, 20, 0.12) 100%),
+      linear-gradient(0deg, rgba(10, 26, 20, 0.45) 0%, transparent 35%);
+  }
+
+  body.home-page .home-hero-copy {
+    width: min(560px, 52%);
+    text-align: left;
+  }
+
+  body.home-page .home-hero-copy h1,
+  body.home-page .home-hero-lead {
+    margin-left: 0;
+  }
+
+  body.home-page .home-hero-actions {
+    justify-content: flex-start;
+  }
+
+  body.home-page .home-hero-stats {
+    margin-left: 0;
+  }
+
+  body.home-page .home-hero-stat {
+    text-align: left;
+  }
+
+  body.home-page .home-hero-caption {
+    position: absolute;
+    right: max(32px, calc((100vw - 1200px) / 2));
+    bottom: 22px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: rgba(10, 26, 20, 0.55);
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 12px;
+    font-weight: 600;
+    backdrop-filter: blur(4px);
   }
 }

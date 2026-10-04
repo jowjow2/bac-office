@@ -41,6 +41,7 @@
                     </div>
                 </dl>
             </div>
+            <p class="home-hero-caption">BAC Office · Municipal Compound, San Jose</p>
         </section>
 
         <div class="home-content-shell">
