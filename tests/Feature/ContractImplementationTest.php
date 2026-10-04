@@ -404,3 +404,36 @@ it('shows the LGU one next step at a time, each opening its own focused modal', 
         ->assertSee('DR-2026-001')
         ->assertSee('id="ci-'.$award->id.'-step-receive"', false);
 });
+
+it('fills the contract terms form from the project, its purchase request and the award', function () {
+    $award = ($this->makeAward)(['project' => ['end_user_unit' => 'Office of the Municipal Mayor', 'location' => 'San Jose', 'contract_duration' => null]]);
+    $request = \App\Models\ProcurementRequest::create([
+        'reference_no' => 'PR-2026-0777', 'end_user_office' => 'Office of the Municipal Mayor', 'requested_by' => $this->admin->id,
+        'title' => 'Office supplies', 'category' => 'goods', 'specifications' => 'Bond paper and toner', 'quantity' => 2, 'unit' => 'items',
+        'estimated_cost' => 550000, 'fund_source' => 'General Fund', 'delivery_period' => '15 calendar days',
+        'status' => \App\Models\ProcurementRequest::STATUS_IN_PROCUREMENT,
+        'items' => [
+            ['description' => 'Bond paper, A4', 'quantity' => 100, 'unit' => 'reams', 'unit_cost' => 500],
+            ['description' => 'Toner cartridge', 'quantity' => 10, 'unit' => 'pcs', 'unit_cost' => 50000],
+        ],
+    ]);
+    $award->project->update(['procurement_request_id' => $request->id]);
+    $award->forceFill(['ntp_issued_on' => '2026-10-04'])->save();
+
+    $suggest = \App\Support\ContractTermsSuggestion::for($award->fresh());
+
+    // 495,000 contract / 550,000 estimate = 0.9 of each estimated unit cost.
+    expect($suggest['deadline']->toDateString())->toBe('2026-10-19')
+        ->and($suggest['location'])->toBe('Office of the Municipal Mayor, San Jose')
+        ->and($suggest['reference'])->toBe($award->project->reference_no)
+        ->and($suggest['items'])->toBe([
+            ['description' => 'Bond paper, A4', 'quantity' => '100', 'unit' => 'reams', 'unit_price' => '450'],
+            ['description' => 'Toner cartridge', 'quantity' => '10', 'unit' => 'pcs', 'unit_price' => '45000'],
+        ]);
+
+    testCase()->actingAs($this->admin)->get(route('admin.awards.index'))->assertOk()
+        ->assertSee('value="2026-10-19"', false)
+        ->assertSee('value="Office of the Municipal Mayor, San Jose"', false)
+        ->assertSee('value="Toner cartridge"', false)
+        ->assertSee('Filled in from the project and its purchase request.');
+});

@@ -123,6 +123,9 @@
     .ci :is(.ci-label, #ci-x#ci-x) { margin: 0 !important; color: var(--ui-ink-2, #33403a) !important; font-size: var(--ui-text-sm, 12.5px) !important; font-weight: 600 !important; line-height: 1.3 !important; letter-spacing: normal !important; text-transform: none !important; }
     .ci-req { color: var(--ui-danger, #a0322b); }
     .ci-hint { color: var(--ui-subtle, #78827c); font-size: var(--ui-text-xs, 11.5px); line-height: 1.45; }
+    .ci-hint strong { color: var(--ui-ink-2, #3c4641); font-weight: 600; }
+    .ci-prefill { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 14px; padding: 9px 12px; border: 1px solid var(--ui-info-line, #c9d9ee); border-radius: var(--ui-radius, 6px); background: var(--ui-info-soft, #e6eef8); color: var(--ui-info, #1f4f86); font-size: var(--ui-text-sm, 12.5px); line-height: 1.45; }
+    .ci-prefill i { margin-top: 2px; }
     .ci-error { color: var(--ui-danger, #a0322b); font-size: var(--ui-text-xs, 11.5px); font-weight: 600; }
 
     .ci :is(.ci-input, #ci-x#ci-x) { display: block !important; width: 100% !important; min-width: 0 !important; max-width: none !important; min-height: 38px !important; height: auto !important; margin: 0 !important; padding: 8px 11px !important; border: 1px solid var(--ui-line-strong, #d2cbbb) !important; border-radius: var(--ui-radius, 6px) !important; background: var(--ui-surface, #fff) !important; color: var(--ui-ink, #1b2420) !important; -webkit-text-fill-color: currentColor !important; font: 400 var(--ui-text, 13.5px)/1.4 var(--ui-font, Inter, system-ui, sans-serif) !important; box-shadow: none !important; box-sizing: border-box !important; }
@@ -485,6 +488,7 @@
         @endphp
 
         @if(! $configured)
+            @php $suggest = \App\Support\ContractTermsSuggestion::for($award); @endphp
             <x-ci-step-dialog :id="$step('terms')" eyebrow="Record the contract terms" :title="$stepTitle" :meta="$stepMeta" :reopen="$failed('terms')"
                 :steps="['Copy the delivery deadline, delivery location and contract reference.', 'List each item with its quantity, unit and unit price.', 'Set the warranty, attach the signed contract, and save.']">
                 @include('partials.contract-implementation-step-error', ['key' => 'terms'])
@@ -493,28 +497,30 @@
                         @csrf @method('PUT')
                         <input type="hidden" name="ci_award" value="{{ $award->id }}">
                         <input type="hidden" name="ci_form" value="terms">
+                        <p class="ci-prefill"><i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i> Filled in from the project and its purchase request. Check each value against the signed contract before saving.</p>
                         <div class="ci-grid">
                             <div class="ci-field">
                                 <label class="ci-label" for="{{ $uid }}-deadline">Delivery deadline <span class="ci-req" aria-hidden="true">*</span></label>
-                                <input class="ci-input" type="date" id="{{ $uid }}-deadline" name="delivery_deadline" value="{{ $old('delivery_deadline') }}" required @if($err('delivery_deadline')) aria-invalid="true" @endif>
+                                <input class="ci-input" type="date" id="{{ $uid }}-deadline" name="delivery_deadline" value="{{ $old('delivery_deadline', $suggest['deadline']?->toDateString()) }}" required @if($err('delivery_deadline')) aria-invalid="true" @endif>
+                                @if($suggest['deadline_hint'])<span class="ci-hint">{{ $suggest['deadline_hint'] }}</span>@endif
                                 @if($err('delivery_deadline'))<span class="ci-error">{{ $err('delivery_deadline') }}</span>@endif
                             </div>
                             <div class="ci-field">
                                 <label class="ci-label" for="{{ $uid }}-location">Delivery location <span class="ci-req" aria-hidden="true">*</span></label>
-                                <input class="ci-input" id="{{ $uid }}-location" name="delivery_location" maxlength="255" value="{{ $old('delivery_location') }}" placeholder="e.g. Municipal Warehouse, San Jose" required @if($err('delivery_location')) aria-invalid="true" @endif>
+                                <input class="ci-input" id="{{ $uid }}-location" name="delivery_location" maxlength="255" value="{{ $old('delivery_location', $suggest['location']) }}" placeholder="e.g. Municipal Warehouse, San Jose" required @if($err('delivery_location')) aria-invalid="true" @endif>
                                 @if($err('delivery_location'))<span class="ci-error">{{ $err('delivery_location') }}</span>@endif
                             </div>
                             <div class="ci-field">
                                 <label class="ci-label" for="{{ $uid }}-reference">Signed contract reference <span class="ci-req" aria-hidden="true">*</span></label>
-                                <input class="ci-input" id="{{ $uid }}-reference" name="signed_contract_reference" maxlength="255" value="{{ $old('signed_contract_reference') }}" placeholder="Contract no., page or clause" required @if($err('signed_contract_reference')) aria-invalid="true" @endif>
+                                <input class="ci-input" id="{{ $uid }}-reference" name="signed_contract_reference" maxlength="255" value="{{ $old('signed_contract_reference', $suggest['reference']) }}" placeholder="Contract no., page or clause" required @if($err('signed_contract_reference')) aria-invalid="true" @endif>
                                 @if($err('signed_contract_reference'))<span class="ci-error">{{ $err('signed_contract_reference') }}</span>@endif
                             </div>
                         </div>
 
-                        @php $oldItems = array_values((array) $old('contract_items', [['description' => '', 'quantity' => '', 'unit' => '', 'unit_price' => '']])); @endphp
+                        @php $oldItems = array_values((array) $old('contract_items', $suggest['items'])); @endphp
                         <div class="ci-field">
                             <span class="ci-label" id="{{ $uid }}-items-label">Items, quantities and unit prices <span class="ci-req" aria-hidden="true">*</span></span>
-                            <span class="ci-hint">Unit prices come from the signed contract; they are the basis of liquidated damages if the delivery is late.</span>
+                            <span class="ci-hint">Unit prices come from the signed contract; they are the basis of liquidated damages if the delivery is late.@if($suggest['prices_hint']) <strong>{{ $suggest['prices_hint'] }}</strong>@endif</span>
                             <div class="ci-table-wrap">
                                 <table class="ci-table" aria-labelledby="{{ $uid }}-items-label">
                                     <thead><tr><th scope="col">Item</th><th scope="col" class="is-input">Quantity</th><th scope="col" class="is-input">Unit</th><th scope="col" class="is-input">Unit price (₱)</th><th scope="col" class="is-remove"><span class="sr-only">Remove</span></th></tr></thead>
