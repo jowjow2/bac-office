@@ -313,7 +313,15 @@ it('walks the winning bidder through each authorized action and closes the other
         'contract_date' => now()->toDateString(),
     ])->assertSessionHasNoErrors();
     expect($award->fresh()->contract_date->isToday())->toBeTrue();
-    ($this->decide)($winningBid, BidWorkflow::NOTICE_TO_PROCEED)->assertSessionHasNoErrors();
+    // The signed NTP and its issuance date are required.
+    ($this->decide)($winningBid, BidWorkflow::NOTICE_TO_PROCEED, ['ntp_issued_on' => now()->toDateString()])->assertSessionHasErrors('ntp_file');
+    ($this->decide)($winningBid, BidWorkflow::NOTICE_TO_PROCEED, ['ntp_file' => \Illuminate\Http\UploadedFile::fake()->createWithContent('ntp.pdf', "%PDF-1.4
+1 0 obj
+<<>>
+endobj
+trailer
+<<>>
+%%EOF"), 'ntp_issued_on' => now()->toDateString()])->assertSessionHasNoErrors();
 
     expect(($this->adminStage)($winningBid))->toBe('Notice to Proceed Issued');
     $track = ($this->trackFor)($winner);

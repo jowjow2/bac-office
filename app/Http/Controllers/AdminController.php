@@ -1766,6 +1766,11 @@ public function destroyUser(User $user)
             // Notice of Award (signed PDF) and contract signing date.
             'notice_file' => 'nullable|file|mimes:pdf|max:5120',
             'contract_date' => 'nullable|date|before_or_equal:today',
+            // Notice to Proceed: signed PDF, issuance date, optional PhilGEPS posting.
+            'ntp_file' => 'nullable|file|mimes:pdf|max:5120',
+            'ntp_issued_on' => 'nullable|date',
+            'ntp_philgeps_posted_on' => 'nullable|date',
+            'ntp_philgeps_reference' => 'nullable|string|max:500',
             'evaluation_result' => 'nullable|in:responsive,nonresponsive',
             'evaluation_findings' => 'nullable|string|max:5000',
             'criterion_results' => 'nullable|array',
@@ -1775,6 +1780,7 @@ public function destroyUser(User $user)
         ]);
 
         $validated['notice_file'] = $request->file('notice_file');
+        $validated['ntp_file'] = $request->file('ntp_file');
         $validated['supporting_document'] = $request->file('supporting_document');
 
         if (filled($validated['received_at'] ?? null)) {
@@ -2699,6 +2705,21 @@ public function destroyUser(User $user)
      * Cancel an award before contract signing, by the HoPE, with the reason and
      * authority on record (BidWorkflow::cancelAward). Never deletes the award.
      */
+    /** The bidder's actual receipt of the NTP and its PhilGEPS posting, entered by hand after issuance. */
+    public function updateNoticeToProceed(Request $request, Award $award)
+    {
+        $validated = $request->validate([
+            'ntp_received_on' => 'nullable|date',
+            'ntp_philgeps_posted_on' => 'nullable|date',
+            'ntp_philgeps_reference' => 'nullable|string|max:500',
+        ]);
+
+        $this->bidWorkflow()->updateNoticeToProceedRecord($award, Auth::user(), $validated);
+
+        return redirect()->route('admin.awards.index')
+            ->with('success', 'Notice to Proceed record updated for '.($award->project?->title ?? 'the project').'.');
+    }
+
     public function cancelAward(Request $request, Award $award)
     {
         $validated = $request->validate([

@@ -216,8 +216,12 @@ class BidWorkflow
             },
             self::NOTICE_TO_PROCEED => match (true) {
                 $this->awardStageBlocker($bid, $f) !== null => $this->awardStageBlocker($bid, $f),
+                ! $f['award_approved'] => 'The award approval by the Head of the Procuring Entity must be recorded first.',
                 $f['contract_signed_at'] === null => 'Record the contract signing before issuing the Notice to Proceed.',
                 $f['notice_to_proceed_at'] !== null => 'The Notice to Proceed is already recorded.',
+                ! Award::where('bid_id', $bid->id)->whereNull('cancelled_at')->exists() => 'This bid has no award in force to proceed with.',
+                // Until the awards table has the NTP columns (migration 2026_10_26_000001).
+                ! \Illuminate\Support\Facades\Schema::hasColumn('awards', 'ntp_file_path') => 'The database update for the Notice to Proceed is not applied yet. Run the migrations first.',
                 default => null,
             },
             self::DISQUALIFY => $f['award_approved'] ? 'An approved award cannot be changed to disqualified here.' : null,
@@ -290,6 +294,11 @@ class BidWorkflow
 
         if ($action === self::NOTICE_OF_AWARD) {
             $this->assertSignedPdf($input['notice_file'] ?? null);
+        }
+
+        if ($action === self::NOTICE_TO_PROCEED) {
+            $this->assertSignedPdf($input['ntp_file'] ?? null, 'ntp_file', 'Notice to Proceed');
+            $this->validateNoticeToProceedDates($bid, $input, requireIssuance: true);
         }
 
         $this->storedFiles = [];
@@ -372,6 +381,10 @@ class BidWorkflow
                 Award::where('bid_id', $locked->id)->update(['contract_date' => $input['contract_date']]);
             }
 
+            if ($action === self::NOTICE_TO_PROCEED) {
+                $this->recordNoticeToProceed($locked, $actor, $input);
+            }
+
             if ($action === self::APPROVE_AWARD) {
                 // Close the other bids first (with their notices), then hand the
                 // approved award to Awards & Contracts in the same transaction.
@@ -386,10 +399,10 @@ class BidWorkflow
     /**
      * @throws ValidationException
      */
-    private function assertSignedPdf(mixed $file): void
+    private function assertSignedPdf(mixed $file, string $field = 'notice_file', string $document = 'Notice of Award'): void
     {
         if (! $file instanceof \Illuminate\Http\UploadedFile || ! $file->isValid()) {
-            throw ValidationException::withMessages(['notice_file' => 'Attach the signed Notice of Award (PDF).']);
+            throw ValidationException::withMessages([$field => "Attach the signed {$document} (PDF)."]);
         }
 
         $handle = @fopen($file->getRealPath(), 'rb');
@@ -399,8 +412,138 @@ class BidWorkflow
         }
 
         if (strtolower((string) $file->getClientOriginalExtension()) !== 'pdf' || $signature !== '%PDF') {
-            throw ValidationException::withMessages(['notice_file' => 'The Notice of Award must be a valid PDF document.']);
+            throw ValidationException::withMessages([$field => "The {$document} must be a valid PDF document."]);
         }
+    }
+
+    /**
+     * Notice to Proceed dates (Philippine calendar days): issued on or after the
+     * contract signing and not in the future; the bidder's receipt and the
+     * PhilGEPS posting on or after the issuance, not in the future. Receipt and
+     * PhilGEPS are optional and only ever what the BAC enters.
+     *
+     * @throws ValidationException
+     */
+    private function validateNoticeToProceedDates(Bid $bid, array $input, bool $requireIssuance, ?\Carbon\CarbonInterface $issuedOn = null): void
+    {
+        $zone = config('bac-office.display_timezone', 'Asia/Manila');
+        $today = now($zone)->startOfDay();
+        $day = fn (string $field) => filled($input[$field] ?? null) ? \Illuminate\Support\Carbon::parse($input[$field], $zone)->startOfDay() : null;
+
+        if ($requireIssuance) {
+            $issuedOn = $day('ntp_issued_on');
+            if ($issuedOn === null) {
+                throw ValidationException::withMessages(['ntp_issued_on' => 'Enter the date the Notice to Proceed was issued.']);
+            }
+            $signedOn = $bid->contract_signed_at?->copy()->timezone($zone)->startOfDay();
+            if ($issuedOn->greaterThan($today) || ($signedOn !== null && $issuedOn->lessThan($signedOn))) {
+                throw ValidationException::withMessages(['ntp_issued_on' => 'The Notice to Proceed is issued on or after the contract signing, and not in the future.']);
+            }
+        }
+
+        foreach (['ntp_received_on' => 'The bidder\'s receipt date', 'ntp_philgeps_posted_on' => 'The PhilGEPS posting date'] as $field => $label) {
+            $date = $day($field);
+            if ($date !== null && ($date->greaterThan($today) || ($issuedOn !== null && $date->lessThan($issuedOn)))) {
+                throw ValidationException::withMessages([$field => "{$label} must be on or after the issuance of the Notice to Proceed, and not in the future."]);
+            }
+        }
+
+        $reference = trim((string) ($input['ntp_philgeps_reference'] ?? ''));
+        if (strlen($reference) > 500) {
+            throw ValidationException::withMessages(['ntp_philgeps_reference' => 'Keep the PhilGEPS reference or link under 500 characters.']);
+        }
+    }
+
+    /**
+     * Stores the signed Notice to Proceed on the award, makes it available to
+     * the winning bidder and publishes it under Awards & Contracts → Notice to
+     * Proceed. Only the NTP document is published; the bid stays private.
+     */
+    private function recordNoticeToProceed(Bid $bid, User $actor, array $input): Award
+    {
+        $award = Award::where('bid_id', $bid->id)->whereNull('cancelled_at')->lockForUpdate()->firstOrFail();
+        if (filled($award->ntp_file_path)) {
+            throw ValidationException::withMessages(['milestone' => 'The Notice to Proceed is already issued for this award.']);
+        }
+
+        $path = $input['ntp_file']->storeAs('notices-to-proceed/'.$bid->project_id, \Illuminate\Support\Str::random(40).'.pdf', 'local');
+        if (! $path || ! Storage::disk('local')->exists($path)) {
+            throw new \RuntimeException('The Notice to Proceed PDF could not be stored.');
+        }
+        $this->storedFiles[] = $path;
+
+        $zone = config('bac-office.display_timezone', 'Asia/Manila');
+        $optional = fn (string $field) => filled($input[$field] ?? null) ? $input[$field] : null;
+        $award->update([
+            'ntp_file_path' => $path,
+            'ntp_issued_on' => \Illuminate\Support\Carbon::parse($input['ntp_issued_on'], $zone)->toDateString(),
+            'ntp_published_at' => now(),
+            'ntp_philgeps_posted_on' => $optional('ntp_philgeps_posted_on'),
+            'ntp_philgeps_reference' => filled($input['ntp_philgeps_reference'] ?? null) ? trim($input['ntp_philgeps_reference']) : null,
+        ]);
+
+        \App\Models\AuditLog::log('notice_to_proceed_issued', $award, [], [
+            'project_id' => $bid->project_id,
+            'bid_id' => $bid->id,
+            'bidder_id' => $bid->user_id,
+            'issued_on' => $award->ntp_issued_on->toDateString(),
+            'file_path' => $path,
+            'philgeps_posted_on' => $award->ntp_philgeps_posted_on?->toDateString(),
+            'philgeps_reference' => $award->ntp_philgeps_reference,
+            'recorded_by' => $actor->id,
+        ], ['user_id' => $actor->id]);
+        \App\Models\AuditLog::log('notice_to_proceed_published', $award, [], [
+            'published_at' => $award->ntp_published_at->toIso8601String(),
+            'public_section' => 'Awards & Contracts / Notice to Proceed',
+        ], ['user_id' => $actor->id]);
+
+        return $award;
+    }
+
+    /**
+     * The bidder's actual receipt of the Notice to Proceed and its PhilGEPS
+     * posting, entered by the BAC after issuance (never assumed). Every change
+     * is logged with its earlier values.
+     *
+     * @throws ValidationException
+     */
+    public function updateNoticeToProceedRecord(Award $award, User $actor, array $input): Award
+    {
+        if (! in_array($actor->role, self::HOPE_ROLES, true) || $actor->status !== 'active') {
+            throw ValidationException::withMessages(['ntp' => 'Your role is not authorized to update the Notice to Proceed record.']);
+        }
+
+        return DB::transaction(function () use ($award, $actor, $input) {
+            $locked = Award::with('bid')->lockForUpdate()->findOrFail($award->id);
+            if (! $locked->hasPublishedNoticeToProceed() || $locked->bid === null) {
+                throw ValidationException::withMessages(['ntp' => 'Issue the Notice to Proceed first.']);
+            }
+            $this->validateNoticeToProceedDates($locked->bid, $input, requireIssuance: false, issuedOn: $locked->ntp_issued_on->copy()->startOfDay());
+
+            $before = [
+                'ntp_received_on' => $locked->ntp_received_on?->toDateString(),
+                'ntp_philgeps_posted_on' => $locked->ntp_philgeps_posted_on?->toDateString(),
+                'ntp_philgeps_reference' => $locked->ntp_philgeps_reference,
+            ];
+            $after = [
+                'ntp_received_on' => filled($input['ntp_received_on'] ?? null) ? \Illuminate\Support\Carbon::parse($input['ntp_received_on'])->toDateString() : null,
+                'ntp_philgeps_posted_on' => filled($input['ntp_philgeps_posted_on'] ?? null) ? \Illuminate\Support\Carbon::parse($input['ntp_philgeps_posted_on'])->toDateString() : null,
+                'ntp_philgeps_reference' => filled($input['ntp_philgeps_reference'] ?? null) ? trim($input['ntp_philgeps_reference']) : null,
+            ];
+            if ($after === $before) {
+                return $locked;
+            }
+
+            $locked->update($after);
+            \App\Models\AuditLog::log('notice_to_proceed_record_updated', $locked, $before, $after + ['updated_by' => $actor->id], ['user_id' => $actor->id]);
+
+            if ($before['ntp_received_on'] === null && $after['ntp_received_on'] !== null) {
+                $this->record($locked->bid, BidProgress::STAGE_NOTICE_TO_PROCEED, 'received', $actor->id, null,
+                    'Notice to Proceed Received', 'The BAC recorded that you received the Notice to Proceed on '.\Illuminate\Support\Carbon::parse($after['ntp_received_on'])->format('M d, Y').'.');
+            }
+
+            return $locked;
+        });
     }
 
     /**
@@ -1203,7 +1346,8 @@ class BidWorkflow
             ],
             self::NOTICE_TO_PROCEED => [
                 'workflow_step' => Bid::STEP_NOTICE_TO_PROCEED,
-                'notice_to_proceed_at' => $now,
+                // The issuance date of the signed NTP (Philippine time), not the moment it was recorded.
+                'notice_to_proceed_at' => \Illuminate\Support\Carbon::parse($input['ntp_issued_on'], config('bac-office.display_timezone', 'Asia/Manila'))->startOfDay(),
                 'notice_to_proceed_by' => $actorId,
             ],
             self::DISQUALIFY => $this->disqualificationAttributes($bid, $actorId, $reason),
@@ -1270,7 +1414,7 @@ class BidWorkflow
             self::DISAPPROVE_AWARD => ['Recommendation Not Approved', 'The Head of the Procuring Entity did not approve the recommendation for award.'],
             self::NOTICE_OF_AWARD => ['Notice of Award Issued', 'The Notice of Award was issued to you.'],
             self::CONTRACT_SIGNED => ['Contract Signed', 'The contract was signed after the performance security was posted.'],
-            self::NOTICE_TO_PROCEED => ['Notice to Proceed Issued', 'The Notice to Proceed was issued.'],
+            self::NOTICE_TO_PROCEED => ['Notice to Proceed Issued', 'The Notice to Proceed was issued. View or download it under Awarded contracts.'],
             self::DISQUALIFY => ['Bid Disqualified', 'Your bid was disqualified by the BAC.'],
             self::RECORD_MANUAL_RECEIPT => ['Bid Submitted', 'The BAC Secretariat recorded receipt of your sealed bid.'],
         };

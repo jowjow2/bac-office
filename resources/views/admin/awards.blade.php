@@ -1463,6 +1463,12 @@
         .award-cancel footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--ui-line); }
         .award-cancel :is(.award-cancel-btn, #award-x#award-x) { display: inline-flex !important; align-items: center !important; gap: 7px !important; min-height: 36px !important; padding: 0 14px !important; border: 1px solid var(--ui-line-strong) !important; border-radius: var(--ui-radius) !important; background: #fff !important; color: var(--ui-ink-2) !important; font: 600 var(--ui-text-sm)/1 var(--ui-font) !important; cursor: pointer !important; }
         .award-cancel :is(.award-cancel-btn.is-danger, #award-x#award-x) { border-color: var(--ui-danger) !important; background: var(--ui-danger) !important; color: #fff !important; }
+        /* Notice to Proceed record (receipt and PhilGEPS), entered by hand after issuance. */
+        .award-ntp-record { margin-top: 6px; font-size: var(--ui-text-sm); }
+        .award-ntp-record summary { color: var(--ui-primary); font-weight: 600; cursor: pointer; }
+        .award-ntp-record label { display: grid; gap: 4px; color: var(--ui-ink-2); font-weight: 600; }
+        .award-ntp-record :is(input, #award-x#award-x) { width: 100% !important; min-height: 34px !important; padding: 6px 9px !important; border: 1px solid var(--ui-line-strong) !important; border-radius: var(--ui-radius) !important; background: #fff !important; color: var(--ui-ink) !important; font: 400 var(--ui-text-sm)/1.4 var(--ui-font) !important; box-sizing: border-box !important; box-shadow: none !important; }
+        .award-ntp-record .award-amount-note a, .award-amount-note a { color: var(--ui-primary); font-weight: 600; }
     </style>
 
     @include('partials.admin-sidebar')
@@ -1717,6 +1723,35 @@
                                     @endif
                                     @if($awardStatus !== 'valid' && ! $awaitingNotice && ! $award->isCancelled())
                                         <span class="award-amount-note">Document {{ $awardStatus }}</span>
+                                    @endif
+                                    @if($award->hasPublishedNoticeToProceed())
+                                        {{-- Issued NTP: its PDF, and the receipt / PhilGEPS details entered by hand (BidWorkflow::updateNoticeToProceedRecord). --}}
+                                        @php $ntpTz = config('bac-office.display_timezone', 'Asia/Manila'); @endphp
+                                        <span class="award-amount-note">
+                                            NTP issued {{ $award->ntp_issued_on->format('M d, Y') }} ·
+                                            <a href="{{ $award->noticeToProceedUrl() }}" target="_blank" rel="noopener">View NTP</a>
+                                        </span>
+                                        <span class="award-amount-note">
+                                            {{ $award->ntp_received_on ? 'Received by bidder '.$award->ntp_received_on->format('M d, Y') : 'Bidder receipt not recorded' }}
+                                            · {{ $award->ntp_philgeps_posted_on ? 'PhilGEPS '.$award->ntp_philgeps_posted_on->format('M d, Y') : 'PhilGEPS posting not recorded' }}
+                                        </span>
+                                        <details class="award-ntp-record">
+                                            <summary>Update receipt / PhilGEPS</summary>
+                                            <form action="{{ route('admin.awards.ntp.update', $award) }}" method="POST" style="display:grid; gap:8px; margin-top:8px;">
+                                                @csrf
+                                                @method('PUT')
+                                                <label>Received by the bidder on
+                                                    <input type="date" name="ntp_received_on" value="{{ $award->ntp_received_on?->toDateString() }}" min="{{ $award->ntp_issued_on->toDateString() }}" max="{{ now($ntpTz)->toDateString() }}">
+                                                </label>
+                                                <label>Posted on PhilGEPS on
+                                                    <input type="date" name="ntp_philgeps_posted_on" value="{{ $award->ntp_philgeps_posted_on?->toDateString() }}" min="{{ $award->ntp_issued_on->toDateString() }}" max="{{ now($ntpTz)->toDateString() }}">
+                                                </label>
+                                                <label>PhilGEPS reference or link
+                                                    <input type="text" name="ntp_philgeps_reference" maxlength="500" value="{{ $award->ntp_philgeps_reference }}">
+                                                </label>
+                                                <button type="submit" class="ui-btn">Save</button>
+                                            </form>
+                                        </details>
                                     @endif
                                     @if(strtolower((string) $award->project?->category) === 'infrastructure' && $award->bid?->contract_signed_at && $award->bid?->notice_to_proceed_at)
                                         <a class="ui-btn" href="{{ route('admin.infrastructure.show', $award) }}">Infrastructure tracking</a>

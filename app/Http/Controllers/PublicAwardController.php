@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class PublicAwardController extends Controller
 {
@@ -57,7 +58,19 @@ class PublicAwardController extends Controller
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
-        return view('pages.awards', compact('awards', 'records', 'postings', 'selected', 'query'));
+        // Awards & Contracts → Notice to Proceed: the published NTP of each posted award.
+        $noticesToProceed = $awards->filter(fn (Award $award) => $award->hasPublishedNoticeToProceed())
+            ->sortByDesc(fn (Award $award) => $award->ntp_issued_on->toDateString())
+            ->map(fn (Award $award) => [
+                'title' => $award->project?->title ?? 'Untitled project',
+                'project_reference' => $award->project?->reference_no,
+                'winner' => $this->winnerName($award),
+                'issued_on' => $award->ntp_issued_on->format('F d, Y'),
+                'view_url' => $award->noticeToProceedUrl(),
+                'download_url' => $award->noticeToProceedUrl(download: true),
+            ])->values();
+
+        return view('pages.awards', compact('awards', 'records', 'postings', 'selected', 'query', 'noticesToProceed'));
     }
 
     /**
@@ -93,6 +106,26 @@ class PublicAwardController extends Controller
             'bidder_verify_url' => $profile?->verificationUrl(),
             'bidder_qr_url' => $profile?->tokenQrUrl(),
         ];
+    }
+
+    /**
+     * The published Notice to Proceed PDF (public). Only this document is
+     * served; the bid and its files stay private.
+     */
+    public function noticeToProceed(Request $request, string $token)
+    {
+        $award = Award::where('qr_token', $token)->first();
+        abort_unless($award && $award->isPubliclyVisible() && $award->hasPublishedNoticeToProceed(), 404, 'Invalid or unavailable Notice to Proceed.');
+        abort_unless(Storage::disk('local')->exists($award->ntp_file_path), 404, 'Invalid or unavailable Notice to Proceed.');
+
+        $name = 'Notice-to-Proceed-'.Str::slug($award->project?->reference_no ?: 'award-'.$award->id).'.pdf';
+
+        return response(Storage::disk('local')->get($award->ntp_file_path), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => ($request->boolean('download') ? 'attachment' : 'inline').'; filename="'.$name.'"',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'private, max-age=0, no-cache, no-store, must-revalidate',
+        ]);
     }
 
     /**

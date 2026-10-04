@@ -156,8 +156,48 @@
                     </nav>
                 @endif
             </section>
+
+            {{-- Awards & Contracts → Notice to Proceed: the signed NTP of each posted award (PublicAwardController::index). --}}
+            <section class="award-post-list award-ntp-list" id="notice-to-proceed" aria-labelledby="award-ntp-title">
+                <header class="award-post-list-head">
+                    <h2 id="award-ntp-title">Notice to Proceed</h2>
+                    <p>{{ $noticesToProceed->count() }} issued</p>
+                </header>
+                @if($noticesToProceed->isEmpty())
+                    <p class="award-ntp-empty">No Notice to Proceed has been published yet.</p>
+                @else
+                    <ul class="award-ntp-rows">
+                        @foreach($noticesToProceed as $ntp)
+                            <li class="award-ntp-row">
+                                <div>
+                                    <strong>{{ $ntp['title'] }}</strong>
+                                    <small>
+                                        @if($ntp['project_reference'])<span class="award-post-mono">{{ $ntp['project_reference'] }}</span> &middot; @endif
+                                        {{ $ntp['winner'] }} &middot; Issued {{ $ntp['issued_on'] }}
+                                    </small>
+                                </div>
+                                <span class="award-ntp-actions">
+                                    <a href="{{ $ntp['view_url'] }}" target="_blank" rel="noopener" class="btn-outline">View PDF</a>
+                                    <a href="{{ $ntp['download_url'] }}" class="btn">Download</a>
+                                </span>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </section>
         @endif
     </main>
+
+    <style>
+        .award-ntp-list { margin-top: 28px; }
+        .award-ntp-rows { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+        .award-ntp-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border: 1px solid #e5dfd2; border-radius: 12px; background: #fff; }
+        .award-ntp-row strong { display: block; font-size: 15px; }
+        .award-ntp-row small { display: block; margin-top: 3px; color: #6b736e; font-size: 13px; }
+        .award-ntp-actions { display: flex; flex: 0 0 auto; gap: 8px; }
+        .award-ntp-empty { padding: 14px 16px; border: 1px dashed #d9d2c3; border-radius: 12px; color: #6b736e; }
+        @media (max-width: 640px) { .award-ntp-row { flex-direction: column; align-items: flex-start; } }
+    </style>
 
     @vite('resources/js/public-awards.js')
 @endsection

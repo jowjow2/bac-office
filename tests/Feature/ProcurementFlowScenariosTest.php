@@ -140,7 +140,7 @@ it('runs a competitive bidding from posting to completion with the scheduled ope
     ($this->pagesLoad)('notice of award');
 
     ($this->decide)($bidA, BidWorkflow::CONTRACT_SIGNED, ['performance_security_at' => now()->toDateString(), 'contract_date' => now()->toDateString()])->assertSessionHasNoErrors();
-    ($this->decide)($bidA, BidWorkflow::NOTICE_TO_PROCEED)->assertSessionHasNoErrors();
+    ($this->decide)($bidA, BidWorkflow::NOTICE_TO_PROCEED, ['ntp_file' => ($this->pdf)('NTP.pdf'), 'ntp_issued_on' => now()->toDateString()])->assertSessionHasNoErrors();
     ($this->pagesLoad)('notice to proceed');
 
     // Inspection and acceptance complete the contract.
@@ -408,4 +408,75 @@ it('records a sealed bid handed in by a walk-in bidder who saved nothing online'
     [$opened] = scenarioOpenAndEvaluate($this, $project);
     expect((float) $opened->bid_amount)->toBeGreaterThan(0)->and($opened->financial_opening_method)->toBe('sealed_envelope');
     ($this->pagesLoad)('walk-in sealed bid evaluated');
+});
+it('issues the Notice to Proceed with its signed PDF, publishes it, and records receipt and PhilGEPS by hand', function () {
+    $project = ($this->competitive)();
+    [$bidA] = scenarioEvaluatedBids($this, $project);
+    ($this->decide)($bidA, BidWorkflow::START_POST_QUALIFICATION)->assertSessionHasNoErrors();
+    ($this->decide)($bidA, BidWorkflow::PASS_POST_QUALIFICATION, ['post_qualification_findings' => 'Documents verified.'])->assertSessionHasNoErrors();
+    ($this->decide)($bidA, BidWorkflow::RECOMMEND, ['bac_resolution_no' => 'BAC Res. 2026-070', 'bac_resolution_date' => now()->toDateString()])->assertSessionHasNoErrors();
+    ($this->decide)($bidA, BidWorkflow::APPROVE_AWARD)->assertSessionHasNoErrors();
+    testCase()->actingAs($this->admin)->post(route('admin.awards.declare', $project), ['bid_id' => $bidA->id, 'certificate_file' => ($this->pdf)('NOA.pdf')])->assertSessionHasNoErrors();
+    $ntp = fn (array $data = []) => ($this->decide)($bidA->fresh(), BidWorkflow::NOTICE_TO_PROCEED, $data + ['ntp_file' => ($this->pdf)('NTP-signed.pdf'), 'ntp_issued_on' => now()->toDateString()]);
+
+    // Not before the contract signing.
+    $ntp()->assertSessionHasErrors('milestone');
+    $this->travel(2)->days();
+    $signedOn = now()->toDateString();
+    ($this->decide)($bidA, BidWorkflow::CONTRACT_SIGNED, ['performance_security_at' => $signedOn, 'contract_date' => $signedOn])->assertSessionHasNoErrors();
+    $this->travel(3)->days();
+
+    // The signed PDF and a valid issuance date are required.
+    $ntp(['ntp_file' => null])->assertSessionHasErrors('ntp_file');
+    $ntp(['ntp_file' => \Illuminate\Http\UploadedFile::fake()->createWithContent('ntp.pdf', 'not a pdf')])->assertSessionHasErrors('ntp_file');
+    $ntp(['ntp_issued_on' => null])->assertSessionHasErrors('ntp_issued_on');
+    $ntp(['ntp_issued_on' => now()->subDays(4)->toDateString()])->assertSessionHasErrors('ntp_issued_on'); // before the signing
+    $ntp(['ntp_issued_on' => now()->addDay()->toDateString()])->assertSessionHasErrors('ntp_issued_on');
+
+    $issuedOn = now()->subDay()->toDateString();
+    $ntp(['ntp_issued_on' => $issuedOn, 'notes' => 'Served at the BAC office.'])->assertSessionHasNoErrors();
+    $award = Award::where('bid_id', $bidA->id)->firstOrFail();
+    expect($award->ntp_issued_on->toDateString())->toBe($issuedOn)
+        ->and($bidA->fresh()->notice_to_proceed_at->timezone('Asia/Manila')->toDateString())->toBe($issuedOn)
+        ->and($award->ntp_published_at)->not->toBeNull()
+        // Receipt and PhilGEPS are never assumed.
+        ->and($award->ntp_received_on)->toBeNull()
+        ->and($award->ntp_philgeps_posted_on)->toBeNull()
+        ->and(\App\Models\AuditLog::where('action', 'notice_to_proceed_issued')->count())->toBe(1)
+        ->and(\App\Models\AuditLog::where('action', 'notice_to_proceed_published')->count())->toBe(1)
+        ->and(\App\Models\UserNotification::where('user_id', $this->bidderA->id)->where('title', 'Notice to Proceed Issued')->exists())->toBeTrue();
+
+    // Once only.
+    $ntp()->assertSessionHasErrors('milestone');
+
+    // Published under Awards & Contracts → Notice to Proceed; the PDF opens and downloads.
+    testCase()->get(route('public.awards'))->assertOk()
+        ->assertSeeInOrder(['Notice to Proceed', $project->title, 'Mindoro Builders', 'Issued '.\Illuminate\Support\Carbon::parse($issuedOn)->format('F d, Y'), 'View PDF', 'Download']);
+    $view = testCase()->get($award->noticeToProceedUrl())->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    $download = testCase()->get($award->noticeToProceedUrl(download: true))->assertOk();
+    expect($view->headers->get('Content-Disposition'))->toStartWith('inline')
+        ->and($download->headers->get('Content-Disposition'))->toStartWith('attachment');
+    // Only the NTP is public: the bid's own files stay behind the BAC login.
+    \Illuminate\Support\Facades\Auth::logout();
+    testCase()->get(route('admin.bid.document.pdf', [$bidA, 'proposal']))->assertRedirect();
+    testCase()->get(route('admin.bid.view', $bidA))->assertRedirect();
+
+    // The winning bidder sees it.
+    testCase()->actingAs($this->bidderA)->get(route('bidder.awarded-contracts'))->assertOk()
+        ->assertSee($award->noticeToProceedUrl(), false)->assertSee('Download');
+
+    // Receipt and PhilGEPS, entered by hand, admin only, logged.
+    $update = fn (User $user, array $data) => testCase()->actingAs($user)->from(route('admin.awards.index'))->put(route('admin.awards.ntp.update', $award), $data);
+    $update($this->staff, ['ntp_received_on' => now()->toDateString()])->assertForbidden();
+    $update($this->admin, ['ntp_received_on' => now()->subDays(3)->toDateString()])->assertSessionHasErrors('ntp_received_on');
+    $update($this->admin, ['ntp_received_on' => now()->toDateString()])->assertSessionHasNoErrors();
+    $update($this->admin, ['ntp_received_on' => now()->toDateString(), 'ntp_philgeps_posted_on' => now()->toDateString(), 'ntp_philgeps_reference' => 'PhilGEPS 12345678'])->assertSessionHasNoErrors();
+    $award->refresh();
+    $logs = \App\Models\AuditLog::where('action', 'notice_to_proceed_record_updated')->orderBy('id')->get();
+    expect($award->ntp_received_on->toDateString())->toBe(now()->toDateString())
+        ->and($award->ntp_philgeps_reference)->toBe('PhilGEPS 12345678')
+        ->and($logs)->toHaveCount(2)
+        ->and($logs[0]->old_values['ntp_received_on'])->toBeNull()
+        ->and($logs[1]->new_values['ntp_philgeps_posted_on'])->toBe(now()->toDateString());
+    ($this->pagesLoad)('notice to proceed issued');
 });

@@ -42,6 +42,12 @@ class Award extends Model
         'cancelled_by',
         'cancellation_reference',
         'cancellation_reason',
+        'ntp_file_path',
+        'ntp_issued_on',
+        'ntp_published_at',
+        'ntp_received_on',
+        'ntp_philgeps_posted_on',
+        'ntp_philgeps_reference',
     ];
 
     protected $casts = [
@@ -52,6 +58,10 @@ class Award extends Model
         'certificate_revoked_at' => 'datetime',
         'award_approved_at' => 'datetime',
         'cancelled_at' => 'datetime',
+        'ntp_issued_on' => 'date',
+        'ntp_published_at' => 'datetime',
+        'ntp_received_on' => 'date',
+        'ntp_philgeps_posted_on' => 'date',
     ];
 
     // Certificate status constants
@@ -74,6 +84,22 @@ class Award extends Model
     public function isCancelled(): bool
     {
         return $this->cancelled_at !== null;
+    }
+
+    /** The signed Notice to Proceed is issued and published (Awards & Contracts → Notice to Proceed). */
+    public function hasPublishedNoticeToProceed(): bool
+    {
+        return ! $this->isCancelled() && filled($this->ntp_file_path) && $this->ntp_issued_on !== null && $this->ntp_published_at !== null;
+    }
+
+    /** The public View / Download link of the Notice to Proceed PDF (the NTP only, never bid documents). */
+    public function noticeToProceedUrl(bool $download = false): ?string
+    {
+        if (! $this->hasPublishedNoticeToProceed() || blank($this->qr_token)) {
+            return null;
+        }
+
+        return route('public.awards.ntp', array_filter(['token' => $this->qr_token, 'download' => $download ? 1 : null]));
     }
 
     /**

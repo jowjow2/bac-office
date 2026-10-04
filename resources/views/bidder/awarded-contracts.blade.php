@@ -181,7 +181,14 @@
                                     </li>
                                     <li class="{{ $ntpAt ? 'is-done' : '' }}">
                                         <strong>{{ $ntpAt ? 'NTP issued' : 'Notice to Proceed' }}</strong>
-                                        <span>{{ $ntpAt?->timezone($tz)->format('M d, Y') ?? ($signedAt ? 'Pending' : 'After contract signing') }}</span>
+                                        <span>{{ ($award->ntp_issued_on ?? $ntpAt?->timezone($tz))?->format('M d, Y') ?? ($signedAt ? 'Pending' : 'After contract signing') }}</span>
+                                        @if($award->hasPublishedNoticeToProceed())
+                                            <span>
+                                                <a href="{{ $award->noticeToProceedUrl() }}" target="_blank" rel="noopener">View</a> ·
+                                                <a href="{{ $award->noticeToProceedUrl(download: true) }}">Download</a>
+                                                @if($award->ntp_received_on) · Received {{ $award->ntp_received_on->format('M d, Y') }}@endif
+                                            </span>
+                                        @endif
                                     </li>
                                 </ol>
                             @endif

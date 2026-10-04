@@ -318,7 +318,7 @@ it('runs the full LGU procurement flow from posting to Notice to Proceed', funct
 
     // 7. Contract signing (performance security) and Notice to Proceed.
     ($this->decide)($bidA, BidWorkflow::CONTRACT_SIGNED, ['performance_security_at' => now()->toDateString(), 'contract_date' => now()->toDateString()]);
-    ($this->decide)($bidA, BidWorkflow::NOTICE_TO_PROCEED);
+    ($this->decide)($bidA, BidWorkflow::NOTICE_TO_PROCEED, ['ntp_file' => ($this->pdf)('NTP-signed.pdf'), 'ntp_issued_on' => now()->toDateString()]);
 
     expect($award->fresh()->contract_date->isToday())->toBeTrue();
 

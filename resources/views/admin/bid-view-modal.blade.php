@@ -810,6 +810,23 @@
                                         </label>
                                     @endif
 
+                                    @if($action === \App\Support\BidWorkflow::NOTICE_TO_PROCEED)
+                                        <label class="br-field">Signed Notice to Proceed (PDF)
+                                            <input type="file" name="ntp_file" accept="application/pdf,.pdf" required>
+                                        </label>
+                                        <label class="br-field">Issued on
+                                            <input type="date" name="ntp_issued_on" required value="{{ now()->timezone($tz)->toDateString() }}"
+                                                min="{{ $bid->contract_signed_at?->timezone($tz)->toDateString() }}" max="{{ now()->timezone($tz)->toDateString() }}">
+                                        </label>
+                                        <label class="br-field">Posted on PhilGEPS on <span class="br-optional">(optional, if already posted)</span>
+                                            <input type="date" name="ntp_philgeps_posted_on" max="{{ now()->timezone($tz)->toDateString() }}">
+                                        </label>
+                                        <label class="br-field">PhilGEPS reference or link <span class="br-optional">(optional)</span>
+                                            <input type="text" name="ntp_philgeps_reference" maxlength="500" placeholder="e.g. PhilGEPS ref. no. or posting URL">
+                                        </label>
+                                        <p class="br-hint">The winning bidder can view and download the NTP, and it is published under Awards &amp; Contracts → Notice to Proceed. Record the bidder's actual receipt date later on the Awards page.</p>
+                                    @endif
+
                                     @unless($hasActionRemarks)
                                         <label class="br-field">Remarks <span class="br-optional">(optional)</span>
                                             <textarea name="notes" rows="3" maxlength="2000" placeholder="Add a note to this action, if needed."></textarea>
@@ -822,7 +839,7 @@
                                         </label>
                                     @endif
 
-                                    @unless(in_array($action, [\App\Support\BidWorkflow::NOTICE_OF_AWARD, \App\Support\BidWorkflow::RECORD_MANUAL_RECEIPT], true))
+                                    @unless(in_array($action, [\App\Support\BidWorkflow::NOTICE_OF_AWARD, \App\Support\BidWorkflow::NOTICE_TO_PROCEED, \App\Support\BidWorkflow::RECORD_MANUAL_RECEIPT], true))
                                         <label class="br-field">{{ $action === \App\Support\BidWorkflow::RECOMMEND ? 'Signed BAC resolution' : 'Supporting document' }} <span class="br-optional">(optional: report, minutes, resolution)</span>
                                             <input type="file" name="supporting_document" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
                                         </label>

@@ -127,6 +127,8 @@ Route::get('/qr/{token}.svg', [PublicAwardController::class, 'qrByToken'])->name
 
 Route::get('/awards', [PublicAwardController::class, 'index'])->name('public.awards');
 Route::get('/awards/document/{token}', [PublicAwardController::class, 'showByToken'])->name('public.awards.document');
+// The published Notice to Proceed PDF only (?download=1 to save it).
+Route::get('/awards/notice-to-proceed/{token}', [PublicAwardController::class, 'noticeToProceed'])->name('public.awards.ntp');
 
 // Public bidder verification (read-only) - lets anyone who scans a bidder's profile
 // QR code see that bidder's approved bids and awarded contracts.
@@ -291,6 +293,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/admin/awards/{award}/certificate/replace', [AdminController::class, 'replaceCertificate'])->name('admin.awards.certificate.replace');
     Route::post('/admin/awards/{award}/revoke', [AdminController::class, 'revokeCertificate'])->name('admin.awards.revoke');
     Route::post('/admin/awards/{award}/cancel', [AdminController::class, 'cancelAward'])->name('admin.awards.cancel');
+    Route::put('/admin/awards/{award}/notice-to-proceed', [AdminController::class, 'updateNoticeToProceed'])->name('admin.awards.ntp.update');
     Route::post('/admin/awards/{award}/regenerate-token', [AdminController::class, 'regenerateQrToken'])->name('admin.awards.regenerate.token');
 
     // Procurement management
