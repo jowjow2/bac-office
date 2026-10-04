@@ -998,6 +998,17 @@
     text-indent: 0.5em;
 }
 
+#authModal .auth-code-note {
+    margin: 0;
+    color: var(--ui-muted);
+    font-size: 12.5px;
+    text-align: center;
+}
+
+#authModal .auth-code-note[hidden] {
+    display: none;
+}
+
 #authModal .auth-code-status {
     display: flex;
     align-items: center;

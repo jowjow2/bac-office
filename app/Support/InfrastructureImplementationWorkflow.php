@@ -171,11 +171,17 @@ class InfrastructureImplementationWorkflow
         return DB::transaction(function () use ($award, $actor, $action, $data, $document, $record, $moves) {
             $record = ContractImplementation::query()->lockForUpdate()->findOrFail($record->id);
             [$from, $to] = $moves[$action];
+            if ($record->status === ContractImplementation::INFRA_COMPLETED) {
+                throw ValidationException::withMessages(['status' => 'This contract is already marked completed.']);
+            }
             if (! $record->isConfigured() || $record->status !== $from) {
                 throw ValidationException::withMessages(['status' => 'This contract action is not valid at the current stage.']);
             }
             $path = $document->store('contract-implementation/private', 'local');
             $this->transition($record, $actor, 'infrastructure_'.$action, $to, $data['remarks'], [], ['path' => $path, 'name' => $document->getClientOriginalName()]);
+            if ($action === 'complete') {
+                $this->markContractCompleted($award, $record, $actor, $from, $document->getClientOriginalName());
+            }
             $labels = [
                 'accept' => ['Infrastructure work accepted', 'LGU staff formally accepted the infrastructure work.'],
                 'payment_processing' => ['Payment processing recorded', 'The LGU recorded that contract payment processing has started.'],
@@ -186,6 +192,35 @@ class InfrastructureImplementationWorkflow
             $this->notifyWinner($award, $title, $message);
             return $record->fresh(['events.actor']);
         });
+    }
+
+    /**
+     * The completed contract also completes the procurement, so the awards list, the
+     * winner's contract view and the reports read "Completed" from the same record.
+     */
+    private function markContractCompleted(Award $award, ContractImplementation $record, User $actor, string $from, string $documentName): void
+    {
+        $at = app(ProcurementClock::class)->now();
+        $project = \App\Models\Project::query()->lockForUpdate()->find($award->project_id);
+        if ($project && $project->completed_at === null) {
+            $project->update(['completed_at' => $at]);
+        }
+        if ($award->bid && $award->bid->project_completed_at === null) {
+            $award->bid->update([
+                'workflow_step' => \App\Models\Bid::STEP_PROJECT_COMPLETED,
+                'project_completed_at' => $at,
+                'project_completed_by' => $actor->id,
+                'workflow_step_updated_at' => $at,
+                'workflow_step_updated_by' => $actor->id,
+            ]);
+        }
+        \App\Models\AuditLog::log('infrastructure_contract_completed', $record, ['status' => $from], [
+            'status' => ContractImplementation::INFRA_COMPLETED,
+            'completed_at' => $at->toDateTimeString(),
+            'project_id' => $award->project_id,
+            'award_id' => $award->id,
+            'completion_record' => $documentName,
+        ], ['user_id' => $actor->id]);
     }
 
     private function transition(ContractImplementation $record, User $actor, string $action, string $to, ?string $remarks, array $details, ?array $file): void

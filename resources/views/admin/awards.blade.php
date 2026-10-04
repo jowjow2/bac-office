@@ -1666,13 +1666,15 @@
                                 $contractStage = $award->bid ? $award->bid->progress()->adminStatus() : null;
                                 [$contractStageLabel, $contractStageNext] = $award->isCancelled()
                                     ? ['Award cancelled', $award->cancellation_reference]
+                                    : ($award->bid?->project_completed_at
+                                    ? ['Completed', 'Completed '.$award->bid->project_completed_at->timezone(config('bac-office.display_timezone'))->format('M d, Y')]
                                     : match ($contractStage['key'] ?? null) {
                                         'notice_to_proceed' => ['NTP issued', null],
                                         'contract_signed' => ['Contract signed', 'Notice to Proceed pending'],
                                         'notice_of_award' => ['NOA issued', 'Contract signing pending'],
                                         'award_approval' => ['Award approved', 'Notice of Award pending'],
                                         default => [$contractStage['label'] ?? 'Awarded', null],
-                                    };
+                                    });
                                 $awaitingNotice = $award->awaitsNoticeOfAward();
                                 // Cancellable by the HoPE until the contract is signed.
                                 $cancellable = ! $award->isCancelled() && $award->contract_date === null && $award->bid?->contract_signed_at === null;
@@ -1753,11 +1755,7 @@
                                             </form>
                                         </details>
                                     @endif
-                                    @if(strtolower((string) $award->project?->category) === 'infrastructure' && $award->bid?->contract_signed_at && $award->bid?->notice_to_proceed_at)
-                                        <a class="ui-btn" href="{{ route('admin.infrastructure.show', $award) }}">Infrastructure tracking</a>
-                                    @else
-                                        @include('partials.contract-implementation-button', ['award' => $award])
-                                    @endif
+                                    @include('partials.contract-implementation-button', ['award' => $award])
                                 </td>
                                 <td data-label="QR / award documents">
                                     @if($showCertificate)

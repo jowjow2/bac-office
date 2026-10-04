@@ -49,7 +49,7 @@ it('sends a guest to the login modal with the project, then the bidder to that p
     // Bidder login is completed with the emailed code; the redirect goes to the project.
     testCase()->withSession([
         'participation_project_id' => $this->project->id,
-        'bidder_login_verification' => ['user_id' => $this->bidder->id, 'remember' => false, 'code_hash' => Hash::make('123456'), 'expires_at' => now()->addMinutes(10)->timestamp],
+        'login_verification' => ['user_id' => $this->bidder->id, 'remember' => false, 'code_hash' => Hash::make('123456'), 'expires_at' => now()->addMinutes(10)->timestamp],
     ])->postJson(route('login.verify-code'), ['code' => '123456'])
         ->assertOk()
         ->assertJson(['ok' => true, 'redirect' => route('bidder.opportunities.show', $this->project)]);

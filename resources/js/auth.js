@@ -262,6 +262,54 @@ function updateLoginVerificationEmail(email) {
         maskedEmail.textContent = maskVerificationEmail(email);
     }
 }
+
+let loginResendTimerId = null;
+
+/* "Resend code" waits out the server's cooldown, counting down on the button. */
+function startLoginResendCooldown(seconds) {
+    const button = document.getElementById('resendLoginCodeButton');
+    if (!button) return;
+    if (loginResendTimerId) {
+        window.clearInterval(loginResendTimerId);
+        loginResendTimerId = null;
+    }
+
+    const until = Date.now() + Math.max(0, Number(seconds) || 0) * 1000;
+    const tick = () => {
+        const left = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+        button.disabled = left > 0;
+        button.textContent = left > 0 ? `Resend code in ${left}s` : 'Resend code';
+        if (left <= 0 && loginResendTimerId) {
+            window.clearInterval(loginResendTimerId);
+            loginResendTimerId = null;
+        }
+    };
+    tick();
+    if (until > Date.now()) loginResendTimerId = window.setInterval(tick, 1000);
+}
+
+function showLoginCodeLifetime(seconds) {
+    const note = document.getElementById('verifyLoginExpiry');
+    if (!note) return;
+    const minutes = Math.round((Number(seconds) || 0) / 60);
+    note.textContent = minutes > 0 ? `The code expires in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'} and works once.` : '';
+    note.hidden = minutes <= 0;
+}
+
+/* Shows the code step for a sign-in that is waiting for its emailed code. */
+function startLoginVerification(data) {
+    const verifyEmail = document.getElementById('verifyLoginEmail');
+    const codeInput = document.getElementById('verifyLoginForm')?.querySelector('[name="code"]');
+    if (verifyEmail) verifyEmail.value = data.email || '';
+    updateLoginVerificationEmail(data.email || '');
+    showLoginCodeLifetime(data.expires_in);
+    startLoginResendCooldown(data.resend_available_in);
+    if (codeInput) {
+        codeInput.value = '';
+        window.requestAnimationFrame(() => codeInput.focus());
+    }
+}
+window.startLoginVerification = startLoginVerification;
 function updatePasswordCodeCountdown() {
     const status = document.getElementById('forgotCodeStatus');
     const label = status?.querySelector('span');
@@ -1011,14 +1059,7 @@ async function submitAuthForm(form, fallbackTab) {
             }
 
             if (data.requires_verification && verifyLoginForm) {
-                const verifyEmail = document.getElementById('verifyLoginEmail');
-                const codeInput = verifyLoginForm.querySelector('[name="code"]');
-                if (verifyEmail) verifyEmail.value = data.email || '';
-                updateLoginVerificationEmail(data.email || '');
-                if (codeInput) {
-                    codeInput.value = '';
-                    window.requestAnimationFrame(() => codeInput.focus());
-                }
+                startLoginVerification(data);
             }
 
             if (data.requires_password_code && forgotVerifyForm) {
@@ -1205,9 +1246,9 @@ async function resendLoginCode(button) {
     clearAuthMessage();
     clearFieldErrors(verifyLoginForm);
 
-    const originalText = button.textContent;
     button.disabled = true;
     button.textContent = 'Sending...';
+    let waitSeconds = 0;
 
     try {
         const response = await fetch(url, {
@@ -1223,17 +1264,12 @@ async function resendLoginCode(button) {
 
         const data = await response.json();
         switchTab(data.tab || 'verify');
+        waitSeconds = Number(data.resend_available_in) || 0;
 
         if (data.ok) {
-            updateLoginVerificationEmail(data.email || document.getElementById('verifyLoginEmail')?.value || '');
-            const codeInput = verifyLoginForm.querySelector('[name="code"]');
-            if (codeInput) {
-                codeInput.value = '';
-                window.requestAnimationFrame(() => codeInput.focus());
-            }
-
-            clearAuthMessage();
-        } else if (data.errors) {
+            startLoginVerification({ ...data, email: data.email || document.getElementById('verifyLoginEmail')?.value || '' });
+            showAuthMessage('info', data.message || 'New verification code sent to your email.');
+        } else if (data.errors && Object.keys(data.errors).length) {
             showFieldErrors(verifyLoginForm, data.errors);
         } else {
             showAuthMessage('error', data.message || 'Unable to resend code.');
@@ -1242,8 +1278,7 @@ async function resendLoginCode(button) {
         switchTab('verify');
         showAuthMessage('error', 'Unable to resend code. Please try again.');
     } finally {
-        button.disabled = false;
-        button.textContent = originalText;
+        startLoginResendCooldown(waitSeconds);
     }
 }
 

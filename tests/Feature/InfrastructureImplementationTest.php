@@ -227,3 +227,40 @@ it('tells everyone without a form who acts next, and warns when no end-user can 
     testCase()->actingAs($this->admin)->get(route('admin.infrastructure.show', $this->award))
         ->assertSee('No active End-user account is set up for Municipal Engineering Office');
 });
+
+it('shows a completed contract as Completed everywhere, once, with its documents and an audit entry', function () {
+    testCase()->actingAs($this->admin)->put(route('admin.infrastructure.configure', $this->award), $this->terms)->assertRedirect();
+    $record = ContractImplementation::where('award_id', $this->award->id)->firstOrFail();
+    $record->update(['status' => ContractImplementation::INFRA_PAID]);
+    $complete = fn () => testCase()->actingAs($this->admin)->post(route('admin.infrastructure.action', $this->award), [
+        'action' => 'complete', 'remarks' => 'Close-out recorded.', 'document' => ($this->file)('completion.pdf'),
+    ]);
+
+    $complete()->assertRedirect()->assertSessionHasNoErrors();
+    // A second submission (double click, back button) is refused and records nothing.
+    $complete()->assertSessionHasErrors(['status' => 'This contract is already marked completed.']);
+    expect($record->events()->where('action', 'infrastructure_complete')->count())->toBe(1)
+        ->and(\App\Models\AuditLog::where('action', 'infrastructure_contract_completed')->where('user_id', $this->admin->id)->count())->toBe(1)
+        ->and($this->award->project->fresh()->completed_at)->not->toBeNull()
+        ->and($this->award->bid->fresh()->project_completed_at)->not->toBeNull();
+
+    // Tracking page: a result, not a next step, with every step checked.
+    $page = testCase()->actingAs($this->admin)->get(route('admin.infrastructure.show', $this->award))->assertOk()
+        ->assertSee('Contract completed.')->assertSee('All recorded implementation steps are complete.')
+        ->assertDontSee('Next step: Contract completed');
+    expect(substr_count($page->getContent(), '<i class="fas fa-check"></i>'))->toBe(7);
+
+    // Awards & Contracts, the winner's contracts and the reports agree.
+    testCase()->actingAs($this->admin)->get(route('admin.awards.index'))->assertOk()
+        ->assertSee('Infrastructure tracking')->assertSeeInOrder(['Infrastructure tracking', 'Completed']);
+    testCase()->actingAs($this->supplier)->get(route('bidder.awarded-contracts'))->assertOk()
+        ->assertSeeInOrder(['Infrastructure tracking', 'Completed']);
+    $pipeline = collect(testCase()->actingAs($this->admin)->get(route('admin.reports'))->assertOk()->viewData('pipeline')['stages'])->firstWhere('key', 'completed');
+    expect($pipeline['here'])->toBe(1);
+
+    // The completion record stays available to the people allowed to see it.
+    $event = $record->events()->where('action', 'infrastructure_complete')->firstOrFail();
+    testCase()->actingAs($this->admin)->get(route('infrastructure.document', $event))->assertOk();
+    testCase()->actingAs($this->supplier)->get(route('infrastructure.document', $event))->assertOk();
+    testCase()->actingAs($this->otherBidder)->get(route('infrastructure.document', $event))->assertForbidden();
+});

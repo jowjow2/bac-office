@@ -197,7 +197,7 @@
                                 @if($award->isCancelled())
                                     <span class="awc-wait"><i class="fas fa-ban" aria-hidden="true"></i> This award no longer proceeds to a contract</span>
                                 @elseif(strtolower((string) $project?->category) === 'infrastructure' && $signedAt && $ntpAt)
-                                    <a class="ui-btn ui-btn--primary" href="{{ route('bidder.infrastructure.show', $award) }}"><i class="fas fa-helmet-safety"></i> Track infrastructure work</a>
+                                    @include('partials.contract-implementation-button', ['award' => $award])
                                 @elseif($isTracked)
                                     @include('partials.contract-implementation-button', ['award' => $award])
                                 @else

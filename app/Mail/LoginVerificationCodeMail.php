@@ -15,7 +15,8 @@ class LoginVerificationCodeMail extends Mailable
 
     public function __construct(
         public User $user,
-        public string $code
+        public string $code,
+        public int $minutes = 10
     ) {
     }
 

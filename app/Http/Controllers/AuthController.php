@@ -32,6 +32,9 @@ class AuthController extends Controller
 {
     protected const PASSWORD_RESET_CODE_TTL_SECONDS = 180;
 
+    /** Pending sign-in awaiting its emailed code: the code's hash, expiry, send time and tries. */
+    protected const LOGIN_VERIFICATION_SESSION = 'login_verification';
+
     protected function authResponse(
         Request $request,
         bool $ok,
@@ -529,8 +532,8 @@ class AuthController extends Controller
             return $this->authResponse($request, false, $this->accountUnavailableMessage($user), 'login', 422);
         }
 
-        if ($user->role === 'bidder') {
-            if (! $this->issueBidderLoginVerificationCode($request, $user, $request->boolean('remember'))) {
+        if ($this->loginCodePolicy($user) !== null) {
+            if (! $this->issueLoginVerificationCode($request, $user, $request->boolean('remember'))) {
                 return $this->authResponse($request, false, 'We could not send your verification code right now. Please try again in a few minutes, or contact the BAC Secretariat.', 'login', 503);
             }
 
@@ -542,10 +545,7 @@ class AuthController extends Controller
                 200,
                 null,
                 [],
-                [
-                    'requires_verification' => true,
-                    'email' => $user->email,
-                ]
+                $this->loginVerificationPayload($user)
             );
         }
 
@@ -650,6 +650,19 @@ class AuthController extends Controller
         }
 
         $remember = (bool) $request->session()->pull('google_login_remember', false);
+
+        // Google proves the email, but an end-user office account still confirms each sign-in with the emailed code.
+        if ($user->role === 'end_user') {
+            if (! $this->issueLoginVerificationCode($request, $user, $remember)) {
+                return $fail('We could not send your verification code right now. Please try again in a few minutes, or contact the BAC Secretariat.');
+            }
+
+            return redirect()->route('home')
+                ->with('success', 'Verification code sent to your email. Please enter the code to continue.')
+                ->with('auth_tab', 'verify')
+                ->with('login_verification_prompt', $this->loginVerificationPayload($user));
+        }
+
         Auth::login($user, $remember);
         $request->session()->regenerate();
         LoginAudit::record($request, $user, 'google', 'success');
@@ -659,38 +672,43 @@ class AuthController extends Controller
 
     public function resendLoginCode(Request $request)
     {
-        $pending = $request->session()->get('bidder_login_verification');
+        $pending = $request->session()->get(self::LOGIN_VERIFICATION_SESSION);
 
         if (! is_array($pending) || empty($pending['user_id'])) {
             return $this->authResponse($request, false, 'Please sign in again to request a new verification code.', 'login', 422);
         }
 
-        $user = User::query()
-            ->when(Schema::hasTable('bidders'), fn ($query) => $query->with('bidderProfile'))
-            ->find($pending['user_id']);
+        $user = $this->pendingLoginUser($pending);
 
-        if (! $user || $user->role !== 'bidder' || ! $user->canLoginAsBidder()) {
-            $request->session()->forget('bidder_login_verification');
+        if (! $user) {
+            $request->session()->forget(self::LOGIN_VERIFICATION_SESSION);
 
-            return $this->authResponse($request, false, 'Your bidder account is not available for login.', 'login', 422);
+            return $this->authResponse($request, false, 'Your account is not available for login.', 'login', 422);
         }
 
-        if (! $this->issueBidderLoginVerificationCode($request, $user, (bool) ($pending['remember'] ?? false))) {
+        $wait = $this->loginCodeResendWait($pending, $user);
+        if ($wait > 0) {
+            return $this->authResponse($request, false, "Please wait {$wait} seconds before requesting a new code.", 'verify', 429, null, [], [
+                'requires_verification' => true,
+                'email' => $user->email,
+                'resend_available_in' => $wait,
+            ]);
+        }
+
+        // A new code replaces the previous one, which stops working.
+        if (! $this->issueLoginVerificationCode($request, $user, (bool) ($pending['remember'] ?? false))) {
             return $this->authResponse($request, false, 'We could not send your verification code right now. Please try again in a few minutes, or contact the BAC Secretariat.', 'verify', 503);
         }
 
         return $this->authResponse(
             $request,
             true,
-            'New verification code sent to your email.',
+            'New verification code sent to your email. The previous code no longer works.',
             'verify',
             200,
             null,
             [],
-            [
-                'requires_verification' => true,
-                'email' => $user->email,
-            ]
+            $this->loginVerificationPayload($user)
         );
     }
 
@@ -707,36 +725,68 @@ class AuthController extends Controller
             return $this->authResponse($request, false, $validator->errors()->first(), 'verify', 422, null, $validator->errors()->toArray());
         }
 
-        $pending = $request->session()->get('bidder_login_verification');
+        $pending = $request->session()->get(self::LOGIN_VERIFICATION_SESSION);
 
-        if (! is_array($pending) || empty($pending['user_id']) || empty($pending['code_hash']) || empty($pending['expires_at'])) {
+        if (! is_array($pending) || empty($pending['user_id']) || empty($pending['expires_at'])) {
             return $this->authResponse($request, false, 'Please sign in again to request a new verification code.', 'login', 422);
         }
 
-        if (now()->timestamp > (int) $pending['expires_at']) {
-            $request->session()->forget('bidder_login_verification');
+        $user = $this->pendingLoginUser($pending);
 
-            return $this->authResponse($request, false, 'Verification code expired. Please sign in again.', 'login', 422);
+        if (! $user) {
+            $request->session()->forget(self::LOGIN_VERIFICATION_SESSION);
+
+            return $this->authResponse($request, false, 'Your account is not available for login.', 'login', 422);
         }
 
-        if (! Hash::check((string) $request->input('code'), (string) $pending['code_hash'])) {
-            return $this->authResponse($request, false, 'Verification code is incorrect.', 'verify', 422, null, [
-                'code' => ['Verification code is incorrect.'],
+        $policy = $this->loginCodePolicy($user);
+
+        if (empty($pending['code_hash'])) {
+            return $this->authResponse($request, false, 'This code can no longer be used. Press Resend code to get a new one.', 'verify', 422, null, [
+                'code' => ['This code can no longer be used. Press Resend code to get a new one.'],
             ]);
         }
 
-        $user = User::query()
-            ->when(Schema::hasTable('bidders'), fn ($query) => $query->with('bidderProfile'))
-            ->find($pending['user_id']);
+        if (now()->timestamp > (int) $pending['expires_at']) {
+            if ($user->role === 'bidder') {
+                $request->session()->forget(self::LOGIN_VERIFICATION_SESSION);
 
-        if (! $user || $user->role !== 'bidder' || ! $user->canLoginAsBidder()) {
-            $request->session()->forget('bidder_login_verification');
+                return $this->authResponse($request, false, 'Verification code expired. Please sign in again.', 'login', 422);
+            }
 
-            return $this->authResponse($request, false, 'Your bidder account is not available for login.', 'login', 422);
+            $request->session()->put(self::LOGIN_VERIFICATION_SESSION, array_merge($pending, ['code_hash' => null]));
+
+            return $this->authResponse($request, false, 'This code has expired. Press Resend code to get a new one.', 'verify', 422, null, [
+                'code' => ['This code has expired. Press Resend code to get a new one.'],
+            ]);
+        }
+
+        if (! Hash::check((string) $request->input('code'), (string) $pending['code_hash'])) {
+            $attempts = (int) ($pending['attempts'] ?? 0) + 1;
+            $maxAttempts = $policy['max_attempts'];
+
+            if ($maxAttempts !== null && $attempts >= $maxAttempts) {
+                // Too many tries: this code is spent. A new one can be requested.
+                $request->session()->put(self::LOGIN_VERIFICATION_SESSION, array_merge($pending, ['code_hash' => null, 'attempts' => $attempts]));
+
+                return $this->authResponse($request, false, 'Too many incorrect codes. Press Resend code to get a new one.', 'verify', 429, null, [
+                    'code' => ['Too many incorrect codes. Press Resend code to get a new one.'],
+                ]);
+            }
+
+            $request->session()->put(self::LOGIN_VERIFICATION_SESSION, array_merge($pending, ['attempts' => $attempts]));
+            $message = $maxAttempts !== null
+                ? 'Verification code is incorrect. '.($maxAttempts - $attempts).' '.Str::plural('attempt', $maxAttempts - $attempts).' left.'
+                : 'Verification code is incorrect.';
+
+            return $this->authResponse($request, false, $message, 'verify', 422, null, [
+                'code' => [$message],
+            ]);
         }
 
         $remember = (bool) ($pending['remember'] ?? false);
-        $request->session()->forget('bidder_login_verification');
+        // Single use: the code is gone as soon as it signs the user in.
+        $request->session()->forget(self::LOGIN_VERIFICATION_SESSION);
 
         Auth::login($user, $remember);
         $request->session()->regenerate();
@@ -750,7 +800,6 @@ class AuthController extends Controller
             $this->redirectAfterLogin($request, $user)
         );
     }
-
 
     public function showForgotPasswordForm()
     {
@@ -1051,22 +1100,79 @@ class AuthController extends Controller
         };
     }
 
-    /** False when the code could not be emailed: the bidder sees a clear message, not a server error. */
-    protected function issueBidderLoginVerificationCode(Request $request, User $user, bool $remember): bool
+    /**
+     * Roles that confirm each sign-in with an emailed 6-digit code: how long a code
+     * lasts, how long before another can be sent, and how many wrong tries it allows.
+     *
+     * @return array{ttl: int, cooldown: int, max_attempts: ?int}|null
+     */
+    protected function loginCodePolicy(User $user): ?array
     {
+        return match ($user->role) {
+            'bidder' => ['ttl' => 600, 'cooldown' => 0, 'max_attempts' => null],
+            'end_user' => ['ttl' => 300, 'cooldown' => 60, 'max_attempts' => 5],
+            default => null,
+        };
+    }
+
+    /** The account a pending code belongs to, while it may still sign in. */
+    protected function pendingLoginUser(array $pending): ?User
+    {
+        $user = User::query()
+            ->when(Schema::hasTable('bidders'), fn ($query) => $query->with('bidderProfile'))
+            ->find($pending['user_id'] ?? null);
+
+        $available = match ($user?->role) {
+            'bidder' => $user->canLoginAsBidder(),
+            'end_user' => $user->status === 'active',
+            default => false,
+        };
+
+        return $available && ($pending['role'] ?? $user->role) === $user->role ? $user : null;
+    }
+
+    protected function loginCodeResendWait(array $pending, User $user): int
+    {
+        $cooldown = $this->loginCodePolicy($user)['cooldown'] ?? 0;
+
+        return max(0, (int) ($pending['sent_at'] ?? 0) + $cooldown - now()->timestamp);
+    }
+
+    protected function loginVerificationPayload(User $user): array
+    {
+        $policy = $this->loginCodePolicy($user);
+
+        return [
+            'requires_verification' => true,
+            'email' => $user->email,
+            'expires_in' => $policy['ttl'],
+            'resend_available_in' => $policy['cooldown'],
+        ];
+    }
+
+    /**
+     * Emails a new code (only its hash is kept, in the session) and replaces any earlier one.
+     * False when the code could not be emailed: the user sees a clear message, not a server error.
+     */
+    protected function issueLoginVerificationCode(Request $request, User $user, bool $remember): bool
+    {
+        $policy = $this->loginCodePolicy($user);
         $code = (string) random_int(100000, 999999);
 
-        $request->session()->put('bidder_login_verification', [
+        $request->session()->put(self::LOGIN_VERIFICATION_SESSION, [
             'user_id' => $user->id,
+            'role' => $user->role,
             'remember' => $remember,
             'code_hash' => Hash::make($code),
-            'expires_at' => now()->addMinutes(10)->timestamp,
+            'expires_at' => now()->addSeconds($policy['ttl'])->timestamp,
+            'sent_at' => now()->timestamp,
+            'attempts' => 0,
         ]);
 
         try {
-            Mail::to($user->email)->send(new LoginVerificationCodeMail($user, $code));
+            Mail::to($user->email)->send(new LoginVerificationCodeMail($user, $code, intdiv($policy['ttl'], 60)));
         } catch (Throwable $exception) {
-            $request->session()->forget('bidder_login_verification');
+            $request->session()->forget(self::LOGIN_VERIFICATION_SESSION);
             report($exception);
 
             return false;

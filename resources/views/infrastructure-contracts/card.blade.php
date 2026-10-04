@@ -19,7 +19,7 @@
             CI::INFRA_ACCEPTED => ['Waiting for payment processing', 'The BAC admin or assigned staff records when payment processing starts.'],
             CI::INFRA_PAYMENT_PROCESSING => ['Waiting for payment', 'The BAC admin or assigned staff records the paid status.'],
             CI::INFRA_PAID => ['Waiting for close-out', 'The BAC admin or assigned staff marks the contract implementation completed.'],
-            CI::INFRA_COMPLETED => ['Contract completed', 'All steps are done. Nothing else is needed.'],
+            CI::INFRA_COMPLETED => ['Contract completed.', 'All recorded implementation steps are complete.'],
             default => null,
         };
     }
@@ -74,6 +74,8 @@
     ];
     $stepKeys = array_keys($steps);
     $currentIndex = $configured ? array_search($status === CI::INFRA_FOR_CORRECTION ? CI::INFRA_FOR_INSPECTION : $status, $stepKeys, true) : false;
+    // A completed contract shows every step done, the last one included.
+    $allDone = $configured && $status === CI::INFRA_COMPLETED;
     $tone = match (true) {
         ! $configured => 'neutral',
         $status === CI::INFRA_FOR_CORRECTION => 'danger',
@@ -119,10 +121,15 @@
         </div>
         <ol class="infra-steps">
             @foreach($steps as $key => $label)
-                @php $index = $loop->index; @endphp
-                <li class="{{ $currentIndex !== false && $index < $currentIndex ? 'is-done' : '' }} {{ $index === $currentIndex ? 'is-current' : '' }} {{ $index === $currentIndex && $status === CI::INFRA_FOR_CORRECTION ? 'is-flagged' : '' }}">
-                    <span class="infra-steps__dot" aria-hidden="true">@if($currentIndex !== false && $index < $currentIndex)<i class="fas fa-check"></i>@else{{ $index + 1 }}@endif</span>
-                    <span class="infra-steps__label">{{ $index === $currentIndex && $status === CI::INFRA_FOR_CORRECTION ? 'For correction' : $label }}</span>
+                @php
+                    $index = $loop->index;
+                    $isDone = $allDone || ($currentIndex !== false && $index < $currentIndex);
+                    $isCurrent = ! $allDone && $index === $currentIndex;
+                    $isFlagged = $isCurrent && $status === CI::INFRA_FOR_CORRECTION;
+                @endphp
+                <li class="{{ $isDone ? 'is-done' : '' }} {{ $isCurrent ? 'is-current' : '' }} {{ $isFlagged ? 'is-flagged' : '' }}" @if($isCurrent || ($allDone && $loop->last)) aria-current="step" @endif>
+                    <span class="infra-steps__dot" aria-hidden="true">@if($isDone)<i class="fas fa-check"></i>@else{{ $index + 1 }}@endif</span>
+                    <span class="infra-steps__label">{{ $isFlagged ? 'For correction' : $label }}</span>
                 </li>
             @endforeach
         </ol>
@@ -217,8 +224,8 @@
         @endif
 
         @if($nextStep)
-            <div class="ui-callout infra-next">
-                <p class="ui-callout__title"><i class="fas fa-hourglass-half" aria-hidden="true"></i> Next step: {{ $nextStep[0] }}</p>
+            <div class="ui-callout infra-next {{ $allDone ? 'infra-next--done' : '' }}" role="status">
+                <p class="ui-callout__title">@if($allDone)<i class="fas fa-circle-check" aria-hidden="true"></i> {{ $nextStep[0] }}@else<i class="fas fa-hourglass-half" aria-hidden="true"></i> Next step: {{ $nextStep[0] }}@endif</p>
                 <p class="ui-callout__text">{{ $nextStep[1] }}</p>
                 @if($missingInspector)
                     <p class="ui-callout__text infra-next__warn"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> No active End-user account is set up for {{ $office ?: 'this project\'s end-user office' }} yet. @if($mode === 'admin')Create one in <a href="{{ route('admin.users') }}">Suppliers &amp; users</a> with role End-user and that office, so the inspection can be recorded.@else Ask the BAC admin to create one.@endif</p>
@@ -377,6 +384,8 @@
         .infra-next { margin-top: 18px; }
         .infra-next .ui-callout__title { display: flex; align-items: center; gap: 8px; }
         .infra-next__warn { margin-top: 8px; color: var(--ui-danger); }
+        .infra-next--done { border-color: var(--ui-success-line, #b7dcc6); border-left-color: var(--ui-success, #1f7a4d); background: var(--ui-success-soft, #eaf6ef); }
+        .infra-next--done .ui-callout__title i { color: var(--ui-success, #1f7a4d); }
         .infra-check { display: flex; align-items: center; gap: 8px; color: var(--ui-ink-2); font-size: 13px; }
         .infra-wait { margin-top: 18px; }
         .infra-history { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--ui-line); }
@@ -408,6 +417,20 @@
         }
     </style>
     <script>
+        // A tracking form is sent once: a second click while it saves does nothing.
+        document.addEventListener('submit', function (event) {
+            const form = event.target.closest('.infra-card form');
+            if (!form) return;
+            if (form.dataset.sending) {
+                event.preventDefault();
+                return;
+            }
+            form.dataset.sending = '1';
+            form.querySelectorAll('button:not([type="button"])').forEach(function (button) {
+                button.disabled = true;
+                button.setAttribute('aria-busy', 'true');
+            });
+        });
         // Work items: add rows (contract_items[n][...]) and remove all but the last one.
         document.addEventListener('click', function (event) {
             const add = event.target.closest('[data-infra-add-item]');

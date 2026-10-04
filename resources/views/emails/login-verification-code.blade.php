@@ -17,7 +17,7 @@
             </p>
 
             <p style="margin:0 0 18px; font-size:15px; line-height:1.7;">
-                Use this verification code to finish signing in to your bidder account:
+                Use this verification code to finish signing in to your {{ $user->role === 'bidder' ? 'bidder' : 'SJBAC' }} account:
             </p>
 
             <p style="margin:0 0 20px; padding:18px 20px; background:#f1f5f9; border-radius:14px; text-align:center; font-size:32px; font-weight:800; letter-spacing:0.18em; color:#0f172a;">
@@ -25,7 +25,7 @@
             </p>
 
             <p style="margin:0 0 24px; font-size:14px; line-height:1.7; color:#64748b;">
-                This code expires in 10 minutes. If you did not try to sign in, you can ignore this email.
+                This code expires in {{ $minutes }} {{ \Illuminate\Support\Str::plural('minute', $minutes) }} and works once. If you did not try to sign in, you can ignore this email.
             </p>
 
             <p style="margin:0; font-size:14px; line-height:1.7;">

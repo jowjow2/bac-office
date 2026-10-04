@@ -77,6 +77,14 @@
                 </script>
             @endif
 
+            @if(is_array(session('login_verification_prompt')))
+                <script>
+                    document.addEventListener("DOMContentLoaded", function() {
+                        window.startLoginVerification?.(@json(session('login_verification_prompt')));
+                    });
+                </script>
+            @endif
+
             @if(session('auth_tab') && !session('success') && !session('error'))
                 <script>
                     document.addEventListener("DOMContentLoaded", function() {
@@ -151,7 +159,7 @@
                 <p class="auth-switch auth-privacy-link"><a href="{{ route('privacy') }}" target="_blank" rel="noopener">Privacy Policy</a></p>
             </form>
 
-            {{-- Bidder login: emailed code --}}
+            {{-- Bidder and end-user office login: emailed code --}}
             <form id="verifyLoginForm" method="POST" action="{{ route('login.verify-code') }}" data-resend-url="{{ route('login.resend-code') }}" class="auth-form hidden">
                 @csrf
                 <div class="auth-step">
@@ -162,6 +170,7 @@
                     <p>We sent a 6-digit code to <strong id="verifyLoginMaskedEmail">your email</strong>.</p>
                 </div>
                 <input type="hidden" name="email" id="verifyLoginEmail">
+                <p class="auth-code-note" id="verifyLoginExpiry" role="status" aria-live="polite" hidden></p>
                 <div class="auth-field">
                     <input type="text" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" class="auth-input auth-code-input" placeholder="000000" required autocomplete="one-time-code" aria-label="6-digit verification code">
                     <div class="field-error" data-error-for="code"></div>

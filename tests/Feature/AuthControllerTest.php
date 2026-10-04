@@ -558,5 +558,5 @@ it('answers clearly instead of a server error when the verification code cannot 
         ->assertJsonPath('message', 'We could not send your verification code right now. Please try again in a few minutes, or contact the BAC Secretariat.');
 
     testCase()->assertGuest();
-    expect(session()->has('bidder_login_verification'))->toBeFalse();
+    expect(session()->has('login_verification'))->toBeFalse();
 });

@@ -229,7 +229,12 @@ it('keeps each office to its own requests and each role to its own pages', funct
 });
 
 it('logs end-user office accounts into their dashboard and lets the admin create them', function () {
-    testCase()->postJson(route('login'), ['email' => 'lc-meo@example.com', 'password' => 'password'])
+    // End-user offices confirm the sign-in with the emailed code.
+    \Illuminate\Support\Facades\Mail::fake();
+    testCase()->postJson(route('login'), ['email' => 'lc-meo@example.com', 'password' => 'password'])->assertOk()->assertJsonPath('requires_verification', true);
+    $loginCode = null;
+    \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\LoginVerificationCodeMail::class, function ($mail) use (&$loginCode) { $loginCode = $mail->code; return true; });
+    testCase()->postJson(route('login.verify-code'), ['code' => $loginCode])
         ->assertOk()
         ->assertJsonPath('ok', true)
         ->assertJsonPath('redirect', route('end-user.dashboard'));

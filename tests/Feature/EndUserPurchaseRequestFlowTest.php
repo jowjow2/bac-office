@@ -60,7 +60,12 @@ it('points the empty review queue to office accounts and lets the admin create o
 
     // The office signs in to its own portal.
     auth()->logout();
-    testCase()->postJson('/login', ['email' => 'meo-flow@example.com', 'password' => 'secret123'])
+    // End-user offices confirm the sign-in with the emailed code.
+    \Illuminate\Support\Facades\Mail::fake();
+    testCase()->postJson('/login', ['email' => 'meo-flow@example.com', 'password' => 'secret123'])->assertOk()->assertJsonPath('requires_verification', true);
+    $loginCode = null;
+    \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\LoginVerificationCodeMail::class, function ($mail) use (&$loginCode) { $loginCode = $mail->code; return true; });
+    testCase()->postJson(route('login.verify-code'), ['code' => $loginCode])
         ->assertOk()
         ->assertJsonPath('redirect', route('end-user.dashboard'));
 
