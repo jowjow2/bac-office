@@ -189,6 +189,16 @@
     .sb-notice dt { flex: 1 1 auto; min-width: 0; }
     .sb-notice dd { flex: 0 1 auto; margin: 0; color: var(--ui-ink); font-weight: 600; text-align: right; overflow-wrap: normal; word-break: normal; }
     .sb-rail-docs { display: grid; gap: 12px; }
+    /* "Requirements to Include" in the rail: a light card like the bidding documents above it (beats the dashboard's dark theme rule). */
+    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-rail .bidder-requirements-card { display: grid !important; gap: 10px !important; margin: 0 !important; padding: 12px 14px !important; border: 1px solid var(--sb-line) !important; border-radius: 10px !important; background: #fff !important; box-shadow: none !important; color: var(--ui-ink) !important; }
+    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-rail .bidder-requirements-heading { display: block !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: transparent !important; }
+    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-rail .bidder-requirements-heading h4 { margin: 0 !important; color: var(--ui-ink-2) !important; font-size: 12px !important; font-weight: 700 !important; letter-spacing: .02em !important; text-transform: uppercase !important; }
+    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-rail .bidder-requirements-heading p { margin: 3px 0 0 !important; color: var(--ui-muted) !important; font-size: 12px !important; line-height: 1.45 !important; }
+    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-rail .bidder-requirements-icon { display: none !important; }
+    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-rail .bidder-requirements-grid { display: grid !important; grid-template-columns: minmax(0, 1fr) !important; gap: 10px !important; margin: 0 !important; padding: 10px 0 0 !important; border-top: 1px solid var(--sb-line) !important; }
+    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-rail .bidder-requirement-section { margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; }
+    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-rail .bidder-requirement-section strong { display: block !important; margin: 0 0 2px !important; color: var(--ui-ink) !important; font-size: 12px !important; font-weight: 700 !important; }
+    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-rail .bidder-requirement-section p { margin: 0 !important; color: var(--ui-ink-2) !important; font-size: 12.5px !important; line-height: 1.5 !important; white-space: pre-line !important; overflow-wrap: anywhere !important; }
 
     .sb-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 12px 22px; border-top: 1px solid var(--sb-line); background: #fff; }
     .sb-status { color: var(--ui-muted); font-size: 12.5px; }
