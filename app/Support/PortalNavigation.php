@@ -53,11 +53,10 @@ class PortalNavigation
     {
         return [
             ['title' => null, 'items' => [
-                self::item('Dashboard', 'admin.dashboard', 'fa-gauge-high', ['admin.dashboard'], exceptMode: true),
+                self::item('Dashboard', 'admin.dashboard', 'fa-gauge-high', ['admin.dashboard']),
             ]],
             ['title' => 'Procurement', 'items' => [
                 self::item('Purchase requests', 'admin.requests', 'fa-file-signature', ['admin.requests*']),
-                self::item('Competitive bidding', 'admin.dashboard', 'fa-gavel', ['admin.dashboard'], ['mode' => ProcurementMode::FAMILY_COMPETITIVE]),
                 self::item('Projects', 'admin.projects', 'fa-folder-open', ['admin.projects*', 'admin.project.*', 'admin.procurement.*']),
                 self::item('Bids & quotations', 'admin.bids', 'fa-envelope-open-text', ['admin.bids', 'admin.bid.*']),
                 self::item('Bidding fee payments', 'admin.payments', 'fa-receipt', ['admin.payments*']),
@@ -76,11 +75,10 @@ class PortalNavigation
     {
         return [
             ['title' => null, 'items' => [
-                self::item('Dashboard', 'staff.dashboard', 'fa-gauge-high', ['staff.dashboard'], exceptMode: true),
+                self::item('Dashboard', 'staff.dashboard', 'fa-gauge-high', ['staff.dashboard']),
             ]],
             ['title' => 'Procurement', 'items' => [
                 self::item('Purchase requests', 'staff.requests', 'fa-file-signature', ['staff.requests*']),
-                self::item('Competitive bidding', 'staff.dashboard', 'fa-gavel', ['staff.dashboard'], ['mode' => ProcurementMode::FAMILY_COMPETITIVE]),
                 self::item('My assigned projects', 'staff.assign-projects', 'fa-folder-open', ['staff.assign-projects', 'staff.procurement.*']),
                 self::item('Review bids & quotations', 'staff.review-bids', 'fa-envelope-open-text', ['staff.review-bids*']),
                 self::item('Bidding fee payments', 'staff.payments', 'fa-receipt', ['staff.payments*']),
@@ -129,7 +127,7 @@ class PortalNavigation
      * @param  list<string>  $patterns
      * @param  array<string, string>  $query  query string that also has to match for the item to be active
      */
-    private static function item(string $label, string $route, string $icon, array $patterns, array $query = [], ?int $badge = null, ?string $badgeAttr = null, bool $exceptMode = false): ?array
+    private static function item(string $label, string $route, string $icon, array $patterns, array $query = [], ?int $badge = null, ?string $badgeAttr = null): ?array
     {
         if (! Route::has($route)) {
             return null;
@@ -141,9 +139,6 @@ class PortalNavigation
             foreach ($query as $key => $value) {
                 $active = $active && request()->query($key) === $value;
             }
-        } elseif ($exceptMode) {
-            // "Competitive bidding" is its own item; any other mode filter stays under Dashboard.
-            $active = $active && request()->query('mode') !== ProcurementMode::FAMILY_COMPETITIVE;
         }
 
         return [
