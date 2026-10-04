@@ -226,6 +226,9 @@ class AdminController extends Controller
                         .($procurementRequest->justification ? "\n\nPurpose: ".$procurementRequest->justification : ''),
                     'category' => $procurementRequest->category,
                     'end_user_unit' => $procurementRequest->end_user_office,
+                    // The LGU itself; the BAC narrows it to the barangay or site when needed.
+                    'location' => Str::after((string) config('bac-office.procuring_entity'), 'Municipality of '),
+                    'legal_basis' => \App\Support\ProcurementMode::RA_12009,
                     'source_of_fund' => $procurementRequest->fund_source,
                     'contract_duration' => $procurementRequest->delivery_period,
                     'budget' => number_format((float) $procurementRequest->estimated_cost, 2, '.', ''),

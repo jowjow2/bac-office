@@ -214,6 +214,15 @@
                                 </select>
                                 <span class="ui-error" id="procurement_mode-error" data-pw-error @unless($err('procurement_mode')) hidden @endunless>{{ $err('procurement_mode') }}</span>
                             </div>
+                            {{-- Suggested mode for this ABC (project-wizard.js recommendMode); the BAC decides. --}}
+                            <div class="pw-recommend ui-field--wide" data-pw-recommend hidden aria-live="polite">
+                                <span class="pw-recommend__icon" aria-hidden="true"><i class="fas fa-lightbulb"></i></span>
+                                <div class="pw-recommend__body">
+                                    <strong data-pw-recommend-title></strong>
+                                    <p data-pw-recommend-reason></p>
+                                </div>
+                                <button type="button" class="ui-btn ui-btn--sm ui-btn--primary" data-pw-recommend-apply hidden></button>
+                            </div>
                             <div class="ui-field ui-field--wide">
                                 <div class="pw-grid">
                                     <div class="ui-field" data-pw-award>

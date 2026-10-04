@@ -165,9 +165,65 @@ if (root && form) {
         return 0;
     }
 
+    /*
+     * Suggested mode for this ABC. Competitive bidding is the general rule; under
+     * RA 12009 an ABC within this LGU's Small Value Procurement ceiling can use
+     * SVP (IRR Sec. 34.2). Negotiated procurement and direct contracting need
+     * their own legal ground, so they are never suggested.
+     */
+    let modeChosenByUser = Boolean(modeSelect?.value);
+
+    function recommendMode() {
+        const amount = abc();
+        if (!(amount > 0)) return null;
+        const ra12009 = basis() === 'ra_12009';
+        if (ra12009 && rules.svpCeiling && amount <= rules.svpCeiling) {
+            const floor = rules.rfqPostingFloor?.[basis()];
+            return {
+                mode: 'small_value_procurement',
+                reason: `The ABC of ${peso0(amount)} is within this LGU's ${peso0(rules.svpCeiling)} Small Value Procurement ceiling (IRR Sec. 34.2). `
+                    + `Faster: a Request for Quotation to at least three suppliers${amount > floor ? ', posted for 3 calendar days' : ', with no posting period'}. Competitive bidding is still allowed.`,
+            };
+        }
+        return {
+            mode: 'public_bidding',
+            reason: ra12009 && rules.svpCeiling
+                ? `The ABC of ${peso0(amount)} is above the ${peso0(rules.svpCeiling)} Small Value Procurement ceiling, so competitive bidding applies. Negotiated procurement or direct contracting need their own legal ground.`
+                : 'Competitive bidding is the general rule. Use an alternative mode only when its legal ground applies.',
+        };
+    }
+
+    function syncRecommendation() {
+        const box = $('[data-pw-recommend]');
+        if (!box || !modeSelect) return;
+        const suggestion = recommendMode();
+        // Fill the mode until the BAC picks one themselves.
+        if (suggestion && !modeChosenByUser && modeSelect.value !== suggestion.mode) {
+            modeSelect.value = suggestion.mode;
+        }
+        box.hidden = !suggestion;
+        if (!suggestion) return;
+        const label = rules.modes?.[suggestion.mode]?.[basis() === 'ra_9184' ? 'labelRa9184' : 'label'] || suggestion.mode;
+        const applied = modeSelect.value === suggestion.mode;
+        box.classList.toggle('is-applied', applied);
+        $('[data-pw-recommend-title]', box).textContent = applied ? `Recommended: ${label} (selected)` : `Recommended: ${label}`;
+        $('[data-pw-recommend-reason]', box).textContent = suggestion.reason;
+        const apply = $('[data-pw-recommend-apply]', box);
+        apply.hidden = applied;
+        apply.textContent = `Use ${label}`;
+        apply.dataset.mode = suggestion.mode;
+    }
+
+    $('[data-pw-recommend-apply]')?.addEventListener('click', (event) => {
+        modeSelect.value = event.currentTarget.dataset.mode;
+        modeChosenByUser = true;
+        syncMode();
+    });
+    modeSelect?.addEventListener('change', () => { modeChosenByUser = Boolean(modeSelect.value); });
+
     function syncMode() {
         if (!modeSelect) return;
-        Array.from(modeSelect.options).forEach((option) => {
+        syncRecommendation();        Array.from(modeSelect.options).forEach((option) => {
             if (!option.value) return;
             const available = (option.dataset.bases || '').split(' ').includes(basis());
             option.hidden = !available;
@@ -281,6 +337,8 @@ if (root && form) {
         if (criterionSelect.selectedOptions[0]?.disabled) criterionSelect.value = '';
         // A single allowed criterion (RA 9184 goods, consulting) is preselected.
         if (isCompetitive() && !criterionSelect.value && Object.keys(allowed).length === 1) criterionSelect.value = Object.keys(allowed)[0];
+        // Goods and infrastructure: the lowest calculated responsive bid is the usual criterion.
+        if (isCompetitive() && !criterionSelect.value && !consulting() && 'lowest_calculated_bid' in allowed) criterionSelect.value = 'lowest_calculated_bid';
 
         $('[data-pw-consulting]').hidden = !consulting();
         $('[data-pw-weighted]').hidden = !weighted();
