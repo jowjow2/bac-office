@@ -282,6 +282,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/awards', [AdminController::class, 'awards'])->name('admin.awards.index');
     Route::get('/admin/awards/{award}/infrastructure', [\App\Http\Controllers\InfrastructureImplementationController::class, 'showAdmin'])->name('admin.infrastructure.show');
     Route::put('/admin/awards/{award}/infrastructure', [\App\Http\Controllers\InfrastructureImplementationController::class, 'configure'])->name('admin.infrastructure.configure');
+    Route::put('/admin/awards/{award}/infrastructure/terms', [\App\Http\Controllers\InfrastructureImplementationController::class, 'correctTerms'])->name('admin.infrastructure.terms.correct');
     Route::post('/admin/awards/{award}/infrastructure/action', [\App\Http\Controllers\InfrastructureImplementationController::class, 'action'])->name('admin.infrastructure.action');
     Route::put('/admin/awards/{award}/contract-implementation', [\App\Http\Controllers\ContractImplementationController::class, 'configure'])->name('admin.contract-implementation.configure');
     Route::post('/admin/awards/{award}/contract-implementation/action', [\App\Http\Controllers\ContractImplementationController::class, 'action'])->name('admin.contract-implementation.action');

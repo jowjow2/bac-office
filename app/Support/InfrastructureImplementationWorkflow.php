@@ -61,6 +61,64 @@ class InfrastructureImplementationWorkflow
         });
     }
 
+    /** Statuses in which the admin may still correct the recorded terms (before formal acceptance). */
+    public const CORRECTABLE_STATUSES = [
+        ContractImplementation::INFRA_IN_PROGRESS,
+        ContractImplementation::INFRA_FOR_INSPECTION,
+        ContractImplementation::INFRA_FOR_CORRECTION,
+    ];
+
+    public function canCorrectTerms(ContractImplementation $record): bool
+    {
+        return $record->isConfigured() && in_array($record->status, self::CORRECTABLE_STATUSES, true);
+    }
+
+    /** Fix terms that were recorded wrongly; the status and history stay as they are. */
+    public function correctTerms(Award $award, User $actor, array $data, ?UploadedFile $document): ContractImplementation
+    {
+        if ($actor->role !== 'admin') {
+            throw ValidationException::withMessages(['implementation' => 'Only the BAC admin can correct recorded contract terms.']);
+        }
+        $record = $this->ensure($award);
+        return DB::transaction(function () use ($award, $actor, $data, $document, $record) {
+            $record = ContractImplementation::query()->lockForUpdate()->findOrFail($record->id);
+            if (! $this->canCorrectTerms($record)) {
+                throw ValidationException::withMessages(['implementation' => 'Contract terms can only be corrected before the work is formally accepted.']);
+            }
+            $ntp = $award->bid->notice_to_proceed_at->timezone('Asia/Manila')->toDateString();
+            if ($data['delivery_deadline'] < $ntp) {
+                throw ValidationException::withMessages(['delivery_deadline' => 'The contract completion deadline cannot be before the NTP date.']);
+            }
+            $terms = fn (ContractImplementation $r) => [
+                'delivery_deadline' => $r->delivery_deadline?->toDateString(),
+                'delivery_location' => $r->delivery_location,
+                'signed_contract_reference' => $r->signed_contract_reference,
+                'contract_items' => array_values($r->contract_items ?? []),
+            ];
+            $before = $terms($record);
+            $record->fill([
+                'delivery_deadline' => $data['delivery_deadline'],
+                'delivery_location' => trim($data['delivery_location']),
+                'signed_contract_reference' => trim($data['signed_contract_reference']),
+                'contract_items' => array_values($data['contract_items']),
+            ]);
+            $after = $terms($record);
+            if ($before === $after && ! $document) {
+                throw ValidationException::withMessages(['implementation' => 'Nothing was changed in the contract terms.']);
+            }
+            $file = null;
+            if ($document) {
+                $file = ['path' => $document->store('contract-implementation/private', 'local'), 'name' => $document->getClientOriginalName()];
+                $record->fill(['signed_contract_file_path' => $file['path'], 'signed_contract_file_name' => $file['name']]);
+            }
+            $record->save();
+            $this->event($record, $actor, 'infrastructure_terms_corrected', $record->status, $record->status, $data['remarks'], ['before' => $before, 'after' => $after], $file);
+            \App\Models\AuditLog::log('infrastructure_terms_corrected', $record, $before, $after, ['user_id' => $actor->id]);
+            $this->notifyWinner($award, 'Contract terms corrected', 'The BAC corrected the recorded terms of your infrastructure contract. Review them in Awarded contracts.');
+            return $record->fresh(['events.actor']);
+        });
+    }
+
     public function progress(Award $award, User $supplier, array $data, UploadedFile $document, bool $correction = false): ContractImplementation
     {
         $record = $this->ensure($award);

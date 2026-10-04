@@ -162,3 +162,68 @@ it('fills the infrastructure terms form from the project so the BAC only checks 
         ->assertSee('Add work item')
         ->assertSee('<input type="hidden" name="_method" value="PUT">', false);
 });
+
+it('lets the admin correct recorded terms before acceptance and logs the old and new values', function () {
+    testCase()->actingAs($this->admin)->put(route('admin.infrastructure.configure', $this->award), array_merge($this->terms, [
+        'contract_items' => [['description' => 'Road concreting', 'quantity' => 1, 'unit' => 'lot']],
+    ]))->assertRedirect();
+
+    testCase()->actingAs($this->admin)->get(route('admin.infrastructure.show', $this->award))
+        ->assertOk()->assertSee('Correct contract terms')->assertSee(route('admin.infrastructure.terms.correct', $this->award), false);
+    testCase()->actingAs($this->supplier)->get(route('bidder.infrastructure.show', $this->award))
+        ->assertOk()->assertDontSee('Correct contract terms');
+
+    $correction = [
+        'delivery_deadline' => $this->terms['delivery_deadline'],
+        'delivery_location' => $this->terms['delivery_location'],
+        'signed_contract_reference' => $this->terms['signed_contract_reference'],
+        'contract_items' => [['description' => 'Road concreting', 'quantity' => 250, 'unit' => 'lm']],
+        'remarks' => 'Signed contract states 250 lm, not 1 lot.',
+    ];
+    testCase()->actingAs($this->admin)->put(route('admin.infrastructure.terms.correct', $this->award), $correction)
+        ->assertRedirect(route('admin.infrastructure.show', $this->award))->assertSessionHasNoErrors();
+
+    $record = ContractImplementation::where('award_id', $this->award->id)->first();
+    expect($record->status)->toBe(ContractImplementation::INFRA_IN_PROGRESS)
+        ->and($record->contract_items[0]['unit'])->toBe('lm')
+        ->and((float) $record->contract_items[0]['quantity'])->toBe(250.0)
+        ->and($record->signed_contract_file_name)->toBe('signed-contract.pdf');
+    $event = $record->events()->where('action', 'infrastructure_terms_corrected')->first();
+    expect($event)->not->toBeNull()->and($event->details['before']['contract_items'][0]['unit'])->toBe('lot');
+    expect(\App\Models\AuditLog::where('action', 'infrastructure_terms_corrected')->where('user_id', $this->admin->id)->exists())->toBeTrue();
+
+    testCase()->actingAs($this->admin)->get(route('admin.infrastructure.show', $this->award))
+        ->assertSee('Signed contract states 250 lm, not 1 lot.')->assertSee('Road concreting — 1 lot')->assertSee('Road concreting — 250 lm');
+
+    // Sending the same terms again changes nothing.
+    testCase()->actingAs($this->admin)->put(route('admin.infrastructure.terms.correct', $this->award), $correction)
+        ->assertSessionHasErrors('implementation');
+});
+
+it('keeps the terms locked for staff, bidders and after formal acceptance', function () {
+    testCase()->actingAs($this->admin)->put(route('admin.infrastructure.configure', $this->award), $this->terms)->assertRedirect();
+    $correction = array_merge(collect($this->terms)->except('document')->all(), ['delivery_location' => 'Corrected site', 'remarks' => 'Fix site.']);
+
+    testCase()->actingAs($this->supplier)->put(route('admin.infrastructure.terms.correct', $this->award), $correction)->assertForbidden();
+
+    ContractImplementation::where('award_id', $this->award->id)->update(['status' => ContractImplementation::INFRA_ACCEPTED]);
+    testCase()->actingAs($this->admin)->get(route('admin.infrastructure.show', $this->award))->assertDontSee('Correct contract terms');
+    testCase()->actingAs($this->admin)->put(route('admin.infrastructure.terms.correct', $this->award), $correction)
+        ->assertSessionHasErrors('implementation');
+    expect(ContractImplementation::where('award_id', $this->award->id)->value('delivery_location'))->toBe($this->terms['delivery_location']);
+});
+
+it('tells everyone without a form who acts next, and warns when no end-user can inspect', function () {
+    testCase()->actingAs($this->admin)->put(route('admin.infrastructure.configure', $this->award), $this->terms)->assertRedirect();
+    ContractImplementation::where('award_id', $this->award->id)->update(['status' => ContractImplementation::INFRA_FOR_INSPECTION]);
+
+    testCase()->actingAs($this->admin)->get(route('admin.infrastructure.show', $this->award))
+        ->assertOk()->assertSee('Next step: Waiting for the site inspection')->assertSee('Municipal Engineering Office')
+        ->assertDontSee('No active End-user account');
+    testCase()->actingAs($this->supplier)->get(route('bidder.infrastructure.show', $this->award))
+        ->assertOk()->assertSee('Next step: Waiting for the site inspection')->assertDontSee('No active End-user account');
+
+    $this->office->update(['status' => 'inactive']);
+    testCase()->actingAs($this->admin)->get(route('admin.infrastructure.show', $this->award))
+        ->assertSee('No active End-user account is set up for Municipal Engineering Office');
+});

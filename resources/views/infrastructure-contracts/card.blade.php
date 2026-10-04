@@ -5,6 +5,27 @@
     $isWinner = $mode === 'bidder';
     $canInspect = $mode === 'end_user' && $status === CI::INFRA_FOR_INSPECTION;
     $canAct = in_array($mode, ['admin', 'staff'], true) && in_array($status, [CI::INFRA_RECOMMENDED, CI::INFRA_ACCEPTED, CI::INFRA_PAYMENT_PROCESSING, CI::INFRA_PAID], true);
+
+    // Who acts next, for viewers who have no form at this stage.
+    $canReport = $isWinner && in_array($status, [CI::INFRA_IN_PROGRESS, CI::INFRA_FOR_CORRECTION], true);
+    $office = $award->project?->end_user_unit;
+    $nextStep = null;
+    if ($record->isConfigured() && ! $canReport && ! $canInspect && ! $canAct) {
+        $nextStep = match ($status) {
+            CI::INFRA_IN_PROGRESS => ['Waiting for the contractor', 'The contractor submits progress updates and requests a site inspection once the work is finished.'],
+            CI::INFRA_FOR_CORRECTION => ['Waiting for the contractor', 'The end-user office asked for corrections. The contractor submits the corrected work for reinspection.'],
+            CI::INFRA_FOR_INSPECTION => ['Waiting for the site inspection', 'The end-user office'.($office ? ' ('.$office.')' : '').' inspects the site and records the result from its End-user account, under Infrastructure contracts: recommend acceptance, or ask for corrections.'],
+            CI::INFRA_RECOMMENDED => ['Waiting for formal acceptance', 'The end-user office recommended the work for acceptance. The BAC admin or assigned staff formally accepts it.'],
+            CI::INFRA_ACCEPTED => ['Waiting for payment processing', 'The BAC admin or assigned staff records when payment processing starts.'],
+            CI::INFRA_PAYMENT_PROCESSING => ['Waiting for payment', 'The BAC admin or assigned staff records the paid status.'],
+            CI::INFRA_PAID => ['Waiting for close-out', 'The BAC admin or assigned staff marks the contract implementation completed.'],
+            CI::INFRA_COMPLETED => ['Contract completed', 'All steps are done. Nothing else is needed.'],
+            default => null,
+        };
+    }
+    // An inspection nobody can record: the office has no End-user account yet.
+    $missingInspector = $status === CI::INFRA_FOR_INSPECTION && in_array($mode, ['admin', 'staff'], true)
+        && ! \App\Models\User::query()->where('role', 'end_user')->where('status', 'active')->where('office', $office)->exists();
     $tz = 'Asia/Manila';
     $supplier = $award->bid?->user?->company ?: $award->bid?->user?->name;
     $ntpOn = $award->ntp_issued_on ?? $award->bid?->notice_to_proceed_at?->timezone($tz);
@@ -31,7 +52,15 @@
         // e.g. "Concreting of farm-to-market road (250 lm)"
         $suggestedItem = ['description' => $sized[1], 'quantity' => str_replace(',', '', $sized[2]), 'unit' => trim($sized[3])];
     }
-    $formItems = array_values((array) old('contract_items', [$suggestedItem]));
+    // Old input only refills the form that was actually sent (record or correct).
+    $termsOld = function (string $form, $default, ?string $field = null) {
+        $mine = old('infra_form') === $form;
+        if ($field !== null) {
+            return $mine ? old($field, $default) : $default;
+        }
+        return $mine ? collect($default)->map(fn ($value, $key) => old($key, $value))->all() : $default;
+    };
+    $canCorrectTerms = $mode === 'admin' && app(\App\Support\InfrastructureImplementationWorkflow::class)->canCorrectTerms($record);
 
     // Where the contract stands (a correction sends the work back to inspection).
     $steps = [
@@ -55,6 +84,7 @@
     $latestProgress = $record->events->sortByDesc('occurred_at')->first(fn ($event) => isset($event->details['progress_percent']));
     $progress = $status === CI::INFRA_COMPLETED ? 100 : (int) ($latestProgress?->details['progress_percent'] ?? 0);
     $eventIcon = fn (string $action) => match (true) {
+        str_contains($action, 'terms_corrected') => 'fa-pen-to-square',
         str_contains($action, 'terms') => 'fa-file-signature',
         str_contains($action, 'progress') => 'fa-person-digging',
         str_contains($action, 'inspect') => 'fa-clipboard-check',
@@ -107,45 +137,22 @@
                 <p class="ui-hint">Enter the actual completion deadline and work site from the signed contract. The NTP date is shown separately and is not the deadline.</p>
             </div>
 
-            <div class="ui-fields infra-fields--3">
-                <label class="ui-field">
-                    <span class="ui-label">Contract completion deadline <span class="ui-required">*</span></span>
-                    <input type="date" name="delivery_deadline" class="ui-input" value="{{ old('delivery_deadline', $suggestedDeadline?->toDateString()) }}" required>
-                    @if($suggestedDeadline)<span class="ui-hint">NTP date + {{ $project->contract_duration }}.</span>@endif
-                </label>
-                <label class="ui-field">
-                    <span class="ui-label">Work site / delivery location <span class="ui-required">*</span></span>
-                    <input name="delivery_location" class="ui-input" maxlength="255" value="{{ old('delivery_location', $project->location) }}" required placeholder="e.g. Sitio Malaylay, Brgy. Bubog">
-                </label>
-                <label class="ui-field">
-                    <span class="ui-label">Signed contract reference <span class="ui-required">*</span></span>
-                    <input name="signed_contract_reference" class="ui-input" maxlength="255" value="{{ old('signed_contract_reference', $project->reference_no) }}" required placeholder="e.g. Contract No. 2026-014">
-                </label>
-            </div>
-            <p class="ui-hint infra-prefill"><i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i> Filled in from the project. Check each value against the signed contract before saving.</p>
-
-            <div class="infra-items" data-infra-items>
-                <div class="infra-items__head">
-                    <span class="ui-label">Contract work items and quantities <span class="ui-required">*</span></span>
-                    <button type="button" class="ui-btn ui-btn--sm" data-infra-add-item><i class="fas fa-plus" aria-hidden="true"></i> Add work item</button>
-                </div>
-                <div class="infra-items__cols" aria-hidden="true"><span>Work item</span><span>Quantity</span><span>Unit</span><span></span></div>
-                <div class="infra-items__rows" data-infra-rows>
-                    @foreach($formItems as $i => $row)
-                        <div class="infra-items__row" data-infra-row>
-                            <input name="contract_items[{{ $i }}][description]" class="ui-input" maxlength="255" value="{{ $row['description'] ?? '' }}" placeholder="e.g. PCCP 0.20 m thick" aria-label="Work item" required>
-                            <input name="contract_items[{{ $i }}][quantity]" class="ui-input" type="number" step="0.01" min="0.01" value="{{ $row['quantity'] ?? '' }}" placeholder="0.00" aria-label="Quantity" required>
-                            <input name="contract_items[{{ $i }}][unit]" class="ui-input" maxlength="50" value="{{ $row['unit'] ?? '' }}" placeholder="e.g. lm, sq.m." aria-label="Unit" required>
-                            <button type="button" class="infra-items__remove" data-infra-remove aria-label="Remove work item" @if(count($formItems) === 1) hidden @endif><i class="fas fa-xmark" aria-hidden="true"></i></button>
-                        </div>
-                    @endforeach
-                </div>
-            </div>
+            @include('infrastructure-contracts.terms-fields', [
+                'form' => 'record',
+                'values' => $termsOld('record', [
+                    'delivery_deadline' => $suggestedDeadline?->toDateString(),
+                    'delivery_location' => $project->location,
+                    'signed_contract_reference' => $project->reference_no,
+                ]),
+                'items' => $termsOld('record', [$suggestedItem], 'contract_items'),
+                'deadlineHint' => $suggestedDeadline ? 'NTP date + '.$project->contract_duration.'.' : null,
+                'note' => 'Filled in from the project. Check each value against the signed contract before saving.',
+            ])
 
             <div class="ui-fields">
                 <label class="ui-field">
                     <span class="ui-label">Remarks <span class="ui-required">*</span></span>
-                    <textarea name="remarks" class="ui-input" rows="3" maxlength="2000" required placeholder="e.g. Terms copied from the signed contract.">{{ old('remarks') }}</textarea>
+                    <textarea name="remarks" class="ui-input" rows="3" maxlength="2000" required placeholder="e.g. Terms copied from the signed contract.">{{ $termsOld('record', null, 'remarks') }}</textarea>
                 </label>
                 <label class="ui-field">
                     <span class="ui-label">Signed contract / supporting proof <span class="ui-required">*</span></span>
@@ -175,14 +182,58 @@
             </table>
         </div>
 
-        @if($isWinner && in_array($status, [CI::INFRA_IN_PROGRESS, CI::INFRA_FOR_CORRECTION], true))
+        @if($canCorrectTerms)
+            <details class="infra-panel infra-correct" @if(old('infra_form') === 'correct') open @endif>
+                <summary><i class="fas fa-pen-to-square" aria-hidden="true"></i> Correct contract terms</summary>
+                <form method="POST" enctype="multipart/form-data" action="{{ route('admin.infrastructure.terms.correct', $award) }}" class="infra-correct__form">
+                    @csrf
+                    @method('PUT')
+                    <p class="ui-hint">Use this only when the terms were recorded wrongly. The status and history stay as they are; the old and new values and your reason are logged, and the contractor is notified.</p>
+                    @include('infrastructure-contracts.terms-fields', [
+                        'form' => 'correct',
+                        'values' => $termsOld('correct', [
+                            'delivery_deadline' => $record->delivery_deadline?->toDateString(),
+                            'delivery_location' => $record->delivery_location,
+                            'signed_contract_reference' => $record->signed_contract_reference,
+                        ]),
+                        'items' => $termsOld('correct', $record->contract_items, 'contract_items'),
+                    ])
+                    <div class="ui-fields">
+                        <label class="ui-field">
+                            <span class="ui-label">Reason for the correction <span class="ui-required">*</span></span>
+                            <textarea name="remarks" class="ui-input" rows="3" maxlength="2000" required placeholder="e.g. Quantity was entered as 1 lot; the signed contract states 250 lm.">{{ $termsOld('correct', null, 'remarks') }}</textarea>
+                        </label>
+                        <label class="ui-field">
+                            <span class="ui-label">Replace signed contract copy <span class="ui-optional">(optional)</span></span>
+                            <input type="file" name="document" class="ui-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                            <span class="ui-hint">Leave empty to keep the file already on record.</span>
+                        </label>
+                    </div>
+                    <div class="infra-panel__foot">
+                        <button class="ui-btn ui-btn--primary"><i class="fas fa-floppy-disk" aria-hidden="true"></i> Save corrected terms</button>
+                    </div>
+                </form>
+            </details>
+        @endif
+
+        @if($nextStep)
+            <div class="ui-callout infra-next">
+                <p class="ui-callout__title"><i class="fas fa-hourglass-half" aria-hidden="true"></i> Next step: {{ $nextStep[0] }}</p>
+                <p class="ui-callout__text">{{ $nextStep[1] }}</p>
+                @if($missingInspector)
+                    <p class="ui-callout__text infra-next__warn"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> No active End-user account is set up for {{ $office ?: 'this project\'s end-user office' }} yet. @if($mode === 'admin')Create one in <a href="{{ route('admin.users') }}">Suppliers &amp; users</a> with role End-user and that office, so the inspection can be recorded.@else Ask the BAC admin to create one.@endif</p>
+                @endif
+            </div>
+        @endif
+
+        @if($canReport)
             <form method="POST" enctype="multipart/form-data" action="{{ route('bidder.infrastructure.progress', $award) }}" class="infra-panel">
                 @csrf
                 <div class="infra-panel__head"><h3>{{ $status === CI::INFRA_FOR_CORRECTION ? 'Submit corrected work' : 'Submit progress update' }}</h3></div>
                 <div class="ui-fields">
-                    <label class="ui-field"><span class="ui-label">Progress (%) <span class="ui-required">*</span></span><input name="progress_percent" class="ui-input" type="number" min="0" max="100" required></label>
-                    <label class="ui-field"><span class="ui-label">Milestone / work completed <span class="ui-required">*</span></span><input name="milestone" class="ui-input" maxlength="255" required></label>
-                    <label class="ui-field"><span class="ui-label">Remarks <span class="ui-required">*</span></span><textarea name="remarks" class="ui-input" rows="3" required></textarea></label>
+                    <label class="ui-field"><span class="ui-label">Progress (%) <span class="ui-required">*</span></span><input name="progress_percent" class="ui-input" type="number" min="0" max="100" required placeholder="e.g. 45"><span class="ui-hint">Overall physical accomplishment of the whole contract.</span></label>
+                    <label class="ui-field"><span class="ui-label">Milestone / work completed <span class="ui-required">*</span></span><input name="milestone" class="ui-input" maxlength="255" required placeholder="e.g. Base course laid, Sta. 0+000 to 0+120"><span class="ui-hint">What part of the work was finished in this update.</span></label>
+                    <label class="ui-field"><span class="ui-label">Remarks <span class="ui-required">*</span></span><textarea name="remarks" class="ui-input" rows="3" maxlength="2000" required placeholder="e.g. Pouring done this week; 2 rain days. Curing until Oct 20."></textarea><span class="ui-hint">A short written note on this update: work done, delays or issues. This is not a signature.</span></label>
                     <label class="ui-field"><span class="ui-label">Photo, report or progress proof <span class="ui-required">*</span></span><input type="file" name="document" class="ui-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" required></label>
                 </div>
                 <label class="infra-check"><input type="checkbox" name="request_inspection" value="1"> Work is ready; request site inspection</label>
@@ -247,6 +298,23 @@
                             <strong>{{ str($event->action)->replace('_', ' ')->ucfirst() }}</strong>
                             <small>{{ $event->occurred_at?->timezone($tz)->format('M d, Y g:i A') }} · {{ $event->actor?->name ?? 'LGU user' }}@isset($event->details['progress_percent']) · {{ $event->details['progress_percent'] }}%@endisset</small>
                             @if($event->remarks)<p>{{ $event->remarks }}</p>@endif
+                            @if($event->action === 'infrastructure_terms_corrected')
+                                @php
+                                    $itemsText = fn ($items) => collect($items ?? [])->map(fn ($item) => ($item['description'] ?? '').' — '.rtrim(rtrim(number_format((float) ($item['quantity'] ?? 0), 2, '.', ','), '0'), '.').' '.($item['unit'] ?? ''))->implode('; ');
+                                    $before = $event->details['before'] ?? [];
+                                    $after = $event->details['after'] ?? [];
+                                    $termChanges = collect(['delivery_deadline' => 'Deadline', 'delivery_location' => 'Work site', 'signed_contract_reference' => 'Contract reference', 'contract_items' => 'Work items'])
+                                        ->map(fn ($label, $key) => [$label, $key === 'contract_items' ? $itemsText($before[$key] ?? []) : ($before[$key] ?? ''), $key === 'contract_items' ? $itemsText($after[$key] ?? []) : ($after[$key] ?? '')])
+                                        ->filter(fn ($change) => $change[1] !== $change[2]);
+                                @endphp
+                                @if($termChanges->isNotEmpty())
+                                    <ul class="infra-changes">
+                                        @foreach($termChanges as [$label, $old, $new])
+                                            <li><span>{{ $label }}</span> <del>{{ $old ?: '—' }}</del> <i class="fas fa-arrow-right" aria-hidden="true"></i> <ins>{{ $new ?: '—' }}</ins></li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            @endif
                             @if($event->document_path)<a href="{{ route('infrastructure.document', $event) }}"><i class="fas fa-paperclip" aria-hidden="true"></i> View supporting document</a>@endif
                         </div>
                     </li>
@@ -300,16 +368,31 @@
         .infra-items__remove[hidden] { visibility: hidden; display: grid; }
         .infra-prefill { display: flex; align-items: center; gap: 6px; margin: -6px 0 0; }
         .infra-prefill i { color: var(--ui-primary); }
+        .infra-correct { gap: 0; padding: 0; }
+        .infra-correct summary { display: flex; align-items: center; gap: 8px; padding: 14px 20px; color: var(--ui-primary); font-size: 13.5px; font-weight: 600; cursor: pointer; list-style: none; }
+        .infra-correct summary::-webkit-details-marker { display: none; }
+        .infra-correct[open] summary { border-bottom: 1px solid var(--ui-line); }
+        .infra-correct__form { display: grid; gap: 16px; padding: 16px 20px 18px; }
+        .infra-correct__form > .ui-hint { margin: 0; }
+        .infra-next { margin-top: 18px; }
+        .infra-next .ui-callout__title { display: flex; align-items: center; gap: 8px; }
+        .infra-next__warn { margin-top: 8px; color: var(--ui-danger); }
         .infra-check { display: flex; align-items: center; gap: 8px; color: var(--ui-ink-2); font-size: 13px; }
         .infra-wait { margin-top: 18px; }
         .infra-history { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--ui-line); }
         .infra-history h3 { margin: 0 0 12px; font-size: 15.5px; }
         .infra-timeline { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
-        .infra-timeline li { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; }
+        .infra-timeline > li { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; }
         .infra-timeline__icon { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 50%; background: var(--ui-primary-soft); color: var(--ui-primary); font-size: 13px; }
         .infra-timeline strong { display: block; color: var(--ui-ink); font-size: 13.5px; }
         .infra-timeline small { display: block; margin-top: 2px; color: var(--ui-subtle); font-size: 12px; }
         .infra-timeline p { margin: 6px 0 0; color: var(--ui-ink-2); font-size: 13px; }
+        .infra-changes li { display: block; }
+        .infra-changes { display: grid; gap: 4px; margin: 8px 0 0; padding: 8px 12px; border-radius: var(--ui-radius); background: var(--ui-surface-2); list-style: none; font-size: 12.5px; }
+        .infra-changes span { color: var(--ui-subtle); font-weight: 600; }
+        .infra-changes del { color: var(--ui-danger); }
+        .infra-changes ins { color: var(--ui-ink); font-weight: 600; text-decoration: none; }
+        .infra-changes i { color: var(--ui-subtle); font-size: 10px; }
         .infra-timeline a { display: inline-flex; gap: 6px; margin-top: 6px; color: var(--ui-primary); font-size: 12.5px; font-weight: 600; text-decoration: none; }
         @media (max-width: 900px) {
             .infra-fields--3 { grid-template-columns: minmax(0, 1fr); }

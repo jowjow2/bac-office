@@ -35,6 +35,22 @@ class InfrastructureImplementationController extends Controller
     {
         $this->authorizeLgu($award);
         abort_unless(Auth::user()->role === 'admin' || Auth::user()->role === 'staff', 403);
+        $data = $this->validatedTerms($request, true);
+        $this->workflow->configure($award, Auth::user(), $data, $request->file('document'));
+        return redirect()->route($request->routeIs('staff.*') ? 'staff.infrastructure.show' : 'admin.infrastructure.show', $award)->with('success', 'Infrastructure contract terms recorded from the signed contract.');
+    }
+
+    public function correctTerms(Request $request, Award $award)
+    {
+        $this->authorizeLgu($award);
+        abort_unless(Auth::user()->role === 'admin', 403);
+        $data = $this->validatedTerms($request, false);
+        $this->workflow->correctTerms($award, Auth::user(), $data, $request->file('document'));
+        return redirect()->route('admin.infrastructure.show', $award)->with('success', 'Infrastructure contract terms corrected. The change and its reason are in the activity history.');
+    }
+
+    private function validatedTerms(Request $request, bool $documentRequired): array
+    {
         $data = $request->validate([
             'delivery_deadline' => ['required', 'date'],
             'delivery_location' => ['required', 'string', 'max:255'],
@@ -44,11 +60,11 @@ class InfrastructureImplementationController extends Controller
             'contract_items.*.quantity' => ['required', 'numeric', 'gt:0', 'max:999999999'],
             'contract_items.*.unit' => ['required', 'string', 'max:50'],
             'remarks' => ['required', 'string', 'max:2000'],
-            'document' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:20480'],
+            'document' => [$documentRequired ? 'required' : 'nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:20480'],
         ]);
         $data['contract_items'] = collect($data['contract_items'])->map(fn ($row) => ['description' => trim($row['description']), 'quantity' => (float) $row['quantity'], 'unit' => trim($row['unit'])])->values()->all();
-        $this->workflow->configure($award, Auth::user(), $data, $request->file('document'));
-        return redirect()->route($request->routeIs('staff.*') ? 'staff.infrastructure.show' : 'admin.infrastructure.show', $award)->with('success', 'Infrastructure contract terms recorded from the signed contract.');
+
+        return $data;
     }
 
     public function progress(Request $request, Award $award)

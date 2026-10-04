@@ -56,6 +56,7 @@ class AuditLog extends Model
         'bidding_fee_amended' => 'Bidding documents fee amended',
         'bidder_approved' => 'Bidder approved',
         'bidder_rejected' => 'Bidder rejected',
+        'infrastructure_terms_corrected' => 'Infrastructure contract terms corrected',
     ];
 
     public function actionLabel(): string
