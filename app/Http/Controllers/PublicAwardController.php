@@ -4,10 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Award;
 use App\Models\AuditLog;
-use BaconQrCode\Renderer\Image\SvgImageBackEnd;
-use BaconQrCode\Renderer\ImageRenderer;
-use BaconQrCode\Renderer\RendererStyle\RendererStyle;
-use BaconQrCode\Writer;
+use App\Support\QrSvg;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -158,16 +155,9 @@ class PublicAwardController extends Controller
         abort_unless(filled($award->qr_token), 404);
 
         try {
-            $renderer = new ImageRenderer(
-                new RendererStyle(360, 4),
-                new SvgImageBackEnd()
-            );
-
             // QR code contains only the public verification URL. The page reloads
             // the award record by ID each time it is opened.
-            $url = $award->verificationUrl();
-
-            $svg = (new Writer($renderer))->writeString($url);
+            $svg = QrSvg::render($award->verificationUrl(), 360);
         } catch (\Throwable $exception) {
             Log::error('Award QR code generation failed', [
                 'award_id' => $award->getKey(),

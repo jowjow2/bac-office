@@ -5,10 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Award;
 use App\Models\Bid;
 use App\Models\Bidder;
-use BaconQrCode\Renderer\Image\SvgImageBackEnd;
-use BaconQrCode\Renderer\ImageRenderer;
-use BaconQrCode\Renderer\RendererStyle\RendererStyle;
-use BaconQrCode\Writer;
+use App\Support\QrSvg;
 use Illuminate\Support\Facades\Log;
 
 class PublicBidderController extends Controller
@@ -34,6 +31,7 @@ class PublicBidderController extends Controller
             ->publiclyPosted()
             ->whereHas('bid', fn ($query) => $query->where('user_id', $user->id))
             ->with('project')
+            ->orderByDesc('notice_of_award_date')
             ->orderByDesc('contract_date')
             ->get();
 
@@ -55,12 +53,7 @@ class PublicBidderController extends Controller
         abort_unless($bidder, 404);
 
         try {
-            $renderer = new ImageRenderer(
-                new RendererStyle(320, 4),
-                new SvgImageBackEnd()
-            );
-
-            $svg = (new Writer($renderer))->writeString($bidder->verificationUrl());
+            $svg = QrSvg::render($bidder->verificationUrl(), 320);
         } catch (\Throwable $exception) {
             Log::error('Bidder QR code generation failed', [
                 'bidder_id' => $bidder->getKey(),

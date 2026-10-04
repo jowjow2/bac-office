@@ -5,10 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Project;
 use App\Support\DocumentPreview;
 use App\Support\Uploads;
-use BaconQrCode\Renderer\Image\SvgImageBackEnd;
-use BaconQrCode\Renderer\ImageRenderer;
-use BaconQrCode\Renderer\RendererStyle\RendererStyle;
-use BaconQrCode\Writer;
+use App\Support\QrSvg;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -79,12 +76,7 @@ class PublicProcurementController extends Controller
         // Published and its publication time reached (server clock, Philippine time).
         abort_unless($project->isPubliclyVisible(), 404);
 
-        $renderer = new ImageRenderer(
-            new RendererStyle(300, 3),
-            new SvgImageBackEnd()
-        );
-
-        $svg = (new Writer($renderer))->writeString($this->publicProjectActionUrl($project));
+        $svg = QrSvg::render($this->publicProjectActionUrl($project), 300, 3);
 
         return response($svg, 200, [
             'Content-Type' => 'image/svg+xml',
