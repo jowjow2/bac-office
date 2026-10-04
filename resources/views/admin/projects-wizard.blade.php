@@ -334,20 +334,13 @@
 
                     <fieldset class="pw-section">
                         <legend class="pw-section__title">Documents bidders must submit</legend>
-                        <p class="ui-hint">The mode and category already add the standard forms, including the PhilGEPS Platinum certificate and the Omnibus Sworn Statement. Permits, DTI/SEC registration and tax clearance are checked at the bidder's registration and at post-qualification, so list only what this project needs on top of those.</p>
-                        <div class="pw-checkgroups">
-                            @foreach($requirementGroups as $group => $items)
-                                <div class="pw-checkgroup">
-                                    <p class="pw-checkgroup__title">{{ $group }}</p>
-                                    @foreach($items as $item)
-                                        <label class="pw-check">
-                                            <input type="checkbox" name="required_documents[]" value="{{ $item }}" @checked(in_array($item, $selectedRequirements, true))>
-                                            <span>{{ $item === 'Other BAC Required Documents' ? 'Other documents required by the BAC' : $item }}</span>
-                                        </label>
-                                    @endforeach
-                                </div>
-                            @endforeach
+                        <p class="ui-hint">The mode, category and ABC set the standard documents below; bidders see the same list. Permits, DTI/SEC registration and tax clearance are checked at the bidder's registration and at post-qualification, so add only what this project needs on top of these.</p>
+                        {{-- Filled by project-wizard.js from BidSubmissionRequirements::wizardPreview(). --}}
+                        <div class="pw-auto-docs" data-pw-auto-docs aria-live="polite">
+                            <p class="pw-auto-docs__title"><i class="fas fa-circle-check" aria-hidden="true"></i> <span data-pw-auto-docs-title>Included automatically</span></p>
+                            <div class="pw-auto-docs__groups" data-pw-auto-docs-list></div>
                         </div>
+                        <script type="application/json" id="pwStandardRequirements">@json(\App\Support\BidSubmissionRequirements::wizardPreview())</script>
 
                         <div class="pw-extra" data-pw-extra-list>
                             <p class="pw-checkgroup__title">Additional required documents</p>
@@ -368,6 +361,10 @@
                                 </li>
                             </template>
                             <button type="button" class="ui-btn ui-btn--secondary ui-btn--sm" data-pw-extra-add><i class="fas fa-plus" aria-hidden="true"></i> Add a required document</button>
+                            <div class="pw-suggest" data-pw-extra-suggest hidden>
+                                <span class="pw-suggest__label">Often asked for this category:</span>
+                                <div class="pw-suggest__chips" data-pw-extra-suggest-chips></div>
+                            </div>
                         </div>
                         <span class="ui-error" id="required_documents-error" data-pw-error @unless($err('required_documents')) hidden @endunless>{{ $err('required_documents') }}</span>
                     </fieldset>
@@ -395,7 +392,7 @@
                             @foreach($requirementNotes as $field => [$short, $label, $placeholder])
                                 <div class="ui-field pw-note" data-pw-note="{{ $field }}" @unless(in_array($field, $openNotes, true)) hidden @endunless>
                                     <div class="pw-note__head">
-                                        <label class="ui-label" for="{{ $field }}">{{ $label }}</label>
+                                        <label class="ui-label" for="{{ $field }}">{{ $label }} <span class="pw-note__suggested" data-pw-note-suggested hidden>Suggested</span></label>
                                         <button type="button" class="pw-note__remove" data-pw-note-remove aria-label="Remove {{ strtolower($label) }}"><i class="fas fa-xmark" aria-hidden="true"></i></button>
                                     </div>
                                     <textarea id="{{ $field }}" name="{{ $field }}" class="ui-input pw-note__input" rows="2" placeholder="{{ $placeholder }}" data-pw-autogrow aria-describedby="{{ $field }}-error">{{ old($field) }}</textarea>

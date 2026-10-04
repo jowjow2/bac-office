@@ -44,6 +44,37 @@ class BidSubmissionRequirements
 
     public function __construct(private readonly Project $project) {}
 
+    /**
+     * Standard documents for every legal basis, category, mode and ABC band, for the
+     * create-project wizard. Alternative modes depend on the ABC (₱50,000 and ₱500,000).
+     *
+     * @return array<string, array<string, array<string, array<string, list<array{label: string, component: string, required: bool, condition: ?string}>>>>>
+     */
+    public static function wizardPreview(): array
+    {
+        $bands = ['low' => self::OMNIBUS_THRESHOLD, 'mid' => self::TAX_RETURN_THRESHOLD, 'high' => self::TAX_RETURN_THRESHOLD + 1];
+        $sets = [];
+        foreach ([ProcurementMode::RA_12009, ProcurementMode::RA_9184] as $basis) {
+            foreach (array_keys(self::CATEGORY_LABELS) as $category) {
+                foreach (array_keys(ProcurementMode::MODES) as $mode) {
+                    foreach ($bands as $band => $abc) {
+                        $project = new Project(['legal_basis' => $basis, 'category' => $category, 'procurement_mode' => $mode, 'budget' => $abc]);
+                        $project->setRelation('requirement', null);
+                        $sets[$basis][$category][$mode][$band] = self::for($project)->items()
+                            ->map(fn (array $item) => [
+                                'label' => $item['label'],
+                                'component' => $item['component'],
+                                'required' => (bool) $item['required'],
+                                'condition' => $item['condition'] ?? null,
+                            ])->values()->all();
+                    }
+                }
+            }
+        }
+
+        return $sets;
+    }
+
     public static function for(Project $project): self
     {
         return new self($project);

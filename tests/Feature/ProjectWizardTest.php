@@ -149,3 +149,14 @@ it('refuses to publish without the confirmation and returns to the wizard', func
 
     testCase()->actingAs($this->admin)->get(route('admin.projects.create'))->assertOk();
 });
+
+it('gives the wizard the same standard documents bidders will be asked for', function () {
+    $sets = \App\Support\BidSubmissionRequirements::wizardPreview();
+    $labels = fn (string $basis, string $category, string $mode, string $band) => array_column($sets[$basis][$category][$mode][$band], 'label');
+
+    expect($labels('ra_12009', 'infrastructure', 'public_bidding', 'high'))->toContain('Priced Bill of Quantities', 'Omnibus Sworn Statement')
+        // Small purchases ask for less; the Omnibus Sworn Statement only above ₱50,000.
+        ->and($labels('ra_12009', 'goods', 'small_value_procurement', 'low'))->toContain('Price Quotation / Proposal Form')->not->toContain('Omnibus Sworn Statement')
+        ->and($labels('ra_12009', 'goods', 'small_value_procurement', 'mid'))->toContain('Omnibus Sworn Statement')
+        ->and($labels('ra_12009', 'goods', 'direct_contracting', 'low'))->toContain('Certificate of exclusive manufacturer / distributor');
+});

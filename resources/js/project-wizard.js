@@ -479,6 +479,183 @@ if (root && form) {
     const fee = $('[data-pw-fee]');
     const security = $('[data-pw-security]');
 
+    /* ------------------------------------------------------------------ */
+    /* Requirement suggestions: the standard documents for the mode,       */
+    /* extras often asked for the category, and suggested note text.       */
+    /* The BAC can change or remove anything suggested.                    */
+    /* ------------------------------------------------------------------ */
+
+    const standardSets = JSON.parse(byId('pwStandardRequirements')?.textContent || '{}');
+    const durationValue = () => (byId('contract_duration')?.value || '').trim();
+    const peso2 = (value) => `₱${Number(value).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    function syncAutoDocs() {
+        const list = $('[data-pw-auto-docs-list]');
+        if (!list) return;
+        const mode = modeSelect?.value;
+        const category = categorySelect?.value || 'goods';
+        const band = abc() > 500000 ? 'high' : (abc() > 50000 ? 'mid' : 'low');
+        const items = mode ? (standardSets[basis()]?.[category]?.[mode]?.[band] || []) : [];
+        $('[data-pw-auto-docs-title]').textContent = items.length
+            ? `Included automatically for ${selectedText('procurement_mode')} · ${selectedText('category') || 'Goods'} (${items.length})`
+            : 'Choose the mode and category in step 1 to see the standard documents.';
+        list.innerHTML = '';
+        ['technical', 'financial'].forEach((component) => {
+            const group = items.filter((item) => item.component === component);
+            if (!group.length) return;
+            const block = document.createElement('div');
+            block.className = 'pw-auto-docs__group';
+            const heading = document.createElement('h4');
+            heading.textContent = component === 'technical' ? 'Technical / eligibility' : 'Financial';
+            const ul = document.createElement('ul');
+            group.forEach((item) => {
+                const li = document.createElement('li');
+                li.textContent = item.label + (item.required ? '' : ' (if applicable)');
+                li.classList.toggle('is-optional', !item.required);
+                if (item.condition) {
+                    const small = document.createElement('small');
+                    small.textContent = item.condition;
+                    li.appendChild(small);
+                }
+                ul.appendChild(li);
+            });
+            block.append(heading, ul);
+            list.appendChild(block);
+        });
+    }
+
+    const extraSuggestions = {
+        goods: ['Product brochure or technical data sheet', 'Certificate of warranty', 'List of after-sales service centers'],
+        services: ['Manpower deployment plan', 'List of equipment and tools to be used'],
+        infrastructure: ['Construction schedule and S-curve', 'Manpower schedule', 'Equipment utilization schedule', 'Construction methods'],
+        consultancy: ['Sample outputs of similar engagements'],
+    };
+
+    function extraValues() {
+        return $$('[data-pw-extra-item] input').map((input) => input.value.trim().toLowerCase());
+    }
+
+    function syncExtraSuggestions() {
+        const box = $('[data-pw-extra-suggest]');
+        const chips = $('[data-pw-extra-suggest-chips]');
+        if (!box || !chips) return;
+        const taken = extraValues();
+        const options = (extraSuggestions[categorySelect?.value || 'goods'] || []).filter((label) => !taken.includes(label.toLowerCase()));
+        chips.innerHTML = '';
+        options.forEach((label) => {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'pw-suggest__chip';
+            chip.dataset.pwExtraSuggestion = label;
+            chip.innerHTML = '<i class="fas fa-plus" aria-hidden="true"></i>';
+            chip.append(document.createTextNode(label));
+            chips.appendChild(chip);
+        });
+        box.hidden = options.length === 0;
+    }
+
+    $('[data-pw-extra-suggest]')?.addEventListener('click', (event) => {
+        const chip = event.target.closest('[data-pw-extra-suggestion]');
+        if (!chip) return;
+        $('[data-pw-extra-add]').click();
+        const inputs = $$('[data-pw-extra-item] input');
+        inputs[inputs.length - 1].value = chip.dataset.pwExtraSuggestion;
+        syncExtraSuggestions();
+    });
+    extraList?.addEventListener('input', syncExtraSuggestions);
+    extraList?.addEventListener('click', () => window.setTimeout(syncExtraSuggestions));
+
+    // Suggested note text; null when the note does not apply.
+    function noteSuggestion(field) {
+        const category = categorySelect?.value || 'goods';
+        const duration = durationValue();
+        if (field === 'technical_requirements' && duration) {
+            return {
+                goods: `Deliver within ${duration}. Items must conform to the technical specifications.`,
+                services: `Render the services within ${duration}, as stated in the technical specifications.`,
+                infrastructure: `Complete the works within ${duration}.`,
+                consultancy: `Complete the services within ${duration}, as stated in the terms of reference.`,
+            }[category];
+        }
+        if (field === 'financial_requirements' && isCompetitive() && category !== 'consultancy' && abc() > 0) {
+            return `Net Financial Contracting Capacity (NFCC) at least equal to the ABC of ${peso2(abc())}, or a committed line of credit from a Universal or Commercial Bank, as stated in the bidding documents.`;
+        }
+        if (field === 'eligibility_requirements' && isCompetitive() && category === 'infrastructure') {
+            return 'Valid PCAB license for the type and cost of the works; each joint venture partner must hold one.';
+        }
+        return null;
+    }
+
+    function syncNoteSuggestions() {
+        ['technical_requirements', 'financial_requirements', 'eligibility_requirements'].forEach((field) => {
+            const note = $(`[data-pw-note="${field}"]`);
+            const input = byId(field);
+            if (!note || !input || input.dataset.pwDismissed === '1') return;
+            const suggestion = noteSuggestion(field);
+            const auto = input.dataset.pwAuto === '1';
+            // Only fill an empty note, or keep updating text the script filled and nobody edited.
+            if (suggestion && (input.value.trim() === '' || auto)) {
+                input.value = suggestion;
+                input.dataset.pwAuto = '1';
+                note.hidden = false;
+                $(`[data-pw-note-add="${field}"]`).hidden = true;
+            } else if (!suggestion && auto) {
+                input.value = '';
+                delete input.dataset.pwAuto;
+                note.hidden = true;
+                $(`[data-pw-note-add="${field}"]`).hidden = false;
+            }
+            $('[data-pw-note-suggested]', note).hidden = input.dataset.pwAuto !== '1';
+            if (!note.hidden) autogrow(input);
+        });
+        syncNotesAdd();
+    }
+
+    // A note the BAC removed stays removed.
+    $$('[data-pw-note-remove]').forEach((button) => button.addEventListener('click', () => {
+        const note = button.closest('[data-pw-note]');
+        if (note.hidden) $('textarea', note).dataset.pwDismissed = '1';
+    }));
+
+    $$('[data-pw-note] textarea').forEach((input) => input.addEventListener('input', () => {
+        delete input.dataset.pwAuto;
+        const tag = $('[data-pw-note-suggested]', input.closest('[data-pw-note]'));
+        if (tag) tag.hidden = true;
+    }));
+
+    // Bid security: required in competitive bidding; for the other modes the BAC
+    // turns it on when the RFQ asks for one. The amounts follow the ABC.
+    let securityTouched = false;
+    security?.addEventListener('change', () => { securityTouched = true; });
+    const securityNotes = byId('bid_security_notes');
+    securityNotes?.addEventListener('input', () => { delete securityNotes.dataset.pwAuto; });
+
+    function syncSecuritySuggestion() {
+        if (!security) return;
+        if (!securityTouched && modeSelect?.value) security.checked = isCompetitive();
+        if (!securityNotes) return;
+        const amount = abc();
+        const suggestion = isCompetitive() && amount > 0
+            ? `Bid Securing Declaration; or cash, cashier's or manager's check, bank draft or guarantee of at least ${peso2(amount * 0.02)} (2% of the ABC); or a surety bond of at least ${peso2(amount * 0.05)} (5% of the ABC).`
+            : '';
+        if (securityNotes.value.trim() === '' || securityNotes.dataset.pwAuto === '1') {
+            securityNotes.value = suggestion;
+            if (suggestion) securityNotes.dataset.pwAuto = '1'; else delete securityNotes.dataset.pwAuto;
+        }
+    }
+
+    function syncRequirementSuggestions() {
+        syncAutoDocs();
+        syncExtraSuggestions();
+        syncNoteSuggestions();
+        syncSecuritySuggestion();
+    }
+
+    [modeSelect, basisSelect, categorySelect].forEach((field) => field?.addEventListener('change', () => { syncRequirementSuggestions(); syncSubmission(); }));
+    moneyInput?.addEventListener('input', syncRequirementSuggestions);
+    byId('contract_duration')?.addEventListener('change', syncRequirementSuggestions);
+    $$('[data-pw-choice-select], [data-pw-choice-input]').forEach((field) => ['change', 'input'].forEach((type) => field.addEventListener(type, () => window.setTimeout(syncRequirementSuggestions))));
+
     // Bidding documents fee: competitive bidding uses the ABC schedule's maximum
     // (GPPB Circular No. 02-2026, Sec. 5.2) unless the BAC lowers or waives it with
     // a reason. The server applies the same rules; this only shows them.
@@ -1346,6 +1523,7 @@ function nextWorkingDay(date, inclusive = true) {
 
     syncMoney(Boolean(moneyInput?.value));
     syncMode();
+    syncRequirementSuggestions();
     syncSubmission();
     $$('[data-pw-doc]').forEach(renderDoc);
 
