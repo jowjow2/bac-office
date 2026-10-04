@@ -183,7 +183,16 @@
         .messenger-chat-header { padding: 10px 12px; }
         .messenger-chat-body { padding: 14px 12px; }
         .messenger-message-bubble { max-width: 88%; }
-        .messenger-composer { padding: 10px; }
+        .messenger-composer { padding: 10px 10px calc(10px + env(safe-area-inset-bottom)); }
+
+        /* An open chat fills the visible screen, above the on-screen keyboard
+           (the script sets --m-vv-top/--m-vv-height from the visual viewport). */
+        .messenger-grid.is-chat-open { position: fixed; top: var(--m-vv-top, 0px); right: 0; left: 0; z-index: 2000; height: var(--m-vv-height, 100dvh); min-height: 0; border: 0; border-radius: 0; box-shadow: none; }
+        .messenger-grid.is-chat-open .messenger-chat-header { min-height: 60px; padding-top: calc(8px + env(safe-area-inset-top)); padding-bottom: 8px; }
+        html.messenger-chat-fullscreen, html.messenger-chat-fullscreen body { overflow: hidden !important; overscroll-behavior: none; }
+        .messenger-chat-body { overscroll-behavior: contain; }
+        /* 16px keeps phones from zooming in when the box is tapped. */
+        :is(.messenger-shell, #m-x#m-x) .messenger-input { font-size: 16px !important; }
     }
     @media (prefers-reduced-motion: reduce) {
         .messenger-chat, .messenger-typing-dots span, .messenger-send-button { transition: none; animation: none; }

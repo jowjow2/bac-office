@@ -153,6 +153,28 @@
                 grid?.classList.remove('is-chat-open');
             });
 
+            // Phones: keep the open chat sized to the visible screen, so the message
+            // box stays above the keyboard and the latest message stays in view.
+            const phoneLayout = window.matchMedia('(max-width: 820px)');
+            const fitChatToScreen = function () {
+                if (!grid) return;
+                const viewport = window.visualViewport;
+                const nearBottom = chatBody ? chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight < 120 : false;
+                grid.style.setProperty('--m-vv-height', `${viewport ? viewport.height : window.innerHeight}px`);
+                grid.style.setProperty('--m-vv-top', `${viewport ? viewport.offsetTop : 0}px`);
+                document.documentElement.classList.toggle('messenger-chat-fullscreen', phoneLayout.matches && grid.classList.contains('is-chat-open'));
+                if (nearBottom) scrollToBottom();
+            };
+            window.visualViewport?.addEventListener('resize', fitChatToScreen);
+            window.visualViewport?.addEventListener('scroll', fitChatToScreen);
+            window.addEventListener('resize', fitChatToScreen);
+            if (grid) new MutationObserver(fitChatToScreen).observe(grid, { attributes: true, attributeFilter: ['class'] });
+            messageInput?.addEventListener('focus', function () {
+                // After the keyboard has opened.
+                window.setTimeout(function () { fitChatToScreen(); scrollToBottom(); }, 300);
+            });
+            fitChatToScreen();
+
             messageInput?.addEventListener('input', function () {
                 messageInput.style.height = 'auto';
                 messageInput.style.height = `${messageInput.scrollHeight}px`;
