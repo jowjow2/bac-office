@@ -196,6 +196,33 @@
     .sb-notice dt { flex: 1 1 auto; min-width: 0; }
     .sb-notice dd { flex: 0 1 auto; margin: 0; color: var(--ui-ink); font-weight: 600; text-align: right; overflow-wrap: normal; word-break: normal; }
     .sb-rail-docs { display: grid; gap: 12px; }
+    /* Sealed-bid guide (sealed-bid-guide): manual projects file nothing online. */
+    .sg { display: grid; gap: 14px; }
+    .sg-status { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 12px 14px; border: 1px solid var(--sb-line); border-radius: 10px; background: #fff; color: var(--ui-ink-2); font-size: 13px; line-height: 1.5; }
+    .sg-status i { margin-top: 3px; color: var(--ui-subtle); }
+    .sg-status.is-done { border-color: var(--ui-success-line); background: var(--ui-success-soft); color: var(--ui-success); }
+    .sg-status.is-done i { color: var(--ui-success); }
+    .sg-note { display: flex; gap: 8px; margin: 0; color: var(--ui-muted); font-size: 12.5px; }
+    .sg-steps { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+    .sg-step { position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 14px; padding: 0 0 20px; }
+    .sg-step:not(:last-child)::before { content: ""; position: absolute; top: 32px; bottom: 4px; left: 14px; width: 2px; background: var(--sb-line); }
+    .sg-step__num { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; background: var(--ui-primary); color: #fff; font-size: 13px; font-weight: 700; }
+    .sg-step.is-done .sg-step__num { background: var(--ui-success-soft); color: var(--ui-success); }
+    .sg-step.is-done .sg-step__num::after { content: "\f00c"; font-family: "Font Awesome 6 Free"; font-weight: 900; font-size: 12px; }
+    .sg-step h3 { margin: 4px 0 4px; color: var(--ui-ink); font-size: 14px; font-weight: 700; }
+    .sg-step p { margin: 0; color: var(--ui-ink-2); font-size: 13px; line-height: 1.55; }
+    .sg-step p + p { margin-top: 6px; }
+    .sg-muted { color: var(--ui-muted) !important; font-size: 12.5px !important; }
+    .sg-envelopes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+    .sg-envelope { padding: 12px 14px; border: 1px solid var(--sb-line); border-radius: 10px; background: #fff; }
+    .sg-envelope h4 { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ui-ink); font-size: 13px; font-weight: 700; }
+    .sg-envelope h4 i { color: var(--ui-primary); }
+    .sg-envelope__hint { margin: 2px 0 8px !important; color: var(--ui-muted) !important; font-size: 12px !important; }
+    .sg-envelope ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+    .sg-envelope li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; color: var(--ui-ink); font-size: 12.5px; line-height: 1.4; }
+    .sg-envelope li > i { margin-top: 2px; color: var(--ui-subtle); }
+    .sg-envelope li em { color: var(--ui-muted); font-style: normal; font-size: 11.5px; }
+    .sg-envelope li small { display: block; color: var(--ui-muted); font-size: 11.5px; }
     /* "Requirements to Include" in the rail: a light card like the bidding documents above it (beats the dashboard's dark theme rule). */
     body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-rail .bidder-requirements-card { display: grid !important; gap: 10px !important; margin: 0 !important; padding: 12px 14px !important; border: 1px solid var(--sb-line) !important; border-radius: 10px !important; background: #fff !important; box-shadow: none !important; color: var(--ui-ink) !important; }
     body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-rail .bidder-requirements-heading { display: block !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: transparent !important; }
@@ -230,6 +257,7 @@
     }
     @media (max-width: 640px) {
         .sb-pin-grid { grid-template-columns: 1fr; }
+        .sg-envelopes { grid-template-columns: 1fr; }
         .sb-offer-row { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 14px 16px; }
         .sb-money { max-width: none; }
         .bidder-submit-modal-overlay .sb { width: 100%; max-height: calc(100dvh - 16px); border-radius: 12px; }
@@ -249,7 +277,7 @@
         .sb-file-actions .sb-btn { flex: 1; }
         .sb-foot { flex-direction: column; align-items: stretch; padding: 10px 16px; }
         .sb-foot-actions { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; }
-        .sb-foot-actions > [data-close-modal] { display: none; }
+        .sb-foot-actions > [data-close-modal]:not(.sb-btn--primary) { display: none; }
         .sb .sb-btn { padding: 0 10px; }
         .sb-status { text-align: center; }
     }

@@ -358,12 +358,14 @@ it('receives sealed paper bids on a manual project and carries them to award', f
     $project = ($this->competitive)(['submission_mode' => 'manual', 'electronic_submission_authority' => null, 'submission_venue' => 'BAC Secretariat, Municipal Hall']);
     expect($project->submission_mode)->toBe(Project::SUBMISSION_MANUAL);
     $received = now()->timezone(config('bac-office.display_timezone'))->format('Y-m-d\TH:i');
-    foreach ([[$this->bidderA, '850,000.00', 'LOG-001'], [$this->bidderB, '870,000.00', 'LOG-002']] as [$bidder, $amount, $log]) {
+    foreach ([[$this->bidderA, 'Mindoro Builders', 'LOG-001'], [$this->bidderB, 'Occidental Supply', 'LOG-002']] as [$bidder, $company, $log]) {
+        $bidder->bidderProfile()->create(['company_name' => $company, 'contact_person' => $bidder->name, 'contact_number' => '09171234567', 'business_address' => 'San Jose', 'approval_status' => 'approved']);
         ($this->pay)($project, $bidder);
-        ($this->submit)($project, $bidder, $amount)->assertSessionHasNoErrors();
-        $bid = Bid::where('project_id', $project->id)->where('user_id', $bidder->id)->firstOrFail();
-        expect($bid->isDraft())->toBeTrue();
-        ($this->decide)($bid, BidWorkflow::RECORD_MANUAL_RECEIPT, ['receipt_no' => $log, 'received_at' => $received])->assertSessionHasNoErrors();
+        // Nothing is filed online; the Secretariat records the envelopes at the counter.
+        ($this->submit)($project, $bidder, '850,000.00')->assertSessionHasErrors('submission');
+        testCase()->actingAs($this->admin)->post(route('admin.project.sealed-bids.store', $project), ['bidder_id' => $bidder->id, 'receipt_no' => $log, 'received_at' => $received])
+            ->assertSessionHas('success');
+        expect(Bid::where('project_id', $project->id)->where('user_id', $bidder->id)->sole()->isDraft())->toBeFalse();
     }
     ($this->pagesLoad)('sealed bids received');
 

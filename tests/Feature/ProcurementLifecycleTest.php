@@ -369,14 +369,12 @@ it('requires a BAC resolution to recommend the award and keeps supporting docume
 it('receives manual sealed bids only on manual projects and only after the fee is paid', function () {
     $project = ($this->openProject)(['submission_mode' => Project::SUBMISSION_MANUAL, 'bidding_documents_fee' => 5000]);
 
-    // Told up front that the upload is not the official bid, and that the fee comes first.
+    // Told up front that the sealed envelopes are the bid, and that the fee comes first; nothing is filed online.
     testCase()->actingAs($this->bidder)->get(route('bidder.available-projects'))
-        ->assertSee('this website upload is NOT an official bid')
-        ->assertSee('Payment required');
-
-    // Even the draft upload waits for the BAC-verified payment.
+        ->assertSee('This project takes sealed paper bids only')
+        ->assertSee('Pay the bidding documents fee');
     testCase()->actingAs($this->bidder)->post(route('bidder.bids.store', $project), ['project_id' => $project->id, 'bid_amount' => '2400000'])
-        ->assertSessionHasErrors('payment');
+        ->assertSessionHasErrors('submission');
     expect(Bid::count())->toBe(0);
 
     // A draft kept from before (the sealed bid is what counts) is received only after payment.

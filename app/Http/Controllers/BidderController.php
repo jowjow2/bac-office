@@ -392,6 +392,14 @@ class BidderController extends Controller
                 ->withErrors(['bidder_status' => 'Your bidder account is not authorized to participate in procurement at this time.']);
         }
 
+        // A manual-submission project takes sealed paper bids at the BAC Secretariat only;
+        // nothing is filed online. The Secretariat records the envelopes when they are handed in.
+        if (! $project->acceptsElectronicSubmission()) {
+            return redirect()
+                ->route('bidder.available-projects')
+                ->withErrors(['submission' => 'This project takes sealed paper bids only. Bring your sealed envelopes to the BAC Secretariat; nothing is submitted online.']);
+        }
+
         $financialPassword = $request->input('financial_password');
         $financialPasswordConfirmation = $request->input('financial_password_confirmation');
         $request->request->remove('financial_password');

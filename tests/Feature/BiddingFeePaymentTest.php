@@ -140,15 +140,17 @@ it('does not let a payment for another project unlock a bid', function () {
     expect(Bid::where('project_id', $otherProject->id)->where('user_id', $this->bidder->id)->exists())->toBeFalse();
 });
 
-it('blocks manual draft uploads until payment is verified', function () {
+it('takes nothing online for a manual project and shows how to pay and hand in the sealed bid', function () {
     $this->project->update(['submission_mode' => Project::SUBMISSION_MANUAL]);
 
     testCase()->actingAs($this->bidder)->get(route('bidder.available-projects'))
         ->assertOk()
-        ->assertSee('Payment required')
-        ->assertSee('data-payment-locked="true"', false);
+        ->assertSee('How to submit your sealed bid')
+        ->assertSee('Pay the bidding documents fee')
+        ->assertSee('Prepare two sealed envelopes')
+        ->assertDontSee('Save Draft Record');
 
-    ($this->submitBid)()->assertSessionHasErrors('payment');
+    ($this->submitBid)()->assertSessionHasErrors('submission');
     expect(Bid::count())->toBe(0)
         ->and(Storage::disk('public')->allFiles('bid-submissions'))->toBe([]);
 });

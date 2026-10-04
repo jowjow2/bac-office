@@ -1971,7 +1971,7 @@
                             <a href="{{ route('bidder.bidding-track', ['bid' => $myBid->id]) }}" class="bidder-action-btn bidder-action-outline">View your bid</a>
                             <button type="button" class="bidder-action-btn bidder-action-primary bidder-submit-trigger" data-target="bid-modal-{{ $project->id }}" title="Replace your price or documents before the deadline">Modify bid</button>
                         @elseif($canPrepare)
-                            <button type="button" class="bidder-action-btn bidder-action-primary bidder-submit-trigger" data-target="bid-modal-{{ $project->id }}">{{ $paymentLocked ? 'How to pay' : ($isDraftBid ? 'Continue draft' : ($electronic ? 'Submit bid' : 'Prepare bid')) }}</button>
+                            <button type="button" class="bidder-action-btn bidder-action-primary bidder-submit-trigger" data-target="bid-modal-{{ $project->id }}">{{ ! $electronic ? 'How to submit' : ($paymentLocked ? 'How to pay' : ($isDraftBid ? 'Continue draft' : 'Submit bid')) }}</button>
                         @elseif($myBid && $isOpen)
                             <a href="{{ route('bidder.bidding-track', ['bid' => $myBid->id]) }}" class="bidder-action-btn bidder-action-outline">View your bid</a>
                         @else
@@ -1980,7 +1980,10 @@
                     </div>
                 </div>
 
-                @if($canPrepare)
+                @if($canPrepare && ! $electronic)
+                    {{-- Sealed paper bids only: a guide, nothing to file online. --}}
+                    @include('bidder.partials.sealed-bid-guide', compact('project', 'myBid', 'requiresFee', 'feePayment', 'feeLabel', 'deadline'))
+                @elseif($canPrepare)
                     @include('bidder.partials.submit-bid-modal', compact('project', 'myBid', 'isDraftBid', 'isModifying', 'electronic', 'requiresFee', 'feePayment', 'paymentLocked', 'feeLabel', 'deadline'))
                 @endif
             @empty
@@ -2071,7 +2074,7 @@
 
             requestAnimationFrame(function () {
                 resetBidderModalScroll(target);
-                const dialog = target.querySelector('.bidder-modal, [data-bid-dialog]');
+                const dialog = target.querySelector('.bidder-modal, [data-bid-dialog], [data-sealed-guide]');
                 if (dialog) dialog.focus({ preventScroll: true });
             });
         }
