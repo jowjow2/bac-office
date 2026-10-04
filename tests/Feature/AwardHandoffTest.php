@@ -294,3 +294,19 @@ it('restricts recommendation PDFs to admins and hides them until the bid is post
         ->get(route('admin.bid.award-recommendation.document', ['bid' => $pending, 'document' => 'resolution']))
         ->assertNotFound();
 });
+it('links a pending Notice to Proceed on Awards & Contracts to the bid where it is issued', function () {
+    $project = ($this->project)('Supply of office chairs');
+    $bid = ($this->bid)($project, 'Chairmakers Corp.', 900000, recommended: true);
+    $bid->forceFill([
+        'award_decision' => Bid::AWARD_DECISION_APPROVED, 'award_decision_at' => now()->subDays(5), 'award_decision_by' => $this->admin->id,
+        'notice_of_award_at' => now()->subDays(4), 'contract_signed_at' => now()->subDay(), 'workflow_step' => Bid::STEP_CONTRACT_SIGNED,
+    ])->save();
+    Award::create([
+        'project_id' => $project->id, 'bid_id' => $bid->id, 'bidder_id' => $bid->user_id, 'contract_amount' => 900000,
+        'contract_date' => now()->subDay()->toDateString(), 'notice_of_award_date' => now()->subDays(4)->toDateString(), 'status' => Award::STATUS_VALID,
+    ]);
+
+    testCase()->actingAs($this->admin)->get(route('admin.awards.index'))->assertOk()
+        ->assertSee('Notice to Proceed pending')
+        ->assertSee('href="'.route('admin.bid.view', $bid).'"', false);
+});

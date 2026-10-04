@@ -1723,7 +1723,11 @@
                                 </td>
                                 <td data-label="Contract stage">
                                     <span class="award-status is-{{ $awardStatus === 'valid' ? 'valid' : $statusClass }}">{{ $contractStageLabel }}</span>
-                                    @if($contractStageNext)
+                                    @if($contractStageNext && $award->bid_id && ! $award->isCancelled() && auth()->user()?->role === 'admin'
+                                        && in_array($contractStage['key'] ?? null, ['contract_signed', 'notice_of_award', 'award_approval'], true))
+                                        {{-- The pending step is recorded in the bid's review modal. --}}
+                                        <span class="award-amount-note"><a href="{{ route('admin.bid.view', $award->bid_id) }}">{{ $contractStageNext }} <i class="fas fa-arrow-right" aria-hidden="true"></i></a></span>
+                                    @elseif($contractStageNext)
                                         <span class="award-amount-note">{{ $contractStageNext }}</span>
                                     @endif
                                     @if($awardStatus !== 'valid' && ! $awaitingNotice && ! $award->isCancelled())
