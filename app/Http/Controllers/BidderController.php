@@ -269,7 +269,11 @@ class BidderController extends Controller
         $user = Auth::user();
         $validated = $request->validate([
             'company' => ['required', 'string', 'max:255'],
-            'registration_no' => ['required', 'string', 'max:255'],
+            'registration_no' => ['required', 'string', 'max:255', function (string $attribute, mixed $value, \Closure $fail) use ($user) {
+                if (User::registrationNumberTaken($value, $user->id)) {
+                    $fail('Another bidder is already registered with this business registration number. Contact the BAC Secretariat if this is your business.');
+                }
+            }],
         ]);
 
         $user->update([

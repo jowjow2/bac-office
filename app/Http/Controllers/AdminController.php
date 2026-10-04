@@ -2978,6 +2978,11 @@ public function destroyUser(User $user)
                 'nullable',
                 'string',
                 'max:255',
+                function (string $attribute, mixed $value, \Closure $fail) use ($user) {
+                    if (User::registrationNumberTaken($value, $user?->id)) {
+                        $fail('Another bidder already uses this business registration number.');
+                    }
+                },
             ],
         ], [
             'username.regex' => 'Username may only contain letters, numbers, dots, dashes, and underscores.',

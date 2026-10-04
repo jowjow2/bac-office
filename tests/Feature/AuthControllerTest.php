@@ -560,3 +560,25 @@ it('answers clearly instead of a server error when the verification code cannot 
     testCase()->assertGuest();
     expect(session()->has('login_verification'))->toBeFalse();
 });
+
+it('keeps one bidder account per business registration number', function () {
+    $existing = User::create(['name' => 'First Bidder', 'email' => 'first@example.com', 'password' => Hash::make('password'), 'role' => 'bidder', 'status' => 'active', 'company' => 'First Co', 'registration_no' => 'DTI-2026-000123']);
+
+    // Registration: the same number written differently is still the same number.
+    testCase()->postJson('/register', validBidderRegistrationPayload(['registration_no' => ' dti 2026000123 ', 'email' => 'second@example.com']))
+        ->assertStatus(422)
+        ->assertJsonPath('errors.registration_no.0', 'A bidder with this business registration number is already registered. Sign in to that account, or contact the BAC Secretariat if it is not yours.');
+    expect(User::where('email', 'second@example.com')->exists())->toBeFalse();
+
+    // Admin Add User and the bidder's own profile refuse it too; keeping one's own number is fine.
+    $admin = User::create(['name' => 'Admin', 'email' => 'dup-admin@example.com', 'password' => Hash::make('password'), 'role' => 'admin', 'status' => 'active']);
+    testCase()->actingAs($admin)->post(route('admin.users.store'), [
+        'name' => 'Copy Bidder', 'email' => 'copy@example.com', 'password' => 'secret123', 'role' => 'bidder', 'status' => 'active',
+        'company' => 'Copy Co', 'registration_no' => 'DTI2026000123',
+    ])->assertSessionHasErrors('registration_no');
+
+    $other = User::create(['name' => 'Other Bidder', 'email' => 'other@example.com', 'password' => Hash::make('password'), 'role' => 'bidder', 'status' => 'active', 'company' => 'Other Co', 'registration_no' => 'SEC-2026-000999']);
+    expect(User::registrationNumberTaken('DTI-2026-000123', $existing->id))->toBeFalse()
+        ->and(User::registrationNumberTaken('dti-2026-000123', $other->id))->toBeTrue()
+        ->and(User::registrationNumberTaken(''))->toBeFalse();
+});

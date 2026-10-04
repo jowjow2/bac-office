@@ -358,6 +358,15 @@ class AuthController extends Controller
             ]);
         }
 
+        // One bidder account per business: the registration number may not be reused.
+        if ($request->input('role') === 'bidder' && User::registrationNumberTaken($request->registration_no)) {
+            $message = 'A bidder with this business registration number is already registered. Sign in to that account, or contact the BAC Secretariat if it is not yours.';
+
+            return $this->authResponse($request, false, $message, 'register', 422, null, [
+                'registration_no' => [$message],
+            ]);
+        }
+
         if ($request->input('role') === 'staff') {
             User::create([
                 'name' => $request->name,

@@ -267,6 +267,25 @@ class User extends Authenticatable
      * Offices an end-user account can be given: the standard list plus any end-user
      * office a project already names, so that project's office can record its inspections.
      */
+    /**
+     * Whether another bidder already uses this business registration number
+     * (DTI/SEC/CDA). Case, spaces and dashes are ignored, so "DTI-2026-001"
+     * and "dti 2026001" are the same number.
+     */
+    public static function registrationNumberTaken(?string $number, ?int $exceptUserId = null): bool
+    {
+        $normalized = strtoupper(preg_replace('/[\s\-]+/', '', (string) $number));
+        if ($normalized === '') {
+            return false;
+        }
+
+        return self::query()
+            ->where('role', 'bidder')
+            ->when($exceptUserId, fn ($query) => $query->whereKeyNot($exceptUserId))
+            ->whereRaw("UPPER(REPLACE(REPLACE(registration_no, ' ', ''), '-', '')) = ?", [$normalized])
+            ->exists();
+    }
+
     public static function assignableEndUserOffices(): array
     {
         $projectOffices = Project::query()
