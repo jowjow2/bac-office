@@ -190,46 +190,52 @@
                                 <span class="sb-count" data-sb-count="2"></span>
                             </div>
 
-                            <div class="sb-price" data-bid-field>
-                                <label class="sb-label" for="bid-amount-{{ $pid }}">Bid Price <span class="sb-req" aria-hidden="true">*</span></label>
-                                <p class="sb-hint">Enter the amount exactly as written on your Financial Bid Form. It must not exceed the ABC of &#8369;{{ number_format($abc, 2) }}.</p>
-                                <div class="sb-money">
-                                    <span class="sb-money-prefix" aria-hidden="true">&#8369;</span>
-                                    <input type="text" inputmode="decimal" autocomplete="transaction-amount" data-lpignore="true" data-1p-ignore data-bwignore spellcheck="false" name="bid_amount" id="bid-amount-{{ $pid }}" class="sb-input sb-money-input" value="{{ old('project_id') == $pid ? old('bid_amount') : ($prefillBid ? $myBid->bid_amount : '') }}" placeholder="0.00" data-bid-amount required aria-describedby="bid-amount-error-{{ $pid }} bid-amount-compare-{{ $pid }}">
+                            {{-- The financial offer: bid price, then the PIN that seals the financial component. --}}
+                            <div class="sb-offer">
+                                <div class="sb-offer-row" data-bid-field>
+                                    <div class="sb-offer-label">
+                                        <label class="sb-label" for="bid-amount-{{ $pid }}">Bid price <span class="sb-req" aria-hidden="true">*</span></label>
+                                        <p class="sb-hint">Exactly as written on your Financial Bid Form.</p>
+                                    </div>
+                                    <div class="sb-offer-control">
+                                        <div class="sb-money">
+                                            <span class="sb-money-prefix" aria-hidden="true">&#8369;</span>
+                                            <input type="text" inputmode="decimal" autocomplete="transaction-amount" data-lpignore="true" data-1p-ignore data-bwignore spellcheck="false" name="bid_amount" id="bid-amount-{{ $pid }}" class="sb-input sb-money-input" value="{{ old('project_id') == $pid ? old('bid_amount') : ($prefillBid ? $myBid->bid_amount : '') }}" placeholder="0.00" data-bid-amount required aria-describedby="bid-amount-error-{{ $pid }} bid-amount-compare-{{ $pid }} bid-amount-cap-{{ $pid }}">
+                                        </div>
+                                        <p class="sb-compare" id="bid-amount-compare-{{ $pid }}" data-bid-compare aria-live="polite"></p>
+                                        <p class="sb-money-cap" id="bid-amount-cap-{{ $pid }}">Must not exceed the ABC of <strong>&#8369;{{ number_format($abc, 2) }}</strong></p>
+                                        <span class="sb-error" id="bid-amount-error-{{ $pid }}" data-bid-amount-error role="alert" aria-live="polite">@if(old('project_id') == $pid){{ $errors->first('bid_amount') }}@endif</span>
+                                    </div>
                                 </div>
-                                <p class="sb-compare" id="bid-amount-compare-{{ $pid }}" data-bid-compare aria-live="polite"></p>
-                                <span class="sb-error" id="bid-amount-error-{{ $pid }}" data-bid-amount-error role="alert" aria-live="polite">@if(old('project_id') == $pid){{ $errors->first('bid_amount') }}@endif</span>
-                            </div>
 
-                            @if($electronic)
-                                <div class="sb-pin" data-pin-box>
-                                    <div class="sb-pin-head">
-                                        <span class="sb-pin-icon" aria-hidden="true"><i class="fas fa-key"></i></span>
-                                        <div>
+                                @if($electronic)
+                                    <div class="sb-offer-row" data-pin-box>
+                                        <div class="sb-offer-label">
                                             <span class="sb-label">Financial PIN <span class="sb-req" aria-hidden="true">*</span></span>
-                                            <p class="sb-hint">6 digits that seal your financial component{{ $isModifying ? ' (a new PIN, or the same as before)' : '' }}. You give it to the BAC at the scheduled financial opening.</p>
+                                            <p class="sb-hint">6 digits that seal your financial component{{ $isModifying ? ' (a new PIN, or the same as before)' : '' }}. You give it to the BAC at the financial opening.</p>
+                                        </div>
+                                        <div class="sb-offer-control">
+                                            <div class="sb-pin-grid">
+                                                @foreach([['financial_password', 'financial-password-'.$pid, 'Create PIN'], ['financial_password_confirmation', 'financial-password-confirmation-'.$pid, 'Confirm PIN']] as [$pinName, $pinId, $pinLabel])
+                                                    <div class="sb-pin-field">
+                                                        <span class="sb-pin-top">
+                                                            <label for="{{ $pinId }}">{{ $pinLabel }}</label>
+                                                            <span class="sb-pin-count" data-pin-count>0 / 6 digits</span>
+                                                        </span>
+                                                        <div class="sb-pin-control">
+                                                            <input type="password" name="{{ $pinName }}" id="{{ $pinId }}" class="sb-input sb-pin-input" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="new-password" data-lpignore="true" data-1p-ignore data-bwignore placeholder="••••••" title="6 digits" data-pin required aria-describedby="pin-status-{{ $pid }}">
+                                                            <button type="button" class="sb-pin-eye" data-pin-toggle aria-controls="{{ $pinId }}" aria-pressed="false" aria-label="Show {{ strtolower($pinLabel) }}"><i class="fas fa-eye" aria-hidden="true"></i></button>
+                                                        </div>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                            <p class="sb-pin-status" id="pin-status-{{ $pid }}" data-pin-status data-state="idle" role="status" aria-live="polite"><i class="fas fa-circle-info" aria-hidden="true"></i> <span>Type the same 6 digits in both boxes.</span></p>
+                                            <span class="sb-error" data-pin-error role="alert">@if(old('project_id') == $pid){{ $errors->first('financial_password') }}@endif</span>
+                                            <p class="sb-pin-note"><i class="fas fa-lock" aria-hidden="true"></i> Keep it safe. Do not write it in your bid documents or send it by email.</p>
                                         </div>
                                     </div>
-                                    <div class="sb-pin-grid">
-                                        @foreach([['financial_password', 'financial-password-'.$pid, 'Create PIN'], ['financial_password_confirmation', 'financial-password-confirmation-'.$pid, 'Confirm PIN']] as [$pinName, $pinId, $pinLabel])
-                                            <div class="sb-pin-field">
-                                                <label for="{{ $pinId }}">{{ $pinLabel }}</label>
-                                                <div class="sb-pin-control">
-                                                    <input type="password" name="{{ $pinName }}" id="{{ $pinId }}" class="sb-input sb-pin-input" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="new-password" data-lpignore="true" data-1p-ignore data-bwignore placeholder="••••••" title="6 digits" data-pin required aria-describedby="pin-status-{{ $pid }}">
-                                                    <button type="button" class="sb-pin-eye" data-pin-toggle aria-controls="{{ $pinId }}" aria-pressed="false" aria-label="Show {{ strtolower($pinLabel) }}"><i class="fas fa-eye" aria-hidden="true"></i></button>
-                                                </div>
-                                                <span class="sb-pin-count" data-pin-count>0 / 6 digits</span>
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                    <p class="sb-pin-status" id="pin-status-{{ $pid }}" data-pin-status data-state="idle" role="status" aria-live="polite"><i class="fas fa-circle-info" aria-hidden="true"></i> <span>Type the same 6 digits in both boxes.</span></p>
-                                    <span class="sb-error" data-pin-error role="alert">@if(old('project_id') == $pid){{ $errors->first('financial_password') }}@endif</span>
-                                    <ul class="sb-pin-tips">
-                                        <li><i class="fas fa-lock" aria-hidden="true"></i> Keep it somewhere safe: the BAC asks for it to open your financial component.</li>
-                                        <li><i class="fas fa-eye-slash" aria-hidden="true"></i> Do not write it in your bid documents or send it by email.</li>
-                                    </ul>
-                                </div>
-                            @endif
+                                @endif
+                            </div>
 
                             <section class="sb-bulk-upload" data-bulk-uploader="financial" aria-labelledby="sb-bulk-financial-title-{{ $pid }}">
                                 <div class="sb-bulk-copy">

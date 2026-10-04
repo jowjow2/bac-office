@@ -113,23 +113,29 @@
     :is(.sb, #sb-x#sb-x) .sb-input { width: 100% !important; min-height: 40px !important; padding: 8px 12px !important; border: 1px solid var(--ui-line-strong) !important; border-radius: 9px !important; background: #fff !important; color: var(--ui-ink) !important; font: inherit; font-size: 14px !important; box-shadow: none !important; color-scheme: light !important; }
     :is(.sb, #sb-x#sb-x) .sb-input:focus { border-color: var(--ui-primary) !important; outline: 3px solid var(--ui-primary-soft) !important; outline-offset: 0 !important; }
     :is(.sb, #sb-x#sb-x) .sb-input.is-invalid { border-color: var(--ui-danger) !important; }
-    .sb-price, .sb-pin, .sb-notes { padding: 14px; border: 1px solid var(--sb-line); border-radius: 10px; background: var(--sb-soft); }
-    .sb-money { position: relative; max-width: 360px; }
+    .sb-notes { padding: 14px; border: 1px solid var(--sb-line); border-radius: 10px; background: var(--sb-soft); }
+    /* Financial offer: one card, a labelled row for the price and one for the PIN. */
+    .sb-offer { border: 1px solid var(--sb-line); border-radius: 12px; background: #fff; }
+    .sb-offer-row { display: grid; grid-template-columns: minmax(0, 210px) minmax(0, 1fr); gap: 10px 28px; padding: 18px 20px; }
+    .sb-offer-row + .sb-offer-row { border-top: 1px solid var(--sb-line); }
+    .sb-offer-label .sb-hint { margin: 4px 0 0; }
+    .sb-offer-control { display: grid; align-content: start; gap: 8px; min-width: 0; }
+    .sb-money { position: relative; max-width: 460px; }
     .sb-money-prefix { position: absolute; top: 50%; left: 14px; transform: translateY(-50%); color: var(--ui-muted); font-size: 18px; font-weight: 600; }
     :is(.sb, #sb-x#sb-x) .sb-money-input { min-height: 48px !important; padding-left: 34px !important; font-size: 20px !important; font-weight: 700; font-variant-numeric: tabular-nums; }
-    .sb-compare { margin: 6px 0 0; color: var(--ui-muted); font-size: 12.5px; }
+    .sb-compare { margin: 0; color: var(--ui-muted); font-size: 12.5px; }
+    .sb-money-cap { margin: 0; color: var(--ui-muted); font-size: 12.5px; }
+    .sb-money-cap strong { color: var(--ui-ink-2); font-weight: 600; }
+    .sb-compare:not(:empty) ~ .sb-money-cap { display: none; }
     .sb-compare:empty { display: none; }
     .sb b.is-under { color: var(--ui-success); }
     .sb b.is-over { color: var(--ui-danger); }
     .sb-error { display: block; color: var(--ui-danger); font-size: 12px; font-weight: 600; }
     .sb-error:empty { display: none; }
-    .sb-pin { display: grid; gap: 12px; }
-    .sb-pin-head { display: flex; align-items: flex-start; gap: 12px; }
-    .sb-pin-icon { display: grid; place-items: center; flex: 0 0 36px; height: 36px; border-radius: 10px; background: #fff; color: var(--ui-primary); }
-    .sb-pin-head .sb-hint { margin: 2px 0 0; }
-    .sb-pin-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 220px)); gap: 12px 18px; }
-    .sb-pin-field { display: grid; gap: 5px; min-width: 0; }
-    .sb-pin-field > label { color: var(--ui-ink-2); font-size: 12.5px; font-weight: 600; }
+    .sb-pin-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; max-width: 460px; }
+    .sb-pin-field { display: grid; gap: 6px; min-width: 0; }
+    .sb-pin-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .sb-pin-top > label { color: var(--ui-ink-2); font-size: 12.5px; font-weight: 600; }
     .sb-pin-control { position: relative; }
     :is(.sb, #sb-x#sb-x) .sb-pin-input { width: 100% !important; min-height: 48px !important; padding: 8px 44px 8px calc(12px + .45em) !important; font-family: var(--ui-mono), monospace; font-size: 20px !important; letter-spacing: .45em; text-align: center; }
     :is(.sb, #sb-x#sb-x) .sb-pin-input.is-match { border-color: var(--ui-success) !important; }
@@ -139,11 +145,12 @@
     .sb .sb-pin-eye:hover, .sb .sb-pin-eye:focus-visible { background: var(--sb-soft); color: var(--ui-ink); }
     .sb-pin-count { color: var(--ui-subtle); font-size: 11.5px; font-variant-numeric: tabular-nums; }
     .sb-pin-count.is-complete { color: var(--ui-success); font-weight: 600; }
-    .sb-pin-status { display: flex; align-items: center; gap: 8px; margin: 0; padding: 9px 12px; border: 1px solid var(--sb-line); border-radius: 9px; background: #fff; color: var(--ui-muted); font-size: 12.5px; font-weight: 600; }
+    .sb-pin-status { display: flex; align-items: center; gap: 8px; max-width: 460px; margin: 0; padding: 0; border: 1px solid transparent; border-radius: 9px; color: var(--ui-muted); font-size: 12.5px; font-weight: 500; }
+    .sb-pin-status[data-state="match"], .sb-pin-status[data-state="mismatch"] { padding: 8px 12px; font-weight: 600; }
     .sb-pin-status[data-state="match"] { border-color: var(--ui-success-line); background: var(--ui-success-soft); color: var(--ui-success); }
     .sb-pin-status[data-state="mismatch"] { border-color: var(--ui-danger-line); border-left: 4px solid var(--ui-danger); background: var(--ui-danger-soft); color: var(--ui-danger); }
-    .sb-pin-tips { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; color: var(--ui-muted); font-size: 12px; }
-    .sb-pin-tips i { width: 16px; color: var(--ui-subtle); }
+    .sb-pin-note { display: flex; align-items: baseline; gap: 8px; margin: 2px 0 0; color: var(--ui-muted); font-size: 12px; line-height: 1.5; }
+    .sb-pin-note i { color: var(--ui-subtle); font-size: 11px; }
     @keyframes sb-pin-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
     @media (prefers-reduced-motion: reduce) { :is(.sb, #sb-x#sb-x) .sb-pin-input.is-mismatch { animation: none; } }
     :is(.sb, #sb-x#sb-x) .sb-textarea { min-height: 80px !important; resize: vertical; }
@@ -223,6 +230,8 @@
     }
     @media (max-width: 640px) {
         .sb-pin-grid { grid-template-columns: 1fr; }
+        .sb-offer-row { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 14px 16px; }
+        .sb-money { max-width: none; }
         .bidder-submit-modal-overlay .sb { width: 100%; max-height: calc(100dvh - 16px); border-radius: 12px; }
         .sb-head { padding: 14px 16px 12px; }
         .sb-title { font-size: 18px; }
