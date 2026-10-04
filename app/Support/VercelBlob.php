@@ -12,6 +12,12 @@ class VercelBlob
 {
     private const API = 'https://vercel.com/api/blob';
 
+    /** Files sent or fetched at the same time. */
+    private const PARALLEL = 4;
+
+    /** @var list<array{pathname: string, contents: string, type: string}>|null */
+    private static ?array $pendingWrites = null;
+
     public static function enabled(): bool
     {
         return (bool) config('services.vercel_blob.enabled')
@@ -135,24 +141,39 @@ class VercelBlob
             throw \Illuminate\Validation\ValidationException::withMessages([$field => 'Direct uploads are not available here. Attach the files again.']);
         }
 
-        $files = [];
-        $urls = [];
+        foreach ($references as $key => $url) {
+            if (! is_string($key) || ! is_string($url) || ! self::isOwnUrlUnder($url, $folder)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([$field => 'An uploaded file could not be verified. Attach it again.']);
+            }
+        }
+
+        $urls = array_values($references);
         $temps = [];
+        $files = [];
         try {
+            // Fetched a few at a time in parallel, each streamed straight to a temp file.
+            $targets = [];
             foreach ($references as $key => $url) {
-                if (! is_string($key) || ! is_string($url) || ! self::isOwnUrlUnder($url, $folder)) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([$field => 'An uploaded file could not be verified. Attach it again.']);
+                $temp = tempnam(sys_get_temp_dir(), 'upl');
+                $temps[] = $temp;
+                $targets[$key] = $temp;
+            }
+            $responses = Http::pool(function (\Illuminate\Http\Client\Pool $pool) use ($references, $targets) {
+                foreach ($references as $key => $url) {
+                    $pool->as((string) $key)->withToken(self::token())->sink($targets[$key])->timeout(50)->get($url);
                 }
-                $urls[] = $url;
-                $contents = self::read($url);
-                if ($contents === null) {
+            }, self::PARALLEL);
+
+            foreach ($references as $key => $url) {
+                $response = $responses[(string) $key] ?? null;
+                if ($response instanceof \Illuminate\Http\Client\Response && $response->notFound()) {
                     throw \Illuminate\Validation\ValidationException::withMessages([$field.'.'.$key => 'An uploaded file was not found. Attach it again.']);
                 }
-                $temp = tempnam(sys_get_temp_dir(), 'upl');
-                file_put_contents($temp, $contents);
-                $temps[] = $temp;
+                if (! $response instanceof \Illuminate\Http\Client\Response || ! $response->successful()) {
+                    throw new RuntimeException('Unable to read the private attachment.');
+                }
                 $name = basename(str_replace('\\', '/', (string) ($names[$key] ?? basename((string) parse_url($url, PHP_URL_PATH)))));
-                $files[$key] = new UploadedFile($temp, $name !== '' ? $name : 'document.pdf', null, null, true);
+                $files[$key] = new UploadedFile($targets[$key], $name !== '' ? $name : 'document.pdf', null, null, true);
             }
         } catch (\Throwable $exception) {
             self::discardUploads($urls, $temps);
@@ -169,9 +190,14 @@ class VercelBlob
         foreach ($temps as $path) {
             @unlink($path);
         }
-        foreach ($urls as $url) {
+        $urls = array_values(array_filter($urls, fn ($url) => is_string($url) && self::isUrl($url)
+            && strtolower((string) parse_url($url, PHP_URL_HOST)) === self::host()));
+        foreach (array_chunk($urls, 100) as $chunk) {
             try {
-                self::delete($url);
+                Http::withToken(self::token())
+                    ->withHeaders(self::apiHeaders())
+                    ->timeout(30)
+                    ->post(self::API.'/delete', ['urls' => $chunk]);
             } catch (\Throwable) {
                 // Left in the private store; nothing links to it.
             }
@@ -200,9 +226,77 @@ class VercelBlob
         return 'https://'.self::host().'/'.implode('/', array_map('rawurlencode', explode('/', ltrim($pathname, '/'))));
     }
 
+    /**
+     * Runs $callback with Blob writes collected and sent a few at a time in parallel
+     * instead of one after another. Every write is confirmed before this returns;
+     * a failed write throws, so a surrounding transaction rolls back.
+     */
+    public static function batchWrites(callable $callback): mixed
+    {
+        if (self::$pendingWrites !== null) {
+            return $callback();
+        }
+
+        self::$pendingWrites = [];
+        try {
+            $result = $callback();
+            self::flushWrites();
+
+            return $result;
+        } finally {
+            self::$pendingWrites = null;
+        }
+    }
+
+    private static function flushWrites(): void
+    {
+        $writes = self::$pendingWrites ?? [];
+        if ($writes === []) {
+            return;
+        }
+        self::$pendingWrites = [];
+
+        $responses = Http::pool(function (\Illuminate\Http\Client\Pool $pool) use ($writes) {
+            foreach ($writes as $index => $write) {
+                self::writeRequest($pool->as((string) $index), $write['type'])
+                    ->withBody($write['contents'], $write['type'])
+                    ->put(self::API.'/?'.http_build_query(['pathname' => $write['pathname']]));
+            }
+        }, self::PARALLEL);
+
+        foreach (array_keys($writes) as $index) {
+            $response = $responses[(string) $index] ?? null;
+            $url = $response instanceof \Illuminate\Http\Client\Response ? $response->json('url') : null;
+            if (! $response instanceof \Illuminate\Http\Client\Response || ! $response->successful() || ! is_string($url) || ! self::isUrl($url)) {
+                throw new RuntimeException('Unable to store the file in private Blob storage.');
+            }
+        }
+    }
+
+    private static function writeRequest(\Illuminate\Http\Client\PendingRequest $request, string $type): \Illuminate\Http\Client\PendingRequest
+    {
+        return $request->withToken(self::token())
+            ->withHeaders(self::apiHeaders() + [
+                'x-vercel-blob-access' => 'private',
+                'x-content-type' => $type,
+                'x-add-random-suffix' => '0',
+                // Same semantics as a disk: writing a path again replaces the file.
+                'x-allow-overwrite' => '1',
+            ])
+            ->timeout(50);
+    }
+
     public static function putContents(string $pathname, string $contents, ?string $mimeType = null): string
     {
         $type = $mimeType ?: 'application/octet-stream';
+        if (self::$pendingWrites !== null) {
+            self::$pendingWrites[] = ['pathname' => ltrim($pathname, '/'), 'contents' => $contents, 'type' => $type];
+            if (count(self::$pendingWrites) >= self::PARALLEL) {
+                self::flushWrites();
+            }
+
+            return self::urlFor($pathname);
+        }
         $response = Http::withToken(self::token())
             ->withHeaders(self::apiHeaders() + [
                 'x-vercel-blob-access' => 'private',

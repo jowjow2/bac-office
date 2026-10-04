@@ -886,12 +886,18 @@ async function uploadRegistrationDocuments(form, formData, csrfToken) {
     // Loaded only here, so the sign-in page stays light.
     const { upload } = await import('@vercel/blob/client');
     const total = inputs.reduce((sum, input) => sum + input.files[0].size, 0);
-    let sent = 0;
+    const loadedByKey = new Map();
+    let done = 0;
+    const showProgress = () => {
+        const loaded = Array.from(loadedByKey.values()).reduce((sum, value) => sum + value, 0);
+        const percent = total ? Math.min(99, Math.round((loaded / total) * 100)) : 0;
+        renderAuthMessage('info', `Uploading your documents… ${percent}% (${done} of ${inputs.length} done)`);
+    };
 
-    for (const [index, input] of inputs.entries()) {
+    const uploadOne = async (input) => {
         const key = /registration_documents\[([^\]]+)\]/.exec(input.name)?.[1];
         const file = input.files[0];
-        if (!key) continue;
+        if (!key) return;
         const extension = (file.name.split('.').pop() || 'pdf').toLowerCase().replace(/[^a-z0-9]/g, '');
         const blob = await upload(`${form.dataset.directUploadFolder}/${key}.${extension}`, file, {
             access: 'private',
@@ -899,15 +905,24 @@ async function uploadRegistrationDocuments(form, formData, csrfToken) {
             headers: { 'X-CSRF-TOKEN': csrfToken || '', Accept: 'application/json' },
             multipart: file.size > 4 * 1024 * 1024,
             onUploadProgress: ({ loaded }) => {
-                const percent = total ? Math.min(99, Math.round(((sent + loaded) / total) * 100)) : 0;
-                renderAuthMessage('info', `Uploading your documents… ${percent}% (file ${index + 1} of ${inputs.length})`);
+                loadedByKey.set(key, loaded);
+                showProgress();
             },
         });
-        sent += file.size;
+        loadedByKey.set(key, file.size);
+        done += 1;
+        showProgress();
         formData.delete(input.name);
         formData.append(`uploaded_registration_documents[${key}]`, blob.url);
         formData.append(`uploaded_registration_document_names[${key}]`, file.name);
-    }
+    };
+
+    // Four files at a time instead of one after another.
+    const queue = inputs.slice();
+    showProgress();
+    await Promise.all(Array.from({ length: Math.min(4, queue.length) }, async () => {
+        while (queue.length) await uploadOne(queue.shift());
+    }));
     renderAuthMessage('info', 'Documents uploaded. Submitting your registration…');
 }
 

@@ -108,3 +108,57 @@ it('saves a bid sent with direct-upload references and deletes the temporary upl
         ->and($bid->documents->every(fn ($document) => $document->sha256 === hash('sha256', $pdf)))->toBeTrue()
         ->and($deleted->getArrayCopy())->toEqualCanonicalizing(array_values($references));
 });
+
+it('stores every bid file in Blob storage in parallel batches, and saves nothing when one write fails', function () {
+    ($this->pay)();
+    foreach (['local' => 'private', 'public' => 'public'] as $disk => $prefix) {
+        config()->set("filesystems.disks.$disk", ['driver' => 'vercel-blob', 'prefix' => $prefix, 'name' => $disk, 'throw' => false, 'report' => false]);
+        Storage::forgetDisk($disk);
+    }
+    $pdf = "%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF";
+    $written = new ArrayObject;
+    $failOn = new ArrayObject;
+    Http::fake(function (HttpRequest $request) use ($pdf, $written, $failOn) {
+        if ($request->method() === 'GET' && str_contains($request->url(), $this->host)) {
+            return Http::response($pdf, 200, ['Content-Type' => 'application/pdf']);
+        }
+        if ($request->method() === 'PUT' && str_starts_with($request->url(), 'https://vercel.com/api/blob/')) {
+            parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+            if (isset($failOn[0]) && str_contains($query['pathname'], $failOn[0])) {
+                return Http::response(['error' => 'down'], 503);
+            }
+            $written[] = $query['pathname'];
+
+            return Http::response(['url' => "https://{$this->host}/".$query['pathname']]);
+        }
+        if ($request->method() === 'POST' && str_ends_with($request->url(), '/api/blob/delete')) {
+            return Http::response([]);
+        }
+
+        return Http::response('Unexpected', 500);
+    });
+
+    $keys = BidSubmissionRequirements::for($this->project)->requiredKeys();
+    $references = collect($keys)->mapWithKeys(fn (string $key) => [$key => "https://{$this->host}/{$this->folder}/{$key}-Ab12Cd.pdf"])->all();
+    $post = fn () => testCase()->actingAs($this->bidder)->post(route('bidder.bids.store', $this->project), [
+        'project_id' => $this->project->id, 'bid_amount' => '1450000',
+        'financial_password' => '482913', 'financial_password_confirmation' => '482913',
+        'uploaded_documents' => $references,
+        'uploaded_document_names' => collect($references)->map(fn ($url, $key) => $key.'.pdf')->all(),
+    ]);
+
+    // One storage write fails: the whole bid is rolled back.
+    $failOn[0] = end($keys);
+    $post()->assertServerError();
+    expect(Bid::count())->toBe(0);
+
+    unset($failOn[0]);
+    $written->exchangeArray([]);
+    $post()->assertSessionHasNoErrors()->assertSessionHas('success');
+    $bid = Bid::with('documents')->firstOrFail();
+    expect($bid->documents)->toHaveCount(count($keys))
+        ->and($written->count())->toBe(count($keys));
+    foreach ($bid->documents as $document) {
+        expect(collect($written->getArrayCopy())->contains(fn ($pathname) => str_ends_with($pathname, $document->file_path)))->toBeTrue();
+    }
+});

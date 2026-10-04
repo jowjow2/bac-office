@@ -7,12 +7,12 @@
  * Active only on forms the server marks with data-direct-upload-url (when Blob
  * storage is configured). The server issues one short-lived token per file,
  * checks every reference, and runs the usual file checks before saving.
- * Progress shows on the Submit button itself; three files upload at a time.
+ * Progress shows on the Submit button itself; four files upload at a time.
  */
 import { upload } from '@vercel/blob/client';
 
 const MULTIPART_FROM = 4 * 1024 * 1024;
-const PARALLEL_UPLOADS = 3;
+const PARALLEL_UPLOADS = 4;
 
 function statusOf(form) {
     return form.closest('[data-bid-dialog]')?.querySelector('[data-bid-status]') || null;

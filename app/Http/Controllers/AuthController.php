@@ -411,27 +411,30 @@ class AuthController extends Controller
 
                 $primaryDocumentPath = null;
 
-                foreach (BidderRegistrationRequirements::documents() as $key => $document) {
-                    $file = $request->file("registration_documents.{$key}");
+                // Documents go to storage in parallel; all are confirmed before the commit.
+                \App\Support\VercelBlob::batchWrites(function () use ($request, $user, &$storedPaths, &$primaryDocumentPath) {
+                    foreach (BidderRegistrationRequirements::documents() as $key => $document) {
+                        $file = $request->file("registration_documents.{$key}");
 
-                    if (! $file) {
-                        continue;
+                        if (! $file) {
+                            continue;
+                        }
+
+                        $filename = 'registration_' . $user->id . '_' . $key . '_' . Str::random(12) . '.' . strtolower($file->getClientOriginalExtension());
+                        $storedPath = Uploads::store($file, 'bidder-registration-documents/' . $user->id, $filename);
+                        $storedPaths[] = $storedPath;
+                        $primaryDocumentPath ??= $storedPath;
+
+                        BidderDocument::create([
+                            'user_id' => $user->id,
+                            'document_type' => $document['document_type'],
+                            'original_name' => $file->getClientOriginalName(),
+                            'file_path' => $storedPath,
+                            'status' => 'uploaded',
+                            'uploaded_at' => now(),
+                        ]);
                     }
-
-                    $filename = 'registration_' . $user->id . '_' . $key . '_' . Str::random(12) . '.' . strtolower($file->getClientOriginalExtension());
-                    $storedPath = Uploads::store($file, 'bidder-registration-documents/' . $user->id, $filename);
-                    $storedPaths[] = $storedPath;
-                    $primaryDocumentPath ??= $storedPath;
-
-                    BidderDocument::create([
-                        'user_id' => $user->id,
-                        'document_type' => $document['document_type'],
-                        'original_name' => $file->getClientOriginalName(),
-                        'file_path' => $storedPath,
-                        'status' => 'uploaded',
-                        'uploaded_at' => now(),
-                    ]);
-                }
+                });
 
                 if ($primaryDocumentPath) {
                     $bidder->forceFill(['document_path' => $primaryDocumentPath])->save();

@@ -66,7 +66,7 @@ class BidSubmission
         $stored = [];
 
         try {
-            $bid = DB::transaction(function () use ($project, $bidder, $amount, $files, $notes, $financialPassword, $requirements, $electronic, &$stored) {
+            $bid = DB::transaction(fn () => VercelBlob::batchWrites(function () use ($project, $bidder, $amount, $files, $notes, $financialPassword, $requirements, $electronic, &$stored) {
                 $lockedProject = Project::with('schedule')->lockForUpdate()->findOrFail($project->id);
                 // Checked again under the lock: the deadline is enforced at the moment of saving.
                 $this->assertBeforeDeadline($lockedProject);
@@ -225,7 +225,7 @@ class BidSubmission
                 ], ['user_id' => $bidder->id]);
 
                 return $bid;
-            });
+            }));
         } catch (\Throwable $exception) {
             foreach ($stored as $path) {
                 app(FinancialBidFile::class)->delete($path);
