@@ -147,9 +147,51 @@ class SystemNotification
             'created_at' => $notification->created_at?->toISOString(),
             'is_read' => $notification->read_at !== null,
             'url' => self::targetUrl($notification, $viewer),
+            ...self::presentation((string) $notification->title, (string) $notification->message, (string) $notification->type),
             // Lets an open page react live (e.g. unlock a bid once the fee is recorded).
             'project_id' => is_numeric(Arr::get($notification->data ?? [], 'project_id')) ? (int) Arr::get($notification->data, 'project_id') : null,
         ];
+    }
+
+    /**
+     * How a notification is shown in the notification center: a category,
+     * an icon and a tone, read from its type and wording.
+     *
+     * @return array{category: string, icon: string, tone: string}
+     */
+    public static function presentation(string $title, string $message, string $type = ''): array
+    {
+        $classify = function (string $text) use ($type): array {
+            $has = fn (string ...$words) => collect($words)->contains(fn (string $word) => str_contains($text, $word));
+
+            return match (true) {
+                $type === 'message' || $has('new message') => ['Message', 'fa-envelope', 'info'],
+                $has('bidding closed') => ['Bidding', 'fa-lock', 'warning'],
+                $has('contract completed', 'completed') && $has('contract') => ['Contract', 'fa-flag-checkered', 'success'],
+                $has('payment', ' paid', 'fee', 'official receipt') => ['Payment', 'fa-receipt', 'success'],
+                $has('delivery', 'goods', 'inspection', 'notice to proceed', 'contract', 'warranty', 'site') => ['Contract', 'fa-truck-ramp-box', 'info'],
+                $has('award') => ['Award', 'fa-trophy', 'success'],
+                $has('purchase request') => ['Request', 'fa-file-lines', 'info'],
+                $has('assign') => ['Assignment', 'fa-user-tag', 'info'],
+                $has('registration', 'account', 'requirements', 'profile') => ['Account', 'fa-user-check', 'info'],
+                $has('bid', 'quotation', 'opening', 'evaluation', 'qualification') => ['Bid', 'fa-file-contract', 'info'],
+                $has('project', 'opportunit', 'published', 'bulletin') => ['Project', 'fa-bullhorn', 'info'],
+                default => ['Update', 'fa-bell', 'neutral'],
+            };
+        };
+
+        // The title says what it is about; the message only when the title does not.
+        $text = strtolower($title.' '.$message);
+        [$category, $icon, $tone] = $classify(strtolower($title));
+        if ($category === 'Update') {
+            [$category, $icon, $tone] = $classify($text);
+        }
+
+        // Bad news reads as such, whatever it is about.
+        if (collect(['rejected', 'disqualified', 'failed', 'returned', 'correction', 'cancelled', 'revoked', 'not accepted'])->contains(fn ($word) => str_contains($text, $word))) {
+            $tone = 'danger';
+        }
+        return ['category' => $category, 'icon' => $icon, 'tone' => $tone];
     }
 
     public static function payloads(Collection $notifications, ?User $viewer = null): Collection

@@ -54,11 +54,18 @@ it('renders identical notification panel/list markup across admin, staff, and bi
     $staffResponse->assertOk();
     $bidderResponse->assertOk();
 
-    foreach ([$adminResponse, $staffResponse, $bidderResponse] as $response) {
-        $response->assertSee('panel notifications-panel', false);
-        $response->assertSee('panel-header notifications-panel-header', false);
-        $response->assertSee('notification-mark-all-read-btn', false);
-        $response->assertSee('notification-list', false);
-        $response->assertSee('notification-icon notification-icon-primary', false);
+    // End-user offices get the same center.
+    $office = User::create(['name' => 'Office UI User', 'email' => 'office-ui@example.com', 'password' => Hash::make('secret123'), 'role' => 'end_user', 'status' => 'active', 'office' => 'Municipal Engineering Office']);
+    SystemNotification::createForUser($office->id, 'Assignment update', 'A new task was assigned to you.', 'staff_assignment');
+    $officeResponse = testCase()->actingAs($office)->get(route('end-user.notifications'))->assertOk();
+
+    foreach ([$adminResponse, $staffResponse, $bidderResponse, $officeResponse] as $response) {
+        $response->assertSee('class="nc" data-nc', false)
+            ->assertSee('data-notifications-read-all', false)
+            ->assertSee('data-notifications-list data-nc-list', false)
+            ->assertSeeInOrder(['Today', 'Assignment update', 'Assignment', 'A new task was assigned to you.'])
+            ->assertSee('nc-icon nc-icon--info', false)
+            ->assertSee('fa-user-tag', false)
+            ->assertSee('1 unread');
     }
 });

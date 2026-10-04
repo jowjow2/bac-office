@@ -94,7 +94,7 @@
 
             async function syncNotifications(highlightNew) {
                 try {
-                    const response = await fetch(config.feedUrl + (config.liveScope ? '?live=' + encodeURIComponent(config.liveScope) : ''), {
+                    const response = await fetch(config.feedUrl + '?' + new URLSearchParams(Object.assign({ limit: list && list.hasAttribute('data-nc-list') ? 30 : 10 }, config.liveScope ? { live: config.liveScope } : {})).toString(), {
                         headers: {
                             'Accept': 'application/json',
                             'X-Requested-With': 'XMLHttpRequest',
@@ -431,9 +431,49 @@
                     return;
                 }
 
+                if (!compact && target.hasAttribute('data-nc-list')) {
+                    target.innerHTML = renderCenter(notifications);
+                    return;
+                }
+
                 target.innerHTML = notifications.map(function (notification) {
                     return compact ? renderDropdownItem(notification) : renderPageRow(notification);
                 }).join('');
+            }
+
+            /* The notification center (partials.notifications.center): grouped by day. */
+            function centerGroup(iso) {
+                if (!iso) return 'Earlier';
+                const day = new Date(iso); day.setHours(0, 0, 0, 0);
+                const today = new Date(); today.setHours(0, 0, 0, 0);
+                const days = Math.round((today - day) / 86400000);
+                return days <= 0 ? 'Today' : days === 1 ? 'Yesterday' : days <= 6 ? 'This week' : 'Earlier';
+            }
+
+            function renderCenter(notifications) {
+                if (notifications.length === 0) {
+                    return '<div class="nc-empty"><i class="fas fa-inbox" aria-hidden="true"></i><strong>No notifications yet</strong><span>Procurement updates will appear here.</span></div>';
+                }
+                const groups = [];
+                notifications.forEach(function (notification) {
+                    const label = centerGroup(notification.created_at);
+                    let group = groups.find(function (entry) { return entry.label === label; });
+                    if (!group) { group = { label: label, rows: [] }; groups.push(group); }
+                    group.rows.push(renderCenterRow(notification));
+                });
+                return groups.map(function (group) {
+                    return '<div class="nc-group"><h3 class="nc-group__label">' + escapeHtml(group.label) + '</h3>' + group.rows.join('') + '</div>';
+                }).join('');
+            }
+
+            function renderCenterRow(notification) {
+                const state = notification.is_read ? 'notification-read' : 'notification-unread';
+                return '<a href="' + escapeAttribute(openUrl(notification.id)) + '" class="nc-item ' + state + '" data-notification-row data-notification-open data-notification-id="' + escapeAttribute(notification.id) + '">'
+                    + '<span class="nc-icon nc-icon--' + escapeAttribute(notification.tone || 'neutral') + '" aria-hidden="true"><i class="fas ' + escapeAttribute(notification.icon || 'fa-bell') + '"></i></span>'
+                    + '<span class="nc-body"><span class="nc-top"><span class="nc-title">' + escapeHtml(notification.title || 'Notification') + '</span><span class="nc-cat">' + escapeHtml(notification.category || 'Update') + '</span></span>'
+                    + '<span class="nc-msg">' + escapeHtml(notification.message || '') + '</span></span>'
+                    + '<span class="nc-meta"><time datetime="' + escapeAttribute(notification.created_at || '') + '">' + escapeHtml(notification.time || 'Recently') + '</time><span class="nc-dot"></span></span>'
+                    + '</a>';
             }
 
             function getNotificationIcon(notification) {
@@ -556,9 +596,14 @@
                 });
 
                 unreadLabels.forEach(function (label) {
+                    const inCenter = Boolean(label.closest('[data-nc]'));
                     label.textContent = count > 0
-                        ? `${count} unread notification${count === 1 ? '' : 's'}`
-                        : 'All important notifications are read';
+                        ? (inCenter ? `${count} unread` : `${count} unread notification${count === 1 ? '' : 's'}`)
+                        : (inCenter ? 'You are all caught up' : 'All important notifications are read');
+                });
+                document.querySelectorAll('[data-nc-unread-count]').forEach(function (chip) {
+                    chip.textContent = String(count);
+                    chip.hidden = count === 0;
                 });
             }
 
