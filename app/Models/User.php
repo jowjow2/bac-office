@@ -173,9 +173,15 @@ class User extends Authenticatable
     /** Schema::hasTable() queries the database: remember the answer for the request. */
     private static function tableExists(string $table): bool
     {
-        static $known = [];
+        // Kept in the application container, so a new app (each request, each test) asks again.
+        $app = app();
+        $known = $app->bound('user.known-tables') ? $app->make('user.known-tables') : [];
+        if (! array_key_exists($table, $known)) {
+            $known[$table] = Schema::hasTable($table);
+            $app->instance('user.known-tables', $known);
+        }
 
-        return $known[$table] ??= Schema::hasTable($table);
+        return $known[$table];
     }
 
     public function bidderProcurementStatus(): string
