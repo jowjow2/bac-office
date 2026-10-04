@@ -288,13 +288,66 @@ function startLoginResendCooldown(seconds) {
     if (until > Date.now()) loginResendTimerId = window.setInterval(tick, 1000);
 }
 
+let loginExpiryTimerId = null;
+
+/* Live countdown of the emailed code's lifetime. */
 function showLoginCodeLifetime(seconds) {
-    const note = document.getElementById('verifyLoginExpiry');
-    if (!note) return;
-    const minutes = Math.round((Number(seconds) || 0) / 60);
-    note.textContent = minutes > 0 ? `The code expires in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'} and works once.` : '';
-    note.hidden = minutes <= 0;
+    const status = document.getElementById('verifyLoginExpiry');
+    if (!status) return;
+    const label = status.querySelector('span');
+    const timer = status.querySelector('[data-code-timer]');
+    if (loginExpiryTimerId) {
+        window.clearInterval(loginExpiryTimerId);
+        loginExpiryTimerId = null;
+    }
+    const total = Math.max(0, Number(seconds) || 0);
+    status.hidden = total <= 0;
+    if (total <= 0) return;
+
+    const until = Date.now() + total * 1000;
+    const tick = () => {
+        const left = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+        if (label) label.textContent = left > 0 ? 'Code expires in' : 'Code expired. Press Resend code.';
+        if (timer) timer.textContent = left > 0 ? `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}` : '';
+        status.classList.toggle('is-expired', left <= 0);
+        if (left <= 0 && loginExpiryTimerId) {
+            window.clearInterval(loginExpiryTimerId);
+            loginExpiryTimerId = null;
+        }
+    };
+    tick();
+    loginExpiryTimerId = window.setInterval(tick, 1000);
 }
+
+/* Six code boxes mirror one real input; a full code is sent right away. */
+function renderCodeBoxes(wrapper) {
+    const input = wrapper.querySelector('.auth-otp__input');
+    const value = input.value;
+    const focused = document.activeElement === input;
+    wrapper.querySelectorAll('.auth-otp__slot').forEach((slot, index) => {
+        slot.textContent = value[index] || '';
+        slot.classList.toggle('is-filled', index < value.length);
+        slot.classList.toggle('is-active', focused && index === Math.min(value.length, 5));
+    });
+}
+
+document.querySelectorAll('[data-otp]').forEach((wrapper) => {
+    const input = wrapper.querySelector('.auth-otp__input');
+    let previousLength = 0;
+    input.addEventListener('input', () => {
+        input.value = input.value.replace(/\D/g, '').slice(0, 6);
+        renderCodeBoxes(wrapper);
+        if (input.value.length === 6 && previousLength < 6) {
+            input.form?.requestSubmit();
+        }
+        previousLength = input.value.length;
+    });
+    ['focus', 'blur', 'keyup', 'click'].forEach((type) => input.addEventListener(type, () => {
+        previousLength = input.value.length;
+        renderCodeBoxes(wrapper);
+    }));
+    renderCodeBoxes(wrapper);
+});
 
 /* Shows the code step for a sign-in that is waiting for its emailed code. */
 function startLoginVerification(data) {

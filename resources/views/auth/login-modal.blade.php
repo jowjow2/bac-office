@@ -167,13 +167,16 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></svg>
                     </span>
                     <h3>Check your email</h3>
-                    <p>We sent a 6-digit code to <strong id="verifyLoginMaskedEmail">your email</strong>.</p>
+                    <p>Enter the 6-digit code we sent to<br><strong id="verifyLoginMaskedEmail">your email</strong></p>
                 </div>
                 <input type="hidden" name="email" id="verifyLoginEmail">
-                <p class="auth-code-note" id="verifyLoginExpiry" role="status" aria-live="polite" hidden></p>
                 <div class="auth-field">
-                    <input type="text" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" class="auth-input auth-code-input" placeholder="000000" required autocomplete="one-time-code" aria-label="6-digit verification code">
+                    @include('auth.partials.code-input', ['label' => '6-digit verification code'])
                     <div class="field-error" data-error-for="code"></div>
+                </div>
+                <div class="auth-code-status" id="verifyLoginExpiry" role="status" aria-live="polite" hidden>
+                    <span>Code expires in</span>
+                    <strong data-code-timer>05:00</strong>
                 </div>
                 <button type="submit" class="auth-button" data-loading-text="Verifying...">Verify and sign in</button>
                 <div class="auth-inline-actions">
@@ -210,7 +213,7 @@
                     <strong id="forgotCodeTimer">03:00</strong>
                 </div>
                 <div class="auth-field">
-                    <input type="text" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" class="auth-input auth-code-input" placeholder="000000" required autocomplete="one-time-code" aria-label="6-digit reset code">
+                    @include('auth.partials.code-input', ['label' => '6-digit reset code'])
                     <div class="field-error" data-error-for="code"></div>
                 </div>
                 <button type="submit" class="auth-button" data-loading-text="Verifying code...">Verify code</button>
