@@ -700,6 +700,7 @@ body.pw-open {
     .pw__cancel { min-height: 32px; padding-block: 4px; }
     .pw__actions { flex-basis: 100%; justify-content: flex-end; }
     .pw-steps__label { display: none; }
+    .pw-steps__button { min-height: 44px; }
     .pw-steps__item.is-current .pw-steps__label { display: block; }
     .pw-steps__item:not(:last-child)::after { left: calc(50% + 16px); right: calc(-50% + 16px); }
     .pw-section { padding: 14px; }

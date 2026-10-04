@@ -1217,7 +1217,8 @@ body .admin-dashboard.admin-bids-page .bid-export-toolbar-action .bid-control:ho
     color: var(--ui-primary-hover) !important;
     -webkit-text-fill-color: var(--ui-primary-hover) !important;
 }
-@media (max-width: 900px) {
+/* The five filters need about 1,000px in one row; below that they wrap. */
+@media (max-width: 1279px) {
     body .admin-dashboard.admin-bids-page .admin-bids-toolbar {
         flex-wrap: wrap !important;
     }
@@ -1234,8 +1235,9 @@ body .admin-dashboard.admin-bids-page .bid-export-toolbar-action .bid-control:ho
         max-width: none !important;
     }
     body .admin-dashboard.admin-bids-page #bid-management .admin-bids-toolbar-field:not(.admin-bids-toolbar-field-search) {
-        flex: 1 1 auto !important;
+        flex: 1 1 calc(50% - 8px) !important;
         width: auto !important;
+        min-width: 0 !important;
     }
     body .admin-dashboard.admin-bids-page .bid-export-toolbar-action {
         flex: 0 0 auto !important;
@@ -2202,6 +2204,11 @@ body .admin-bids-v2 .bid-empty-state { display: flex; align-items: center; flex-
 body .admin-bids-v2 .bid-empty-state i { color: var(--ui-primary); font-size: 24px; }
 body .admin-bids-v2 .bid-empty-state strong { color: var(--ui-ink); font-size: 14px; }
 body .admin-bids-v2 .bid-empty-state span { font-size: 12px; }
+/* Laptop widths: keep readable columns and scroll the table sideways instead of breaking words. */
+@media (min-width: 901px) and (max-width: 1279px) {
+    body .admin-bids-v2 .bid-scroll-container { overflow-x: auto !important; }
+    body #bid-management.admin-bids-v2 .bid-management-table { min-width: 1000px !important; }
+}
 @media (max-width: 900px) {
     body .admin-bids-v2 .bid-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

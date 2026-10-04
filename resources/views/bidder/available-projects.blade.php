@@ -575,6 +575,17 @@
                 flex-direction: column;
             }
 
+            .bidder-list-toolbar {
+                padding: 12px 14px;
+            }
+
+            /* Stay inside the card; the tabs scroll sideways when they do not fit. */
+            .bidder-tabs,
+            .bidder-toolbar-controls {
+                min-width: 0;
+                max-width: 100%;
+            }
+
             .bidder-tabs {
                 overflow-x: auto;
             }

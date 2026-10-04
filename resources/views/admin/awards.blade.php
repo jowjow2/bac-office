@@ -903,6 +903,9 @@
         }
 
         @media (max-width: 640px) {
+            body .admin-dashboard.admin-role-page.admin-awards-page .award-certificate-muted {
+                white-space: normal;
+            }
 
             body .admin-dashboard.admin-role-page.admin-awards-page .awards-page-intro,
             body .admin-dashboard.admin-role-page.admin-awards-page .awards-toolbar-controls,

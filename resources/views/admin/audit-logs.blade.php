@@ -67,6 +67,11 @@
     #auditLogs .alog-pager { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 12px 18px; color: var(--ui-muted); font-size: 12.5px; }
     #auditLogs .alog-pager-links { display: flex; gap: 8px; }
 
+    /* One row needs about 840px: search on its own row below that. */
+    @media (max-width: 1279px) {
+        #auditLogs .alog-filters { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        #auditLogs .alog-search { grid-column: 1 / -1; }
+    }
     @media (max-width: 900px) {
         #auditLogs .alog-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         #auditLogs .alog-search { grid-column: 1 / -1; }

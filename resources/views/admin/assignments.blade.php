@@ -147,8 +147,8 @@
         }
 
         body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-chip-remove {
-            width: 28px !important;
-            height: 28px !important;
+            width: 32px !important;
+            height: 32px !important;
             display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;

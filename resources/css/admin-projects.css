@@ -842,6 +842,9 @@ body .admin-dashboard.admin-role-page .main-area.projects-page {
 
         & .projects-table tbody tr { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; padding: 14px !important; }
         & .projects-title-meta { white-space: normal !important; }
+        & .projects-title-button { min-height: 32px !important; }
+        /* Same icon position, bigger touch area. */
+        & .projects-search-icon { left: 3px !important; width: 32px !important; height: 32px !important; }
 
         & .projects-pagination-nav { justify-content: center !important; }
     }
