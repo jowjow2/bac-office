@@ -61,7 +61,7 @@
                     <td>P{{ number_format((float) $project->budget, 2) }}</td>
                     <td>{{ $project->bids_count }}</td>
                     <td>{{ $project->status === 'awarded' ? 'Yes' : '-' }}</td>
-                    <td>{{ ucfirst($project->status) }}</td>
+                    <td>{{ $project->portalStatus()['label'] }}</td>
                 </tr>
             @endforeach
         </tbody>
@@ -72,8 +72,8 @@
         <thead>
             <tr>
                 <th>Bidder</th>
-                <th>Total Bids</th>
-                <th>Approved</th>
+                <th>Bids</th>
+                <th>Passed preliminary</th>
                 <th>Won</th>
             </tr>
         </thead>
@@ -82,7 +82,7 @@
                 <tr>
                     <td>{{ $bidder['bidder'] }}</td>
                     <td>{{ $bidder['total_bids'] }}</td>
-                    <td>{{ $bidder['approved'] }}</td>
+                    <td>{{ $bidder['passed'] }}</td>
                     <td>{{ $bidder['won'] }}</td>
                 </tr>
             @endforeach

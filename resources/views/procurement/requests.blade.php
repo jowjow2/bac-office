@@ -72,9 +72,15 @@
             @endphp
             <div class="ui-empty">
                 <i class="fas fa-inbox" aria-hidden="true"></i>
-                <strong>{{ $search !== '' ? 'No requests in '.$tabs[$tab][0].' match "'.$search.'"' : 'This queue is empty' }}</strong>
+                <strong>{{ $search !== '' ? 'No requests in '.$tabs[$tab][0].' match "'.$search.'"' : ($tab === 'review' ? 'Nothing waiting for your review' : 'This queue is empty') }}</strong>
                 <span>
-                    @if($search !== '')
+                    @if($search === '' && $tab === 'review' && ($counts['bac'] + $counts['procurement']) > 0)
+                        {{-- Say where the requests went, so an empty review queue does not look like missing data. --}}
+                        All submitted requests have been checked:
+                        <a class="ui-link" href="{{ route($routePrefix.'.requests', ['tab' => 'bac']) }}">{{ $counts['bac'] }} forwarded to the BAC</a>
+                        &middot;
+                        <a class="ui-link" href="{{ route($routePrefix.'.requests', ['tab' => 'procurement']) }}">{{ $counts['procurement'] }} in procurement</a>.
+                    @elseif($search !== '')
                         @if($elsewhere)
                             Found in
                             @foreach($elsewhere as $key => [$label, $count])

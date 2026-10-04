@@ -45,9 +45,53 @@ class StaffController extends Controller
         return view('staff.assign-projects', $this->staffPageData());
     }
 
-    public function reviewBids()
+    /**
+     * Bids on the projects assigned to this staff member: the same register and
+     * Review Bid modal as the BAC Admin, where staff check the submitted documents.
+     * Opening and review decisions stay with the BAC Admin.
+     */
+    public function reviewBids(Request $request)
     {
-        return view('staff.review-bids', $this->staffPageData());
+        return app(AdminController::class)->bidsPage($request, 'staff', $this->assignedProjectIds());
+    }
+
+    public function exportBids(Request $request)
+    {
+        return app(AdminController::class)->bidsExport($request, $this->assignedProjectIds());
+    }
+
+    public function viewBid(Request $request, Bid $bid)
+    {
+        $this->ensureAssignedProject($bid->project_id);
+
+        return app(AdminController::class)->viewBid($request, $bid);
+    }
+
+    public function streamBidComponentFile(Bid $bid, \App\Models\BidDocument $bidDocument)
+    {
+        $this->ensureAssignedProject($bid->project_id);
+
+        return app(AdminController::class)->streamBidComponentFile($bid, $bidDocument);
+    }
+
+    public function streamBidDocument(Bid $bid, string $document)
+    {
+        $this->ensureAssignedProject($bid->project_id);
+
+        return app(AdminController::class)->streamBidDocumentPdf($bid, $document);
+    }
+
+    public function awardRecommendationDocument(Bid $bid, string $document)
+    {
+        $this->ensureAssignedProject($bid->project_id);
+
+        return app(\App\Http\Controllers\AwardRecommendationDocumentController::class)->download($bid, $document);
+    }
+
+    /** @return list<int> */
+    protected function assignedProjectIds(): array
+    {
+        return Assignment::where('staff_id', Auth::id())->pluck('project_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
     }
 
     public function reports()
@@ -69,32 +113,32 @@ class StaffController extends Controller
 
             fputcsv($handle, ['KPI Summary']);
             fputcsv($handle, ['Metric', 'Value']);
-            fputcsv($handle, ['Total Budget Allocated', $report['totalBudgetAllocated']]);
+            fputcsv($handle, ['Total ABC of assigned projects', $report['totalBudgetAllocated']]);
             fputcsv($handle, ['Total Awarded', $report['totalAwardedAmount']]);
             fputcsv($handle, ['Government Savings', $report['governmentSavings']]);
             fputcsv($handle, ['Bid Participation', $report['bidParticipation']]);
             fputcsv($handle, []);
 
             fputcsv($handle, ['Project Summary Report']);
-            fputcsv($handle, ['Project', 'Budget', 'Bids', 'Awarded', 'Status']);
+            fputcsv($handle, ['Project', 'ABC', 'Bids', 'Awarded', 'Status']);
             foreach ($report['assignedProjects'] as $project) {
                 fputcsv($handle, [
                     $project->title,
                     $project->budget,
                     $project->bids_count,
                     $project->status === 'awarded' ? 'Yes' : 'No',
-                    $project->status,
+                    $project->portalStatus()['label'],
                 ]);
             }
             fputcsv($handle, []);
 
             fputcsv($handle, ['Bidder Performance']);
-            fputcsv($handle, ['Bidder', 'Total Bids', 'Approved', 'Won']);
+            fputcsv($handle, ['Bidder', 'Official bids', 'Passed preliminary', 'Won']);
             foreach ($report['bidderPerformance'] as $bidder) {
                 fputcsv($handle, [
                     $bidder['bidder'],
                     $bidder['total_bids'],
-                    $bidder['approved'],
+                    $bidder['passed'],
                     $bidder['won'],
                 ]);
             }
@@ -521,7 +565,7 @@ class StaffController extends Controller
     {
         $assignments = Assignment::with(['project' => function ($query) {
                 $query->withCount('bids');
-            }, 'project.bids.user'])
+            }, 'project.bids.user', 'project.bids.documents.reviewEvents', 'project.schedule'])
             ->where('staff_id', Auth::id())
             ->latest()
             ->get();
@@ -537,7 +581,7 @@ class StaffController extends Controller
             ->latest()
             ->get();
 
-        $allAssignedBids = Bid::with(['project', 'user'])
+        $allAssignedBids = Bid::with(['project', 'user', 'award'])
             ->whereIn('project_id', $projectIds)
             ->latest()
             ->get();
@@ -558,20 +602,23 @@ class StaffController extends Controller
         $validatedDocuments = $allAssignedBids->filter(fn ($bid) => filled($bid->proposal_file))->count();
         $recommendedBids = $allAssignedBids->where('status', 'approved')->count();
         $totalBidAmount = (float) $allAssignedBids->filter(fn ($bid) => ! $bid->isFinancialSealed())->sum('bid_amount');
+        // Report figures use official bids and awards in force only (no drafts, no cancelled awards).
+        $officialBids = $allAssignedBids->reject(fn ($bid) => $bid->isDraft())->values();
+        $activeAwards = \App\Models\Award::query()->whereIn('project_id', $projectIds)->get()->reject(fn ($award) => $award->isCancelled());
         $totalBudgetAllocated = (float) $assignedProjects->sum(fn ($project) => (float) $project->budget);
-        $totalAwardedAmount = (float) $assignedProjects
-            ->where('status', 'awarded')
-            ->sum(fn ($project) => (float) $project->budget);
-        $governmentSavings = max(0, $totalBudgetAllocated - $totalAwardedAmount);
-        $bidParticipation = $allAssignedBids->count();
-        $bidderPerformance = $allAssignedBids
-            ->groupBy(fn ($bid) => $bid->user->company ?: ($bid->user->name ?? 'Unknown Bidder'))
+        $totalAwardedAmount = (float) $activeAwards->sum(fn ($award) => (float) $award->contract_amount);
+        // Savings: the ABC of the awarded projects less what they were awarded for.
+        $awardedBudget = (float) $assignedProjects->whereIn('id', $activeAwards->pluck('project_id')->unique())->sum(fn ($project) => (float) $project->budget);
+        $governmentSavings = max(0, $awardedBudget - $totalAwardedAmount);
+        $bidParticipation = $officialBids->count();
+        $bidderPerformance = $officialBids
+            ->groupBy(fn ($bid) => $bid->user?->company ?: ($bid->user?->name ?? 'Unknown Bidder'))
             ->map(function ($bids, $bidderName) {
                 return [
                     'bidder' => $bidderName,
                     'total_bids' => $bids->count(),
-                    'approved' => $bids->where('status', 'approved')->count(),
-                    'won' => $bids->where('status', 'approved')->count(),
+                    'passed' => $bids->filter(fn ($bid) => $bid->progress()->facts()['prelim_passed'])->count(),
+                    'won' => $bids->filter(fn ($bid) => $bid->award && ! $bid->award->isCancelled())->count(),
                 ];
             })
             ->sortByDesc('total_bids')

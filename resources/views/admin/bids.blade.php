@@ -1,12 +1,25 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 @include('partials.dashboard-viewport')
-<div class="admin-dashboard admin-role-page dashboard-home admin-dashboard-page admin-bids-page">
+@php
+    // BAC Admin: every bid, with decisions. BAC Staff: the assigned projects' bids, to check documents.
+    $portal ??= 'admin';
+    $isStaff = $portal === 'staff';
+@endphp
+<div class="admin-dashboard admin-role-page {{ $isStaff ? 'staff-role-page' : '' }} dashboard-home admin-dashboard-page admin-bids-page">
     @vite(['resources/css/dashboard.css', 'resources/css/bid-management.css', 'resources/js/bid-management.js'])
 
-    @include('partials.admin-sidebar')
+    @if($isStaff)
+        @include('partials.staff-sidebar', ['activeStaffMenu' => 'review-bids'])
+    @else
+        @include('partials.admin-sidebar')
+    @endif
 
     <div class="main-area bids-page">
-        <x-page-header title="Bid management" subtitle="Review and evaluate all submitted bids" />
+        @if($isStaff)
+            <x-page-header title="Review bids & quotations" subtitle="Submissions for the projects assigned to you. Check each technical document; the BAC Admin records the opening and every review decision." />
+        @else
+            <x-page-header title="Bid management" subtitle="Review and evaluate all submitted bids" />
+        @endif
 
         <main class="dashboard-content dashboard-home-content admin-bids-v2">
  
@@ -30,17 +43,17 @@
             </section>
 
             <section id="bid-management" class="admin-bids-shell admin-bids-v2"
-                data-view-url="{{ route('admin.bid.view', ['bid' => '__BID__']) }}"
-                data-edit-url="{{ route('admin.bid.edit', ['bid' => '__BID__']) }}"
+                data-view-url="{{ route($isStaff ? 'staff.bid.view' : 'admin.bid.view', ['bid' => '__BID__']) }}"
+                data-edit-url="{{ $isStaff ? route('staff.bid.view', ['bid' => '__BID__']) : route('admin.bid.edit', ['bid' => '__BID__']) }}"
                 data-export-kind="bids"
-                data-export-url="{{ route('admin.bids.export') }}"
+                data-export-url="{{ route($isStaff ? 'staff.bids.export' : 'admin.bids.export') }}"
                 data-export-modal-id="bidExportModal"
                 data-export-rows-id="bidExportRows"
                 data-export-toast-id="bidExportToastRegion"
                 data-export-form-selector=".admin-bids-toolbar" data-register-stage="bac-review"
                 data-export-status-order="{{ implode(',', array_keys($statusOptions ?? [])) }}"
                 data-export-status-labels='@json($statusOptions ?? [])'>
-                <form method="GET" action="{{ route('admin.bids') }}" class="admin-bids-toolbar">
+                <form method="GET" action="{{ route($isStaff ? 'staff.review-bids' : 'admin.bids') }}" class="admin-bids-toolbar">
                     <input type="hidden" name="per_page" value="{{ $bids->perPage() }}">
                     <div class="admin-bids-filter-group">
                         <div class="admin-bids-toolbar-field admin-bids-toolbar-field-search admin-search-field">

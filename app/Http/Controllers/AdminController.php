@@ -570,6 +570,15 @@ class AdminController extends Controller
     }
     public function allBids(Request $request)
     {
+        return $this->bidsPage($request, 'admin');
+    }
+
+    /**
+     * The bid register: every bid for the BAC Admin, or only the assigned projects'
+     * bids for BAC Staff ($projectIds), on the same page and review modal.
+     */
+    public function bidsPage(Request $request, string $portal, ?array $projectIds = null)
+    {
         $search = $this->requestString($request, 'search');
         $status = $this->requestString($request, 'status');
         $projectFilter = $this->requestString($request, 'project');
@@ -580,7 +589,7 @@ class AdminController extends Controller
         $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 10;
 
         $allBids = $this->bidsForStatusFilter(
-            $this->filteredBidsQuery($search, $projectFilter, $modeFilter)->latest()->orderByDesc('id')->get(),
+            $this->filteredBidsQuery($search, $projectFilter, $modeFilter, $projectIds)->latest()->orderByDesc('id')->get(),
             $status
         );
         $allBids = $this->bidsForDocumentStatusFilter($allBids, $documentStatusFilter);
@@ -595,11 +604,13 @@ class AdminController extends Controller
         );
 
         if ($bids->currentPage() > $bids->lastPage()) {
-            return redirect()->route('admin.bids', array_merge($request->except('page'), ['page' => $bids->lastPage()]));
+            return redirect()->route($portal === 'admin' ? 'admin.bids' : 'staff.review-bids', array_merge($request->except('page'), ['page' => $bids->lastPage()]));
         }
 
         // Abstract-of-bids ranking per project, computed over all of the project's bids.
-        $rankedProject = $projectFilter !== '' && ctype_digit($projectFilter) ? Project::find((int) $projectFilter) : null;
+        $rankedProject = $projectFilter !== '' && ctype_digit($projectFilter)
+            ? Project::query()->when($projectIds !== null, fn ($query) => $query->whereIn('id', $projectIds))->find((int) $projectFilter)
+            : null;
         $rankings = app(\App\Support\BidRanking::class)->forProjects(
             collect($bids->items())->pluck('project_id')->push($rankedProject?->id)
         );
@@ -610,7 +621,8 @@ class AdminController extends Controller
             : collect();
 
         $exportRows = $this->exportRowsForBids($allBids);
-        $projects = Project::orderBy('title')->get(['id', 'reference_no', 'title', 'procurement_mode']);
+        $projects = Project::query()->when($projectIds !== null, fn ($query) => $query->whereIn('id', $projectIds))
+            ->orderBy('title')->get(['id', 'reference_no', 'title', 'procurement_mode']);
         $modeOptions = collect(\App\Support\ProcurementMode::MODES)
             ->mapWithKeys(fn (array $mode, string $key) => [$key => $mode['label']])
             ->all();
@@ -632,11 +644,16 @@ class AdminController extends Controller
         return view('admin.bids', compact(
             'bids', 'projects', 'search', 'status', 'projectFilter', 'modeFilter',
             'documentStatusFilter', 'exportRows', 'statusOptions', 'modeOptions',
-            'documentStatusOptions', 'summary', 'rankings', 'rankedProject', 'projectRanking'
+            'documentStatusOptions', 'summary', 'rankings', 'rankedProject', 'projectRanking', 'portal'
         ));
     }
 
     public function exportBids(Request $request)
+    {
+        return $this->bidsExport($request);
+    }
+
+    public function bidsExport(Request $request, ?array $projectIds = null)
     {
         $search = $this->requestString($request, 'search');
         $status = $this->requestString($request, 'status');
@@ -651,7 +668,7 @@ class AdminController extends Controller
             ->all();
 
         $bids = $this->bidsForStatusFilter(
-            $this->filteredBidsQuery($search, $projectFilter, $modeFilter)->latest()->orderByDesc('id')->get(),
+            $this->filteredBidsQuery($search, $projectFilter, $modeFilter, $projectIds)->latest()->orderByDesc('id')->get(),
             $status
         );
         $bids = $this->bidsForDocumentStatusFilter($bids, $documentStatusFilter);
@@ -665,9 +682,10 @@ class AdminController extends Controller
         return $this->streamBidsCsv($bids);
     }
 
-    private function filteredBidsQuery(string $search, string $projectFilter, string $modeFilter)
+    private function filteredBidsQuery(string $search, string $projectFilter, string $modeFilter, ?array $projectIds = null)
     {
         return Bid::with(['project.awards', 'project.rebidProject', 'project.schedule', 'project.requirement', 'award', 'user.philgepsCertificate', 'documents'])
+            ->when($projectIds !== null, fn ($query) => $query->whereIn('project_id', $projectIds))
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($subQuery) use ($search) {
                     $subQuery
@@ -1665,7 +1683,7 @@ public function destroyUser(User $user)
             ]);
         }
 
-        return redirect()->route('admin.bids', ['view_bid' => $bid->id]);
+        return redirect()->route(Auth::user()?->role === 'staff' ? 'staff.review-bids' : 'admin.bids', ['view_bid' => $bid->id]);
     }
 
     public function previewBidDocument(Bid $bid, string $document)

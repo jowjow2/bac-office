@@ -328,6 +328,11 @@ Route::middleware(['auth', 'staff'])->group(function () {
     Route::put('/staff/payments/{payment}', [BiddingFeePaymentController::class, 'update'])->name('staff.payments.update');
     Route::delete('/staff/payments/{payment}', [BiddingFeePaymentController::class, 'destroy'])->name('staff.payments.destroy');
     Route::get('/staff/review-bids', [StaffController::class, 'reviewBids'])->name('staff.review-bids');
+    Route::post('/staff/review-bids/export', [StaffController::class, 'exportBids'])->name('staff.bids.export');
+    Route::get('/staff/bid-review/{bid}', [StaffController::class, 'viewBid'])->name('staff.bid.view');
+    Route::get('/staff/bid-review/{bid}/files/{bidDocument}', [StaffController::class, 'streamBidComponentFile'])->name('staff.bid.component-file');
+    Route::get('/staff/bid-review/{bid}/documents/{document}/pdf', [StaffController::class, 'streamBidDocument'])->name('staff.bid.document.pdf');
+    Route::get('/staff/bid-review/{bid}/award-recommendation/{document}', [StaffController::class, 'awardRecommendationDocument'])->whereIn('document', ['resolution', 'post-qualification-report'])->name('staff.bid.award-recommendation.document');
     Route::get('/staff/review-bids/{bid}', [StaffController::class, 'getBidDetails'])->name('staff.review-bids.show');
     Route::post('/staff/review-bids/{bid}/validate', [StaffController::class, 'validateBidDocuments'])->name('staff.review-bids.validate');
     Route::post('/staff/review-bids/{bid}/reject', [StaffController::class, 'rejectBid'])->name('staff.review-bids.reject');

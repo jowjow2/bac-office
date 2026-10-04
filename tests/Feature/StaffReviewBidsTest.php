@@ -98,32 +98,28 @@ function attachCompleteBidderDocuments(User $bidder): void
     }
 }
 
-it('shows proposal view and document eligibility controls on staff review bids', function () {
-    ['staff' => $staff, 'bidder' => $bidder, 'bid' => $bid] = createStaffReviewFixture();
-    attachCompleteBidderDocuments($bidder);
+it('shows staff the bid register for their assigned projects, with the review modal but no decisions', function () {
+    ['staff' => $staff, 'bid' => $bid] = createStaffReviewFixture();
+    $otherProject = Project::create(['title' => 'Unassigned Library Project', 'description' => 'x', 'budget' => 500000, 'deadline' => now()->subDay(), 'status' => 'closed']);
+    $otherBid = Bid::create(['user_id' => $bid->user_id, 'project_id' => $otherProject->id, 'bid_amount' => 400000, 'status' => 'pending', 'notes' => '']);
 
-    $response = testCase()
-        ->actingAs($staff)
-        ->get(route('staff.review-bids'));
+    testCase()->actingAs($staff)->get(route('staff.review-bids'))->assertOk()
+        ->assertSee('Review bids &amp; quotations', false)
+        ->assertSee('Road Repair Project')
+        ->assertDontSee('Unassigned Library Project')
+        ->assertSee(route('staff.bid.view', ['bid' => '__BID__']), false)
+        ->assertDontSee(route('admin.bid.edit', ['bid' => '__BID__']), false);
 
-    $response->assertOk();
-    $response->assertSee('View PDF');
-    $response->assertSee(route('staff.bids.proposal.preview', $bid), false);
-    $response->assertSee(route('staff.bids.eligibility.preview', $bid), false);
-    $response->assertSee('Documents: Complete');
-    $response->assertSee('Eligibility: Pending Review');
-    $response->assertSee('Eligibility file: uploaded');
-    $response->assertSee('Check Bid');
-    $response->assertSee('Eligibility Document');
-    $response->assertSee('Business Permit');
-    $response->assertSee('PhilGEPS Registration');
-    $response->assertSee('Tax Clearance');
+    $modal = testCase()->actingAs($staff)->get(route('staff.bid.view', $bid), ['X-Requested-With' => 'XMLHttpRequest'])->assertOk();
+    $modal->assertSee('The BAC Admin records the opening and every evaluation decision.')
+        // Every link in the modal goes through the staff routes.
+        ->assertDontSee('/admin/bids/', false)
+        ->assertDontSee(route('admin.bid.decision', ['bid' => $bid], false), false)
+        ->assertDontSee('data-br-proceed', false);
 
-    $businessPermit = BidderDocument::where('user_id', $bidder->id)
-        ->where('document_type', 'Business Permit')
-        ->firstOrFail();
-
-    $response->assertSee(route('staff.bids.documents.pdf', ['bid' => $bid, 'document' => $businessPermit]), false);
+    // Bids of projects not assigned to this staff member stay closed.
+    testCase()->actingAs($staff)->get(route('staff.bid.view', $otherBid), ['X-Requested-With' => 'XMLHttpRequest'])->assertForbidden();
+    testCase()->actingAs($staff)->get(route('staff.bid.document.pdf', ['bid' => $otherBid, 'document' => 'proposal']))->assertForbidden();
 });
 
 it('keeps the staff proposal preview sealed until financial opening', function () {
@@ -224,3 +220,25 @@ it("does not let BAC Staff save an adverse decision", function () {
     expect($bid->fresh()->status)->toBe("pending");
 });
 
+
+it('shows staff their assigned projects with tasks and review links, and honest report figures', function () {
+    ['staff' => $staff, 'bid' => $bid, 'project' => $project] = createStaffReviewFixture(['submitted_at' => now()->subDays(2), 'receipt_no' => 'R-001']);
+    $project->update(['status' => 'awarded']);
+    \App\Models\Award::create(['project_id' => $project->id, 'bid_id' => $bid->id, 'bidder_id' => $bid->user_id, 'contract_amount' => 850000, 'status' => 'active']);
+    $unawarded = Project::create(['title' => 'Open Clinic Supplies', 'description' => 'x', 'budget' => 2000000, 'deadline' => now()->addDays(5), 'status' => 'open']);
+    Assignment::create(['staff_id' => $staff->id, 'project_id' => $unawarded->id]);
+
+    testCase()->actingAs($staff)->get(route('staff.assign-projects'))->assertOk()
+        ->assertSee('My assigned projects')
+        ->assertSee('Your tasks')
+        ->assertSee('Record the PhilGEPS posting of the ITB / RFQ')
+        ->assertSee(e(route('staff.review-bids', ['project' => $project->id, 'view_bid' => $bid->id])), false)
+        ->assertDontSee(route('staff.bids.validate', $bid), false)
+        ->assertDontSee('>Validate<', false);
+
+    $report = testCase()->actingAs($staff)->get(route('staff.reports'))->assertOk()
+        ->assertSee('Government savings')->assertSee('Passed preliminary');
+    // Savings count only the awarded project's ABC (900,000 - 850,000), not the open project's.
+    expect($report->viewData('governmentSavings'))->toBe(50000.0)
+        ->and($report->viewData('totalAwardedAmount'))->toBe(850000.0);
+});

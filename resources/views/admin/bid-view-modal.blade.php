@@ -1,14 +1,17 @@
 @php
     /** @var \App\Models\Bid $bid */
     $project = $bid->project;
+    // BAC Staff see the same review with their own file routes and no decision controls.
+    $canDecide = auth()->user()?->role === 'admin';
+    $portalRoute = fn (string $name, $parameters = []) => route(($canDecide ? 'admin.' : 'staff.').$name, $parameters);
     $budget = (float) ($project?->budget ?? 0);
     $amount = (float) $bid->amount;
     $bidderName = $bid->user?->company ?: ($bid->user?->name ?? 'N/A');
     $sealed = $bid->isSealed();
     $financialSealed = $bid->isFinancialSealed();
-    $proposalPreviewUrl = ! $financialSealed && $bid->proposal_url ? route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'proposal']) : null;
+    $proposalPreviewUrl = ! $financialSealed && $bid->proposal_url ? $portalRoute('bid.document.pdf', ['bid' => $bid, 'document' => 'proposal']) : null;
     $certificatePreviewUrl = ! $sealed && $bid->user?->philgepsCertificate?->file_url
-        ? route('admin.bid.document.pdf', ['bid' => $bid, 'document' => 'certificate'])
+        ? $portalRoute('bid.document.pdf', ['bid' => $bid, 'document' => 'certificate'])
         : null;
     $tz = config('bac-office.display_timezone');
     $mode = $project?->mode();
@@ -96,7 +99,7 @@
         $proceedBlocker = 'Missing required documents: '.$missingRequirements->pluck('label')->implode(', ').'. Record a failed preliminary examination instead.';
     }
     if (auth()->user()?->role !== 'admin' || auth()->user()?->status !== 'active') {
-        $proceedBlocker = 'Only an active BAC Admin is authorized to proceed.';
+        $proceedBlocker = 'Recorded by the BAC Admin.';
     }
 
     // Files the reviewer may read inline; sealed components never get a URL.
@@ -105,7 +108,7 @@
     foreach (['technical' => $sealed, 'financial' => $financialSealed] as $componentKey => $componentSealed) {
         if ($componentSealed) continue;
         foreach ($componentFiles[$componentKey] ?? [] as $file) {
-            $previews[] = ['url' => route('admin.bid.component-file', ['bid' => $bid, 'bidDocument' => $file]), 'title' => $file->label, 'name' => $file->original_name];
+            $previews[] = ['url' => $portalRoute('bid.component-file', ['bid' => $bid, 'bidDocument' => $file]), 'title' => $file->label, 'name' => $file->original_name];
         }
     }
     if ($certificatePreviewUrl) $previews[] = ['url' => $certificatePreviewUrl, 'title' => 'Certificate Proof', 'name' => $bid->user?->philgepsCertificate?->display_name ?: 'Certificate proof'];
@@ -245,16 +248,18 @@
                         <p class="br-note__label" id="br-award-documents-title"><i class="fas fa-file-circle-check" aria-hidden="true"></i> BAC recommendation documents</p>
                         <p>Download or print these records to present the recommendation to the HoPE. They do not record the HoPE's decision.</p>
                         <div class="br-award-documents">
-                            <a class="br-btn" href="{{ route('admin.bid.award-recommendation.document', ['bid' => $bid, 'document' => 'resolution']) }}" target="_blank" rel="noopener">BAC Resolution (PDF)</a>
-                            <a class="br-btn" href="{{ route('admin.bid.award-recommendation.document', ['bid' => $bid, 'document' => 'post-qualification-report']) }}" target="_blank" rel="noopener">Post-Qualification Report (PDF)</a>
+                            <a class="br-btn" href="{{ $portalRoute('bid.award-recommendation.document', ['bid' => $bid, 'document' => 'resolution']) }}" target="_blank" rel="noopener">BAC Resolution (PDF)</a>
+                            <a class="br-btn" href="{{ $portalRoute('bid.award-recommendation.document', ['bid' => $bid, 'document' => 'post-qualification-report']) }}" target="_blank" rel="noopener">Post-Qualification Report (PDF)</a>
                         </div>
                     </section>
                 @endif
 
                 @unless($sealed)
+                    @if($canDecide)
                     <a href="{{ route('admin.bid.edit', $bid) }}" onclick="event.preventDefault(); loadBidEditModal({{ $bid->id }});" class="br-btn">
                         <i class="fas fa-pen-to-square" aria-hidden="true"></i> Internal Notes
                     </a>
+                    @endif
                 @endunless
 
                 @if(filled($bid->notes))
@@ -284,7 +289,7 @@
                             </div>
                             <ul class="br-files">
                                 @forelse($filesInComponent as $file)
-                                    @php $fileUrl = ($componentSealed || blank($file->file_path)) ? null : route('admin.bid.component-file', ['bid' => $bid, 'bidDocument' => $file]); @endphp
+                                    @php $fileUrl = ($componentSealed || blank($file->file_path)) ? null : $portalRoute('bid.component-file', ['bid' => $bid, 'bidDocument' => $file]); @endphp
                                     <li class="br-file {{ $fileUrl && $firstPreview && $firstPreview['url'] === $fileUrl ? 'is-active' : '' }}">
                                         <span class="br-file__icon {{ $componentSealed ? 'is-sealed' : '' }}"><i class="fas {{ $componentSealed ? 'fa-lock' : 'fa-file-lines' }}" aria-hidden="true"></i></span>
                                         <span class="br-file__text">
@@ -627,6 +632,8 @@
                                                 <button type="submit" class="br-btn br-btn--primary">Save opening rules</button>
                                             </form>
                                         @endif
+                                    @elseif(! $canDecide)
+                                        <p class="br-hint">Waiting for the BAC Admin to open the financial component.</p>
                                     @else
                                         @if($errors->has('opening'))
                                             <p class="br-blocked" role="alert">{{ $errors->first('opening') }}</p>
@@ -667,10 +674,15 @@
 
             <section class="br-card" data-review-target="decision" tabindex="-1" aria-labelledby="br-decision-title">
                 <div class="br-card__head">
-                    <h3 id="br-decision-title">Evaluation Actions</h3>
+                    <h3 id="br-decision-title">{{ $canDecide ? 'Evaluation Actions' : 'Decisions' }}</h3>
                 </div>
 
-                @if($sealed && ! array_key_exists(\App\Support\BidWorkflow::RECORD_MANUAL_RECEIPT, $actions))
+                @if(! $canDecide)
+                    <div class="br-empty is-compact">
+                        <i class="fas fa-user-shield" aria-hidden="true"></i>
+                        <p>The BAC Admin records the opening and every evaluation decision. Check the technical documents under <strong>Documents</strong>; your accept or revision request is sent to the bidder.</p>
+                    </div>
+                @elseif($sealed && ! array_key_exists(\App\Support\BidWorkflow::RECORD_MANUAL_RECEIPT, $actions))
                     <p class="br-hint">Proposals and bid amounts stay sealed until the bid opening is recorded. It can be recorded only after the submission deadline{{ $openingAt ? ' and the scheduled opening' : '' }}.</p>
                     @if($openingBlocker ?? null)
                         <p class="br-blocked"><i class="fas fa-clock" aria-hidden="true"></i> {{ $openingBlocker }}</p>
@@ -858,7 +870,7 @@
         <button type="button" onclick="closeBidViewModal()" class="br-btn">Close</button>
         <div class="br-foot__actions">
             @if($bid->user_id)
-                <a href="{{ route('admin.messages', ['tab' => 'bidders', 'user' => $bid->user_id]) }}" class="br-btn">
+                <a href="{{ $portalRoute('messages', ['tab' => 'bidders', 'user' => $bid->user_id]) }}" class="br-btn">
                     <i class="fas fa-message" aria-hidden="true"></i> Message Bidder
                 </a>
             @endif
@@ -866,7 +878,9 @@
                 <span id="br-next-action" data-br-next-step>Next step: {{ $nextLabel }}</span>
                 @if($proceedBlocker)<small id="br-proceed-reason" role="status">{{ $proceedBlocker }}</small>@endif
             </div>
+            @if($canDecide)
             <button type="button" class="br-btn br-btn--primary" data-br-proceed="{{ $selectedAction ?? $nextAction }}" aria-describedby="br-next-action{{ $proceedBlocker ? ' br-proceed-reason' : '' }}" @disabled($proceedBlocker)>Continue <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+            @endif
         </div>
     </footer>
 </div>
