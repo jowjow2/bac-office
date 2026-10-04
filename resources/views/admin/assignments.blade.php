@@ -437,7 +437,7 @@
                                         </span>
                                     </div>
 
-                                    <form action="{{ route('admin.assignments.destroy', $assignment) }}" method="POST" onsubmit="return confirm('Are you sure you want to remove this assignment? This action cannot be undone.');">
+                                    <form action="{{ route('admin.assignments.destroy', $assignment) }}" method="POST" data-confirm-title="Remove this assignment?" data-confirm="{{ $assignment->project->title ?? 'This project' }} will no longer be assigned to this staff member." data-confirm-button="Remove assignment" data-confirm-tone="danger">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="assignment-chip-remove" aria-label="Remove assignment">

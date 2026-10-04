@@ -130,14 +130,14 @@
                             <span>Publish Project</span>
                         </button>
                     @endif
-                    <form action="{{ route('admin.project.archive', $project) }}" method="POST" class="projects-archive-form" onsubmit="return confirm('Are you sure you want to archive this project? It will be removed from the active project list but kept in the system.');">
+                    <form action="{{ route('admin.project.archive', $project) }}" method="POST" class="projects-archive-form" data-confirm-title="Archive this project?" data-confirm="{{ $project->title }}" data-confirm-points="It leaves the active project list.|Its bids, awards and files are kept and can be viewed under Archived Projects." data-confirm-button="Archive project">
                         @csrf
                         <button type="submit" class="projects-action-menu-item projects-action-archive" role="menuitem">
                             <i class="fas fa-box-archive" aria-hidden="true"></i>
                             <span>Archive Project</span>
                         </button>
                     </form>
-                    <form action="{{ route('admin.project.destroy', $project) }}" method="POST" class="projects-delete-form" onsubmit="return confirm('Are you sure you want to delete this project? This will also remove its bids, awards, and staff assignments. This action cannot be undone.');">
+                    <form action="{{ route('admin.project.destroy', $project) }}" method="POST" class="projects-delete-form" data-confirm-title="Delete this project permanently?" data-confirm="{{ $project->title }}{{ $project->reference_no ? ' · '.$project->reference_no : '' }}" data-confirm-points="Its bids, awards and staff assignments are deleted too.|{{ $project->procurement_request_id ? 'Its purchase request goes back to the Forwarded to BAC queue.' : '' }}|This cannot be undone. To keep the record, archive the project instead." data-confirm-button="Delete project" data-confirm-tone="danger">
                         @csrf
                         @method('DELETE')
                         <button type="submit" class="projects-action-menu-item projects-action-delete" role="menuitem">

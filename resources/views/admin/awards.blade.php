@@ -2078,15 +2078,15 @@
         });
     }
 
-    function confirmRevokeCertificate(awardId) {
-        if (!confirm('Are you sure you want to revoke this certificate? This action will be logged and cannot be undone.')) {
+    async function confirmRevokeCertificate(awardId) {
+        if (!await window.bacConfirm({ title: 'Revoke this certificate?', message: 'The award certificate and its QR code stop verifying. The action is logged.', points: ['This cannot be undone.'], confirmLabel: 'Revoke certificate', tone: 'danger' })) {
             return;
         }
         sendCertificateAction(awardId, 'revoke', 'Certificate revoked successfully.', 'Failed to revoke certificate.');
     }
 
-    function regenerateToken(awardId) {
-        if (!confirm('Are you sure you want to regenerate the QR token? The old QR code will become invalid. This action will be logged.')) {
+    async function regenerateToken(awardId) {
+        if (!await window.bacConfirm({ title: 'Regenerate the QR code?', message: 'A new QR code is issued for this award. The action is logged.', points: ['The old QR code stops working, including printed copies.'], confirmLabel: 'Regenerate QR', tone: 'danger' })) {
             return;
         }
         sendCertificateAction(awardId, 'regenerate', 'QR token regenerated successfully.', 'Failed to regenerate QR token.');
@@ -2096,19 +2096,19 @@
         const modalBody = document.getElementById('awardViewModalBody');
         const fileInput = modalBody.querySelector('.replace-certificate-input');
         if (fileInput) {
-            fileInput.onchange = function() {
+            fileInput.onchange = async function() {
                 if (this.files.length === 0) return;
                 const file = this.files[0];
                 // Validate PDF
                 if (file.type !== 'application/pdf') {
-                    alert('Only PDF files are allowed.');
+                    window.bacToast('Only PDF files are allowed.', 'error');
                     return;
                 }
                 if (file.size > 5 * 1024 * 1024) {
-                    alert('File size exceeds 5MB limit.');
+                    window.bacToast('The file is larger than 5 MB.', 'error');
                     return;
                 }
-                if (!confirm('Are you sure you want to replace the existing certificate with the selected PDF? This action will be logged.')) {
+                if (!await window.bacConfirm({ title: 'Replace the certificate?', message: file.name + ' replaces the current certificate PDF. The action is logged.', confirmLabel: 'Replace certificate' })) {
                     this.value = ''; // reset
                     return;
                 }

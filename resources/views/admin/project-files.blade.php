@@ -31,10 +31,10 @@
                                 Preview
                             </a>
 
-                            <form action="{{ route('admin.project.document.destroy', ['project' => $project, 'document' => $documentIndex]) }}" method="POST" data-project-file-delete-form>
+                            <form action="{{ route('admin.project.document.destroy', ['project' => $project, 'document' => $documentIndex]) }}" method="POST" data-project-file-delete-form data-confirm-title="Delete this file?" data-confirm="The file is removed from the project's official documents. This cannot be undone." data-confirm-button="Delete file" data-confirm-tone="danger">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="project-files-item-delete" onclick="return confirm('Are you sure you want to delete this file? This action cannot be undone.');">
+                                <button type="submit" class="project-files-item-delete">
                                     Delete
                                 </button>
                             </form>

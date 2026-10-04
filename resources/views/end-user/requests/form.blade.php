@@ -264,7 +264,7 @@
 
     @if($editing)
         @foreach($procurementRequest->documents as $document)
-            <form id="remove-document-{{ $document->id }}" method="POST" action="{{ route('end-user.requests.documents.destroy', [$procurementRequest, $document]) }}" hidden onsubmit="return confirm('Remove this attachment?');">
+            <form id="remove-document-{{ $document->id }}" method="POST" action="{{ route('end-user.requests.documents.destroy', [$procurementRequest, $document]) }}" hidden data-confirm-title="Remove this attachment?" data-confirm="{{ $document->original_name ?? 'The file' }} is removed from this request." data-confirm-button="Remove" data-confirm-tone="danger">
                 @csrf
                 @method('DELETE')
             </form>

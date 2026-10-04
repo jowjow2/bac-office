@@ -455,11 +455,11 @@ if (root && form) {
     });
 
     $$('[data-pw-note-remove]').forEach((button) => {
-        button.addEventListener('click', () => {
+        button.addEventListener('click', async () => {
             const note = button.closest('[data-pw-note]');
             const input = $('textarea', note);
             // A hidden note is still submitted, so removing it clears its text.
-            if (input.value.trim() && !window.confirm('Remove this note and its text?')) return;
+            if (input.value.trim() && !(await (window.bacConfirm ? window.bacConfirm({ title: 'Remove this note?', message: 'The note and its text are removed.', confirmLabel: 'Remove', tone: 'danger' }) : Promise.resolve(window.confirm('Remove this note and its text?'))))) return;
             input.value = '';
             note.hidden = true;
             const add = $(`[data-pw-note-add="${note.dataset.pwNote}"]`);

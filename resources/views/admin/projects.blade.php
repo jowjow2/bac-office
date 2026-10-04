@@ -1038,6 +1038,10 @@
     });
 
     function showTempMessage(message, type = 'success') {
+        if (window.bacToast) {
+            window.bacToast(message, type === 'success' ? 'success' : 'error');
+            return;
+        }
         const alertDiv = document.createElement('div');
         alertDiv.id = 'tempMessage';
         alertDiv.style.cssText = `
@@ -1078,8 +1082,8 @@
         if (e.target === this) closeDeclareWinnerModal();
     });
 
-    function publishEditProject(projectId, button) {
-        if (!confirm('Publish this project to the BAC system? It will become visible to eligible bidders. PhilGEPS posting details remain separate.')) {
+    async function publishEditProject(projectId, button) {
+        if (!await window.bacConfirm({ title: 'Publish this project?', message: 'It becomes visible to eligible bidders in the BAC system. The PhilGEPS posting is recorded separately.', confirmLabel: 'Publish', icon: 'fa-bullhorn' })) {
             return;
         }
 
@@ -1122,8 +1126,8 @@
             button.innerHTML = '<i class="fas fa-bullhorn" aria-hidden="true"></i> Publish to BAC System';
         });
     }
-    function publishDraft(projectId, button) {
-        if (!confirm('Publish this draft project? It will become available for bidding.')) {
+    async function publishDraft(projectId, button) {
+        if (!await window.bacConfirm({ title: 'Publish this draft?', message: 'The project becomes available for bidding.', confirmLabel: 'Publish', icon: 'fa-paper-plane' })) {
             return;
         }
 

@@ -1,3 +1,4 @@
+@include('partials.feedback-ui')
 @once
     <script>
         window.BacNotificationConfig = {

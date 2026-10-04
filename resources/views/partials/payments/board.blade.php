@@ -434,7 +434,7 @@
                                                 data-posted="{{ $payment->project ? $postedDate($payment->project) : '' }}">
                                             <i class="fas fa-pen" aria-hidden="true"></i> Edit
                                         </button>
-                                        <form method="POST" action="{{ route($routePrefix . '.payments.destroy', array_merge(['payment' => $payment->id], $pageQuery)) }}" data-fee-confirm="Remove OR No. {{ $payment->or_number }} for {{ $bidderLabel }}? The bidder will no longer be able to submit a bid for this project.">
+                                        <form method="POST" action="{{ route($routePrefix . '.payments.destroy', array_merge(['payment' => $payment->id], $pageQuery)) }}" data-confirm-title="Remove this payment?" data-confirm="OR No. {{ $payment->or_number }} for {{ $bidderLabel }}. The bidder will no longer be able to submit a bid for this project." data-confirm-button="Remove payment" data-confirm-tone="danger">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="fee-btn fee-btn-danger fee-btn-sm" @disabled($bidSubmitted) title="{{ $bidSubmitted ? 'Already used for a submitted bid' : 'Remove this payment' }}">
@@ -622,10 +622,5 @@
             openEdit(@json($reopenEdit));
         @endif
 
-        document.querySelectorAll('[data-fee-confirm]').forEach(function (form) {
-            form.addEventListener('submit', function (event) {
-                if (!window.confirm(form.dataset.feeConfirm)) event.preventDefault();
-            });
-        });
     })();
 </script>
