@@ -264,6 +264,50 @@
             </div>
         </x-project-summary-section>
 
+        @if(! $project->acceptsElectronicSubmission() && in_array($project->status, ['open', 'closed'], true) && ! $project->isFailedBidding() && $project->archived_at === null)
+            {{-- Sealed paper bids: received at the BAC Secretariat, recorded here (AdminController::receiveSealedBid). --}}
+            @php $tz = config('bac-office.display_timezone', 'Asia/Manila'); @endphp
+            <x-project-summary-section title="Sealed Bids Received" class="view-project-sealed">
+                @if(($sealedBids ?? collect())->isEmpty())
+                    <p style="margin:0; color:#6b736e;">No sealed bid recorded yet.</p>
+                @else
+                    <ul style="display:grid; gap:6px; margin:0; padding:0; list-style:none;">
+                        @foreach($sealedBids as $sealed)
+                            <li style="display:flex; justify-content:space-between; gap:10px; padding:8px 10px; border:1px solid #e5dfd2; border-radius:8px;">
+                                <span><strong>{{ $sealed->user?->company ?: $sealed->user?->name }}</strong> · {{ $sealed->receipt_no }}</span>
+                                <span style="color:#6b736e;">{{ $sealed->submitted_at?->timezone($tz)->format('M d, Y h:i A') }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+
+                @if($project->bidsAreOpened())
+                    <p style="margin:10px 0 0; color:#6b736e;">The bids were opened; no more sealed bids can be recorded.</p>
+                @elseif(($sealedBidders ?? collect())->isEmpty())
+                    <p style="margin:10px 0 0; color:#6b736e;">Every approved bidder already has a sealed bid recorded, or none is approved yet.</p>
+                @else
+                    <form action="{{ route('admin.project.sealed-bids.store', $project) }}" method="POST" style="display:grid; gap:10px; margin-top:12px;">
+                        @csrf
+                        <label class="view-project-field-label" for="sealed-bidder-{{ $project->id }}">Record a sealed bid handed in</label>
+                        <select id="sealed-bidder-{{ $project->id }}" name="bidder_id" required style="border:1px solid #d2cbbb; border-radius:8px; padding:8px 10px; font:inherit;">
+                            <option value="">Choose the bidder</option>
+                            @foreach($sealedBidders as $option)
+                                <option value="{{ $option['id'] }}" @disabled(! $option['fee_paid'])>{{ $option['label'] }}{{ $option['fee_paid'] ? '' : ' (bidding fee not recorded)' }}</option>
+                            @endforeach
+                        </select>
+                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px;">
+                            <input type="text" name="receipt_no" required maxlength="100" placeholder="Logbook / receipt no., e.g. LOG-2026-031"
+                                   style="border:1px solid #d2cbbb; border-radius:8px; padding:8px 10px; font:inherit;">
+                            <input type="datetime-local" name="received_at" required value="{{ now($tz)->format('Y-m-d\TH:i') }}"
+                                   style="border:1px solid #d2cbbb; border-radius:8px; padding:8px 10px; font:inherit;">
+                        </div>
+                        <p style="margin:0; color:#6b736e; font-size:12.5px;">Only for a sealed envelope received on or before the deadline. The price stays sealed until the financial opening, where you enter the amount read out.</p>
+                        <div><button type="submit" class="btn-primary">Record sealed bid</button></div>
+                    </form>
+                @endif
+            </x-project-summary-section>
+        @endif
+
         @if($project->isFailedBidding() || in_array($project->status, ['open', 'closed'], true))
             <x-project-summary-section title="Bidding Outcome" class="view-project-outcome">
                 @if($project->isFailedBidding())

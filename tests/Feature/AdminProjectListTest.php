@@ -135,3 +135,13 @@ it('assigns staff straight from an Unassigned chip and returns to the list', fun
         'staff_id' => $staff->id, 'project_id' => $project->id, 'return' => 'projects',
     ])->assertRedirect(route('admin.projects'))->assertSessionHasErrors('staff_id');
 });
+
+it('shows schedule warnings as their own card, apart from a short success message', function () {
+    $this->actingAs($this->admin)
+        ->withSession(['success' => 'Project created successfully.', 'schedule_warnings' => ['The bid submission deadline is less than 7 calendar days after the local BAC publication.']])
+        ->get(route('admin.projects'))->assertOk()
+        ->assertSee('Project created successfully.')
+        ->assertSee('class="schedule-warning-card"', false)
+        ->assertSee('less than 7 calendar days')
+        ->assertSee('recorded in the audit log');
+});

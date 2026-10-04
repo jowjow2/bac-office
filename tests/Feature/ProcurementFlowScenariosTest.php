@@ -263,7 +263,10 @@ function scenarioOpenAndEvaluate(object $test, Project $project): array
             // A sealed paper bid has no PIN; the modal offers to record the envelope opened.
             testCase()->actingAs($test->admin)->withHeader('X-Requested-With', 'XMLHttpRequest')->get(route('admin.bid.view', $bid))
                 ->assertSee('Record financial envelope opened');
-            testCase()->actingAs($test->admin)->post(route('admin.bid.open-financial', $bid))->assertSessionHasNoErrors();
+            testCase()->actingAs($test->admin)->post(route('admin.bid.open-financial', $bid))->assertSessionHasErrors('bid_amount');
+            $read = number_format(800000 + $bid->id * 10000, 2);
+            testCase()->actingAs($test->admin)->post(route('admin.bid.open-financial', $bid), ['bid_amount' => $read])->assertSessionHasNoErrors();
+            expect($bid->fresh()->bid_amount)->toBe(str_replace(',', '', $read));
             expect($bid->fresh()->financial_opening_method)->toBe('sealed_envelope');
         } else {
             testCase()->actingAs($test->admin)->post(route('admin.bid.open-financial', $bid), ['opening_password' => '482913'])->assertSessionHasNoErrors();
@@ -371,4 +374,38 @@ it('receives sealed paper bids on a manual project and carries them to award', f
     ($this->decide)($bidA, BidWorkflow::APPROVE_AWARD)->assertSessionHasNoErrors();
     testCase()->actingAs($this->admin)->post(route('admin.awards.declare', $project), ['bid_id' => $bidA->id, 'certificate_file' => ($this->pdf)('NOA.pdf')])->assertSessionHasNoErrors();
     expect($project->fresh()->status)->toBe('awarded');
+});
+
+it('records a sealed bid handed in by a walk-in bidder who saved nothing online', function () {
+    $project = ($this->competitive)(['submission_mode' => 'manual', 'electronic_submission_authority' => null, 'submission_venue' => 'BAC Secretariat, Municipal Hall']);
+    $this->bidderC->bidderProfile()->create(['company_name' => 'Sablayan Supply', 'contact_person' => 'Cora', 'contact_number' => '09171234567', 'business_address' => 'Sablayan', 'approval_status' => 'approved']);
+    $received = now()->timezone(config('bac-office.display_timezone'))->format('Y-m-d\TH:i');
+    $record = fn (array $data) => testCase()->actingAs($this->admin)->from(route('admin.projects'))
+        ->post(route('admin.project.sealed-bids.store', $project), $data + ['bidder_id' => $this->bidderC->id, 'receipt_no' => 'LOG-WALK-1', 'received_at' => $received]);
+
+    // The bidding documents fee comes first.
+    $record([])->assertSessionHas('error', fn ($message) => str_contains($message, 'fee'));
+    expect(Bid::where('project_id', $project->id)->count())->toBe(0);
+    ($this->pay)($project, $this->bidderC);
+
+    // The view offers the bidder, and the receipt is recorded as an official bid.
+    testCase()->actingAs($this->admin)->get(route('admin.project.view', $project))->assertOk()
+        ->assertSee('Sealed Bids Received')->assertSee('Sablayan Supply');
+    $record([])->assertRedirect(route('admin.projects'))->assertSessionHas('success', fn ($message) => str_contains($message, 'LOG-WALK-1'));
+    $bid = Bid::where('project_id', $project->id)->where('user_id', $this->bidderC->id)->sole();
+    expect($bid->isDraft())->toBeFalse()->and($bid->receipt_no)->toBe('LOG-WALK-1')->and($bid->isSealed())->toBeTrue();
+
+    // Once only, and never after the deadline.
+    $record(['receipt_no' => 'LOG-WALK-2'])->assertSessionHas('error', fn ($message) => str_contains($message, 'already has an official bid'));
+    $this->bidderA->bidderProfile()->create(['company_name' => 'Mindoro Builders', 'contact_person' => 'Ana', 'contact_number' => '09171234567', 'business_address' => 'San Jose', 'approval_status' => 'approved']);
+    ($this->pay)($project, $this->bidderA);
+    $late = $project->bidSubmissionDeadline()->copy()->addMinutes(5);
+    $this->travelTo($late->copy()->addMinute());
+    $record(['bidder_id' => $this->bidderA->id, 'receipt_no' => 'LOG-LATE', 'received_at' => $late->timezone(config('bac-office.display_timezone'))->format('Y-m-d\TH:i')])
+        ->assertSessionHas('error', fn ($message) => str_contains($message, 'after the submission deadline'));
+
+    // At the opening, the price read from the envelope becomes the bid amount.
+    [$opened] = scenarioOpenAndEvaluate($this, $project);
+    expect((float) $opened->bid_amount)->toBeGreaterThan(0)->and($opened->financial_opening_method)->toBe('sealed_envelope');
+    ($this->pagesLoad)('walk-in sealed bid evaluated');
 });

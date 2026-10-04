@@ -645,7 +645,12 @@
                                             {{-- A sealed paper bid has no PIN: its envelope is opened at the opening and recorded here. --}}
                                             <form action="{{ route('admin.bid.open-financial', $bid) }}" method="POST" class="br-form">
                                                 @csrf
-                                                <p class="br-hint">Sealed paper bid: open its financial envelope before the BAC and bidders present, then record it.</p>
+                                                <p class="br-hint">Sealed paper bid: open its financial envelope before the BAC and bidders present, then record the amount read out.</p>
+                                                <label class="br-field">Bid amount read from the envelope (₱)
+                                                    {{-- Never prefilled: the price stays sealed until it is read from the envelope. --}}
+                                                    <input type="text" name="bid_amount" inputmode="decimal" required placeholder="0.00" autocomplete="off">
+                                                </label>
+                                                @if($errors->has('bid_amount'))<p class="br-blocked" role="alert">{{ $errors->first('bid_amount') }}</p>@endif
                                                 <button type="submit" class="br-btn br-btn--primary">Record financial envelope opened</button>
                                             </form>
                                         @else

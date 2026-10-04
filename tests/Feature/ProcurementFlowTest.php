@@ -356,8 +356,9 @@ it('takes any day and time the BAC sets, and only warns about the legal periods'
         'pre_bid_conference_date' => ($this->local)($early->copy()->subDay()),
         'bid_submission_deadline' => ($this->local)($early),
         'bid_opening_date' => ($this->local)($early->copy()->setTime(10, 30)),
-    ]))->assertSessionHas('success', fn (string $message) => str_contains($message, 'Schedule warning')
-        && str_contains($message, 'less than 7 calendar days') && str_contains($message, 'less than 12 calendar days'));
+    ]))->assertSessionHas('success', 'Project created successfully.')
+        ->assertSessionHas('schedule_warnings', fn (array $warnings) => count($warnings) === 2
+            && str_contains(implode(' ', $warnings), 'less than 7 calendar days') && str_contains(implode(' ', $warnings), 'less than 12 calendar days'));
 
     $short = Project::where('title', 'Short periods')->firstOrFail();
     expect(Project::where('title', 'Saturday deadline')->firstOrFail()->status)->toBe('open')

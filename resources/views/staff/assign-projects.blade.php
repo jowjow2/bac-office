@@ -143,6 +143,7 @@
             <section class="staff-dashboard">
 
 
+                @include('partials.schedule-warnings')
                 @if(session('success'))
                     <div class="assignment-alert assignment-alert-success assign-projects-alert-floating" data-auto-hide="4000">{{ session('success') }}</div>
                 @endif

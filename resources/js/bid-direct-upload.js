@@ -7,10 +7,12 @@
  * Active only on forms the server marks with data-direct-upload-url (when Blob
  * storage is configured). The server issues one short-lived token per file,
  * checks every reference, and runs the usual file checks before saving.
+ * Progress shows on the Submit button itself; three files upload at a time.
  */
 import { upload } from '@vercel/blob/client';
 
 const MULTIPART_FROM = 4 * 1024 * 1024;
+const PARALLEL_UPLOADS = 3;
 
 function statusOf(form) {
     return form.closest('[data-bid-dialog]')?.querySelector('[data-bid-status]') || null;
@@ -28,6 +30,25 @@ function submitButton(form) {
     return form.closest('[data-bid-dialog]')?.querySelector('[data-bid-submit]') || null;
 }
 
+/* The Submit button becomes the progress indicator while the files go up. */
+function ensureSpinnerStyle() {
+    if (document.getElementById('bid-upload-spinner-style')) return;
+    const style = document.createElement('style');
+    style.id = 'bid-upload-spinner-style';
+    style.textContent = '.bid-upload-spinner{display:inline-block;width:14px;height:14px;margin-right:8px;vertical-align:-2px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:bid-upload-spin .7s linear infinite}@keyframes bid-upload-spin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.bid-upload-spinner{animation-duration:2s}}[data-bid-submit][aria-busy="true"]{opacity:1!important;cursor:progress!important}';
+    document.head.appendChild(style);
+}
+
+function setBusy(form, label) {
+    const button = submitButton(form);
+    if (!button) return;
+    if (button.dataset.idleLabel === undefined) button.dataset.idleLabel = button.innerHTML;
+    ensureSpinnerStyle();
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    button.innerHTML = `<span class="bid-upload-spinner" aria-hidden="true"></span>${label}`;
+}
+
 function reset(form) {
     form.querySelectorAll('[data-direct-reference]').forEach((input) => input.remove());
     form.querySelectorAll('[data-upload-input][data-direct-sent]').forEach((input) => {
@@ -36,6 +57,10 @@ function reset(form) {
     });
     const button = submitButton(form);
     if (button) {
+        if (button.dataset.idleLabel !== undefined) {
+            button.innerHTML = button.dataset.idleLabel;
+            delete button.dataset.idleLabel;
+        }
         button.disabled = false;
         button.removeAttribute('aria-busy');
     }
@@ -58,48 +83,61 @@ document.querySelectorAll('[data-bid-form][data-direct-upload-url]').forEach((fo
         if (!inputs.length) return;
 
         event.preventDefault();
-        const button = submitButton(form);
-        if (button) {
-            button.disabled = true;
-            button.setAttribute('aria-busy', 'true');
-        }
+        say(form, '');
+        setBusy(form, 'Uploading… 0%');
 
         const token = form.querySelector('input[name="_token"]')?.value || document.querySelector('meta[name="csrf-token"]')?.content || '';
         const folder = form.dataset.directUploadFolder;
         const total = inputs.reduce((sum, input) => sum + input.files[0].size, 0);
-        let sent = 0;
+        const loadedByFile = new Map();
+        // Set when one file fails, so uploads still running add nothing to the reset form.
+        let aborted = false;
+        const showProgress = () => {
+            const loaded = Array.from(loadedByFile.values()).reduce((sum, value) => sum + value, 0);
+            setBusy(form, `Uploading… ${total ? Math.min(99, Math.round((loaded / total) * 100)) : 0}%`);
+        };
+
+        const uploadOne = async (input) => {
+            const key = /documents\[([^\]]+)\]/.exec(input.name)?.[1];
+            const file = input.files[0];
+            if (!key) return;
+            const extension = (file.name.split('.').pop() || 'pdf').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const blob = await upload(`${folder}/${key}.${extension}`, file, {
+                access: 'private',
+                handleUploadUrl: form.dataset.directUploadUrl,
+                headers: { 'X-CSRF-TOKEN': token, Accept: 'application/json' },
+                multipart: file.size > MULTIPART_FROM,
+                onUploadProgress: ({ loaded }) => {
+                    if (aborted) return;
+                    loadedByFile.set(key, loaded);
+                    showProgress();
+                },
+            });
+            if (aborted) return;
+            loadedByFile.set(key, file.size);
+            showProgress();
+            hidden(form, `uploaded_documents[${key}]`, blob.url);
+            hidden(form, `uploaded_document_names[${key}]`, file.name);
+            // Sent already: leave it out of the form data (it stays attached here).
+            input.disabled = true;
+            input.dataset.directSent = '';
+        };
 
         try {
-            for (const [index, input] of inputs.entries()) {
-                const key = /documents\[([^\]]+)\]/.exec(input.name)?.[1];
-                const file = input.files[0];
-                if (!key) continue;
-                const extension = (file.name.split('.').pop() || 'pdf').toLowerCase().replace(/[^a-z0-9]/g, '');
-                const blob = await upload(`${folder}/${key}.${extension}`, file, {
-                    access: 'private',
-                    handleUploadUrl: form.dataset.directUploadUrl,
-                    headers: { 'X-CSRF-TOKEN': token, Accept: 'application/json' },
-                    multipart: file.size > MULTIPART_FROM,
-                    onUploadProgress: ({ loaded }) => {
-                        const percent = total ? Math.min(99, Math.round(((sent + loaded) / total) * 100)) : 0;
-                        say(form, `Uploading your documents… ${percent}% (file ${index + 1} of ${inputs.length})`);
-                    },
-                });
-                sent += file.size;
-                hidden(form, `uploaded_documents[${key}]`, blob.url);
-                hidden(form, `uploaded_document_names[${key}]`, file.name);
-                // Sent already: leave it out of the form data (it stays attached here).
-                input.disabled = true;
-                input.dataset.directSent = '';
-            }
+            // A few files at a time: faster than one by one, gentle on slow connections.
+            const queue = inputs.slice();
+            await Promise.all(Array.from({ length: Math.min(PARALLEL_UPLOADS, queue.length) }, async () => {
+                while (queue.length && !aborted) await uploadOne(queue.shift());
+            }));
         } catch (error) {
+            aborted = true;
             reset(form);
             say(form, 'Uploading your documents failed. Check your connection and press Submit again. Your files are still attached.', 'error');
             console.error('[bid upload]', error);
             return;
         }
 
-        say(form, 'Documents uploaded. Submitting your bid…', 'ok');
+        setBusy(form, 'Submitting…');
         // Lets the kept-files memory (bid-file-memory) clear this bid's copies once it is accepted.
         try {
             const marks = JSON.parse(sessionStorage.getItem('bac-bid-submitted') || '{}');

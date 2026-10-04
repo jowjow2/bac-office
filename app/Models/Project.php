@@ -578,12 +578,14 @@ class Project extends Model
         return $this->scheduleReview($posted)['warnings'];
     }
 
-    /** The warnings in one sentence for a flash message, or null when the schedule meets every period. */
-    public function scheduleWarningNote(?Carbon $publicationAt = null): ?string
+    /**
+     * The warnings to show after publishing or a schedule change (empty when every period is met).
+     *
+     * @return list<string>
+     */
+    public function scheduleWarningList(?Carbon $publicationAt = null): array
     {
-        $warnings = $this->scheduleWarnings($this->postingDateForReview($publicationAt));
-
-        return $warnings === [] ? null : 'Schedule warning: '.implode(' ', $warnings).' The BAC\'s dates were kept and this is recorded in the audit log.';
+        return array_values($this->scheduleWarnings($this->postingDateForReview($publicationAt)));
     }
 
     /** The publication date the warnings are measured from: recorded, or now when publishing. */

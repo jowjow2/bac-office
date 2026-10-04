@@ -163,7 +163,8 @@ it('rejects conflicting schedules and keeps a held pre-bid conference', function
     // A deadline 11 days after the pre-bid conference misses the 12-day period: kept, with a warning on record.
     ($this->editSchedule)($project, '2026-10-16T10:00', '2026-10-16T10:30')
         ->assertSessionHasNoErrors()
-        ->assertSessionHas('success', fn (string $message) => str_contains($message, 'less than 12 calendar days'));
+        ->assertSessionHas('success', 'Project updated successfully!')
+        ->assertSessionHas('schedule_warnings', fn (array $warnings) => str_contains(implode(' ', $warnings), 'less than 12 calendar days'));
     expect($project->fresh()->bidSubmissionDeadline()->format('Y-m-d H:i'))->toBe('2026-10-16 10:00')
         ->and(AuditLog::where('action', 'project_schedule_changed')->latest('id')->first()->new_values['schedule_warnings'])->toHaveCount(1);
 });

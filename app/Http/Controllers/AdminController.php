@@ -553,9 +553,9 @@ class AdminController extends Controller
             $redirectUrl = $project->status === 'draft'
                 ? route('admin.projects') . '?status=draft'
                 : route('admin.projects');
-            $warning = $project->status === 'open' ? $project->fresh('schedule')->scheduleWarningNote() : null;
+            $warnings = $project->status === 'open' ? $project->fresh('schedule')->scheduleWarningList() : [];
 
-            return redirect($redirectUrl)->with('success', 'Project created successfully.'.($warning ? ' '.$warning : ''));
+            return redirect($redirectUrl)->with('success', 'Project created successfully.')->with('schedule_warnings', $warnings);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -1833,11 +1833,48 @@ public function destroyUser(User $user)
         $request->query->remove('opening_password');
         $request->json()->remove('opening_password');
         app(\App\Support\BidOpening::class)->openFinancial(
-            $bid, Auth::user(), is_string($password) ? $password : null
+            $bid, Auth::user(), is_string($password) ? $password : null,
+            // Paper bids: the amount read from the sealed envelope.
+            is_scalar($request->input('bid_amount')) ? (string) $request->input('bid_amount') : null
         );
         event(new \App\Events\BidWorkflowUpdated($bid->fresh()));
 
         return redirect()->route('admin.bids', ['view_bid' => $bid->id])->with('success', 'Financial component opening recorded.');
+    }
+
+    /**
+     * A registered bidder hands in a sealed paper bid without having saved it
+     * online: the BAC records the receipt (BidWorkflow::receiveWalkInSealedBid).
+     */
+    public function receiveSealedBid(Request $request, Project $project)
+    {
+        // The form sits in the project view dialog of the Projects list: the outcome comes back there as a message.
+        $fail = fn (string $message) => back()->with('error', 'Sealed bid not recorded: '.$message);
+        $validator = validator($request->all(), [
+            'bidder_id' => ['required', 'integer', Rule::exists('users', 'id')->where('role', 'bidder')],
+            'receipt_no' => ['required', 'string', 'max:100'],
+            'received_at' => ['required', 'date'],
+        ], [
+            'bidder_id.required' => 'Choose the bidder who handed in the sealed bid.',
+            'receipt_no.required' => 'Enter the receipt / logbook number issued by the BAC Secretariat.',
+            'received_at.required' => 'Enter the date and time the sealed bid was received.',
+        ]);
+        if ($validator->fails()) {
+            return $fail($validator->errors()->first());
+        }
+        $validated = $validator->validated();
+
+        $bidder = User::with('bidderProfile')->findOrFail($validated['bidder_id']);
+        try {
+            $bid = $this->bidWorkflow()->receiveWalkInSealedBid($project, $bidder, Auth::user(), [
+                'receipt_no' => $validated['receipt_no'],
+                'received_at' => \Illuminate\Support\Carbon::parse($validated['received_at'], config('app.timezone', 'Asia/Manila')),
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            return $fail(collect($exception->errors())->flatten()->first());
+        }
+
+        return back()->with('success', 'Sealed bid of '.($bidder->company ?: $bidder->name).' recorded as received ('.$bid->receipt_no.').');
     }
 
     public function declareFailedBidding(Request $request, Project $project)
@@ -2063,16 +2100,18 @@ public function destroyUser(User $user)
     /**
      * After a schedule change: what the new dates already require happens now
      * (bid opening when its time has passed), and everyone taking part is told.
-     * Returns the schedule warning to show, if the new dates miss a legal period.
+     * Returns the legal periods the new dates miss (shown as warnings).
+     *
+     * @return list<string>
      */
-    protected function applyScheduleChange(Project $project, array $before): ?string
+    protected function applyScheduleChange(Project $project, array $before): array
     {
         $after = [
             'deadline' => $project->bidSubmissionDeadline()?->toDateTimeString(),
             'bid_opening_date' => $project->schedule?->bid_opening_date?->toDateTimeString(),
         ];
         if ($after === $before || in_array($project->status, ['draft', 'approved_for_bidding'], true)) {
-            return null;
+            return [];
         }
 
         // Legal periods the BAC chose not to meet are kept with the change.
@@ -2091,7 +2130,7 @@ public function destroyUser(User $user)
 
         app(\App\Support\BidOpening::class)->openScheduledTechnical($project);
 
-        return $warnings === [] ? null : $project->scheduleWarningNote();
+        return array_values($warnings);
     }
 
     protected function bidWorkflow(): BidWorkflow
@@ -2117,7 +2156,20 @@ public function destroyUser(User $user)
             ->limit(50)
             ->get(['id', 'title', 'reference_no']);
 
-        return view('admin.project-view', compact('project', 'staffMembers', 'rebidCandidates'));
+        // Manual projects: sealed paper bids received, and the approved bidders who may hand one in.
+        $sealedBids = collect();
+        $sealedBidders = collect();
+        if (! $project->acceptsElectronicSubmission()) {
+            $sealedBids = $project->bids()->with('user:id,name,company')->where('submission_channel', Bid::CHANNEL_MANUAL)
+                ->whereNotNull('receipt_no')->orderBy('submitted_at')->get();
+            $sealedBidders = User::with('bidderProfile')->where('role', 'bidder')->where('status', 'active')->orderBy('company')->orderBy('name')->get()
+                ->filter(fn (User $bidder) => $bidder->isApprovedBidder())
+                ->reject(fn (User $bidder) => $sealedBids->contains('user_id', $bidder->id))
+                ->map(fn (User $bidder) => ['id' => $bidder->id, 'label' => $bidder->company ?: $bidder->name, 'fee_paid' => ! $project->requiresBiddingFee() || $project->hasPaidBiddingFee($bidder)])
+                ->values();
+        }
+
+        return view('admin.project-view', compact('project', 'staffMembers', 'rebidCandidates', 'sealedBids', 'sealedBidders'));
     }
 
     public function projectFiles(Project $project)
@@ -2295,7 +2347,7 @@ public function destroyUser(User $user)
 
         $schedule->project_id = $project->id;
         $schedule->save();
-        $warning = $this->applyScheduleChange($project->fresh(['schedule']), $scheduleBefore);
+        $warnings = $this->applyScheduleChange($project->fresh(['schedule']), $scheduleBefore);
         $this->storeProjectDocuments($project, $documentFiles, $documentType);
 
         if ($staffId) {
@@ -2308,10 +2360,13 @@ public function destroyUser(User $user)
         }
 
         if ($request->ajax() || $request->expectsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
-            return response()->json(['success' => true, 'message' => 'Project updated successfully!'.($warning ? ' '.$warning : ''), 'warning' => $warning]);
+            // Shown by the list after it reloads.
+            session()->flash('schedule_warnings', $warnings);
+
+            return response()->json(['success' => true, 'message' => 'Project updated successfully!', 'warnings' => $warnings]);
         }
 
-        return redirect()->route('admin.projects')->with('success', 'Project updated successfully!'.($warning ? ' '.$warning : ''));
+        return redirect()->route('admin.projects')->with('success', 'Project updated successfully!')->with('schedule_warnings', $warnings);
     }
 
     public function publishProject(Request $request, Project $project)
@@ -2339,17 +2394,17 @@ public function destroyUser(User $user)
         }
 
         app(\App\Support\ProjectPublication::class)->publish($project, Auth::user(), $publicationAt);
-        $warning = $project->fresh('schedule')->scheduleWarningNote();
+        $warnings = $project->fresh('schedule')->scheduleWarningList();
 
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Project published successfully! It is now ready for bidding.'.($warning ? ' '.$warning : ''),
-                'warning' => $warning,
+                'message' => 'Project published successfully! It is now ready for bidding.',
+                'warnings' => $warnings,
             ]);
         }
 
-        return redirect()->route('admin.projects')->with('success', 'Project published successfully!'.($warning ? ' '.$warning : ''));
+        return redirect()->route('admin.projects')->with('success', 'Project published successfully!')->with('schedule_warnings', $warnings);
     }
 
     public function destroyProject(Request $request, Project $project)

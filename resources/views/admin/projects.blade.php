@@ -144,8 +144,10 @@
                 </div>
             @endif
 
+            @include('partials.schedule-warnings')
+
             @if(session('success'))
-            <div id="successAlert" style="position: fixed; top: 90px; right: 25px; background: #dcfce7; color: #166534; padding: 16px 20px; border-radius: 10px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; display: flex; align-items: center; gap: 10px; min-width: 280px; border: 1px solid #bbf7d0;">
+            <div id="successAlert" style="position: fixed; top: 90px; right: 25px; background: #dcfce7; color: #166534; padding: 14px 18px; border-radius: 10px; font-size: 14px; line-height: 1.5; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; display: flex; align-items: center; gap: 10px; min-width: 280px; max-width: min(440px, calc(100vw - 32px)); border: 1px solid #bbf7d0;">
                 <i class="fas fa-check-circle" style="font-size: 18px;"></i>
                 <span>{{ session('success') }}</span>
                 <button onclick="closeSuccessAlert()" style="margin-left: auto; background: none; border: none; color: #166534; cursor: pointer; font-size: 18px; padding: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">&times;</button>

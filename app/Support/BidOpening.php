@@ -148,16 +148,26 @@ class BidOpening
         }
         return null;
     }
-    public function openFinancial(Bid $bid, User $actor, ?string $password = null): void
+    public function openFinancial(Bid $bid, User $actor, ?string $password = null, ?string $amountRead = null): void
     {
         $this->authorize($actor);
         // A sealed paper bid has no PIN: its financial envelope is opened by hand at the
-        // opening and the BAC records it. Online bids open only with the bidder's PIN.
-        $paper = $bid->submission_channel === Bid::CHANNEL_MANUAL;
+        // opening and the BAC records it with the bid amount read out. Online bids open
+        // only with the bidder's PIN.
+        // A paper bid that does carry a PIN (an older record) still opens only with it.
+        $paper = $bid->submission_channel === Bid::CHANNEL_MANUAL && ! filled($bid->financial_opening_password_hash);
         if (! $paper && (! is_string($password) || strlen($password) < 6 || strlen($password) > 128)) {
             throw ValidationException::withMessages(['opening_password' => 'Enter the financial password provided by the bidder.']);
         }
-        $result = DB::transaction(function () use ($bid, $actor, $password, $paper) {
+        $amount = null;
+        if ($paper) {
+            $normalized = str_replace([',', '₱', ' '], '', (string) $amountRead);
+            if (! is_numeric($normalized) || (float) $normalized <= 0 || (float) $normalized > 9999999999999.99) {
+                throw ValidationException::withMessages(['bid_amount' => 'Enter the bid amount read from the financial envelope.']);
+            }
+            $amount = number_format((float) $normalized, 2, '.', '');
+        }
+        $result = DB::transaction(function () use ($bid, $actor, $password, $paper, $amount) {
             $project = Project::lockForUpdate()->with('schedule')->findOrFail($bid->project_id);
             $this->openScheduledTechnical($project);
             $locked = Bid::lockForUpdate()->findOrFail($bid->id)->setRelation('project', $project->fresh(['schedule']));
@@ -167,7 +177,7 @@ class BidOpening
                 if ($locked->isDraft()) return ['error' => 'Record the receipt of the sealed bid first.'];
 
                 return $this->recordFinancialOpening($locked, $project, $actor, $at, 'sealed_envelope',
-                    'BAC Admin recorded the opening of the sealed financial envelope.');
+                    'BAC Admin recorded the opening of the sealed financial envelope.', $amount);
             }
             if (! filled($locked->financial_opening_password_hash)) return ['error' => 'No bidder financial password is stored for this submission.'];
             if ($locked->financial_password_locked_until && $locked->financial_password_locked_until->greaterThan($at)) {
@@ -195,7 +205,8 @@ class BidOpening
     }
 
     /** The financial opening record: on the bid, in the bidder's history and in the audit trail. */
-    private function recordFinancialOpening(Bid $locked, Project $project, User $actor, $at, string $method, string $description): array
+    /** $amountRead: the price read out from a paper bid's envelope, which becomes its bid amount. */
+    private function recordFinancialOpening(Bid $locked, Project $project, User $actor, $at, string $method, string $description, ?string $amountRead = null): array
     {
         $details = [
             'component' => 'financial', 'opened_at' => $at->toIso8601String(),
@@ -203,12 +214,12 @@ class BidOpening
             'award_criterion' => $project->award_criterion,
             'documents_reference' => $project->opening_documents_reference,
             'technical_score' => $locked->technical_score, 'method' => $method,
-        ];
+        ] + ($amountRead !== null ? ['bid_amount_read' => $amountRead] : []);
         $locked->forceFill([
             'financial_password_attempts' => 0, 'financial_password_locked_until' => null,
             'financial_opening_method' => $method, 'financial_opening_exception_reason' => null,
             'financial_opened_at' => $at, 'financial_opened_by' => $actor->id,
-        ])->save();
+        ] + ($amountRead !== null ? ['bid_amount' => $amountRead] : []))->save();
         $locked->trackings()->create([
             'bidder_id' => $locked->user_id, 'project_id' => $project->id,
             'stage' => 'financial_opening', 'decision' => 'opened', 'created_by' => $actor->id,

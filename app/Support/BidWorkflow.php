@@ -676,6 +676,41 @@ class BidWorkflow
     }
 
     /**
+     * A sealed paper bid brought to the BAC Secretariat by a registered bidder
+     * who saved nothing online: the bid record is made here and received with
+     * the same checks as RECORD_MANUAL_RECEIPT (manual project, fee recorded,
+     * on or before the deadline, before the opening, unique logbook number).
+     * Its price stays in the envelope until the financial opening.
+     *
+     * @throws ValidationException
+     */
+    public function receiveWalkInSealedBid(Project $project, User $bidder, User $actor, array $input): Bid
+    {
+        if ($bidder->role !== 'bidder' || ! $bidder->isApprovedBidder()) {
+            throw ValidationException::withMessages(['bidder_id' => 'Choose a registered bidder whose account the BAC has approved.']);
+        }
+
+        return DB::transaction(function () use ($project, $bidder, $actor, $input) {
+            $bid = Bid::where('project_id', $project->id)->where('user_id', $bidder->id)->lockForUpdate()->first();
+            if ($bid !== null && ! $bid->isDraft()) {
+                throw ValidationException::withMessages(['bidder_id' => 'This bidder already has an official bid for this project.']);
+            }
+
+            // A draft the bidder saved online is received as is; otherwise the record starts here.
+            $bid ??= Bid::create([
+                'project_id' => $project->id,
+                'user_id' => $bidder->id,
+                'bid_amount' => 0,
+                'status' => 'pending',
+                'workflow_step' => Bid::STEP_SUBMITTED,
+                'submission_channel' => Bid::CHANNEL_MANUAL,
+            ]);
+
+            return $this->apply($bid->setRelation('project', $project), self::RECORD_MANUAL_RECEIPT, $actor, $input);
+        });
+    }
+
+    /**
      * The technical opening itself, recorded by the BAC ($actorId) or at the
      * scheduled time (no actor, BidOpening::openScheduledTechnical): it ends
      * the submission period and every official bid's history shows it. Run
