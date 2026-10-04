@@ -148,7 +148,13 @@
                     <i class="fas fa-lock" aria-hidden="true"></i>
                     <div>
                         <strong>Submission sealed</strong>
+                        @if($bid->project && ! $bid->project->requiresRecordedBidOpening())
+                            @php $quoteMode = $bid->project->mode(); $quoteDeadline = $bid->project->bidSubmissionDeadline(); @endphp
+                            <span>{{ ucfirst($quoteMode->submissionNoun(true)) }} are reviewed together after the {{ strtolower($quoteMode->deadlineLabel()) }}. Until then the price, the files and the ranking stay hidden from the BAC.</span>
+                            @if($quoteDeadline)<small>Opens {{ $quoteDeadline->copy()->timezone($tz)->format('M d, Y h:i A') }} (Asia/Manila).</small>@endif
+                        @else
                         <span>Technical and eligibility files open automatically at the scheduled bid-opening time. Financial Bid and the bid amount remain sealed until the technical review is approved and the password is verified.</span>
+                        @endif
                         @if($openingAt)
                             <small>Scheduled {{ $openingAt->timezone($tz)->format('M d, Y h:i A') }} (Asia/Manila). Technical and eligibility files open automatically at this time.</small>
                         @endif

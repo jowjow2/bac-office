@@ -558,6 +558,13 @@ class Bid extends Model
      */
     public function isSealed(): bool
     {
+        // Quotations and offers (SVP, RFQ, negotiated) have no opening ceremony but are
+        // reviewed only after the deadline (BidProgress 'bids_opened'): until then the BAC
+        // sees no price or file, and nothing is ranked.
+        if ($this->project !== null && ! $this->project->requiresRecordedBidOpening()) {
+            return ! $this->project->submissionDeadlinePassed();
+        }
+
         return ($this->project?->requiresRecordedBidOpening() ?? true)
             && ($this->isDraft() || ! ($this->project?->bidsAreOpened() ?? false));
     }
@@ -569,7 +576,8 @@ class Bid extends Model
      */
     public function isFinancialSealed(): bool
     {
-        if ($this->project !== null && ! $this->project->mode()->isCompetitive()) return false;
+        // Alternative modes open the quotation as a whole once the deadline passes.
+        if ($this->project !== null && ! $this->project->mode()->isCompetitive()) return $this->isSealed();
         if ($this->isSealed()) return true;
         if (! $this->documents_validated_at || ! $this->documents_validated_by
             || $this->disqualified_at !== null || $this->status === 'rejected') return true;

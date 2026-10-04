@@ -37,7 +37,7 @@
     <td data-label="Bid amount" class="bid-amount-cell bid-numeric">
         @if($bid->isFinancialSealed())
             <span class="bid-sealed-value"><i class="fas fa-lock" aria-hidden="true"></i> Sealed</span>
-            <small>{{ $bid->isSealed() ? 'Until recorded opening' : 'Until recorded financial opening' }}</small>
+            <small>{{ ! ($mode?->isCompetitive() ?? true) ? 'Until the '.strtolower($mode->deadlineLabel()) : ($bid->isSealed() ? 'Until recorded opening' : 'Until recorded financial opening') }}</small>
         @else
             <strong>&#8369;{{ number_format((float) $bid->amount, 2) }}</strong>
         @endif
