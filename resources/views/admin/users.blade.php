@@ -938,6 +938,33 @@
                     </tbody>
                 </table>
                 </div>
+                @if($users->hasPages())
+                    {{-- 25 accounts a page; search and the tab filter carry over. --}}
+                    <nav class="users-pager" aria-label="User pages">
+                        <span>Showing {{ $users->firstItem() }}&ndash;{{ $users->lastItem() }} of {{ $users->total() }}</span>
+                        <span class="users-pager__links">
+                            @if($users->onFirstPage())
+                                <span class="users-pager__btn is-disabled" aria-disabled="true">Previous</span>
+                            @else
+                                <a class="users-pager__btn" href="{{ $users->previousPageUrl() }}" rel="prev">Previous</a>
+                            @endif
+                            <span class="users-pager__page">Page {{ $users->currentPage() }} of {{ $users->lastPage() }}</span>
+                            @if($users->hasMorePages())
+                                <a class="users-pager__btn" href="{{ $users->nextPageUrl() }}" rel="next">Next</a>
+                            @else
+                                <span class="users-pager__btn is-disabled" aria-disabled="true">Next</span>
+                            @endif
+                        </span>
+                    </nav>
+                    <style>
+                        body .admin-dashboard .users-page .users-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 20px; border-top: 1px solid #ece7dc; color: #6b736e; font-size: 13px; }
+                        body .admin-dashboard .users-page .users-pager__links { display: inline-flex; align-items: center; gap: 8px; }
+                        body .admin-dashboard .users-page .users-pager__page { color: #3c4641; font-weight: 600; }
+                        body .admin-dashboard .users-page .users-pager__btn { display: inline-flex; align-items: center; min-height: 34px; padding: 0 14px; border: 1px solid #d9d4c7; border-radius: 9px; background: #fff; color: #1b2420 !important; -webkit-text-fill-color: #1b2420 !important; font-weight: 600; text-decoration: none; }
+                        body .admin-dashboard .users-page .users-pager__btn:hover { border-color: #1d4f40; }
+                        body .admin-dashboard .users-page .users-pager__btn.is-disabled { opacity: .45; pointer-events: none; }
+                    </style>
+                @endif
             </div>
         </main>
     </div>

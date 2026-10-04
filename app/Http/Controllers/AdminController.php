@@ -876,7 +876,8 @@ class AdminController extends Controller
                 });
             })
             ->latest()
-            ->get();
+            ->paginate(25)
+            ->withQueryString();
 
         $roleCounts = [
             'admin' => User::where('role', 'admin')->count(),

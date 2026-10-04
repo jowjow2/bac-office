@@ -145,7 +145,7 @@ class User extends Authenticatable
             return false;
         }
 
-        if (! Schema::hasTable('bidders')) {
+        if (! self::tableExists('bidders')) {
             return $this->status === 'active';
         }
 
@@ -160,7 +160,7 @@ class User extends Authenticatable
                 return false;
             }
 
-            if (Schema::hasTable('bidder_sanctions') && $profile->hasActiveProcurementSanction()) {
+            if (self::tableExists('bidder_sanctions') && $profile->hasActiveProcurementSanction()) {
                 return false;
             }
 
@@ -170,13 +170,21 @@ class User extends Authenticatable
         return $this->status === 'active';
     }
 
+    /** Schema::hasTable() queries the database: remember the answer for the request. */
+    private static function tableExists(string $table): bool
+    {
+        static $known = [];
+
+        return $known[$table] ??= Schema::hasTable($table);
+    }
+
     public function bidderProcurementStatus(): string
     {
         if ($this->role !== 'bidder') {
             return $this->status;
         }
 
-        if (! Schema::hasTable('bidders')) {
+        if (! self::tableExists('bidders')) {
             return $this->status === 'active' ? 'active' : $this->status;
         }
 
@@ -188,7 +196,7 @@ class User extends Authenticatable
             return $this->status === 'active' ? 'active' : $this->status;
         }
 
-        if (Schema::hasTable('bidder_sanctions')) {
+        if (self::tableExists('bidder_sanctions')) {
             $activeSanction = $profile->relationLoaded('activeSanction')
                 ? $profile->activeSanction
                 : $profile->activeSanction()->first();
@@ -230,7 +238,7 @@ class User extends Authenticatable
             return null;
         }
 
-        if (! Schema::hasTable('bidders')) {
+        if (! self::tableExists('bidders')) {
             return 'new';
         }
 
