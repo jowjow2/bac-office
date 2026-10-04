@@ -102,6 +102,9 @@ class PublicAwardController extends Controller
                 default => 'Awarded',
             },
             'document_url' => $award->isCertificateViewable() ? route('public.awards.document', $award->qr_token) : null,
+            // The signed Notice to Proceed, once issued and published.
+            'ntp_issued' => $award->hasPublishedNoticeToProceed() ? $award->ntp_issued_on->format('F d, Y') : null,
+            'ntp_url' => $award->noticeToProceedUrl(),
             'verify_url' => route('certificate.verify', $award),
             'bidder_verify_url' => $profile?->verificationUrl(),
             'bidder_qr_url' => $profile?->tokenQrUrl(),

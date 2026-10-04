@@ -24,6 +24,14 @@ if (page) {
         field('amount').textContent = record.amount;
         field('status').textContent = record.status;
 
+        const ntp = page.querySelector('[data-award-ntp]');
+        if (ntp) {
+            ntp.textContent = record.ntp_url ? `Issued ${record.ntp_issued} · ` : 'Not yet issued';
+            if (record.ntp_url) {
+                ntp.append(Object.assign(document.createElement('a'), { href: record.ntp_url, target: '_blank', rel: 'noopener', textContent: 'View PDF' }));
+            }
+        }
+
         // Only a published file is ever loaded; otherwise the "not available" state shows.
         const hasDocument = Boolean(record.document_url);
         frame.hidden = !hasDocument;

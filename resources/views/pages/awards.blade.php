@@ -77,6 +77,7 @@
                         <div><dt>Winning bidder</dt><dd data-award-field="winner">{{ $selected['winner'] }}</dd></div>
                         <div><dt>Contract amount</dt><dd class="award-post-amount" data-award-field="amount">{{ $selected['amount'] }}</dd></div>
                         <div><dt>Status</dt><dd><span class="award-post-status" data-award-field="status">{{ $selected['status'] }}</span></dd></div>
+                        <div><dt>Notice to Proceed</dt><dd data-award-ntp>@if($selected['ntp_url'] ?? null)Issued {{ $selected['ntp_issued'] }} &middot; <a href="{{ $selected['ntp_url'] }}" target="_blank" rel="noopener">View PDF</a>@else Not yet issued @endif</dd></div>
                     </dl>
                     <div class="award-post-actions">
                         <a href="{{ $selected['bidder_verify_url'] ?? '#' }}" class="award-post-qr public-qr-preview-trigger" data-public-qr-trigger="award-bidder-qr-modal" data-award-bidder data-award-bidder-link aria-label="QR code of the winning bidder's awarded bids" @unless($selected['bidder_qr_url']) hidden @endunless>

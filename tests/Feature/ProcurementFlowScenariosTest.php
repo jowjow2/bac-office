@@ -452,6 +452,9 @@ it('issues the Notice to Proceed with its signed PDF, publishes it, and records 
     // Published under Awards & Contracts → Notice to Proceed; the PDF opens and downloads.
     testCase()->get(route('public.awards'))->assertOk()
         ->assertSeeInOrder(['Notice to Proceed', $project->title, 'Mindoro Builders', 'Issued '.\Illuminate\Support\Carbon::parse($issuedOn)->format('F d, Y'), 'View PDF', 'Download']);
+    // Also in the selected award's details.
+    testCase()->get(route('public.awards', ['award' => $award->id]))->assertOk()
+        ->assertSee('<dt>Notice to Proceed</dt><dd data-award-ntp>Issued '.\Illuminate\Support\Carbon::parse($issuedOn)->format('F d, Y'), false);
     $view = testCase()->get($award->noticeToProceedUrl())->assertOk()->assertHeader('Content-Type', 'application/pdf');
     $download = testCase()->get($award->noticeToProceedUrl(download: true))->assertOk();
     expect($view->headers->get('Content-Disposition'))->toStartWith('inline')
