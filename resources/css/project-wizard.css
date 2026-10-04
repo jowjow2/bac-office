@@ -681,6 +681,19 @@ body.pw-open {
 
 /* ---------- Small screens ---------- */
 
+.pw-fee-alt {
+    display: grid;
+    gap: 6px;
+}
+
+.pw-fee-alt[hidden] {
+    display: none;
+}
+
+.pw-fee-alt .pw-fee-calc__line i {
+    color: var(--ui-success, #1f7a4d);
+}
+
 /* Standard documents the mode adds, shown read-only */
 .pw-auto-docs {
     display: grid;

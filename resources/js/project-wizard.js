@@ -686,7 +686,16 @@ if (root && form) {
         }
         if (max) max.textContent = bracket ? `(₱${formatPeso(bracket.maximum)})` : '';
 
-        const showAmount = !competitive || mode === 'reduced';
+        // Alternative modes: no fee unless the BAC chooses to charge one.
+        const altCharge = $('[data-pw-fee-alt-charge]');
+        $('[data-pw-fee-alt]').hidden = competitive;
+        const charging = !competitive && Boolean(altCharge?.checked);
+        if (!competitive && !charging && fee.value) {
+            fee.value = '';
+            const display = $('[data-pw-money="bidding_documents_fee"]');
+            if (display) display.value = '';
+        }
+        const showAmount = charging || (competitive && mode === 'reduced');
         const showReason = competitive && mode !== 'schedule';
         $('[data-pw-fee-amount]').hidden = !showAmount;
         $('[data-pw-fee-reason]').hidden = !showReason;
@@ -712,7 +721,7 @@ if (root && form) {
 
     syncFeeMoney = bindMoney($('[data-pw-money="bidding_documents_fee"]'), () => syncSubmission());
 
-    [submissionMode, security, ...feeModes].forEach((field) => {
+    [submissionMode, security, ...feeModes, $('[data-pw-fee-alt-charge]')].forEach((field) => {
         field?.addEventListener('input', syncSubmission);
         field?.addEventListener('change', syncSubmission);
     });

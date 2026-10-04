@@ -473,6 +473,12 @@
                                     </div>
                                     <span class="ui-error" id="bidding_fee_mode-error" data-pw-error @unless($err('bidding_fee_mode')) hidden @endunless>{{ $err('bidding_fee_mode') }}</span>
                                 </div>
+                                {{-- Alternative modes: no schedule applies; no fee unless the BAC sets one. --}}
+                                <div class="pw-fee-alt" data-pw-fee-alt hidden>
+                                    <p class="pw-fee-calc__line" data-pw-fee-alt-line><i class="fas fa-circle-check" aria-hidden="true"></i> No bidding documents fee.</p>
+                                    <p class="ui-hint">The fee schedule ({{ \App\Support\BiddingDocumentsFee::BASIS }}) is for competitive bidding. A Request for Quotation is usually issued to suppliers without a fee.</p>
+                                    <label class="ui-check"><input type="checkbox" data-pw-fee-alt-charge @checked(filled($fee) && (float) $fee > 0)> Charge a fee for this project</label>
+                                </div>
                                 <div class="pw-subfield" data-pw-fee-amount>
                                     <label class="ui-label" for="bidding_documents_fee_display" data-pw-fee-amount-label>Fee amount</label>
                                     <div class="ui-input-group">
