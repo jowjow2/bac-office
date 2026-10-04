@@ -146,3 +146,18 @@ it('rejects an accidental duplicate Infrastructure progress post without blockin
     testCase()->actingAs($this->supplier)->post(route('bidder.infrastructure.progress', $this->award), array_merge($report, ['document' => ($this->file)('foundation-duplicate.pdf')]))->assertSessionHasErrors('submission');
     expect(ContractImplementationEvent::where('action', 'infrastructure_progress_submitted')->count())->toBe(1);
 });
+
+it('fills the infrastructure terms form from the project so the BAC only checks it', function () {
+    $this->award->project->update(['title' => 'Concreting of farm-to-market road, Sitio Malaylay (250 lm)']);
+    $ntp = $this->award->bid->notice_to_proceed_at->timezone('Asia/Manila');
+
+    testCase()->actingAs($this->admin)->get(route('admin.infrastructure.show', $this->award))
+        ->assertOk()
+        ->assertSee('value="'.$ntp->copy()->addDays(90)->toDateString().'"', false)
+        ->assertSee('value="Barangay Sample, San Jose"', false)
+        ->assertSee('value="SJOM-INFRA-TEST"', false)
+        ->assertSee('value="Concreting of farm-to-market road, Sitio Malaylay"', false)
+        ->assertSee('name="contract_items[0][quantity]" class="ui-input" type="number" step="0.01" min="0.01" value="250"', false)
+        ->assertSee('value="lm"', false)
+        ->assertSee('Add work item');
+});
