@@ -17,8 +17,8 @@
   min-height: min(620px, 78vh);
   padding: 64px 24px 56px;
   overflow: hidden;
-  /* Photo of the BAC Office, framed on its door sign. */
-  background: #163d31 url("/Images/bac-office-building.webp") 58% 30% / cover no-repeat;
+  /* Front of the BAC Office building, framed on the BAC Office sign. */
+  background: #163d31 url("/Images/bac-office-front.webp") 52% 42% / cover no-repeat;
   border-bottom: 1px solid var(--ui-line);
 }
 
