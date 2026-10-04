@@ -46,6 +46,34 @@ $withNeonEndpoint = static function (mixed $host): mixed {
 
 // Keep managed PostgreSQL URLs intact; injecting a Neon options query string makes Laravel treat libpq connection options as PDO options.
 
+// libpq older than 14 (e.g. XAMPP's PHP) cannot send the SNI Neon uses to find the
+// endpoint, so `php artisan migrate --env=production` from such a machine fails.
+// Neon also accepts the endpoint ID in the password; use that for old clients only.
+$neonLegacyClientUrl = static function (mixed $url): ?array {
+    if (! is_string($url) || ! str_contains($url, 'neon.tech')
+        || ! defined('PGSQL_LIBPQ_VERSION') || version_compare(PGSQL_LIBPQ_VERSION, '14', '>=')) {
+        return null;
+    }
+
+    $parts = parse_url($url);
+    if (! is_array($parts) || empty($parts['host'])) {
+        return null;
+    }
+
+    parse_str($parts['query'] ?? '', $query);
+    $endpoint = preg_replace('/-pooler$/', '', strtok($parts['host'], '.'));
+
+    return [
+        'url' => null,
+        'host' => $parts['host'],
+        'port' => $parts['port'] ?? 5432,
+        'database' => ltrim($parts['path'] ?? '', '/'),
+        'username' => rawurldecode($parts['user'] ?? ''),
+        'password' => 'endpoint='.$endpoint.'$'.rawurldecode($parts['pass'] ?? ''),
+        'sslmode' => $query['sslmode'] ?? 'require',
+    ];
+};
+
 $defaultConnection = $firstEnv(['DB_CONNECTION']);
 
 if (! $defaultConnection) {
@@ -171,7 +199,7 @@ return [
             ]) : [],
         ],
 
-        'pgsql' => [
+        'pgsql' => array_merge([
             'driver' => 'pgsql',
             'url' => $pgsqlUrl,
             'host' => $withNeonEndpoint($firstEnv(['POSTGRES_HOST', 'PGHOST', 'DB_HOST'], '127.0.0.1')),
@@ -184,7 +212,7 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
-        ],
+        ], $neonLegacyClientUrl($pgsqlUrl) ?? []),
 
         'sqlsrv' => [
             'driver' => 'sqlsrv',
