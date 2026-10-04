@@ -23,7 +23,13 @@
             ];
         @endphp
 
+        @php
+            // Nothing to count, search or export yet: the page shows how to start instead.
+            $isEmptyAll = ($projectTotals['all'] ?? 0) === 0 && ! ($showArchived ?? false) && ($search ?? '') === '' && ($status ?? '') === '';
+        @endphp
+
         <main class="dashboard-content projects-content">
+            @unless($isEmptyAll)
             <section class="projects-command-panel" aria-label="Projects overview">
                 <div class="projects-summary-grid" aria-label="Project status summary">
                     @foreach(['' => 'all', 'draft' => 'draft', 'open' => 'open', 'closed' => 'closed', 'awarded' => 'awarded'] as $statusKey => $totalKey)
@@ -41,6 +47,7 @@
                     @endforeach
                 </div>
             </section>
+            @endunless
 
             <section
                 id="project-management"
@@ -62,9 +69,11 @@
                     <a href="{{ ($showArchived ?? false) ? route('admin.projects') : route('admin.projects', ['archived' => 1]) }}" class="projects-archive-link {{ ($showArchived ?? false) ? 'is-active' : '' }}" title="{{ ($showArchived ?? false) ? 'Return to active projects' : 'View archived projects' }}">
                         <i class="fas fa-box-archive" aria-hidden="true"></i>
                         <span>{{ ($showArchived ?? false) ? 'Active Projects' : 'Archived Projects' }}</span>
+                        @if(! ($showArchived ?? false) && $archivedCount > 0)<span class="projects-count-chip">{{ $archivedCount }}</span>@endif
                     </a>
                 </div>
 
+                @unless($isEmptyAll)
                 <form method="GET" action="{{ route('admin.projects') }}" class="projects-filter-form">
                     <div class="projects-filter-group">
                         <div class="projects-search-control">
@@ -109,7 +118,17 @@
                         <input type="hidden" name="archived" value="1">
                     @endif
                 </form>
+                @endunless
             </section>
+
+            @if(! $isEmptyAll && ! ($showArchived ?? false) && $waitingRequestsCount > 0)
+                {{-- Purchase requests forwarded to the BAC that have no project yet. --}}
+                <a class="projects-waiting" href="{{ $waitingRequestsCount === 1 ? route('admin.projects.create', ['request' => $waitingRequests->first()->id]) : route('admin.requests', ['tab' => 'bac']) }}">
+                    <span class="projects-waiting__icon" aria-hidden="true"><i class="fas fa-inbox"></i></span>
+                    <span class="projects-waiting__text"><strong>{{ $waitingRequestsCount }} {{ \Illuminate\Support\Str::plural('purchase request', $waitingRequestsCount) }}</strong> forwarded to the BAC {{ $waitingRequestsCount === 1 ? 'is' : 'are' }} waiting for a project.</span>
+                    <span class="projects-waiting__go">Prepare procurement <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
+                </a>
+            @endif
 
             @if(($status ?? '') !== '' || ($search ?? '') !== '' || ($showArchived ?? false))
                 <div class="projects-active-filter-bar" aria-label="Active project filters">
@@ -187,6 +206,40 @@
                         </table>
                     </div>
                 @else
+                @if($isEmptyAll)
+                    {{-- No project at all yet: where projects come from, and the requests waiting for one. --}}
+                    <div class="projects-start">
+                        <div class="projects-start__intro">
+                            <span class="projects-start__icon" aria-hidden="true"><i class="fas fa-folder-plus"></i></span>
+                            <h2>Start your first procurement</h2>
+                            <p>A project usually starts from a purchase request that the BAC Secretariat forwarded to the BAC. The wizard fills in the mode of procurement, the requirements and the schedule from it.</p>
+                            <ol class="projects-start__steps">
+                                <li><strong>Purchase request</strong><span>Filed by the end-user office, checked and forwarded by the Secretariat.</span></li>
+                                <li><strong>Prepare the procurement</strong><span>Mode, ABC, requirements and schedule.</span></li>
+                                <li><strong>Publish</strong><span>Bidders see it under Opportunities.</span></li>
+                            </ol>
+                        </div>
+                        <div class="projects-start__queue">
+                            <div class="projects-start__queue-head">
+                                <h3>Waiting for a project <span>{{ $waitingRequestsCount }}</span></h3>
+                                <a href="{{ route('admin.requests', ['tab' => 'bac']) }}">View all</a>
+                            </div>
+                            @forelse($waitingRequests as $waiting)
+                                <a class="projects-start__request" href="{{ route('admin.projects.create', ['request' => $waiting->id]) }}">
+                                    <span class="projects-start__request-main">
+                                        <code>{{ $waiting->reference_no }}</code>
+                                        <strong>{{ $waiting->title }}</strong>
+                                        <small>{{ $waiting->end_user_office }} · &#8369;{{ number_format((float) $waiting->estimated_cost, 2) }}</small>
+                                    </span>
+                                    <span class="projects-start__go">Prepare <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
+                                </a>
+                            @empty
+                                <p class="projects-start__none"><i class="fas fa-inbox" aria-hidden="true"></i> No purchase request is waiting. End-user offices file them, and the Secretariat forwards them to the BAC.</p>
+                            @endforelse
+                            <a class="projects-start__blank" href="{{ route('admin.projects.create') }}"><i class="fas fa-plus" aria-hidden="true"></i> Create a project without a purchase request</a>
+                        </div>
+                    </div>
+                @else
                     <div class="projects-empty-state">
                         <span class="projects-empty-icon"><i class="fas fa-folder-open" aria-hidden="true"></i></span>
                         <h3>{{ (($search ?? '') !== '' || ($status ?? '') !== '' || ($showArchived ?? false)) ? 'No projects found' : 'No projects yet' }}</h3>
@@ -200,6 +253,7 @@
                             </a>
                         @endif
                     </div>
+                    @endif
                 @endif
             </section>
 

@@ -99,6 +99,14 @@ class AdminController extends Controller
         // For assigning staff straight from an "Unassigned" chip in the list.
         $assignableStaff = User::where('role', 'staff')->where('status', 'active')->orderBy('name')->get(['id', 'name', 'office']);
 
+        // Purchase requests forwarded to the BAC that have no project yet: where projects start.
+        $waitingRequestsQuery = \App\Models\ProcurementRequest::query()
+            ->where('status', \App\Models\ProcurementRequest::STATUS_FORWARDED)
+            ->whereDoesntHave('project');
+        $waitingRequestsCount = (clone $waitingRequestsQuery)->count();
+        $waitingRequests = $waitingRequestsQuery->orderBy('forwarded_at')->orderBy('id')->take(5)->get();
+        $archivedCount = Project::whereNotNull('archived_at')->count();
+
         return view('admin.projects', compact(
             'projects',
             'search',
@@ -106,7 +114,10 @@ class AdminController extends Controller
             'projectTotals',
             'showArchived',
             'exportRows',
-            'assignableStaff'
+            'assignableStaff',
+            'waitingRequests',
+            'waitingRequestsCount',
+            'archivedCount'
         ));
     }
 
