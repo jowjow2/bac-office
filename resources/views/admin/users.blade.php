@@ -3,7 +3,7 @@
 <div class="admin-dashboard admin-role-page">
     @php
         $staffOffices = \App\Models\User::staffOfficeOptions();
-        $endUserOffices = \App\Models\User::endUserOfficeOptions();
+        $endUserOffices = \App\Models\User::assignableEndUserOffices();
     @endphp
     @vite(['resources/css/dashboard.css'])
 
@@ -66,95 +66,107 @@
         }
 
         .user-modal-card {
-            width: min(620px, 100%);
-            max-height: calc(100vh - 32px);
-            max-height: min(720px, calc(100dvh - 32px));
+            width: min(640px, 100%);
+            max-height: min(760px, calc(100dvh - 32px));
             display: flex;
             flex-direction: column;
             overflow: hidden;
             background: #ffffff;
-            border-radius: var(--ui-radius-lg);
+            border-radius: 16px;
             box-shadow: 0 24px 52px rgba(27, 36, 32, 0.18);
-            position: relative;
         }
 
-        .user-modal-header {
-            flex: 0 0 auto;
-            padding: 24px 68px 18px 24px;
-            border-bottom: 1px solid var(--ui-line-soft);
+        .user-modal .um-head {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 20px 20px 16px 24px;
+            border-bottom: 1px solid var(--ui-line);
         }
 
-        .user-modal-header h2 {
-            margin: 0;
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--ui-ink);
+        .user-modal .um-head__icon {
+            display: grid;
+            flex: 0 0 40px;
+            width: 40px;
+            height: 40px;
+            place-items: center;
+            border-radius: 12px;
+            background: var(--ui-primary-soft);
+            color: var(--ui-primary);
+            font-size: 16px;
         }
 
-        .user-modal-header p {
-            margin: 8px 0 0;
-            color: var(--ui-muted);
-            font-size: 14px;
-            line-height: 1.5;
-        }
+        .user-modal .um-head__text { flex: 1; min-width: 0; }
+        .user-modal .um-head h2 { margin: 0; color: var(--ui-ink); font-size: 18px; font-weight: 700; line-height: 1.3; }
+        .user-modal .um-head p { margin: 3px 0 0; color: var(--ui-muted); font-size: 13px; line-height: 1.45; }
 
-        .user-modal-close {
-            position: absolute;
-            top: 16px;
-            right: 16px;
+        .user-modal .um-close {
+            display: grid;
+            flex: 0 0 34px;
             width: 34px;
             height: 34px;
-            border: none;
-            border-radius: var(--ui-radius-lg);
-            background: var(--ui-line-soft);
+            place-items: center;
+            border: 0;
+            border-radius: 10px;
+            background: transparent;
             color: var(--ui-muted);
-            font-size: 20px;
-            line-height: 1;
+            font-size: 16px;
             cursor: pointer;
         }
 
-        .user-modal-form {
-            min-height: 0;
-            display: flex;
-            flex: 1 1 auto;
-            flex-direction: column;
-            overflow-x: hidden;
-            overflow-y: auto;
-            padding: 20px 24px 0;
-        }
+        .user-modal .um-close:hover { background: var(--ui-surface-2); color: var(--ui-ink); }
 
-        .user-modal-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 16px;
-            margin-bottom: 16px;
-        }
+        .user-modal .um-form { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; margin: 0; }
+        .user-modal .um-body { display: grid; flex: 1 1 auto; gap: 16px; min-height: 0; padding: 20px 24px 22px; overflow-y: auto; }
+        .user-modal .um-body [hidden] { display: none !important; }
+        .user-modal .um-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+        .user-modal .um-field { display: grid; gap: 6px; min-width: 0; }
+        .user-modal .um-label { color: var(--ui-ink-2); font-size: 12.5px; font-weight: 600; }
+        .user-modal .um-req { color: var(--ui-danger); }
+        .user-modal .um-opt { color: var(--ui-subtle); font-weight: 500; }
+        .user-modal .um-hint { color: var(--ui-subtle); font-size: 12px; }
+        .user-modal .um-hint:empty { display: none; }
+        .user-modal .um-section { margin: 4px 0 -4px; padding-top: 16px; border-top: 1px solid var(--ui-line-soft); color: var(--ui-ink); font-size: 13.5px; font-weight: 700; }
 
-        .user-modal-field {
-            margin-bottom: 16px;
-        }
+        .user-modal .um-roles { margin: 0; padding: 0; border: 0; min-width: 0; }
+        .user-modal .um-roles legend { margin-bottom: 8px; padding: 0; }
+        .user-modal .um-roles__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        .user-modal .um-role { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--ui-line-strong); border-radius: 12px; background: #ffffff; cursor: pointer; transition: border-color .15s ease, background .15s ease, box-shadow .15s ease; }
+        .user-modal .um-role:hover { border-color: var(--ui-subtle); }
+        .user-modal .um-role input { position: absolute; opacity: 0; pointer-events: none; }
+        .user-modal .um-role__icon { display: grid; flex: 0 0 34px; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: var(--ui-surface-2); color: var(--ui-muted); font-size: 14px; }
+        .user-modal .um-role__text { display: grid; gap: 1px; min-width: 0; }
+        .user-modal .um-role__text strong { color: var(--ui-ink); font-size: 13.5px; }
+        .user-modal .um-role__text small { color: var(--ui-subtle); font-size: 12px; line-height: 1.35; }
+        .user-modal .um-role:has(input:checked) { border-color: var(--ui-primary); background: var(--ui-primary-soft); box-shadow: 0 0 0 1px var(--ui-primary); }
+        .user-modal .um-role:has(input:checked) .um-role__icon { background: var(--ui-primary); color: #ffffff; }
+        .user-modal .um-role:has(input:focus-visible) { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
 
-        .user-modal-field label {
-            display: block;
-            margin-bottom: 6px;
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--ui-ink-2);
-        }
+        .user-modal .um-password { position: relative; }
+        .user-modal .um-password input { width: 100%; padding-right: 44px !important; }
+        .user-modal .um-password__toggle { position: absolute; top: 50%; right: 6px; display: grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--ui-muted); transform: translateY(-50%); cursor: pointer; }
+        .user-modal .um-password__toggle:hover { background: var(--ui-surface-2); color: var(--ui-ink); }
 
-        .user-modal-actions {
-            position: sticky;
-            bottom: 0;
-            z-index: 1;
-            flex: 0 0 auto;
-            display: flex;
-            justify-content: flex-end;
-            gap: 12px;
-            margin: 0 -24px;
-            padding: 16px 24px 20px;
-            border-top: 1px solid var(--ui-line-soft);
-            background: rgba(255, 255, 255, 0.97);
-            backdrop-filter: blur(8px);
+        .user-modal .um-actions { display: flex; flex: 0 0 auto; justify-content: flex-end; gap: 10px; padding: 14px 24px; border-top: 1px solid var(--ui-line); background: var(--ui-surface-2); }
+        .user-modal .um-actions button { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 9px 18px; border-radius: 10px; cursor: pointer; }
+
+        :is(#createUserModal, #editUserModal) .um-body :is(.form-input, .form-select) { width: 100%; min-height: 42px; height: 42px; padding: 9px 12px; border-radius: 10px !important; font-size: 14px; box-sizing: border-box; }
+
+        /* Beat the shared dark modal-button rules in dashboard.css. */
+        :is(#createUserModal#createUserModal, #editUserModal#editUserModal) .um-actions .btn-primary { background: var(--ui-primary) !important; border: 1px solid var(--ui-primary) !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; font-weight: 600 !important; }
+        :is(#createUserModal#createUserModal, #editUserModal#editUserModal) .um-actions .btn-primary:hover { background: var(--ui-primary-hover) !important; border-color: var(--ui-primary-hover) !important; }
+        :is(#createUserModal#createUserModal, #editUserModal#editUserModal) .um-actions .btn-secondary { background: #ffffff !important; border: 1px solid var(--ui-line-strong) !important; color: var(--ui-ink) !important; -webkit-text-fill-color: var(--ui-ink) !important; font-weight: 600 !important; }
+        :is(#createUserModal#createUserModal, #editUserModal#editUserModal) .um-actions .btn-secondary:hover { background: var(--ui-surface-2) !important; }
+        :is(#createUserModal#createUserModal, #editUserModal#editUserModal) .um-actions { background: var(--ui-surface-2) !important; border-top: 1px solid var(--ui-line) !important; }
+        :is(#createUserModal#createUserModal, #editUserModal#editUserModal) .um-role:has(input:checked) .um-role__icon :is(i, svg) { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
+        :is(#createUserModal#createUserModal, #editUserModal#editUserModal) .um-role__icon :is(i, svg) { color: inherit !important; -webkit-text-fill-color: currentColor !important; }
+
+        @media (max-width: 560px) {
+            .user-modal { padding: 12px !important; align-items: flex-end !important; }
+            .user-modal .um-grid, .user-modal .um-roles__grid { grid-template-columns: minmax(0, 1fr); }
+            .user-modal .um-body { padding: 16px; }
+            .user-modal .um-actions { padding: 12px 16px; }
+            .user-modal .um-actions button { flex: 1; justify-content: center; }
         }
 
         .user-modal-alert {
@@ -317,45 +329,6 @@
             box-shadow: 0 24px 70px rgba(27, 36, 32, 0.28) !important;
         }
 
-        #createUserModal .user-modal-header,
-        #editUserModal .user-modal-header,
-        #createUserModal .user-modal-form,
-        #editUserModal .user-modal-form,
-        #createUserModal .user-modal-actions,
-        #editUserModal .user-modal-actions {
-            background: #ffffff !important;
-            color: var(--ui-ink) !important;
-            border-color: var(--ui-line) !important;
-        }
-
-        #createUserModal .user-modal-header h2,
-        #editUserModal .user-modal-header h2 {
-            color: var(--ui-ink) !important;
-            -webkit-text-fill-color: var(--ui-ink) !important;
-        }
-
-        #createUserModal .user-modal-header p,
-        #editUserModal .user-modal-header p,
-        #createUserModal .user-modal-field label,
-        #editUserModal .user-modal-field label {
-            color: var(--ui-muted) !important;
-            -webkit-text-fill-color: var(--ui-muted) !important;
-        }
-
-        #createUserModal .user-modal-close,
-        #editUserModal .user-modal-close {
-            background: #ffffff !important;
-            border: 1px solid var(--ui-line-strong) !important;
-            color: var(--ui-ink-2) !important;
-        }
-
-        #createUserModal .user-modal-close:hover,
-        #editUserModal .user-modal-close:hover {
-            background: #fef2f2 !important;
-            border-color: #fecaca !important;
-            color: #dc2626 !important;
-        }
-
         #createUserModal input:not([type="checkbox"]):not([type="radio"]),
         #createUserModal select,
         #createUserModal textarea,
@@ -375,15 +348,15 @@
         #editUserModal input:not([type="checkbox"]):not([type="radio"]):focus,
         #editUserModal select:focus,
         #editUserModal textarea:focus {
-            border-color: #dc2626 !important;
-            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12) !important;
+            border-color: var(--ui-primary) !important;
+            box-shadow: 0 0 0 3px var(--ui-primary-soft) !important;
             outline: none !important;
         }
 
         #createUserModal .btn-primary,
         #editUserModal .btn-primary {
-            background: #dc2626 !important;
-            border-color: #dc2626 !important;
+            background: var(--ui-primary) !important;
+            border-color: var(--ui-primary) !important;
             color: #ffffff !important;
             -webkit-text-fill-color: #ffffff !important;
             box-shadow: none !important;
@@ -391,8 +364,8 @@
 
         #createUserModal .btn-primary:hover,
         #editUserModal .btn-primary:hover {
-            background: #b91c1c !important;
-            border-color: #b91c1c !important;
+            background: var(--ui-primary-hover) !important;
+            border-color: var(--ui-primary-hover) !important;
         }
 
         #createUserModal .btn-secondary,
@@ -523,8 +496,8 @@
 
 
 
-
-
+
+
 
         @media (max-width: 720px) {
             .user-modal-grid {
@@ -1003,189 +976,187 @@
 
 <div id="createUserModal" class="user-modal" aria-hidden="true">
     <div class="user-modal-card" role="dialog" aria-modal="true" aria-labelledby="createUserModalTitle">
-        <button type="button" onclick="closeCreateUserModal()" class="user-modal-close" aria-label="Close">&times;</button>
-
-        <div class="user-modal-header">
-            <h2 id="createUserModalTitle">Create User</h2>
-            <p>Add a new account and assign the correct role.</p>
+        <div class="um-head">
+            <span class="um-head__icon" aria-hidden="true"><i class="fas fa-user-plus"></i></span>
+            <div class="um-head__text">
+                <h2 id="createUserModalTitle">Create user</h2>
+                <p>Add an account and give it the right role.</p>
+            </div>
+            <button type="button" onclick="closeCreateUserModal()" class="um-close" aria-label="Close"><i class="fas fa-xmark" aria-hidden="true"></i></button>
         </div>
 
-        <form id="createUserForm" action="{{ route('admin.users.store') }}" method="POST" class="user-modal-form">
+        <form id="createUserForm" action="{{ route('admin.users.store') }}" method="POST" class="um-form">
             @csrf
-            @if($errors->any() && !old('editing_user_id'))
-                <div class="user-modal-alert">
-                    <ul>
-                        @foreach($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
-
-            <div class="user-modal-field">
-                <label for="create_name">Name</label>
-                <input type="text" name="name" id="create_name" value="{{ old('name') }}" required class="form-input">
-            </div>
-
-            <div class="user-modal-grid">
-                <div class="user-modal-field">
-                    <label for="create_email">Email</label>
-                    <input type="email" name="email" id="create_email" value="{{ old('email') }}" required class="form-input">
-                </div>
-                <div class="user-modal-field">
-                    <label for="create_role">Role</label>
-                    <select name="role" id="create_role" class="form-select" required>
-                        <option value="admin" {{ old('role') === 'admin' ? 'selected' : '' }}>Admin</option>
-                        <option value="staff" {{ old('role') === 'staff' ? 'selected' : '' }}>Staff</option>
-                        <option value="end_user" {{ old('role') === 'end_user' ? 'selected' : '' }}>End-user office</option>
-                        <option value="bidder" {{ old('role', 'bidder') === 'bidder' ? 'selected' : '' }}>Bidder</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="user-modal-field">
-                <label for="create_username">Username</label>
-                <input type="text" name="username" id="create_username" value="{{ old('username') }}" class="form-input" placeholder="Optional; email can be used to sign in">
-            </div>
-
-            <div id="createOfficeField" class="user-modal-field">
-                <label for="create_office" id="createOfficeLabel">Office</label>
-                <select name="office" id="create_office" class="form-select">
-                    <option value="">Select office</option>
-                    @foreach($staffOffices as $office)
-                        <option value="{{ $office }}" data-office-role="staff" {{ old('office') === $office ? 'selected' : '' }}>{{ $office }}</option>
-                    @endforeach
-                    @foreach($endUserOffices as $office)
-                        <option value="{{ $office }}" data-office-role="end_user" {{ old('office') === $office ? 'selected' : '' }}>{{ $office }}</option>
-                    @endforeach
-                </select>
-            </div>
-
-            <div class="user-modal-field">
-                <label for="create_password">Password</label>
-                <input type="password" name="password" id="create_password" required class="form-input">
-            </div>
-
-            <div class="user-modal-field">
-                <label for="create_status">Account status</label>
-                <select name="status" id="create_status" class="form-select" required>
-                    <option value="active" {{ old('status', 'active') === 'active' ? 'selected' : '' }}>Active</option>
-                    <option value="pending" {{ old('status') === 'pending' ? 'selected' : '' }}>Pending</option>
-                    <option value="rejected" {{ old('status') === 'rejected' ? 'selected' : '' }}>Rejected</option>
-                </select>
-            </div>
-
-            <div id="createBidderFields" aria-hidden="{{ old('role', 'bidder') === 'bidder' ? 'false' : 'true' }}" @if(old('role', 'bidder') !== 'bidder') hidden @endif>
-                <div class="user-modal-grid">
-                    <div class="user-modal-field">
-                        <label for="create_registration_no">Registration No.</label>
-                        <input type="text" name="registration_no" id="create_registration_no" value="{{ old('registration_no') }}" class="form-input">
+            <div class="um-body">
+                @if($errors->any() && !old('editing_user_id'))
+                    <div class="user-modal-alert" role="alert">
+                        <ul>
+                            @foreach($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
                     </div>
-                    <div class="user-modal-field">
-                        <label for="create_company">Company</label>
+                @endif
+
+                @include('admin.partials.user-role-picker', ['prefix' => 'create', 'selected' => old('role', 'bidder')])
+
+                <div id="createOfficeField" class="um-field">
+                    <label for="create_office" id="createOfficeLabel" class="um-label">Office</label>
+                    <select name="office" id="create_office" class="form-select">
+                        <option value="">Select office</option>
+                        @foreach($staffOffices as $office)
+                            <option value="{{ $office }}" data-office-role="staff" {{ old('office') === $office ? 'selected' : '' }}>{{ $office }}</option>
+                        @endforeach
+                        @foreach($endUserOffices as $office)
+                            <option value="{{ $office }}" data-office-role="end_user" {{ old('office') === $office ? 'selected' : '' }}>{{ $office }}</option>
+                        @endforeach
+                    </select>
+                    <span class="um-hint" data-office-hint></span>
+                </div>
+
+                <div id="createBidderFields" class="um-grid" aria-hidden="{{ old('role', 'bidder') === 'bidder' ? 'false' : 'true' }}" @if(old('role', 'bidder') !== 'bidder') hidden @endif>
+                    <div class="um-field">
+                        <label for="create_company" class="um-label">Company</label>
                         <input type="text" name="company" id="create_company" value="{{ old('company') }}" class="form-input">
                     </div>
+                    <div class="um-field">
+                        <label for="create_registration_no" class="um-label">Registration No.</label>
+                        <input type="text" name="registration_no" id="create_registration_no" value="{{ old('registration_no') }}" class="form-input">
+                    </div>
+                </div>
+
+                <h3 class="um-section">Sign-in details</h3>
+                <div class="um-field">
+                    <label for="create_name" class="um-label">Name <span class="um-req">*</span></label>
+                    <input type="text" name="name" id="create_name" value="{{ old('name') }}" required class="form-input" autocomplete="off">
+                </div>
+                <div class="um-grid">
+                    <div class="um-field">
+                        <label for="create_email" class="um-label">Email <span class="um-req">*</span></label>
+                        <input type="email" name="email" id="create_email" value="{{ old('email') }}" required class="form-input" autocomplete="off">
+                    </div>
+                    <div class="um-field">
+                        <label for="create_username" class="um-label">Username <span class="um-opt">(optional)</span></label>
+                        <input type="text" name="username" id="create_username" value="{{ old('username') }}" class="form-input" placeholder="Email also works to sign in" autocomplete="off">
+                    </div>
+                </div>
+                <div class="um-grid">
+                    <div class="um-field">
+                        <label for="create_password" class="um-label">Password <span class="um-req">*</span></label>
+                        <div class="um-password">
+                            <input type="password" name="password" id="create_password" required minlength="6" class="form-input" autocomplete="new-password">
+                            <button type="button" class="um-password__toggle" data-password-toggle aria-label="Show password"><i class="fas fa-eye" aria-hidden="true"></i></button>
+                        </div>
+                        <span class="um-hint">At least 6 characters.</span>
+                    </div>
+                    <div class="um-field">
+                        <label for="create_status" class="um-label">Account status</label>
+                        <select name="status" id="create_status" class="form-select" required>
+                            <option value="active" {{ old('status', 'active') === 'active' ? 'selected' : '' }}>Active</option>
+                            <option value="pending" {{ old('status') === 'pending' ? 'selected' : '' }}>Pending</option>
+                            <option value="rejected" {{ old('status') === 'rejected' ? 'selected' : '' }}>Rejected</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
-            <div class="user-modal-actions">
+            <div class="um-actions">
                 <button type="button" onclick="closeCreateUserModal()" class="btn-secondary">Cancel</button>
-                <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Create User</button>
+                <button type="submit" class="btn-primary"><i class="fas fa-user-plus" aria-hidden="true"></i> Create user</button>
             </div>
         </form>
     </div>
 </div>
-<div id="editUserModal" class="user-modal">
-    <div class="user-modal-card">
-        <button type="button" onclick="closeEditUserModal()" class="user-modal-close" aria-label="Close">&times;</button>
-
-        <div class="user-modal-header">
-            <h2>Edit User</h2>
-            <p>Update details, status, or reset the password for this account.</p>
+<div id="editUserModal" class="user-modal" aria-hidden="true">
+    <div class="user-modal-card" role="dialog" aria-modal="true" aria-labelledby="editUserModalTitle">
+        <div class="um-head">
+            <span class="um-head__icon" aria-hidden="true"><i class="fas fa-user-pen"></i></span>
+            <div class="um-head__text">
+                <h2 id="editUserModalTitle">Edit user</h2>
+                <p>Update details or status, or set a new password.</p>
+            </div>
+            <button type="button" onclick="closeEditUserModal()" class="um-close" aria-label="Close"><i class="fas fa-xmark" aria-hidden="true"></i></button>
         </div>
 
-        <form id="editUserForm" method="POST" class="user-modal-form">
+        <form id="editUserForm" method="POST" class="um-form">
             @csrf
             @method('PUT')
             <input type="hidden" name="editing_user_id" id="edit_user_id" value="">
+            <div class="um-body">
+                @if($errors->any() && old('editing_user_id'))
+                    <div class="user-modal-alert" role="alert">
+                        <ul>
+                            @foreach($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
 
-            @if($errors->any() && old('editing_user_id'))
-                <div class="user-modal-alert">
-                    <ul>
-                        @foreach($errors->all() as $error)
-                            <li>{{ $error }}</li>
+                @include('admin.partials.user-role-picker', ['prefix' => 'edit', 'selected' => 'bidder'])
+
+                <div id="editOfficeField" class="um-field" style="display: none;">
+                    <label for="edit_office" id="editOfficeLabel" class="um-label">Office</label>
+                    <select name="office" id="edit_office" class="form-select">
+                        <option value="">Select office</option>
+                        @foreach($staffOffices as $office)
+                            <option value="{{ $office }}" data-office-role="staff">{{ $office }}</option>
                         @endforeach
-                    </ul>
-                </div>
-            @endif
-
-            <div class="user-modal-field">
-                <label>Name</label>
-                <input type="text" name="name" id="edit_name" required class="form-input">
-            </div>
-
-            <div class="user-modal-grid">
-                <div class="user-modal-field">
-                    <label>Email</label>
-                    <input type="email" name="email" id="edit_email" required class="form-input">
-                </div>
-                <div class="user-modal-field">
-                    <label>Role</label>
-                    <select name="role" id="edit_role" class="form-select" required>
-                        <option value="admin">Admin</option>
-                        <option value="staff">Staff</option>
-                        <option value="end_user">End-user office</option>
-                        <option value="bidder">Bidder</option>
+                        @foreach($endUserOffices as $office)
+                            <option value="{{ $office }}" data-office-role="end_user">{{ $office }}</option>
+                        @endforeach
                     </select>
+                    <span class="um-hint" data-office-hint></span>
+                </div>
+
+                <div id="editBidderFields" class="um-grid">
+                    <div class="um-field">
+                        <label for="edit_company" class="um-label">Company</label>
+                        <input type="text" name="company" id="edit_company" class="form-input">
+                    </div>
+                    <div class="um-field">
+                        <label for="edit_registration_no" class="um-label">Registration No.</label>
+                        <input type="text" name="registration_no" id="edit_registration_no" class="form-input">
+                    </div>
+                </div>
+
+                <h3 class="um-section">Sign-in details</h3>
+                <div class="um-field">
+                    <label for="edit_name" class="um-label">Name <span class="um-req">*</span></label>
+                    <input type="text" name="name" id="edit_name" required class="form-input" autocomplete="off">
+                </div>
+                <div class="um-grid">
+                    <div class="um-field">
+                        <label for="edit_email" class="um-label">Email <span class="um-req">*</span></label>
+                        <input type="email" name="email" id="edit_email" required class="form-input" autocomplete="off">
+                    </div>
+                    <div class="um-field">
+                        <label for="edit_username" class="um-label">Username <span class="um-opt">(optional)</span></label>
+                        <input type="text" name="username" id="edit_username" class="form-input" placeholder="Email also works to sign in" autocomplete="off">
+                    </div>
+                </div>
+                <div class="um-grid">
+                    <div class="um-field">
+                        <label for="edit_password" class="um-label">New password <span class="um-opt">(optional)</span></label>
+                        <div class="um-password">
+                            <input type="password" name="password" id="edit_password" minlength="6" class="form-input" placeholder="Leave blank to keep it" autocomplete="new-password">
+                            <button type="button" class="um-password__toggle" data-password-toggle aria-label="Show password"><i class="fas fa-eye" aria-hidden="true"></i></button>
+                        </div>
+                    </div>
+                    <div class="um-field">
+                        <label for="edit_status" class="um-label">Account status</label>
+                        <select name="status" id="edit_status" class="form-select" required>
+                            <option value="active">Active</option>
+                            <option value="pending">Pending</option>
+                            <option value="rejected">Rejected</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
-            <div class="user-modal-field">
-                <label>Username</label>
-                <input type="text" name="username" id="edit_username" class="form-input" placeholder="Optional for admin and staff">
-            </div>
-
-            <div class="user-modal-field" id="editOfficeField" style="display: none;">
-                <label>Office</label>
-                <select name="office" id="edit_office" class="form-select">
-                    <option value="">Select office</option>
-                    @foreach($staffOffices as $office)
-                        <option value="{{ $office }}" data-office-role="staff">{{ $office }}</option>
-                    @endforeach
-                    @foreach($endUserOffices as $office)
-                        <option value="{{ $office }}" data-office-role="end_user">{{ $office }}</option>
-                    @endforeach
-                </select>
-            </div>
-
-            <div class="user-modal-grid">
-                <div class="user-modal-field">
-                    <label>Status</label>
-                    <select name="status" id="edit_status" class="form-select" required>
-                        <option value="active">Active</option>
-                        <option value="pending">Pending</option>
-                        <option value="rejected">Rejected</option>
-                    </select>
-                </div>
-                <div class="user-modal-field">
-                    <label>Registration No.</label>
-                    <input type="text" name="registration_no" id="edit_registration_no" class="form-input">
-                </div>
-            </div>
-
-            <div class="user-modal-field">
-                <label>Company</label>
-                <input type="text" name="company" id="edit_company" class="form-input">
-            </div>
-
-            <div class="user-modal-field" style="margin-bottom: 20px;">
-                <label>New Password</label>
-                <input type="password" name="password" class="form-input" placeholder="Leave blank to keep current password">
-            </div>
-
-            <div class="user-modal-actions">
+            <div class="um-actions">
                 <button type="button" onclick="closeEditUserModal()" class="btn-secondary">Cancel</button>
-                <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Update User</button>
+                <button type="submit" class="btn-primary"><i class="fas fa-floppy-disk" aria-hidden="true"></i> Save changes</button>
             </div>
         </form>
     </div>
@@ -1570,7 +1541,7 @@
         modal.style.display = 'flex';
         modal.setAttribute('aria-hidden', 'false');
         document.body.classList.add('user-modal-open');
-        toggleCreateRoleFields();
+        toggleRoleFields('create');
     }
 
     function closeCreateUserModal() {
@@ -1609,7 +1580,7 @@
         document.getElementById('edit_name').value = data.name || '';
         document.getElementById('edit_email').value = data.email || '';
         document.getElementById('edit_username').value = data.username || '';
-        document.getElementById('edit_role').value = data.role || 'bidder';
+        setUserRole('edit', data.role || 'bidder');
         document.getElementById('edit_status').value = data.status || 'active';
         const editOffice = document.getElementById('edit_office');
         editOffice.querySelectorAll('[data-legacy-office]').forEach(function (option) { option.remove(); });
@@ -1623,12 +1594,15 @@
         editOffice.value = data.office || '';
         document.getElementById('edit_company').value = data.company || '';
         document.getElementById('edit_registration_no').value = data.registration || '';
-        toggleOfficeField('edit_role', 'editOfficeField', 'edit_office');
+        document.getElementById('edit_password').value = '';
+        toggleRoleFields('edit');
         document.getElementById('editUserModal').style.display = 'flex';
+        document.getElementById('editUserModal').setAttribute('aria-hidden', 'false');
     }
 
     function closeEditUserModal() {
         document.getElementById('editUserModal').style.display = 'none';
+        document.getElementById('editUserModal').setAttribute('aria-hidden', 'true');
         document.getElementById('edit_user_id').value = '';
     }
 
@@ -1739,6 +1713,7 @@
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
             closeCreateUserModal();
+            closeEditUserModal();
             closeUserReviewModal();
             closeDeleteUserModal();
             closeUserActionMenus();
@@ -1746,23 +1721,22 @@
     });
 
     document.addEventListener('DOMContentLoaded', function () {
-        const createRole = document.getElementById('create_role');
-        const editRole = document.getElementById('edit_role');
-
-        if (createRole) {
-            createRole.addEventListener('change', function () {
-                toggleCreateRoleFields();
+        ['create', 'edit'].forEach(function (prefix) {
+            document.querySelectorAll('#' + prefix + 'UserForm input[name="role"]').forEach(function (radio) {
+                radio.addEventListener('change', function () { toggleRoleFields(prefix); });
             });
-        }
+            toggleRoleFields(prefix);
+        });
 
-        if (editRole) {
-            editRole.addEventListener('change', function () {
-                toggleOfficeField('edit_role', 'editOfficeField', 'edit_office');
+        document.querySelectorAll('[data-password-toggle]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const input = button.parentElement.querySelector('input');
+                const show = input.type === 'password';
+                input.type = show ? 'text' : 'password';
+                button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+                button.querySelector('i').className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
             });
-        }
-
-        toggleCreateRoleFields();
-        toggleOfficeField('edit_role', 'editOfficeField', 'edit_office');
+        });
 
         const successAlert = document.getElementById('successAlert');
         if (successAlert) {
@@ -1793,46 +1767,55 @@
             @endif
         @elseif(request('create') === 'end_user')
             // Linked from the purchase request queue: add an end-user office account.
-            document.getElementById('create_role').value = 'end_user';
+            setUserRole('create', 'end_user');
             openCreateUserModal();
         @endif
     });
 
-    function toggleOfficeField(roleSelectId, fieldId, officeSelectId) {
-        const roleSelect = document.getElementById(roleSelectId);
-        const field = document.getElementById(fieldId);
-        const officeSelect = document.getElementById(officeSelectId);
-
-        if (!roleSelect || !field || !officeSelect) {
-            return;
-        }
-
-        // Staff and end-user office accounts each choose from their own office list.
-        const role = roleSelect.value;
-        const needsOffice = role === 'staff' || role === 'end_user';
-        field.style.display = needsOffice ? 'block' : 'none';
-        officeSelect.required = needsOffice;
-        officeSelect.disabled = !needsOffice;
-
-        Array.from(officeSelect.options).forEach(function (option) {
-            if (!option.dataset.officeRole) return;
-            const matches = option.dataset.officeRole === role;
-            option.hidden = !matches;
-            option.disabled = !matches;
-            if (!matches && option.selected) officeSelect.value = '';
-        });
+    function userRole(prefix) {
+        const checked = document.querySelector('#' + prefix + 'UserForm input[name="role"]:checked');
+        return checked ? checked.value : '';
     }
 
-    function toggleCreateRoleFields() {
-        toggleOfficeField('create_role', 'createOfficeField', 'create_office');
+    function setUserRole(prefix, role) {
+        const radio = document.getElementById(prefix + '_role_' + role);
+        if (radio) radio.checked = true;
+        toggleRoleFields(prefix);
+    }
 
-        const role = document.getElementById('create_role')?.value;
-        const bidderFields = document.getElementById('createBidderFields');
-        const officeLabel = document.getElementById('createOfficeLabel');
+    // Office list for staff and end-user offices, company details for bidders.
+    function toggleRoleFields(prefix) {
+        const role = userRole(prefix);
+        const field = document.getElementById(prefix + 'OfficeField');
+        const officeSelect = document.getElementById(prefix + '_office');
+        const officeLabel = document.getElementById(prefix + 'OfficeLabel');
+        const bidderFields = document.getElementById(prefix + 'BidderFields');
+        const needsOffice = role === 'staff' || role === 'end_user';
         const isBidder = role === 'bidder';
 
+        if (field && officeSelect) {
+            field.style.display = needsOffice ? '' : 'none';
+            officeSelect.required = needsOffice;
+            officeSelect.disabled = !needsOffice;
+
+            Array.from(officeSelect.options).forEach(function (option) {
+                if (!option.dataset.officeRole) return;
+                const matches = option.dataset.officeRole === role;
+                option.hidden = !matches;
+                option.disabled = !matches;
+                if (!matches && option.selected) officeSelect.value = '';
+            });
+
+            const hint = field.querySelector('[data-office-hint]');
+            if (hint) {
+                hint.textContent = role === 'end_user'
+                    ? 'Must match the end-user office of its projects, so it can file requests and record site inspections.'
+                    : (role === 'staff' ? 'The BAC office this staff member works in.' : '');
+            }
+        }
+
         if (officeLabel) {
-            officeLabel.textContent = role === 'end_user' ? 'Assigned LGU Office' : 'Office';
+            officeLabel.innerHTML = (role === 'end_user' ? 'Assigned LGU office' : 'Office') + ' <span class="um-req">*</span>';
         }
 
         if (bidderFields) {

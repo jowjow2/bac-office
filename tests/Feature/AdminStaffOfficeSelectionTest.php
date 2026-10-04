@@ -204,3 +204,18 @@ it('lets the admin reset the password of an end-user whose office is no longer o
     testCase()->actingAs($admin)->post(route('admin.users.store'), array_merge($payload, ['email' => 'new.office@example.com']))
         ->assertSessionHasErrors('office');
 });
+
+it('offers the end-user office a project already names, so that office can record its inspections', function () {
+    $admin = createAdminStaffOfficeUser();
+    \App\Models\Project::create(['title' => 'Road works', 'description' => 'x', 'reference_no' => 'SJ-OFFICE-1', 'category' => 'infrastructure', 'procurement_mode' => 'public_bidding', 'budget' => 1000000, 'status' => 'awarded', 'end_user_unit' => 'TEST Municipal Engineering Office', 'deadline' => now()->subDay()]);
+
+    testCase()->actingAs($admin)->get(route('admin.users'))->assertOk()
+        ->assertSee('<option value="TEST Municipal Engineering Office" data-office-role="end_user"', false)
+        ->assertSee('id="create_role_end_user"', false);
+
+    testCase()->actingAs($admin)->post(route('admin.users.store'), [
+        'name' => 'Engineering inspector', 'email' => 'inspector@example.com', 'password' => 'secret-123',
+        'role' => 'end_user', 'status' => 'active', 'office' => 'TEST Municipal Engineering Office',
+    ])->assertSessionHasNoErrors();
+    expect(User::where('email', 'inspector@example.com')->value('office'))->toBe('TEST Municipal Engineering Office');
+});

@@ -263,6 +263,25 @@ class User extends Authenticatable
         return self::END_USER_OFFICES;
     }
 
+    /**
+     * Offices an end-user account can be given: the standard list plus any end-user
+     * office a project already names, so that project's office can record its inspections.
+     */
+    public static function assignableEndUserOffices(): array
+    {
+        $projectOffices = Project::query()
+            ->whereNotNull('end_user_unit')
+            ->where('end_user_unit', '!=', '')
+            ->distinct()
+            ->orderBy('end_user_unit')
+            ->pluck('end_user_unit')
+            ->map(fn ($office) => trim((string) $office))
+            ->filter()
+            ->all();
+
+        return array_values(array_unique(array_merge(self::END_USER_OFFICES, $projectOffices)));
+    }
+
     public function isEndUser(): bool
     {
         return $this->role === 'end_user';
