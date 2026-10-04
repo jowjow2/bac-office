@@ -159,5 +159,6 @@ it('fills the infrastructure terms form from the project so the BAC only checks 
         ->assertSee('value="Concreting of farm-to-market road, Sitio Malaylay"', false)
         ->assertSee('name="contract_items[0][quantity]" class="ui-input" type="number" step="0.01" min="0.01" value="250"', false)
         ->assertSee('value="lm"', false)
-        ->assertSee('Add work item');
+        ->assertSee('Add work item')
+        ->assertSee('<input type="hidden" name="_method" value="PUT">', false);
 });

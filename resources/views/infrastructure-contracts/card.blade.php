@@ -101,6 +101,7 @@
     @if(! $configured && in_array($mode, ['admin', 'staff'], true))
         <form method="POST" enctype="multipart/form-data" action="{{ route($mode === 'staff' ? 'staff.infrastructure.configure' : 'admin.infrastructure.configure', $award) }}" class="infra-panel">
             @csrf
+            @method('PUT')
             <div class="infra-panel__head">
                 <h3>Record terms from signed contract</h3>
                 <p class="ui-hint">Enter the actual completion deadline and work site from the signed contract. The NTP date is shown separately and is not the deadline.</p>
