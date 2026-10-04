@@ -518,7 +518,7 @@
            and QR (no width) share the rest, so nothing spills into a neighbour. */
         body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table th:nth-child(3) { width: 132px; }
         body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table th:nth-child(4) { width: 128px; }
-        body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table th:nth-child(5) { width: 164px; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table th:nth-child(5) { width: 214px; }
         body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table th:nth-child(7) { width: 136px; }
 
         body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr {
@@ -1467,11 +1467,30 @@
         .award-cancel :is(.award-cancel-btn, #award-x#award-x) { display: inline-flex !important; align-items: center !important; gap: 7px !important; min-height: 36px !important; padding: 0 14px !important; border: 1px solid var(--ui-line-strong) !important; border-radius: var(--ui-radius) !important; background: #fff !important; color: var(--ui-ink-2) !important; font: 600 var(--ui-text-sm)/1 var(--ui-font) !important; cursor: pointer !important; }
         .award-cancel :is(.award-cancel-btn.is-danger, #award-x#award-x) { border-color: var(--ui-danger) !important; background: var(--ui-danger) !important; color: #fff !important; }
         /* Notice to Proceed record (receipt and PhilGEPS), entered by hand after issuance. */
-        .award-ntp-record { margin-top: 6px; font-size: var(--ui-text-sm); }
-        .award-ntp-record summary { color: var(--ui-primary); font-weight: 600; cursor: pointer; }
-        .award-ntp-record label { display: grid; gap: 4px; color: var(--ui-ink-2); font-weight: 600; }
-        .award-ntp-record :is(input, #award-x#award-x) { width: 100% !important; min-height: 34px !important; padding: 6px 9px !important; border: 1px solid var(--ui-line-strong) !important; border-radius: var(--ui-radius) !important; background: #fff !important; color: var(--ui-ink) !important; font: 400 var(--ui-text-sm)/1.4 var(--ui-font) !important; box-sizing: border-box !important; box-shadow: none !important; }
+        .award-ntp-record { margin-top: 8px; font-size: 12px; }
+        .award-ntp-record summary { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-primary); font-weight: 600; cursor: pointer; list-style: none; }
+        .award-ntp-record summary::-webkit-details-marker { display: none; }
+        .award-ntp-record summary i { font-size: 10px; }
+        .award-ntp-record form { display: grid; gap: 8px; margin-top: 8px; padding: 10px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius); background: #fff; }
+        .award-ntp-record label { display: grid; gap: 4px; color: var(--ui-ink-2); font-size: 11.5px; font-weight: 600; }
+        .award-ntp-record :is(input, #award-x#award-x) { width: 100% !important; min-height: 34px !important; padding: 6px 9px !important; border: 1px solid var(--ui-line-strong) !important; border-radius: var(--ui-radius) !important; background: #fff !important; color: var(--ui-ink) !important; font: inherit !important; font-size: 12.5px !important; }
+        .award-ntp-record :is(.award-ntp-save, #award-x#award-x) { justify-self: start; display: inline-flex !important; align-items: center !important; min-height: 32px !important; padding: 0 14px !important; border: 1px solid var(--ui-primary) !important; border-radius: var(--ui-radius) !important; background: var(--ui-primary) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; font: inherit !important; font-size: 12.5px !important; font-weight: 600 !important; cursor: pointer; }
         .award-ntp-record .award-amount-note a, .award-amount-note a { color: var(--ui-primary); font-weight: 600; }
+        /* Contract stage cell: status, NTP date, receipt / PhilGEPS checklist, then implementation. */
+        .award-stage-meta { display: block; margin-top: 6px; color: var(--ui-ink-2); font-size: 12px; }
+        .award-stage-meta a { color: var(--ui-primary); font-weight: 600; text-decoration: none; }
+        .award-stage-meta a:hover { text-decoration: underline; }
+        .award-stage-meta a i { font-size: 9px; }
+        .award-stage-checks { display: grid; gap: 5px; margin: 8px 0 0; padding: 0; list-style: none; }
+        .award-stage-checks li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 7px; align-items: start; font-size: 12px; line-height: 1.35; }
+        .award-stage-checks li i { margin-top: 2px; font-size: 12px; }
+        :is(.award-stage-checks li.is-done i, #award-x#award-x) { color: var(--ui-success) !important; -webkit-text-fill-color: var(--ui-success) !important; }
+        :is(.award-stage-checks li.is-todo i, #award-x#award-x) { color: #c9cfcb !important; -webkit-text-fill-color: #c9cfcb !important; font-size: 11px; }
+        .award-stage-checks li span { color: var(--ui-ink); font-weight: 600; }
+        .award-stage-checks li small { display: block; color: var(--ui-subtle); font-size: 11px; font-weight: 500; }
+        .award-stage-checks li.is-todo small { color: var(--ui-warning) !important; }
+        .awards-contracts-table td[data-label="Contract stage"] :is(.ci-open, #award-x#award-x) { display: flex !important; width: 100% !important; margin-top: 10px !important; }
+        .awards-contracts-table td[data-label="Contract stage"] :is(.ci-open-status, #award-x#award-x) { white-space: normal !important; }
     </style>
 
     @include('partials.admin-sidebar')
@@ -1736,17 +1755,21 @@
                                     @if($award->hasPublishedNoticeToProceed())
                                         {{-- Issued NTP: its PDF, and the receipt / PhilGEPS details entered by hand (BidWorkflow::updateNoticeToProceedRecord). --}}
                                         @php $ntpTz = config('bac-office.display_timezone', 'Asia/Manila'); @endphp
-                                        <span class="award-amount-note">
-                                            NTP issued {{ $award->ntp_issued_on->format('M d, Y') }} ·
-                                            <a href="{{ $award->noticeToProceedUrl() }}" target="_blank" rel="noopener">View NTP</a>
+                                        <span class="award-stage-meta">
+                                            {{ $award->ntp_issued_on->format('M d, Y') }} ·
+                                            <a href="{{ $award->noticeToProceedUrl() }}" target="_blank" rel="noopener">View NTP <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
                                         </span>
-                                        <span class="award-amount-note">
-                                            {{ $award->ntp_received_on ? 'Received by bidder '.$award->ntp_received_on->format('M d, Y') : 'Bidder receipt not recorded' }}
-                                            · {{ $award->ntp_philgeps_posted_on ? 'PhilGEPS '.$award->ntp_philgeps_posted_on->format('M d, Y') : 'PhilGEPS posting not recorded' }}
-                                        </span>
+                                        <ul class="award-stage-checks">
+                                            @foreach([['Received by bidder', $award->ntp_received_on], ['Posted on PhilGEPS', $award->ntp_philgeps_posted_on]] as [$checkLabel, $checkDate])
+                                                <li class="{{ $checkDate ? 'is-done' : 'is-todo' }}">
+                                                    <i class="fas {{ $checkDate ? 'fa-circle-check' : 'fa-circle' }}" aria-hidden="true"></i>
+                                                    <span>{{ $checkLabel }}<small>{{ $checkDate ? $checkDate->format('M d, Y') : 'Not recorded' }}</small></span>
+                                                </li>
+                                            @endforeach
+                                        </ul>
                                         <details class="award-ntp-record">
-                                            <summary>Update receipt / PhilGEPS</summary>
-                                            <form action="{{ route('admin.awards.ntp.update', $award) }}" method="POST" style="display:grid; gap:8px; margin-top:8px;">
+                                            <summary><i class="fas fa-pen" aria-hidden="true"></i> {{ $award->ntp_received_on && $award->ntp_philgeps_posted_on ? 'Edit' : 'Record' }} receipt &amp; PhilGEPS</summary>
+                                            <form action="{{ route('admin.awards.ntp.update', $award) }}" method="POST">
                                                 @csrf
                                                 @method('PUT')
                                                 <label>Received by the bidder on
@@ -1758,7 +1781,7 @@
                                                 <label>PhilGEPS reference or link
                                                     <input type="text" name="ntp_philgeps_reference" maxlength="500" value="{{ $award->ntp_philgeps_reference }}">
                                                 </label>
-                                                <button type="submit" class="ui-btn">Save</button>
+                                                <button type="submit" class="award-ntp-save">Save</button>
                                             </form>
                                         </details>
                                     @endif
