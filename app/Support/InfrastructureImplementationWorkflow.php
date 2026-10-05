@@ -247,7 +247,8 @@ class InfrastructureImplementationWorkflow
 
     private function notifyOffice(Award $award, string $title, string $message): void
     {
-        $ids = User::query()->where('role', 'end_user')->where('office', $award->project?->end_user_unit)->pluck('id');
+        // The account whose request became this project (the whole office only when nobody filed one).
+        $ids = EndUserAccess::recipientsForProject($award->project);
         foreach ($ids as $id) $this->notify((int) $id, $title, $message, route('end-user.infrastructure.index'), $award);
     }
 

@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\ProcurementRequest;
 use App\Models\ProcurementRequestDocument;
 use App\Models\User;
+use App\Support\EndUserAccess;
 use App\Support\ProcurementPipeline;
 use App\Support\ProcurementTimeline;
 use App\Support\SystemNotification;
@@ -33,8 +34,9 @@ class ProcurementRequestController extends Controller
     public function dashboard(Request $request)
     {
         $office = Auth::user()->office;
-        $requests = ProcurementRequest::forOffice($office)->latest('updated_at')->get();
-        $pipeline = ProcurementPipeline::forOffice($office);
+        // This account's own requests and procurements, not its office colleagues' (EndUserAccess).
+        $requests = EndUserAccess::requests(Auth::user())->latest('updated_at')->get();
+        $pipeline = ProcurementPipeline::forEndUser(Auth::user());
         $filters = ProcurementPipeline::filtersFrom($request);
 
         return view('end-user.dashboard', [
@@ -64,7 +66,7 @@ class ProcurementRequestController extends Controller
         $status = $request->query('status');
         $search = trim((string) $request->query('q', ''));
 
-        $requests = ProcurementRequest::forOffice(Auth::user()->office)
+        $requests = EndUserAccess::requests(Auth::user())
             ->when(array_key_exists((string) $status, ProcurementRequest::STATUSES), fn ($query) => $query->where('status', $status))
             ->when($search !== '', fn ($query) => $query->where(fn ($inner) => $inner
                 ->where('title', 'like', '%'.$search.'%')
@@ -118,7 +120,7 @@ class ProcurementRequestController extends Controller
 
     public function show(ProcurementRequest $procurementRequest)
     {
-        $this->authorizeOffice($procurementRequest);
+        $this->authorizeRequester($procurementRequest);
         $procurementRequest->load(['documents', 'requester', 'reviewer', 'project']);
 
         return view('end-user.requests.show', [
@@ -129,7 +131,7 @@ class ProcurementRequestController extends Controller
 
     public function edit(ProcurementRequest $procurementRequest)
     {
-        $this->authorizeOffice($procurementRequest);
+        $this->authorizeRequester($procurementRequest);
         abort_unless($procurementRequest->isEditable(), 403, 'This request can no longer be changed.');
 
         return view('end-user.requests.form', ['procurementRequest' => $procurementRequest->load('documents')]);
@@ -137,7 +139,7 @@ class ProcurementRequestController extends Controller
 
     public function update(Request $request, ProcurementRequest $procurementRequest)
     {
-        $this->authorizeOffice($procurementRequest);
+        $this->authorizeRequester($procurementRequest);
         abort_unless($procurementRequest->isEditable(), 403, 'This request can no longer be changed.');
 
         $validated = $this->validateRequest($request);
@@ -166,7 +168,7 @@ class ProcurementRequestController extends Controller
 
     public function submit(ProcurementRequest $procurementRequest)
     {
-        $this->authorizeOffice($procurementRequest);
+        $this->authorizeRequester($procurementRequest);
 
         if (! $procurementRequest->isEditable()) {
             return back()->withErrors(['request' => 'This request was already submitted.']);
@@ -188,7 +190,7 @@ class ProcurementRequestController extends Controller
 
     public function destroyDocument(ProcurementRequest $procurementRequest, ProcurementRequestDocument $document)
     {
-        $this->authorizeOffice($procurementRequest);
+        $this->authorizeRequester($procurementRequest);
         abort_unless($document->procurement_request_id === $procurementRequest->id, 404);
         abort_unless($procurementRequest->isEditable(), 403, 'This request can no longer be changed.');
 
@@ -352,7 +354,8 @@ class ProcurementRequestController extends Controller
         AuditLog::log('procurement_request_reviewed', $procurementRequest, $before, $procurementRequest->only(array_keys($before)));
 
         $label = $procurementRequest->reference_no.' ('.$procurementRequest->title.')';
-        $officeUsers = User::where('role', 'end_user')->where('office', $procurementRequest->end_user_office)->pluck('id');
+        // The account that filed it (the whole office only for requests nobody filed).
+        $officeUsers = EndUserAccess::recipientsForRequest($procurementRequest);
         $url = fn () => route('end-user.requests.show', $procurementRequest);
 
         match ($validated['decision']) {
@@ -571,9 +574,10 @@ class ProcurementRequestController extends Controller
         }
     }
 
-    private function authorizeOffice(ProcurementRequest $procurementRequest): void
+    /** Only the account that filed the request opens it (EndUserAccess). */
+    private function authorizeRequester(ProcurementRequest $procurementRequest): void
     {
-        abort_unless($procurementRequest->end_user_office === Auth::user()->office, 404);
+        abort_unless(EndUserAccess::canSeeRequest(Auth::user(), $procurementRequest), 404);
     }
 
     private function role(Request $request): string

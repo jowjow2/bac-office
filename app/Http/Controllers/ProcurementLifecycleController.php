@@ -8,6 +8,7 @@ use App\Models\ProcurementRequestDocument;
 use App\Models\Project;
 use App\Models\ProjectProceeding;
 use App\Support\ProcurementLifecycle;
+use App\Support\EndUserAccess;
 use App\Support\ProcurementTimeline;
 use App\Support\Uploads;
 use Illuminate\Filesystem\FilesystemAdapter;
@@ -155,7 +156,7 @@ class ProcurementLifecycleController extends Controller
         $user = Auth::user();
         $document->loadMissing('request');
         $allowed = in_array($user?->role, ['admin', 'staff'], true)
-            || ($user?->role === 'end_user' && $document->request?->end_user_office === $user->office);
+            || EndUserAccess::canSeeRequest($user, $document->request);
 
         abort_unless($allowed, 403);
 
@@ -175,7 +176,7 @@ class ProcurementLifecycleController extends Controller
         $user = Auth::user();
         $allowed = $user?->role === 'admin'
             || ($user?->role === 'staff' && $project !== null && Assignment::where('staff_id', $user->id)->where('project_id', $project->id)->exists())
-            || ($user?->role === 'end_user' && $project?->procurementRequest?->end_user_office === $user->office);
+            || EndUserAccess::canSeeProject($user, $project);
 
         abort_unless($allowed, 403);
     }

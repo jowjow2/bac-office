@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\ProcurementRequest;
+use App\Models\User;
 use App\Models\Project;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
@@ -66,7 +67,7 @@ class ProcurementPipeline
     public function __construct(
         private readonly string $role = 'admin',
         private readonly ?array $projectIds = null,
-        private readonly ?string $office = null,
+        private readonly ?User $endUser = null,
     ) {}
 
     public static function forAdmin(): self
@@ -79,9 +80,10 @@ class ProcurementPipeline
         return new self('staff', collect($projectIds)->map(fn ($id) => (int) $id)->values()->all());
     }
 
-    public static function forOffice(?string $office): self
+    /** An end-user account's own requests and the projects made from them (EndUserAccess). */
+    public static function forEndUser(User $user): self
     {
-        return new self('end_user', null, (string) $office);
+        return new self('end_user', null, $user);
     }
 
     /**
@@ -98,7 +100,7 @@ class ProcurementPipeline
         $projects = Project::query()
             ->whereNull('archived_at')
             ->when($this->projectIds !== null, fn ($query) => $query->whereIn('id', $this->projectIds))
-            ->when($this->role === 'end_user', fn ($query) => $query->whereHas('procurementRequest', fn ($request) => $request->where('end_user_office', $this->office)))
+            ->when($this->role === 'end_user', fn ($query) => EndUserAccess::scopeProjects($query, $this->endUser))
             ->with(['schedule', 'procurementRequest', 'proceedings', 'bids.user', 'awards.bid.user', 'documents', 'rebidProject'])
             ->get();
 
@@ -107,7 +109,7 @@ class ProcurementPipeline
         $requests = ProcurementRequest::query()
             ->whereDoesntHave('project')
             ->when($this->role === 'end_user',
-                fn ($query) => $query->where('end_user_office', $this->office),
+                fn ($query) => EndUserAccess::scopeRequests($query, $this->endUser),
                 fn ($query) => $query->whereIn('status', [ProcurementRequest::STATUS_SUBMITTED, ProcurementRequest::STATUS_FORWARDED]))
             ->get();
 

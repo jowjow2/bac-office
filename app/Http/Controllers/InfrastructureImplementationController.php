@@ -8,6 +8,7 @@ use App\Models\ContractImplementation;
 use App\Models\ContractImplementationEvent;
 use App\Models\Project;
 use App\Support\InfrastructureImplementationWorkflow;
+use App\Support\EndUserAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -25,7 +26,7 @@ class InfrastructureImplementationController extends Controller
     {
         $user = Auth::user();
         $awards = Award::with(['project', 'bid.user', 'contractImplementation.events.actor'])
-            ->whereHas('project', fn ($q) => $q->whereRaw('LOWER(category) = ?', ['infrastructure'])->where('end_user_unit', $user->office))
+            ->whereHas('project', fn ($q) => EndUserAccess::scopeProjects($q->whereRaw('LOWER(category) = ?', ['infrastructure']), $user))
             ->whereHas('bid', fn ($q) => $q->whereNotNull('contract_signed_at')->whereNotNull('notice_to_proceed_at'))
             ->get()->filter(fn ($award) => $this->workflow->eligible($award));
         return view('infrastructure-contracts.index', compact('awards'));
@@ -102,7 +103,7 @@ class InfrastructureImplementationController extends Controller
         $user = Auth::user();
         $winner = $user?->role === 'bidder' && (int) $award->bid?->user_id === (int) $user->id;
         $adminOrAssigned = $user?->role === 'admin' || ($user?->role === 'staff' && Assignment::where('staff_id', $user->id)->where('project_id', $award->project_id)->exists());
-        $office = $user?->role === 'end_user' && $user->office === $award->project?->end_user_unit;
+        $office = EndUserAccess::canSeeProject($user, $award->project);
         abort_unless($this->workflow->eligible($award) && ($winner || $adminOrAssigned || $office), 403);
         return Storage::disk('local')->download($event->document_path, $event->document_name ?: 'infrastructure-contract-document');
     }
@@ -116,7 +117,7 @@ class InfrastructureImplementationController extends Controller
     private function authorizeEndUser(Award $award): void
     {
         abort_unless($this->workflow->eligible($award), 404);
-        abort_unless(Auth::user()?->role === 'end_user' && Auth::user()->office === $award->project?->end_user_unit, 403);
+        abort_unless(EndUserAccess::canSeeProject(Auth::user(), $award->project), 403);
     }
     private function authorizeWinner(Award $award): void
     {
