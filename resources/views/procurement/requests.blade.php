@@ -132,6 +132,9 @@
                                         @if($item->project)
                                             <a class="ui-btn ui-btn--ghost ui-btn--sm" href="{{ route($routePrefix.'.procurement.show', $item->project) }}">Open procurement</a>
                                         @endif
+                                        @if($routePrefix === 'admin' && ! $item->project && $item->status !== \App\Models\ProcurementRequest::STATUS_IN_PROCUREMENT)
+                                            <button type="button" class="ui-btn ui-btn--danger ui-btn--sm" data-dialog-open="delete-request-{{ $item->id }}" title="Delete {{ $item->reference_no }}"><i class="fas fa-trash-can" aria-hidden="true"></i><span class="sr-only">Delete {{ $item->reference_no }}</span></button>
+                                        @endif
                                     </span>
                                 </td>
                             </tr>
@@ -241,6 +244,50 @@
             @endif
         </div>
     </dialog>
+    @if($routePrefix === 'admin' && ! $item->project && $item->status !== \App\Models\ProcurementRequest::STATUS_IN_PROCUREMENT)
+        {{-- Delete a request filed by mistake or as a test (ProcurementRequestController::destroy). --}}
+        @php $deleteErrors = (string) old('_delete_id') === (string) $item->id; @endphp
+        <dialog class="ui-dialog pr-delete" id="delete-request-{{ $item->id }}" aria-labelledby="delete-request-{{ $item->id }}-title" @if($deleteErrors) data-open-on-load @endif>
+            <div class="ui-card__head">
+                <div>
+                    <p class="ui-eyebrow">{{ $item->reference_no }} &middot; {{ $item->end_user_office }}</p>
+                    <h2 class="ui-card__title" id="delete-request-{{ $item->id }}-title">Delete this purchase request?</h2>
+                </div>
+                <button type="button" class="ui-dialog__close" data-dialog-close aria-label="Close"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+            </div>
+            <form method="POST" action="{{ route('admin.requests.destroy', $item) }}" class="ui-card__body ui-stack">
+                @csrf
+                @method('DELETE')
+                <input type="hidden" name="_delete_id" value="{{ $item->id }}">
+                <input type="hidden" name="tab" value="{{ $tab }}">
+                <p class="pr-delete__title">{{ $item->title }}</p>
+                <ul class="pr-delete__points">
+                    <li>{{ $item->documents->isEmpty() ? 'The request is deleted.' : 'The request and its '.$item->documents->count().' '.\Illuminate\Support\Str::plural('attachment', $item->documents->count()).' are deleted.' }}</li>
+                    <li>The {{ $item->end_user_office }} is notified with your reason.</li>
+                    <li>The audit log keeps a copy of the request and the reason. This cannot be undone.</li>
+                </ul>
+                <p class="ui-hint">To send it back for correction instead, open <strong>{{ $item->awaitsReview() ? 'Review' : 'View' }}</strong> and return it to the office.</p>
+                <div class="ui-field">
+                    <label class="ui-label" for="delete-reason-{{ $item->id }}">Reason <span class="ui-required" aria-hidden="true">*</span></label>
+                    <textarea id="delete-reason-{{ $item->id }}" name="reason" class="ui-input" rows="3" maxlength="500" required placeholder="e.g. Test entry; duplicate of PR-2026-0003">{{ $deleteErrors ? old('reason') : '' }}</textarea>
+                    @if($deleteErrors && $errors->has('reason'))<span class="ui-error">{{ $errors->first('reason') }}</span>@endif
+                </div>
+                <div class="ui-actions ui-actions--end">
+                    <button type="button" class="ui-btn ui-btn--secondary" data-dialog-close>Cancel</button>
+                    <button type="submit" class="ui-btn pr-delete__go"><i class="fas fa-trash-can" aria-hidden="true"></i> Delete request</button>
+                </div>
+            </form>
+        </dialog>
+    @endif
 @endforeach
+<style>
+    .pr-delete { width: min(520px, calc(100vw - 32px)); }
+    /* The row actions stay on one line on wide screens. */
+    @media (min-width: 1100px) { td.is-actions .ui-actions { flex-wrap: nowrap; } }
+    .pr-delete__title { margin: 0; color: var(--ui-ink); font-size: 15px; font-weight: 600; }
+    .pr-delete__points { display: grid; gap: 6px; margin: 0; padding: 10px 12px 10px 28px; border-radius: 10px; background: var(--ui-danger-soft); color: var(--ui-ink-2); font-size: 13px; line-height: 1.5; }
+    .pr-delete__go { border-color: var(--ui-danger) !important; background: var(--ui-danger) !important; color: #fff !important; }
+    .pr-delete__go:hover { filter: brightness(.95); }
+</style>
 @endsection
 

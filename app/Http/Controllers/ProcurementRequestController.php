@@ -253,6 +253,55 @@ class ProcurementRequestController extends Controller
         ]);
     }
 
+    /**
+     * The BAC admin removes a purchase request filed by mistake or as a test.
+     * Never one that already has a procurement project. The reason is kept in
+     * the audit log with a copy of the request, and the filing office is told.
+     */
+    public function destroy(Request $request, ProcurementRequest $procurementRequest)
+    {
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ], [
+            'reason.required' => 'Enter why this purchase request is being deleted.',
+        ]);
+
+        if ($procurementRequest->status === ProcurementRequest::STATUS_IN_PROCUREMENT || $procurementRequest->project()->exists()) {
+            return back()->with('error', $procurementRequest->reference_no.' already has a procurement project, so it cannot be deleted. Delete or archive the project first.');
+        }
+
+        $procurementRequest->load('documents');
+        $reference = $procurementRequest->reference_no;
+        $requesterId = $procurementRequest->requested_by;
+        $snapshot = $procurementRequest->only(['reference_no', 'title', 'end_user_office', 'category', 'estimated_cost', 'status', 'submitted_at', 'requested_by'])
+            + ['documents' => $procurementRequest->documents->pluck('original_name')->all()];
+        $files = $procurementRequest->documents->pluck('file_path')->filter()->all();
+
+        DB::transaction(function () use ($procurementRequest, $snapshot, $validated) {
+            AuditLog::log('procurement_request_deleted', $procurementRequest, $snapshot, ['reason' => trim($validated['reason'])]);
+            $procurementRequest->documents()->delete();
+            $procurementRequest->delete();
+        });
+
+        // Files go only after the records are gone, so a failed delete keeps them.
+        foreach ($files as $path) {
+            try {
+                Uploads::delete($path);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
+
+        if ($requesterId) {
+            SystemNotification::createForUser((int) $requesterId, 'Purchase request deleted',
+                $reference.' ('.$snapshot['title'].') was deleted by the BAC. Reason: '.trim($validated['reason']),
+                'project_status', ['important' => true, 'url' => route('end-user.requests.index', [], false)]);
+        }
+
+        return redirect()->route('admin.requests', array_filter(['tab' => $request->input('tab')]))
+            ->with('success', $reference.' was deleted. The reason is kept in the audit log.');
+    }
+
     public function review(Request $request, ProcurementRequest $procurementRequest)
     {
         $role = $this->role($request);

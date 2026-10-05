@@ -217,6 +217,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/admin/projects/{project}/publish', [AdminController::class, 'publishProject'])->name('admin.project.publish');
     Route::get('/admin/requests', [ProcurementRequestController::class, 'queue'])->name('admin.requests');
     Route::post('/admin/requests/{procurementRequest}/review', [ProcurementRequestController::class, 'review'])->name('admin.requests.review');
+    Route::delete('/admin/requests/{procurementRequest}', [ProcurementRequestController::class, 'destroy'])->name('admin.requests.destroy');
     Route::get('/admin/procurements/{project}', [ProcurementLifecycleController::class, 'show'])->name('admin.procurement.show');
     Route::post('/admin/procurements/{project}/publication', [ProcurementLifecycleController::class, 'recordPublication'])->name('admin.procurement.publication');
     Route::post('/admin/procurements/{project}/proceedings', [ProcurementLifecycleController::class, 'recordProceeding'])->name('admin.procurement.proceedings');
