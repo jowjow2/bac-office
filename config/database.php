@@ -212,6 +212,10 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // Neon pools connections (PgBouncer): named prepared statements outlive a schema
+            // change there and fail with "cached plan must not change result type" once a
+            // column is added. Unnamed statements are planned per query and keep typed bindings.
+            'options' => defined('PDO::PGSQL_ATTR_DISABLE_PREPARES') ? [PDO::PGSQL_ATTR_DISABLE_PREPARES => true] : [],
         ], $neonLegacyClientUrl($pgsqlUrl) ?? []),
 
         'sqlsrv' => [
