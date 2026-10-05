@@ -67,6 +67,7 @@ class PortalNavigation
                 self::item('Staff assignments', 'admin.assignments', 'fa-people-arrows', ['admin.assignments*']),
                 self::item('Reports', 'admin.reports', 'fa-chart-column', ['admin.reports*']),
                 self::item('Audit logs', 'admin.audit-logs', 'fa-clipboard-list', ['admin.audit-logs*']),
+                self::item('About page', 'admin.settings.about', 'fa-address-card', ['admin.settings.about*']),
             ]],
         ];
     }

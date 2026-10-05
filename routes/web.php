@@ -218,6 +218,8 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/requests', [ProcurementRequestController::class, 'queue'])->name('admin.requests');
     Route::post('/admin/requests/{procurementRequest}/review', [ProcurementRequestController::class, 'review'])->name('admin.requests.review');
     Route::delete('/admin/requests/{procurementRequest}', [ProcurementRequestController::class, 'destroy'])->name('admin.requests.destroy');
+    Route::get('/admin/settings/about', [\App\Http\Controllers\AboutSettingsController::class, 'edit'])->name('admin.settings.about');
+    Route::put('/admin/settings/about', [\App\Http\Controllers\AboutSettingsController::class, 'update'])->name('admin.settings.about.update');
     Route::get('/admin/procurements/{project}', [ProcurementLifecycleController::class, 'show'])->name('admin.procurement.show');
     Route::post('/admin/procurements/{project}/publication', [ProcurementLifecycleController::class, 'recordPublication'])->name('admin.procurement.publication');
     Route::post('/admin/procurements/{project}/proceedings', [ProcurementLifecycleController::class, 'recordProceeding'])->name('admin.procurement.proceedings');
