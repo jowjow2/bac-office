@@ -2921,3 +2921,89 @@
         }
     }
 </style>
+
+{{-- Phone cards: name and the actions menu on top, email under it, then one
+     labelled line per field. Comes last so it wins over the blocks above. --}}
+<style id="users-table-cards">
+    @media (max-width: 900px) {
+        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody {
+            display: grid !important;
+            gap: 10px !important;
+            padding: 0 !important;
+            background: transparent !important;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody tr {
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr) auto !important;
+            gap: 0 12px !important;
+            padding: 14px 16px 6px !important;
+            border: 1px solid var(--ui-line) !important;
+            border-radius: 12px !important;
+            background: var(--ui-surface) !important;
+            box-shadow: none !important;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody tr td:nth-child(n) {
+            display: grid !important;
+            grid-column: 1 / -1 !important;
+            grid-template-columns: 104px minmax(0, 1fr) !important;
+            gap: 12px !important;
+            align-items: center !important;
+            justify-items: start !important;
+            padding: 9px 0 !important;
+            border: 0 !important;
+            border-top: 1px solid var(--ui-line-soft) !important;
+            width: auto !important;
+            min-width: 0 !important;
+            height: auto !important;
+            min-height: 0 !important;
+            background: transparent !important;
+            font-size: 13px !important;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody tr td:nth-child(n)::before {
+            color: var(--ui-muted) !important;
+            -webkit-text-fill-color: var(--ui-muted) !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+        }
+
+        /* Name (row 1, left) and the actions menu (row 1, right), no labels. */
+        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody tr td:nth-child(1) {
+            display: block !important;
+            grid-column: 1 !important;
+            grid-row: 1 !important;
+            padding: 0 !important;
+            border-top: 0 !important;
+            font-size: 15px !important;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody tr td:nth-child(9) {
+            display: block !important;
+            grid-column: 2 !important;
+            grid-row: 1 !important;
+            padding: 0 !important;
+            border-top: 0 !important;
+        }
+
+        /* Email right under the name. */
+        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody tr td:nth-child(2) {
+            display: block !important;
+            grid-row: 2 !important;
+            padding: 2px 0 10px !important;
+            border-top: 0 !important;
+            color: var(--ui-muted) !important;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody tr td:is(:nth-child(1), :nth-child(2), :nth-child(9))::before {
+            content: none !important;
+            display: none !important;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody tr td[colspan] {
+            display: block !important;
+            text-align: center !important;
+        }
+    }
+</style>

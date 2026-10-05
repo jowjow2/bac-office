@@ -13,7 +13,6 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PublicAwardController;
 use App\Http\Controllers\PublicBidderController;
 use App\Http\Controllers\PublicProcurementController;
-use App\Http\Controllers\ProcurementController;
 use App\Http\Controllers\ProcurementLifecycleController;
 use App\Http\Controllers\ProcurementRequestController;
 use App\Http\Controllers\StaffController;
@@ -302,8 +301,9 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/admin/awards/{award}/regenerate-token', [AdminController::class, 'regenerateQrToken'])->name('admin.awards.regenerate.token');
 
     // Procurement management
-    Route::get('/procurements', [ProcurementController::class, 'index'])->name('procurements.index');
-    Route::get('/procurements/publish', [ProcurementController::class, 'publish'])->name('procurements.publish');
+    // Old procurement list URLs: the Projects page replaced them.
+    Route::redirect('/procurements', '/admin/projects')->name('procurements.index');
+    Route::redirect('/procurements/publish', '/admin/projects?status=open')->name('procurements.publish');
 });
 
 Route::middleware(['auth', 'staff'])->group(function () {

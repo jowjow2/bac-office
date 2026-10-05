@@ -183,3 +183,8 @@ it('leads the overview with the work waiting for each role, and leaves out what 
     testCase()->actingAs($this->staff)->get(route('staff.dashboard'))->assertOk()
         ->assertDontSee('Purchase requests to review');
 });
+
+it('sends the old procurement list URLs to the Projects page', function () {
+    testCase()->actingAs($this->admin)->get('/procurements')->assertRedirect('/admin/projects');
+    testCase()->actingAs($this->admin)->get('/procurements/publish')->assertRedirect('/admin/projects?status=open');
+});
