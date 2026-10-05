@@ -85,9 +85,12 @@
                 </script>
             @endif
 
-            <div class="auth-tabs" id="authTabs" role="tablist" aria-label="Account">
-                <button type="button" id="tabLogin" class="auth-tab active" role="tab" onclick="activateAuthTab('login')">Sign in</button>
-                <button type="button" id="tabRegister" class="auth-tab" role="tab" onclick="activateAuthTab('register')">Register</button>
+            <div class="auth-tabs" id="authTabs">
+                <div class="auth-tabs__track" role="tablist" aria-label="Account">
+                    <span class="auth-tabs__thumb" aria-hidden="true"></span>
+                    <button type="button" id="tabLogin" class="auth-tab active" role="tab" aria-selected="true" onclick="activateAuthTab('login')">Sign in</button>
+                    <button type="button" id="tabRegister" class="auth-tab" role="tab" aria-selected="false" onclick="activateAuthTab('register')">Register</button>
+                </div>
             </div>
 
             {{-- Sign in --}}

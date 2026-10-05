@@ -516,6 +516,8 @@ window.switchTab = function (tab) {
 
     tabLogin.classList.remove('active');
     tabRegister.classList.remove('active');
+    tabLogin.setAttribute('aria-selected', String(['login', 'verify'].includes(tab)));
+    tabRegister.setAttribute('aria-selected', String(tab === 'register'));
     if (modal) {
         modal.classList.toggle('verification-state', tab === 'verify');
         modal.classList.toggle('reset-password-state', tab === 'reset_password');
@@ -1176,6 +1178,8 @@ async function submitAuthForm(form, fallbackTab) {
                 clearAuthMessage();
             } else if (data.requires_password_code || data.password_reset_verified) {
                 clearAuthMessage();
+            } else if (data.welcome && data.redirect) {
+                showAuthWelcome(data.welcome.name);
             } else {
                 showAuthMessage('success', data.message || 'Success.', {
                     autoHideMs: AUTH_MESSAGE_HIDE_DELAY,
@@ -1560,3 +1564,30 @@ function updateCapsLockHint(event) {
 }
 
 ['keydown', 'keyup', 'focusout'].forEach((type) => document.addEventListener(type, updateCapsLockHint));
+
+// Signed in: a short welcome (check, name, progress bar) while the portal opens.
+// It fills the time the redirect already waits (AUTH_SUCCESS_REDIRECT_DELAY).
+function showAuthWelcome(name) {
+    const box = document.getElementById('authMessage');
+    if (!box) return;
+
+    window.clearTimeout(window.authMessageTimeout);
+    window.clearTimeout(window.authMessageFadeTimeout);
+
+    const card = document.createElement('div');
+    card.className = 'auth-welcome';
+    card.setAttribute('role', 'status');
+    card.innerHTML = `
+        <span class="auth-welcome__check" aria-hidden="true">
+            <svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="23"/><path d="M15 27l7 7 15-16"/></svg>
+        </span>
+        <strong class="auth-welcome__title"></strong>
+        <span class="auth-welcome__sub">Opening your portal…</span>
+        <span class="auth-welcome__bar" aria-hidden="true"><span></span></span>
+    `;
+    card.querySelector('.auth-welcome__title').textContent = name ? `Welcome back, ${name}!` : 'Welcome back!';
+    card.style.setProperty('--auth-welcome-duration', `${AUTH_SUCCESS_REDIRECT_DELAY}ms`);
+
+    box.replaceChildren(card);
+    setAuthSuccessState(true);
+}

@@ -28,6 +28,10 @@
 @endsection
 
 @section('content')
+    @if($welcome ?? false)
+        @include('bidder.partials.welcome-card')
+    @endif
+
     @if(! $isApproved)
         <section class="ui-callout {{ ($reviewStatus ?? null) === 'needs_action' ? 'ui-callout--warning' : '' }}" aria-labelledby="registration-title">
             <span class="ui-callout__label">Registration · {{ $reviewLabel }}</span>

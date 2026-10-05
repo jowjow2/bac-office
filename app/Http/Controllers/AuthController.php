@@ -112,6 +112,22 @@ class AuthController extends Controller
     }
 
     /** After login: a bidder who started from "Login to Participate" returns to that project. */
+    /** The sign-in modal greets the user by name while it opens their portal. */
+    protected function welcomePayload(User $user): array
+    {
+        $name = $user->role === 'bidder' ? ($user->company ?: $user->name) : $user->name;
+
+        return ['welcome' => ['name' => (string) $name]];
+    }
+
+    /** Bidders get a welcome card on their dashboard once per sign-in (BidderController::index). */
+    protected function queueBidderWelcome(Request $request, User $user): void
+    {
+        if ($user->role === 'bidder') {
+            $request->session()->put('bidder_welcome', true);
+        }
+    }
+
     protected function redirectAfterLogin(Request $request, User $user): string
     {
         $projectId = $request->session()->pull('participation_project_id');
@@ -560,6 +576,7 @@ class AuthController extends Controller
 
         Auth::login($user, $request->boolean('remember'));
         $request->session()->regenerate();
+        $this->queueBidderWelcome($request, $user);
 
         return $this->authResponse(
             $request,
@@ -567,7 +584,9 @@ class AuthController extends Controller
             'Login successful.',
             'login',
             200,
-            $this->redirectAfterLogin($request, $user)
+            $this->redirectAfterLogin($request, $user),
+            [],
+            $this->welcomePayload($user)
         );
     }
 
@@ -674,6 +693,7 @@ class AuthController extends Controller
 
         Auth::login($user, $remember);
         $request->session()->regenerate();
+        $this->queueBidderWelcome($request, $user);
         LoginAudit::record($request, $user, 'google', 'success');
 
         return redirect()->to($this->redirectAfterLogin($request, $user))->with('success', 'Signed in with Google.');
@@ -799,6 +819,7 @@ class AuthController extends Controller
 
         Auth::login($user, $remember);
         $request->session()->regenerate();
+        $this->queueBidderWelcome($request, $user);
 
         return $this->authResponse(
             $request,
@@ -806,7 +827,9 @@ class AuthController extends Controller
             'Login successful.',
             'verify',
             200,
-            $this->redirectAfterLogin($request, $user)
+            $this->redirectAfterLogin($request, $user),
+            [],
+            $this->welcomePayload($user)
         );
     }
 

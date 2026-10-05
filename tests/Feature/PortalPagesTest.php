@@ -188,3 +188,13 @@ it('sends the old procurement list URLs to the Projects page', function () {
     testCase()->actingAs($this->admin)->get('/procurements')->assertRedirect('/admin/projects');
     testCase()->actingAs($this->admin)->get('/procurements/publish')->assertRedirect('/admin/projects?status=open');
 });
+
+it('welcomes the bidder on the first dashboard visit after signing in, once', function () {
+    testCase()->actingAs($this->bidder)->withSession(['bidder_welcome' => true])
+        ->get(route('bidder.dashboard'))->assertOk()
+        ->assertSee('Welcome back, Mindoro Builders Corp.!')
+        ->assertSee('data-bidder-welcome', false);
+
+    testCase()->actingAs($this->bidder)->get(route('bidder.dashboard'))->assertOk()
+        ->assertDontSee('data-bidder-welcome', false);
+});

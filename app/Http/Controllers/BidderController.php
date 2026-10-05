@@ -71,6 +71,8 @@ class BidderController extends Controller
         }
 
         return view('dashboard.bidder', array_merge($data, [
+            // Shown on the first dashboard visit after signing in, then gone.
+            'welcome' => (bool) $request->session()->pull('bidder_welcome', false),
             'opportunities' => $opportunities,
             'awaitingResults' => $awaiting,
             'upcoming' => $upcoming->sortBy(fn (array $event) => $event['at']->getTimestamp())->take(8)->values(),

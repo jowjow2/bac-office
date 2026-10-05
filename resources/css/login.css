@@ -496,27 +496,52 @@
     background: var(--ui-surface);
 }
 
-#authModal .auth-tabs::after {
-    content: "";
+/* Sign in / Register: a segmented switch; the white thumb slides to the active side. */
+#authModal .auth-tabs {
+    padding-bottom: 4px;
+}
+
+#authModal .auth-tabs__track {
+    position: relative;
+    display: inline-grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 4px;
+    border: 1px solid var(--ui-line);
+    border-radius: 11px;
+    background: var(--ui-surface-2);
+}
+
+#authModal .auth-tabs__thumb {
     position: absolute;
-    right: 36px;
-    bottom: -1px;
-    left: 36px;
-    z-index: -1;
-    border-bottom: 1px solid var(--ui-line);
+    top: 4px;
+    bottom: 4px;
+    left: 4px;
+    width: calc(50% - 4px);
+    border-radius: 8px;
+    background: var(--ui-surface);
+    box-shadow: 0 1px 2px rgba(27, 36, 32, 0.08), 0 0 0 1px var(--ui-line);
+    transition: transform 0.24s cubic-bezier(.2, .8, .2, 1);
+}
+
+#authModal .auth-tabs__track:has(#tabRegister.active) .auth-tabs__thumb {
+    transform: translateX(100%);
 }
 
 #authModal .auth-tab {
-    margin-bottom: -1px;
-    padding: 8px 2px 10px;
+    position: relative;
+    z-index: 1;
+    min-width: 116px;
+    height: 34px;
+    padding: 0 18px;
     border: 0;
-    border-bottom: 2px solid transparent;
+    border-radius: 8px;
     background: none;
     color: var(--ui-muted);
     font: inherit;
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 600;
     cursor: pointer;
+    transition: color 0.2s ease;
 }
 
 #authModal .auth-tab:hover {
@@ -524,7 +549,6 @@
 }
 
 #authModal .auth-tab.active {
-    border-bottom-color: var(--ui-primary);
     color: var(--ui-primary);
 }
 
@@ -1646,4 +1670,100 @@
     height: 6px;
     border-radius: 50%;
     background: currentColor;
+}
+
+/* ---------- Welcome after signing in (auth.js showAuthWelcome) ---------- */
+#authModal .auth-welcome {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    padding: 28px 28px 24px;
+    border-radius: var(--ui-radius-lg);
+    background: var(--ui-surface);
+    box-shadow: var(--ui-shadow-lg);
+    text-align: center;
+    animation: auth-welcome-in 0.35s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+#authModal .auth-welcome__check {
+    display: grid;
+    width: 56px;
+    height: 56px;
+    margin-bottom: 6px;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--ui-primary-soft);
+    color: var(--ui-primary);
+}
+
+#authModal .auth-welcome__check svg {
+    width: 44px;
+    height: 44px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+#authModal .auth-welcome__check circle {
+    stroke-width: 2.5;
+    stroke-dasharray: 145;
+    stroke-dashoffset: 145;
+    animation: auth-welcome-draw 0.5s ease-out 0.1s forwards;
+}
+
+#authModal .auth-welcome__check path {
+    stroke-width: 3.5;
+    stroke-dasharray: 40;
+    stroke-dashoffset: 40;
+    animation: auth-welcome-draw 0.3s ease-out 0.5s forwards;
+}
+
+#authModal .auth-welcome__title {
+    color: var(--ui-ink);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    overflow-wrap: anywhere;
+    animation: auth-welcome-up 0.4s ease-out 0.35s both;
+}
+
+#authModal .auth-welcome__sub {
+    color: var(--ui-muted);
+    font-size: 13px;
+    animation: auth-welcome-up 0.4s ease-out 0.45s both;
+}
+
+#authModal .auth-welcome__bar {
+    width: 160px;
+    height: 4px;
+    margin-top: 12px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--ui-line-soft);
+}
+
+#authModal .auth-welcome__bar span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--ui-primary);
+    transform: scaleX(0);
+    transform-origin: left;
+    animation: auth-welcome-bar var(--auth-welcome-duration, 1500ms) linear forwards;
+}
+
+#authModal.success-state .auth-card:has(.auth-welcome) {
+    width: min(400px, 100%);
+}
+
+@keyframes auth-welcome-in { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes auth-welcome-draw { to { stroke-dashoffset: 0; } }
+@keyframes auth-welcome-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes auth-welcome-bar { to { transform: scaleX(1); } }
+
+@media (prefers-reduced-motion: reduce) {
+    #authModal .auth-tabs__thumb { transition: none; }
+    #authModal :is(.auth-welcome, .auth-welcome__title, .auth-welcome__sub) { animation: none; }
+    #authModal .auth-welcome__check :is(circle, path) { animation: none; stroke-dashoffset: 0; }
 }

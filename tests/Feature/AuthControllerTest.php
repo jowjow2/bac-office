@@ -98,6 +98,9 @@ it('sends a verification code before allowing bidder login', function () {
 
     $verifyResponse->assertOk();
     $verifyResponse->assertJsonPath('ok', true);
+    // The modal greets the bidder by company, and the dashboard shows a welcome card once.
+    $verifyResponse->assertJsonPath('welcome.name', 'Example Company');
+    $verifyResponse->assertSessionHas('bidder_welcome', true);
     $verifyResponse->assertJsonPath('message', 'Login successful.');
     $verifyResponse->assertJsonPath('redirect', route('bidder.dashboard'));
 
