@@ -882,7 +882,9 @@ class AdminController extends Controller
         $roleCounts = [
             'admin' => User::where('role', 'admin')->count(),
             'staff' => User::where('role', 'staff')->count(),
+            'end_user' => User::where('role', 'end_user')->count(),
             'bidder' => User::where('role', 'bidder')->count(),
+            'all' => User::count(),
         ];
 
         $statusCounts = [

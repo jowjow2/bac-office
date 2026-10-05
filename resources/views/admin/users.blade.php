@@ -680,39 +680,33 @@
     @include('partials.admin-sidebar')
 
     <div class="main-area users-page">
-        <x-page-header title="Manage users" subtitle="Approve bidder registrations and maintain account access" />
+        <x-page-header title="Manage users" subtitle="Approve bidder registrations and maintain account access">
+            <x-slot:actions>
+                <button type="button" class="ul-add" onclick="openCreateUserModal()"><i class="fas fa-plus" aria-hidden="true"></i> Add user</button>
+            </x-slot:actions>
+        </x-page-header>
 
         <main class="dashboard-content">
-            <div class="welcome-text" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 18px;">
-
-                <button type="button" onclick="openCreateUserModal()" style="background: #1d4f91; color: white; padding: 11px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600;">
-                    <i class="fas fa-plus" style="margin-right: 6px;"></i> Add User
-                </button>
-            </div>
-
             @if(session('success'))
-                <div id="successAlert" style="position: fixed; top: 90px; right: 25px; background: #dcfce7; color: #166534; padding: 16px 20px; border-radius: 8px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; display: flex; align-items: center; gap: 10px; min-width: 280px;">
-                    <i class="fas fa-check-circle" style="font-size: 18px;"></i>
+                <div id="successAlert" class="ul-toast" role="status">
+                    <i class="fas fa-circle-check" aria-hidden="true"></i>
                     <span>{{ session('success') }}</span>
-                    <button onclick="closeSuccessAlert()" style="margin-left: auto; background: none; border: none; color: #166534; cursor: pointer; font-size: 16px;">&times;</button>
+                    <button type="button" onclick="closeSuccessAlert()" aria-label="Dismiss">&times;</button>
                 </div>
             @endif
 
             @if(session('warning'))
-                <div class="error-alert" style="margin-bottom: 20px; background: #fff7ed; border-color: #fdba74; color: #9a3412;">
-                    {{ session('warning') }}
-                </div>
+                <div class="ul-alert ul-alert--warning" role="alert"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i><span>{{ session('warning') }}</span></div>
             @endif
 
             @if(!($bidderApprovalAvailable ?? false))
-                <div class="error-alert" style="margin-bottom: 20px; background: #e8f1ec; border-color: #9fcfb9; color: #1d4f40;">
-                    Bidder review and approval actions are temporarily unavailable because the bidder approval table is not present in the current database.
-                </div>
+                <div class="ul-alert" role="status"><i class="fas fa-circle-info" aria-hidden="true"></i><span>Bidder review and approval actions are temporarily unavailable because the bidder approval table is not present in the current database.</span></div>
             @endif
 
             @if($errors->any() && !old('editing_user_id'))
-                <div class="error-alert" style="margin-bottom: 20px;">
-                    <ul style="margin: 0; padding-left: 18px;">
+                <div class="ul-alert ul-alert--danger" role="alert">
+                    <i class="fas fa-circle-exclamation" aria-hidden="true"></i>
+                    <ul>
                         @foreach($errors->all() as $error)
                             <li>{{ $error }}</li>
                         @endforeach
@@ -720,261 +714,237 @@
                 </div>
             @endif
 
-            <div style="margin: 20px 0 14px;">
-                <div style="display: inline-flex; gap: 4px; padding: 4px; background: #eef2f7; border-radius: 12px; flex-wrap: wrap;">
-                    <a href="{{ route('admin.users', ['filter' => 'all', 'search' => $search !== '' ? $search : null]) }}"
-                       class="users-filter-tab {{ ($filter ?? 'all') === 'all' ? 'is-active' : '' }}"
-                       style="padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 500; text-decoration: none;">
-                        All Users
-                    </a>
-                    <a href="{{ route('admin.users', ['filter' => 'admin', 'search' => $search !== '' ? $search : null]) }}"
-                       class="users-filter-tab {{ ($filter ?? 'all') === 'admin' ? 'is-active' : '' }}"
-                       style="padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 500; text-decoration: none;">
-                        Admin
-                    </a>
-                    <a href="{{ route('admin.users', ['filter' => 'staff', 'search' => $search !== '' ? $search : null]) }}"
-                       class="users-filter-tab {{ ($filter ?? 'all') === 'staff' ? 'is-active' : '' }}"
-                       style="padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 500; text-decoration: none;">
-                        Staff
-                    </a>
-                    <a href="{{ route('admin.users', ['filter' => 'end_user', 'search' => $search !== '' ? $search : null]) }}"
-                       class="users-filter-tab {{ ($filter ?? 'all') === 'end_user' ? 'is-active' : '' }}"
-                       style="padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 500; text-decoration: none;">
-                        End-user offices
-                    </a>
-                    <a href="{{ route('admin.users', ['filter' => 'bidder', 'search' => $search !== '' ? $search : null]) }}"
-                       class="users-filter-tab {{ ($filter ?? 'all') === 'bidder' ? 'is-active' : '' }}"
-                       style="padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 500; text-decoration: none;">
-                        Bidders
-                    </a>
-                    <a href="{{ route('admin.users', ['filter' => 'pending', 'search' => $search !== '' ? $search : null]) }}"
-                       class="users-filter-tab {{ ($filter ?? 'all') === 'pending' ? 'is-active' : '' }}"
-                       style="padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 500; text-decoration: none;">
-                        Pending
-                    </a>
-                    @if($bidderSanctionsAvailable ?? false)
-                        <a href="{{ route('admin.users', ['filter' => 'suspended', 'search' => $search !== '' ? $search : null]) }}"
-                           class="users-filter-tab {{ ($filter ?? 'all') === 'suspended' ? 'is-active' : '' }}"
-                           style="padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 500; text-decoration: none;">
-                            Suspended {{ ($statusCounts['suspended'] ?? 0) > 0 ? '(' . $statusCounts['suspended'] . ')' : '' }}
-                        </a>
-                        <a href="{{ route('admin.users', ['filter' => 'blacklisted', 'search' => $search !== '' ? $search : null]) }}"
-                           class="users-filter-tab {{ ($filter ?? 'all') === 'blacklisted' ? 'is-active' : '' }}"
-                           style="padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 500; text-decoration: none;">
-                            Blacklisted {{ ($statusCounts['blacklisted'] ?? 0) > 0 ? '(' . $statusCounts['blacklisted'] . ')' : '' }}
-                        </a>
-                    @endif
-                </div>
-            </div>
+            @php
+                $activeFilter = $filter ?? 'all';
+                $filterTabs = [
+                    'all' => ['All users', $roleCounts['all'] ?? null],
+                    'admin' => ['Admin', $roleCounts['admin'] ?? null],
+                    'staff' => ['Staff', $roleCounts['staff'] ?? null],
+                    'end_user' => ['End-user offices', $roleCounts['end_user'] ?? null],
+                    'bidder' => ['Bidders', $roleCounts['bidder'] ?? null],
+                    'pending' => ['Pending', $statusCounts['pending'] ?? null],
+                ];
+                if ($bidderSanctionsAvailable ?? false) {
+                    $filterTabs['suspended'] = ['Suspended', $statusCounts['suspended'] ?? null];
+                    $filterTabs['blacklisted'] = ['Blacklisted', $statusCounts['blacklisted'] ?? null];
+                }
+                $roleMeta = [
+                    'admin' => ['Admin', 'admin', 'fa-user-shield'],
+                    'staff' => ['Staff', 'staff', 'fa-user-tie'],
+                    'end_user' => ['End-user office', 'office', 'fa-building'],
+                    'bidder' => ['Bidder', 'bidder', 'fa-briefcase'],
+                ];
+            @endphp
 
-            <div class="table-container user-table-card" style="background: white; border-radius: 16px; box-shadow: 0 10px 24px rgba(27, 36, 32,0.06); overflow: hidden; border: 1px solid #e9eef5;">
-                <form method="GET" action="{{ route('admin.users') }}" style="padding: 18px 20px; border-bottom: 1px solid #edf2f7; background: #ffffff;">
-                    <input type="hidden" name="filter" value="{{ $filter ?? 'all' }}">
-                    <div style="display:flex; gap:10px; align-items:center;">
-                        <div class="admin-search-field" style="flex: 1 1 auto; min-width: 0;">
-                            <svg class="admin-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
-                            <input
-                                type="text"
-                                name="search"
-                                value="{{ $search }}"
-                                placeholder="Search users..."
-                                class="user-search-input"
-                            >
-                        </div>
+            <section class="ul-card" aria-label="User accounts">
+                <div class="ul-toolbar">
+                    <nav class="ul-tabs" aria-label="Filter users">
+                        @foreach($filterTabs as $key => [$label, $count])
+                            <a href="{{ route('admin.users', ['filter' => $key, 'search' => $search !== '' ? $search : null]) }}"
+                               class="ul-tab {{ $activeFilter === $key ? 'is-active' : '' }}"
+                               @if($activeFilter === $key) aria-current="page" @endif>
+                                <span>{{ $label }}</span>
+                                @if($count !== null)<span class="ul-tab__count {{ in_array($key, ['pending', 'suspended', 'blacklisted'], true) && $count > 0 ? 'is-alert' : '' }}">{{ $count }}</span>@endif
+                            </a>
+                        @endforeach
+                    </nav>
+
+                    <form method="GET" action="{{ route('admin.users') }}" class="ul-search" role="search">
+                        <input type="hidden" name="filter" value="{{ $activeFilter }}">
+                        <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                        <input type="search" name="search" value="{{ $search }}" placeholder="Search name, email, company or office" aria-label="Search users">
                         @if($search !== '')
-                            <a href="{{ route('admin.users', ['filter' => ($filter ?? 'all') !== 'all' ? $filter : null]) }}" class="btn-secondary">Clear</a>
+                            <a href="{{ route('admin.users', ['filter' => $activeFilter !== 'all' ? $activeFilter : null]) }}" class="ul-search__clear" aria-label="Clear search"><i class="fas fa-xmark" aria-hidden="true"></i></a>
                         @endif
-                    </div>
-                </form>
-
-                <div class="users-table-wrap" style="overflow-x:auto; padding: 0 0 20px;">
-                {{-- min-width lives in CSS (see #users-table-responsive) so the mobile
-                     card layout can drop it; as an inline style it can't be overridden. --}}
-                <table class="users-table" style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr style="border-bottom: 1px solid #e5e7eb;">
-                            <th style="text-align: left; padding: 14px 12px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Name</th>
-                            <th style="text-align: left; padding: 14px 12px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Email</th>
-                            <th style="text-align: left; padding: 14px 12px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Role</th>
-                            <th style="text-align: left; padding: 14px 12px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Office</th>
-                            <th style="text-align: left; padding: 14px 12px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Status</th>
-                            <th style="text-align: left; padding: 14px 12px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Company</th>
-                            <th style="text-align: left; padding: 14px 12px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Registration No.</th>
-                            <th style="text-align: left; padding: 14px 12px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Created</th>
-                            <th style="text-align: left; padding: 14px 12px; font-size: 12px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($users as $user)
-                            @php
-                                $displayStatus = $user->role === 'bidder' && ($bidderApprovalAvailable ?? false)
-                                    ? ($user->status === 'active' ? 'approved' : $user->status)
-                                    : $user->status;
-                                $procurementStatus = $user->role === 'bidder' && ($bidderApprovalAvailable ?? false)
-                                    ? $user->bidderProcurementStatus()
-                                    : $displayStatus;
-                                $displayStatusLabel = match ($displayStatus) {
-                                    'active', 'approved' => $user->role === 'bidder' ? 'Approved' : 'Active',
-                                    'pending' => 'Pending',
-                                    'rejected' => 'Rejected',
-                                    default => ucwords(str_replace('_', ' ', (string) $displayStatus)),
-                                };
-                                $activeSanction = in_array($procurementStatus, ['suspended', 'blacklisted'], true)
-                                    ? $user->bidderProfile?->activeSanction
-                                    : null;
-                                $isNewUser = ($bidderApprovalAvailable ?? false) && $user->role === 'bidder' && $user->status === 'pending' && ($user->bidderProfile?->review_status ?: 'new') === 'new';
-                            @endphp
-                            <tr style="border-bottom: 1px solid #f3f4f6;">
-                                <td style="padding: 12px; font-size: 14px; font-weight: 600; color: #1b2420;">
-                                    <div class="user-name-line">
-                                        <span>{{ $user->name }}</span>
-                                        @if($isNewUser)
-                                            <span class="user-new-badge" title="Registered within the last 3 days">NEW</span>
-                                        @endif
-                                    </div>
-                                    @if($user->username)
-                                        <div style="margin-top: 4px; font-size: 12px; font-weight: 500; color: #6b736e;">{{ '@' . $user->username }}</div>
-                                    @endif
-                                </td>
-                                <td style="padding: 12px; font-size: 13px; color: #6b7280;">{{ $user->email }}</td>
-                                <td style="padding: 12px;">
-                                    <span style="padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: 500;
-                                        @if($user->role === 'admin') background: #ede9fe; color: #7c3aed;
-                                        @elseif($user->role === 'staff') background: #dcfce7; color: #15803d;
-                                        @else background: #fef3c7; color: #b45309; @endif">
-                                        {{ $user->role === 'end_user' ? 'End-user office' : ucfirst($user->role) }}
-                                    </span>
-                                </td>
-                                <td style="padding: 12px; font-size: 13px; color: #1b2420;">
-                                    {{ in_array($user->role, ['staff', 'end_user'], true) ? ($user->office ?: 'Unassigned') : 'N/A' }}
-                                    @if(filled($user->position ?? null))
-                                        <div style="margin-top: 3px; font-size: 12px; color: #6b736e;">{{ $user->position }}</div>
-                                    @endif
-                                </td>
-                                <td style="padding: 12px;">
-                                    <span data-user-status="{{ $user->id }}" style="padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: 500;
-                                        @if(in_array($displayStatus, ['active', 'approved'], true)) background: #dcfce7; color: #166534;
-                                        @elseif($displayStatus === 'pending') background: #e5e7eb; color: #374151;
-                                        @elseif($displayStatus === 'suspended') background: #ffedd5; color: #c2410c;
-                                        @elseif($displayStatus === 'blacklisted') background: #fee2e2; color: #991b1b;
-                                        @else background: #fee2e2; color: #991b1b; @endif">
-                                        {{ $displayStatusLabel }}
-                                    </span>
-                                    @if($activeSanction)
-                                        <div style="margin-top: 5px; font-size: 11px; color: #6b736e; line-height: 1.35;">
-                                            Procurement access: {{ $activeSanction->status_label }} &middot; Ref {{ $activeSanction->reference_number }} &middot; Effective {{ $activeSanction->effective_date?->format('M d, Y') }}
-                                        </div>
-                                    @endif
-                                </td>
-                                <td style="padding: 12px; font-size: 13px; color: #1b2420;">{{ $user->company ?: 'N/A' }}</td>
-                                <td style="padding: 12px; font-size: 13px; color: #1b2420;">{{ $user->registration_no ?: 'N/A' }}</td>
-                                <td style="padding: 12px; font-size: 13px; color: #6b7280;">{{ $user->created_at?->format('M d, Y') ?? 'N/A' }}</td>
-                                <td style="padding: 12px;" class="user-actions-cell">
-                                    <div class="user-actions-menu">
-                                        <button type="button" class="user-actions-trigger" onclick="toggleUserActionMenu(event, this)" aria-label="Open user actions" aria-haspopup="menu" aria-expanded="false">
-                                            <i class="fas fa-ellipsis-vertical" aria-hidden="true"></i>
-                                        </button>
-
-                                        <div class="user-actions-dropdown" role="menu">
-                                            @if($user->role === 'bidder' && ($bidderApprovalAvailable ?? false))
-                                                <a href="{{ route('admin.users.review', $user) }}" class="user-actions-menu-item" role="menuitem" onclick="openUserReviewModal(event, this.href)">
-                                                    <i class="fas fa-eye" aria-hidden="true"></i>
-                                                    <span>View Details</span>
-                                                </a>
-                                            @endif
-
-                                            @if($user->role === 'bidder')
-                                                <a href="{{ route('admin.messages', ['user' => $user->id]) }}" class="user-actions-menu-item" role="menuitem">
-                                                    <i class="fas fa-message" aria-hidden="true"></i>
-                                                    <span>Message</span>
-                                                </a>
-                                            @endif
-
-                                            @if($user->role === 'bidder' && !($bidderApprovalAvailable ?? false))
-                                                <span class="user-actions-menu-note" role="menuitem" aria-disabled="true">
-                                                    <i class="fas fa-eye-slash" aria-hidden="true"></i>
-                                                    <span>Review unavailable</span>
-                                                </span>
-                                            @endif
-
-                                            <button
-                                                type="button"
-                                                onclick="openEditUserModal(this)"
-                                                class="user-actions-menu-item"
-                                                role="menuitem"
-                                                data-id="{{ $user->id }}"
-                                                data-name="{{ e($user->name) }}"
-                                                data-email="{{ e($user->email) }}"
-                                                data-username="{{ e($user->username ?? '') }}"
-                                                data-role="{{ $user->role }}"
-                                                data-status="{{ $user->status }}"
-                                                data-office="{{ e($user->office ?? '') }}"
-                                                data-company="{{ e($user->company ?? '') }}"
-                                                data-registration="{{ e($user->registration_no ?? '') }}"
-                                                data-position="{{ e($user->position ?? '') }}"
-                                                data-contact="{{ e($user->contact_number ?: ($user->role === 'bidder' && $user->relationLoaded('bidderProfile') ? ($user->bidderProfile?->contact_number ?? '') : '')) }}"
-                                                data-address="{{ e($user->role === 'bidder' && $user->relationLoaded('bidderProfile') ? ($user->bidderProfile?->business_address ?? '') : '') }}"
-                                            >
-                                                <i class="fas fa-pen" aria-hidden="true"></i>
-                                                <span>Edit</span>
-                                            </button>
-
-                                            <form method="POST" action="{{ route('admin.users.destroy', $user) }}" onsubmit="openDeleteUserModal(event, this);" data-delete-user-name="{{ e($user->name) }}" class="user-actions-delete-form">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button
-                                                    type="submit"
-                                                    class="user-actions-menu-item is-danger"
-                                                    role="menuitem"
-                                                    {{ auth()->id() === $user->id ? 'disabled' : '' }}
-                                                >
-                                                    <i class="fas fa-trash-can" aria-hidden="true"></i>
-                                                    <span>Delete</span>
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="9" style="padding: 40px; text-align: center; color: #9ca3af;">
-                                    <i class="fas fa-users" style="font-size: 48px; margin-bottom: 10px; display: block;"></i>
-                                    No users matched your search.
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+                    </form>
                 </div>
+
+                <div class="ul-table-wrap">
+                    <table class="ul-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">User</th>
+                                <th scope="col">Role &amp; office</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Joined</th>
+                                <th scope="col"><span class="ul-sr">Actions</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($users as $user)
+                                @php
+                                    $displayStatus = $user->role === 'bidder' && ($bidderApprovalAvailable ?? false)
+                                        ? ($user->status === 'active' ? 'approved' : $user->status)
+                                        : $user->status;
+                                    $procurementStatus = $user->role === 'bidder' && ($bidderApprovalAvailable ?? false)
+                                        ? $user->bidderProcurementStatus()
+                                        : $displayStatus;
+                                    $displayStatusLabel = match ($displayStatus) {
+                                        'active', 'approved' => $user->role === 'bidder' ? 'Approved' : 'Active',
+                                        'pending' => 'Pending',
+                                        'rejected' => 'Rejected',
+                                        default => ucwords(str_replace('_', ' ', (string) $displayStatus)),
+                                    };
+                                    $statusTone = match ($displayStatus) {
+                                        'active', 'approved' => 'success',
+                                        'pending' => 'neutral',
+                                        'suspended' => 'warning',
+                                        default => 'danger',
+                                    };
+                                    $activeSanction = in_array($procurementStatus, ['suspended', 'blacklisted'], true)
+                                        ? $user->bidderProfile?->activeSanction
+                                        : null;
+                                    $isNewUser = ($bidderApprovalAvailable ?? false) && $user->role === 'bidder' && $user->status === 'pending' && ($user->bidderProfile?->review_status ?: 'new') === 'new';
+                                    [$roleLabel, $roleTone, $roleIcon] = $roleMeta[$user->role] ?? [ucfirst((string) $user->role), 'admin', 'fa-user'];
+                                    $initials = collect(preg_split('/\s+/', trim((string) $user->name)))
+                                        ->reject(fn ($part) => $part === '' || str_ends_with($part, '.'))
+                                        ->take(2)
+                                        ->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))
+                                        ->implode('') ?: '?';
+                                @endphp
+                                <tr>
+                                    <td class="ul-cell-user">
+                                        <div class="ul-user">
+                                            <span class="ul-avatar ul-avatar--{{ $roleTone }}" aria-hidden="true">{{ $initials }}</span>
+                                            <span class="ul-user__text">
+                                                <span class="ul-user__name">
+                                                    {{ $user->name }}
+                                                    @if($isNewUser)
+                                                        <span class="ul-new" title="Registered within the last 3 days">New</span>
+                                                    @endif
+                                                </span>
+                                                <span class="ul-user__email">{{ $user->email }}@if($user->username) <span class="ul-dot">·</span> {{ '@' . $user->username }}@endif</span>
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td class="ul-cell-role">
+                                        <span class="ul-role ul-role--{{ $roleTone }}"><i class="fas {{ $roleIcon }}" aria-hidden="true"></i> {{ $roleLabel }}</span>
+                                        @if(in_array($user->role, ['staff', 'end_user'], true))
+                                            <span class="ul-meta">{{ $user->office ?: 'No office assigned' }}@if(filled($user->position ?? null)) <span class="ul-dot">·</span> {{ $user->position }}@endif</span>
+                                        @elseif($user->role === 'bidder')
+                                            <span class="ul-meta">{{ $user->company ?: 'Company not set' }}@if(filled($user->registration_no)) <span class="ul-dot">·</span> <span class="ul-mono">{{ $user->registration_no }}</span>@endif</span>
+                                        @elseif(filled($user->position ?? null))
+                                            <span class="ul-meta">{{ $user->position }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="ul-cell-status">
+                                        <span class="ul-status ul-status--{{ $statusTone }}" data-user-status="{{ $user->id }}">{{ $displayStatusLabel }}</span>
+                                        @if($activeSanction)
+                                            <span class="ul-meta ul-meta--sanction">Procurement access: {{ $activeSanction->status_label }} &middot; Ref {{ $activeSanction->reference_number }} &middot; Effective {{ $activeSanction->effective_date?->format('M d, Y') }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="ul-cell-date">
+                                        @if($user->created_at)
+                                            <span class="ul-date">{{ $user->created_at->format('M d, Y') }}</span>
+                                            <span class="ul-meta">{{ $user->created_at->diffForHumans() }}</span>
+                                        @else
+                                            <span class="ul-meta">—</span>
+                                        @endif
+                                    </td>
+                                    <td class="ul-cell-actions user-actions-cell">
+                                        <div class="user-actions-menu">
+                                            <button type="button" class="user-actions-trigger" onclick="toggleUserActionMenu(event, this)" aria-label="Open user actions" aria-haspopup="menu" aria-expanded="false">
+                                                <i class="fas fa-ellipsis-vertical" aria-hidden="true"></i>
+                                            </button>
+    
+                                            <div class="user-actions-dropdown" role="menu">
+                                                @if($user->role === 'bidder' && ($bidderApprovalAvailable ?? false))
+                                                    <a href="{{ route('admin.users.review', $user) }}" class="user-actions-menu-item" role="menuitem" onclick="openUserReviewModal(event, this.href)">
+                                                        <i class="fas fa-eye" aria-hidden="true"></i>
+                                                        <span>View Details</span>
+                                                    </a>
+                                                @endif
+    
+                                                @if($user->role === 'bidder')
+                                                    <a href="{{ route('admin.messages', ['user' => $user->id]) }}" class="user-actions-menu-item" role="menuitem">
+                                                        <i class="fas fa-message" aria-hidden="true"></i>
+                                                        <span>Message</span>
+                                                    </a>
+                                                @endif
+    
+                                                @if($user->role === 'bidder' && !($bidderApprovalAvailable ?? false))
+                                                    <span class="user-actions-menu-note" role="menuitem" aria-disabled="true">
+                                                        <i class="fas fa-eye-slash" aria-hidden="true"></i>
+                                                        <span>Review unavailable</span>
+                                                    </span>
+                                                @endif
+    
+                                                <button
+                                                    type="button"
+                                                    onclick="openEditUserModal(this)"
+                                                    class="user-actions-menu-item"
+                                                    role="menuitem"
+                                                    data-id="{{ $user->id }}"
+                                                    data-name="{{ e($user->name) }}"
+                                                    data-email="{{ e($user->email) }}"
+                                                    data-username="{{ e($user->username ?? '') }}"
+                                                    data-role="{{ $user->role }}"
+                                                    data-status="{{ $user->status }}"
+                                                    data-office="{{ e($user->office ?? '') }}"
+                                                    data-company="{{ e($user->company ?? '') }}"
+                                                    data-registration="{{ e($user->registration_no ?? '') }}"
+                                                    data-position="{{ e($user->position ?? '') }}"
+                                                    data-contact="{{ e($user->contact_number ?: ($user->role === 'bidder' && $user->relationLoaded('bidderProfile') ? ($user->bidderProfile?->contact_number ?? '') : '')) }}"
+                                                    data-address="{{ e($user->role === 'bidder' && $user->relationLoaded('bidderProfile') ? ($user->bidderProfile?->business_address ?? '') : '') }}"
+                                                >
+                                                    <i class="fas fa-pen" aria-hidden="true"></i>
+                                                    <span>Edit</span>
+                                                </button>
+    
+                                                <form method="POST" action="{{ route('admin.users.destroy', $user) }}" onsubmit="openDeleteUserModal(event, this);" data-delete-user-name="{{ e($user->name) }}" class="user-actions-delete-form">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button
+                                                        type="submit"
+                                                        class="user-actions-menu-item is-danger"
+                                                        role="menuitem"
+                                                        {{ auth()->id() === $user->id ? 'disabled' : '' }}
+                                                    >
+                                                        <i class="fas fa-trash-can" aria-hidden="true"></i>
+                                                        <span>Delete</span>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr class="ul-empty-row">
+                                    <td colspan="5">
+                                        <div class="ul-empty">
+                                            <span class="ul-empty__icon" aria-hidden="true"><i class="fas fa-users"></i></span>
+                                            <strong>{{ $search !== '' ? 'No users matched your search.' : 'No users in this list yet.' }}</strong>
+                                            @if($search !== '')
+                                                <a href="{{ route('admin.users', ['filter' => $activeFilter !== 'all' ? $activeFilter : null]) }}">Clear the search</a>
+                                            @endif
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+
                 @if($users->hasPages())
                     {{-- 25 accounts a page; search and the tab filter carry over. --}}
-                    <nav class="users-pager" aria-label="User pages">
+                    <nav class="users-pager ul-pager" aria-label="User pages">
                         <span>Showing {{ $users->firstItem() }}&ndash;{{ $users->lastItem() }} of {{ $users->total() }}</span>
-                        <span class="users-pager__links">
+                        <span class="ul-pager__links">
                             @if($users->onFirstPage())
-                                <span class="users-pager__btn is-disabled" aria-disabled="true">Previous</span>
+                                <span class="ul-pager__btn is-disabled" aria-disabled="true"><i class="fas fa-chevron-left" aria-hidden="true"></i> Previous</span>
                             @else
-                                <a class="users-pager__btn" href="{{ $users->previousPageUrl() }}" rel="prev">Previous</a>
+                                <a class="ul-pager__btn" href="{{ $users->previousPageUrl() }}" rel="prev"><i class="fas fa-chevron-left" aria-hidden="true"></i> Previous</a>
                             @endif
-                            <span class="users-pager__page">Page {{ $users->currentPage() }} of {{ $users->lastPage() }}</span>
+                            <span class="ul-pager__page">Page {{ $users->currentPage() }} of {{ $users->lastPage() }}</span>
                             @if($users->hasMorePages())
-                                <a class="users-pager__btn" href="{{ $users->nextPageUrl() }}" rel="next">Next</a>
+                                <a class="ul-pager__btn" href="{{ $users->nextPageUrl() }}" rel="next">Next <i class="fas fa-chevron-right" aria-hidden="true"></i></a>
                             @else
-                                <span class="users-pager__btn is-disabled" aria-disabled="true">Next</span>
+                                <span class="ul-pager__btn is-disabled" aria-disabled="true">Next <i class="fas fa-chevron-right" aria-hidden="true"></i></span>
                             @endif
                         </span>
                     </nav>
-                    <style>
-                        body .admin-dashboard .users-page .users-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 20px; border-top: 1px solid #ece7dc; color: #6b736e; font-size: 13px; }
-                        body .admin-dashboard .users-page .users-pager__links { display: inline-flex; align-items: center; gap: 8px; }
-                        body .admin-dashboard .users-page .users-pager__page { color: #3c4641; font-weight: 600; }
-                        body .admin-dashboard .users-page .users-pager__btn { display: inline-flex; align-items: center; min-height: 34px; padding: 0 14px; border: 1px solid #d9d4c7; border-radius: 9px; background: #fff; color: #1b2420 !important; -webkit-text-fill-color: #1b2420 !important; font-weight: 600; text-decoration: none; }
-                        body .admin-dashboard .users-page .users-pager__btn:hover { border-color: #1d4f40; }
-                        body .admin-dashboard .users-page .users-pager__btn.is-disabled { opacity: .45; pointer-events: none; }
-                    </style>
                 @endif
-            </div>
+            </section>
         </main>
     </div>
 </div>
@@ -1209,19 +1179,9 @@
 
         badge.textContent = label || (status ? status.charAt(0).toUpperCase() + status.slice(1) : '');
 
-        if (status === 'approved' || status === 'active') {
-            badge.style.background = '#dcfce7';
-            badge.style.color = '#166534';
-        } else if (status === 'pending') {
-            badge.style.background = '#e5e7eb';
-            badge.style.color = '#374151';
-        } else if (status === 'suspended') {
-            badge.style.background = '#ffedd5';
-            badge.style.color = '#c2410c';
-        } else {
-            badge.style.background = '#fee2e2';
-            badge.style.color = '#991b1b';
-        }
+        const tone = (status === 'approved' || status === 'active') ? 'success'
+            : (status === 'pending' ? 'neutral' : (status === 'suspended' ? 'warning' : 'danger'));
+        badge.className = 'ul-status ul-status--' + tone;
     }
 
     function showUserActionToast(message, type = 'success', retry = null) {
@@ -2786,144 +2746,120 @@
     }
 </style>
 
-{{-- Must stay last: several earlier blocks set `min-width: 980px !important` on
-     .users-table with this same selector, so only a later rule can lift it. --}}
-<style id="users-table-responsive">
+{{-- Users list (rebuilt): toolbar with counted tabs and search, a five-column table
+     (user, role & office, status, joined, actions) and phone cards. Scoped and
+     !important because dashboard.css styles every table, th and td on admin pages. --}}
+<style id="users-list">
+    body .admin-dashboard.admin-role-page .main-area.users-page .dashboard-content { display: grid !important; grid-template-columns: minmax(0, 1fr) !important; gap: 16px !important; }
+
+    .users-page .ul-add { display: inline-flex !important; align-items: center !important; gap: 8px !important; height: 38px !important; padding: 0 16px !important; border: 0 !important; border-radius: 9px !important; background: var(--ui-primary) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; font: inherit !important; font-size: 13.5px !important; font-weight: 600 !important; cursor: pointer !important; }
+    .users-page .ul-add:hover { background: var(--ui-primary-hover) !important; }
+    .users-page .ul-add i { font-size: 12px !important; color: inherit !important; -webkit-text-fill-color: currentColor !important; }
+
+    .users-page .ul-toast { position: fixed; top: 84px; right: 24px; z-index: 1000; display: flex; align-items: center; gap: 10px; min-width: 280px; max-width: min(420px, calc(100vw - 32px)); padding: 13px 14px 13px 16px; border: 1px solid var(--ui-success-line); border-radius: 12px; background: #fff; box-shadow: 0 14px 34px rgba(27, 36, 32, .14); color: var(--ui-ink); font-size: 13.5px; }
+    .users-page .ul-toast > i { color: var(--ui-success); -webkit-text-fill-color: var(--ui-success); font-size: 17px; }
+    .users-page .ul-toast button { margin-left: auto; border: 0; background: none; color: var(--ui-muted); font-size: 18px; cursor: pointer; }
+
+    .users-page .ul-alert { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 1px solid var(--ui-info-line); border-radius: 10px; background: var(--ui-info-soft); color: var(--ui-info); font-size: 13px; line-height: 1.5; }
+    .users-page .ul-alert--warning { border-color: var(--ui-warning-line); background: var(--ui-warning-soft); color: var(--ui-warning); }
+    .users-page .ul-alert--danger { border-color: var(--ui-danger-line); background: var(--ui-danger-soft); color: var(--ui-danger); }
+    .users-page .ul-alert ul { margin: 0; padding-left: 16px; }
+    .users-page .ul-alert > i { margin-top: 2px; }
+
+    .users-page .ul-card { min-width: 0; overflow: visible; border: 1px solid var(--ui-line); border-radius: 14px; background: var(--ui-surface); box-shadow: 0 1px 2px rgba(27, 36, 32, .04); }
+
+    .users-page .ul-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; padding: 14px 16px; border-bottom: 1px solid var(--ui-line); }
+    .users-page .ul-tabs { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+    body .admin-dashboard.admin-role-page .main-area.users-page a.ul-tab { display: inline-flex !important; align-items: center !important; gap: 7px !important; height: 34px !important; padding: 0 12px !important; border-radius: 8px !important; background: transparent !important; color: var(--ui-muted) !important; -webkit-text-fill-color: var(--ui-muted) !important; font-size: 13px !important; font-weight: 600 !important; text-decoration: none !important; white-space: nowrap !important; transition: background-color .15s ease, color .15s ease !important; }
+    body .admin-dashboard.admin-role-page .main-area.users-page a.ul-tab:hover { background: var(--ui-surface-2) !important; color: var(--ui-ink) !important; -webkit-text-fill-color: var(--ui-ink) !important; }
+    body .admin-dashboard.admin-role-page .main-area.users-page a.ul-tab.is-active { background: var(--ui-primary-soft) !important; color: var(--ui-primary) !important; -webkit-text-fill-color: var(--ui-primary) !important; }
+    .users-page .ul-tab__count { display: inline-grid; min-width: 22px; height: 20px; place-items: center; padding: 0 6px; border-radius: 999px; background: var(--ui-line-soft); color: var(--ui-ink-2); -webkit-text-fill-color: var(--ui-ink-2); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+    .users-page .ul-tab.is-active .ul-tab__count { background: var(--ui-primary); color: #fff; -webkit-text-fill-color: #fff; }
+    .users-page .ul-tab__count.is-alert { background: var(--ui-warning-soft); color: var(--ui-warning); -webkit-text-fill-color: var(--ui-warning); }
+
+    .users-page .ul-search { position: relative; display: flex; align-items: center; flex: 0 1 320px; min-width: 220px; margin: 0; }
+    .users-page .ul-search > i { position: absolute; left: 12px; color: var(--ui-subtle); -webkit-text-fill-color: var(--ui-subtle); font-size: 13px; pointer-events: none; }
+    body .admin-dashboard.admin-role-page .main-area.users-page .ul-search input[type="search"] { width: 100% !important; height: 38px !important; padding: 0 36px 0 34px !important; border: 1px solid var(--ui-line-strong) !important; border-radius: 9px !important; background: var(--ui-surface) !important; color: var(--ui-ink) !important; font: inherit !important; font-size: 13.5px !important; box-shadow: none !important; }
+    body .admin-dashboard.admin-role-page .main-area.users-page .ul-search input[type="search"]:focus { border-color: var(--ui-primary) !important; outline: none !important; box-shadow: 0 0 0 3px var(--ui-primary-soft) !important; }
+    .users-page .ul-search input[type="search"]::-webkit-search-cancel-button { display: none; }
+    body .admin-dashboard.admin-role-page .main-area.users-page .ul-search__clear { position: absolute !important; right: 6px !important; display: grid !important; width: 26px !important; height: 26px !important; place-items: center !important; border-radius: 6px !important; color: var(--ui-muted) !important; -webkit-text-fill-color: var(--ui-muted) !important; text-decoration: none !important; }
+    body .admin-dashboard.admin-role-page .main-area.users-page .ul-search__clear:hover { background: var(--ui-surface-2) !important; }
+
+    .users-page .ul-table-wrap { overflow-x: auto; }
+    body .admin-dashboard.admin-role-page .main-area.users-page .ul-table { width: 100% !important; min-width: 760px !important; margin: 0 !important; border-collapse: collapse !important; table-layout: auto !important; background: transparent !important; }
+    body .admin-dashboard.admin-role-page .main-area.users-page .ul-table thead th { position: static !important; height: auto !important; padding: 10px 16px !important; border: 0 !important; border-bottom: 1px solid var(--ui-line) !important; background: var(--ui-surface-2) !important; color: var(--ui-muted) !important; -webkit-text-fill-color: var(--ui-muted) !important; font-size: 11.5px !important; font-weight: 600 !important; letter-spacing: .04em !important; text-align: left !important; text-transform: uppercase !important; white-space: nowrap !important; }
+    body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody td { width: auto !important; max-width: none !important; height: auto !important; min-height: 0 !important; padding: 12px 16px !important; border: 0 !important; border-bottom: 1px solid var(--ui-line-soft) !important; background: transparent !important; color: var(--ui-ink) !important; font-size: 13px !important; vertical-align: middle !important; text-align: left !important; white-space: normal !important; overflow: visible !important; }
+    body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody tr:last-child td { border-bottom: 0 !important; }
+    body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody tr:hover td { background: var(--ui-surface-2) !important; }
+    body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody td.ul-cell-actions { width: 56px !important; text-align: right !important; }
+    body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody td::before { content: none !important; display: none !important; }
+
+    .users-page .ul-user { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .users-page .ul-avatar { display: grid; flex: 0 0 36px; width: 36px; height: 36px; place-items: center; border-radius: 50%; font-size: 12.5px; font-weight: 700; letter-spacing: .02em; }
+    .users-page .ul-avatar--admin { background: #ece9fb; color: #5b45c4; -webkit-text-fill-color: #5b45c4; }
+    .users-page .ul-avatar--staff { background: var(--ui-success-soft); color: var(--ui-success); -webkit-text-fill-color: var(--ui-success); }
+    .users-page .ul-avatar--office { background: var(--ui-info-soft); color: var(--ui-info); -webkit-text-fill-color: var(--ui-info); }
+    .users-page .ul-avatar--bidder { background: var(--ui-warning-soft); color: var(--ui-warning); -webkit-text-fill-color: var(--ui-warning); }
+    .users-page .ul-user__text { display: grid; gap: 2px; min-width: 0; }
+    .users-page .ul-user__name { display: flex; align-items: center; gap: 6px; color: var(--ui-ink); -webkit-text-fill-color: var(--ui-ink); font-size: 13.5px; font-weight: 600; }
+    .users-page .ul-user__email { overflow: hidden; color: var(--ui-muted); -webkit-text-fill-color: var(--ui-muted); font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
+    .users-page .ul-new { padding: 1px 6px; border-radius: 999px; background: var(--ui-danger-soft); color: var(--ui-danger); -webkit-text-fill-color: var(--ui-danger); font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .users-page .ul-dot { color: var(--ui-subtle); -webkit-text-fill-color: var(--ui-subtle); }
+    .users-page .ul-mono { font-family: var(--ui-mono); font-size: 11.5px; }
+
+    .users-page .ul-role { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+    .users-page .ul-role i { font-size: 10.5px; color: inherit; -webkit-text-fill-color: currentColor; }
+    .users-page .ul-role--admin { background: #ece9fb; color: #5b45c4; -webkit-text-fill-color: #5b45c4; }
+    .users-page .ul-role--staff { background: var(--ui-success-soft); color: var(--ui-success); -webkit-text-fill-color: var(--ui-success); }
+    .users-page .ul-role--office { background: var(--ui-info-soft); color: var(--ui-info); -webkit-text-fill-color: var(--ui-info); }
+    .users-page .ul-role--bidder { background: var(--ui-warning-soft); color: var(--ui-warning); -webkit-text-fill-color: var(--ui-warning); }
+    .users-page .ul-meta { display: block; margin-top: 4px; color: var(--ui-muted); -webkit-text-fill-color: var(--ui-muted); font-size: 12px; line-height: 1.4; }
+    .users-page .ul-meta--sanction { max-width: 260px; color: var(--ui-danger); -webkit-text-fill-color: var(--ui-danger); }
+    .users-page .ul-date { color: var(--ui-ink-2); -webkit-text-fill-color: var(--ui-ink-2); white-space: nowrap; }
+
+    .users-page .ul-status { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px 3px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+    .users-page .ul-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .users-page .ul-status--success { background: var(--ui-success-soft); color: var(--ui-success); -webkit-text-fill-color: var(--ui-success); }
+    .users-page .ul-status--neutral { background: var(--ui-line-soft); color: var(--ui-ink-2); -webkit-text-fill-color: var(--ui-ink-2); }
+    .users-page .ul-status--warning { background: var(--ui-warning-soft); color: var(--ui-warning); -webkit-text-fill-color: var(--ui-warning); }
+    .users-page .ul-status--danger { background: var(--ui-danger-soft); color: var(--ui-danger); -webkit-text-fill-color: var(--ui-danger); }
+
+    .users-page .ul-empty { display: grid; justify-items: center; gap: 8px; padding: 40px 16px; text-align: center; }
+    .users-page .ul-empty__icon { display: grid; width: 48px; height: 48px; place-items: center; border-radius: 12px; background: var(--ui-surface-2); color: var(--ui-subtle); -webkit-text-fill-color: var(--ui-subtle); font-size: 20px; }
+    .users-page .ul-empty strong { color: var(--ui-ink); -webkit-text-fill-color: var(--ui-ink); font-size: 14px; }
+    .users-page .ul-empty a { color: var(--ui-primary); -webkit-text-fill-color: var(--ui-primary); font-weight: 600; }
+    body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody tr.ul-empty-row:hover td { background: transparent !important; }
+
+    .users-page .ul-pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--ui-line); color: var(--ui-muted); -webkit-text-fill-color: var(--ui-muted); font-size: 13px; }
+    .users-page .ul-pager__links { display: inline-flex; align-items: center; gap: 8px; }
+    .users-page .ul-pager__page { color: var(--ui-ink-2); -webkit-text-fill-color: var(--ui-ink-2); font-weight: 600; }
+    body .admin-dashboard.admin-role-page .main-area.users-page .ul-pager__btn { display: inline-flex !important; align-items: center !important; gap: 6px !important; height: 34px !important; padding: 0 12px !important; border: 1px solid var(--ui-line-strong) !important; border-radius: 8px !important; background: var(--ui-surface) !important; color: var(--ui-ink) !important; -webkit-text-fill-color: var(--ui-ink) !important; font-size: 13px !important; font-weight: 600 !important; text-decoration: none !important; }
+    body .admin-dashboard.admin-role-page .main-area.users-page .ul-pager__btn:hover { border-color: var(--ui-primary) !important; }
+    body .admin-dashboard.admin-role-page .main-area.users-page .ul-pager__btn.is-disabled { opacity: .45 !important; pointer-events: none !important; }
+    .users-page .ul-pager__btn i { font-size: 10px; color: inherit; -webkit-text-fill-color: currentColor; }
+
+    .users-page .ul-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+    /* Phones and tablets: each user is a card. */
     @media (max-width: 900px) {
-        body .admin-dashboard.admin-role-page .main-area.users-page .users-table {
-            min-width: 0 !important;
-            width: 100% !important;
-            table-layout: auto !important;
-        }
-
-        body .admin-dashboard.admin-role-page .main-area.users-page .users-table :is(th, td),
-        body .admin-dashboard.admin-role-page .main-area.users-page .users-table :is(th, td):nth-child(n) {
-            width: auto !important;
-            max-width: none !important;
-            white-space: normal !important;
-            overflow: visible !important;
-            text-overflow: clip !important;
-            overflow-wrap: anywhere !important;
-        }
-
-        body .admin-dashboard.admin-role-page .main-area.users-page .users-table-wrap {
-            padding: 0 !important;
-            overflow-x: visible !important;
-        }
-    }
-</style>
-
-<style id="users-table-mobile-gutters">
-    /* Below 900px the rows render as stacked cards, but dashboard-content,
-       users-table-wrap, tbody and td each still applied their own padding.
-       That stack ate 121px of a 390px viewport and left ~269px for content,
-       so emails broke mid-word. Collapse the inner layers and let the row
-       supply the single gutter. */
-    @media (max-width: 900px) {
-
-        body .admin-dashboard.admin-role-page .main-area.users-page .users-table-wrap,
-        body .admin-dashboard.admin-role-page .main-area.users-page .table-container .users-table-wrap {
-            padding-left: 0 !important;
-            padding-right: 0 !important;
-        }
-
-        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody {
-            padding: 0 !important;
-        }
-
-        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody tr {
-            padding: 12px !important;
-        }
-
-        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody td,
-        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody td:nth-child(n) {
-            padding: 9px 0 !important;
-        }
-    }
-</style>
-
-{{-- Phone cards: name and the actions menu on top, email under it, then one
-     labelled line per field. Comes last so it wins over the blocks above. --}}
-<style id="users-table-cards">
-    @media (max-width: 900px) {
-        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody {
-            display: grid !important;
-            gap: 10px !important;
-            padding: 0 !important;
-            background: transparent !important;
-        }
-
-        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody tr {
-            display: grid !important;
-            grid-template-columns: minmax(0, 1fr) auto !important;
-            gap: 0 12px !important;
-            padding: 14px 16px 6px !important;
-            border: 1px solid var(--ui-line) !important;
-            border-radius: 12px !important;
-            background: var(--ui-surface) !important;
-            box-shadow: none !important;
-        }
-
-        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody tr td:nth-child(n) {
-            display: grid !important;
-            grid-column: 1 / -1 !important;
-            grid-template-columns: 104px minmax(0, 1fr) !important;
-            gap: 12px !important;
-            align-items: center !important;
-            justify-items: start !important;
-            padding: 9px 0 !important;
-            border: 0 !important;
-            border-top: 1px solid var(--ui-line-soft) !important;
-            width: auto !important;
-            min-width: 0 !important;
-            height: auto !important;
-            min-height: 0 !important;
-            background: transparent !important;
-            font-size: 13px !important;
-        }
-
-        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody tr td:nth-child(n)::before {
-            color: var(--ui-muted) !important;
-            -webkit-text-fill-color: var(--ui-muted) !important;
-            font-size: 12px !important;
-            font-weight: 600 !important;
-        }
-
-        /* Name (row 1, left) and the actions menu (row 1, right), no labels. */
-        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody tr td:nth-child(1) {
-            display: block !important;
-            grid-column: 1 !important;
-            grid-row: 1 !important;
-            padding: 0 !important;
-            border-top: 0 !important;
-            font-size: 15px !important;
-        }
-
-        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody tr td:nth-child(9) {
-            display: block !important;
-            grid-column: 2 !important;
-            grid-row: 1 !important;
-            padding: 0 !important;
-            border-top: 0 !important;
-        }
-
-        /* Email right under the name. */
-        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody tr td:nth-child(2) {
-            display: block !important;
-            grid-row: 2 !important;
-            padding: 2px 0 10px !important;
-            border-top: 0 !important;
-            color: var(--ui-muted) !important;
-        }
-
-        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody tr td:is(:nth-child(1), :nth-child(2), :nth-child(9))::before {
-            content: none !important;
-            display: none !important;
-        }
-
-        body .admin-dashboard.admin-role-page .main-area.users-page .users-table tbody tr td[colspan] {
-            display: block !important;
-            text-align: center !important;
-        }
+        .users-page .ul-search { flex: 1 1 100%; min-width: 0; }
+        .users-page .ul-tabs { flex: 1 1 100%; min-width: 0; max-width: 100%; flex-wrap: nowrap; overflow-x: auto; margin: 0 -4px; padding: 0 4px 2px; scrollbar-width: none; }
+        .users-page .ul-tabs::-webkit-scrollbar { display: none; }
+        body .admin-dashboard.admin-role-page .main-area.users-page .ul-table { min-width: 0 !important; }
+        body .admin-dashboard.admin-role-page .main-area.users-page .ul-table thead { display: none !important; }
+        body .admin-dashboard.admin-role-page .main-area.users-page .ul-table, body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody { display: block !important; }
+        body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody tr { display: grid !important; grid-template-columns: minmax(0, 1fr) auto !important; gap: 8px 12px !important; padding: 14px 16px !important; border-bottom: 1px solid var(--ui-line-soft) !important; }
+        body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody tr:last-child { border-bottom: 0 !important; }
+        body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody td { display: block !important; min-height: 0 !important; height: auto !important; padding: 0 !important; border: 0 !important; }
+        body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody tr:hover td { background: transparent !important; }
+        body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody td.ul-cell-user { grid-column: 1 !important; grid-row: 1 !important; }
+        body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody td.ul-cell-actions { grid-column: 2 !important; grid-row: 1 !important; width: auto !important; }
+        body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody td.ul-cell-role,
+        body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody td.ul-cell-status,
+        body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody td.ul-cell-date { grid-column: 1 / -1 !important; padding-left: 48px !important; }
+        body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody td.ul-cell-date .ul-date { display: none !important; }
+        body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody td.ul-cell-date .ul-meta { margin-top: 0 !important; }
+        body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody tr.ul-empty-row { display: block !important; }
+        .users-page .ul-toast { top: 72px; right: 16px; left: 16px; min-width: 0; }
     }
 </style>
