@@ -29,7 +29,7 @@ final class ProjectPublication
         $publishedAt = ($publishedAt?->copy() ?? now(config('app.timezone', 'Asia/Manila')))
             ->timezone(config('app.timezone', 'Asia/Manila'));
 
-        return DB::transaction(function () use ($project, $actor, $publishedAt): Project {
+        $published = DB::transaction(function () use ($project, $actor, $publishedAt): Project {
             $before = [
                 'status' => $project->status,
                 'published_at' => $project->published_at,
@@ -71,5 +71,43 @@ final class ProjectPublication
 
             return $project;
         });
+
+        $this->notifyBidders($published);
+
+        return $published;
+    }
+
+    /**
+     * Tells every approved bidder that a new procurement is open, with a link to
+     * it. A failure here never undoes the publication.
+     */
+    private function notifyBidders(Project $project): void
+    {
+        try {
+            $mode = $project->mode();
+            $deadline = $project->bidSubmissionDeadline();
+            $details = collect([
+                $project->reference_no,
+                $mode->label(),
+                (float) $project->budget > 0 ? 'ABC ₱'.number_format((float) $project->budget, 2) : null,
+                $deadline ? lcfirst($mode->deadlineLabel()).' '.$deadline->timezone(config('bac-office.display_timezone'))->format('M j, Y g:i A') : null,
+            ])->filter()->implode(' · ');
+
+            $bidders = User::query()
+                ->where('role', 'bidder')
+                ->where('status', 'active')
+                ->when(\Illuminate\Support\Facades\Schema::hasTable('bidders'), fn ($query) => $query->whereHas('bidderProfile', fn ($profile) => $profile->where('approval_status', 'approved')))
+                ->pluck('id');
+
+            SystemNotification::createForUsers(
+                $bidders,
+                'New procurement open for bidding',
+                $project->title.' — '.$details.'.',
+                'project_available',
+                ['project_id' => $project->id, 'url' => route('bidder.opportunities.show', $project)],
+            );
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
     }
 }
