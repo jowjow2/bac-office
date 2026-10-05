@@ -61,6 +61,8 @@ class User extends Authenticatable
         'role',
         'status',
         'office',
+        'position',
+        'contact_number',
         'company',
         'registration_no',
     ];
@@ -168,6 +170,17 @@ class User extends Authenticatable
         }
 
         return $this->status === 'active';
+    }
+
+    /** The position and contact number columns (2026_10_29 migration) are in the database. */
+    public static function contactColumnsAvailable(): bool
+    {
+        $app = app();
+        if (! $app->bound('user.contact-columns')) {
+            $app->instance('user.contact-columns', Schema::hasColumns('users', ['position', 'contact_number']));
+        }
+
+        return $app->make('user.contact-columns');
     }
 
     /** Schema::hasTable() queries the database: remember the answer for the request. */

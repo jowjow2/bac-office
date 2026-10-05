@@ -893,7 +893,9 @@ class AdminController extends Controller
             'blacklisted' => $bidderSanctionsAvailable ? BidderSanction::active()->where('type', BidderSanction::TYPE_BLACKLISTED)->count() : 0,
         ];
 
-        return view('admin.users', compact('users', 'search', 'filter', 'roleCounts', 'statusCounts', 'bidderApprovalAvailable', 'bidderSanctionsAvailable'));
+        $contactColumnsReady = User::contactColumnsAvailable();
+
+        return view('admin.users', compact('users', 'search', 'filter', 'roleCounts', 'statusCounts', 'bidderApprovalAvailable', 'bidderSanctionsAvailable', 'contactColumnsReady'));
     }
 
     public function reviewUser(User $user)
@@ -1004,17 +1006,17 @@ class AdminController extends Controller
 
     public function storeUser(Request $request)
     {
-        $validated = $this->validateUser($request);
+        [$validated, $profile] = $this->splitUserProfile($this->validateUser($request));
 
         $user = User::create($validated);
-        $this->syncBidderProfile($user);
+        $this->syncBidderProfile($user, $profile);
 
         return redirect()->route('admin.users')->with('success', 'User created successfully.');
     }
 
      public function updateUser(Request $request, User $user)
      {
-         $validated = $this->validateUser($request, $user);
+         [$validated, $profile] = $this->splitUserProfile($this->validateUser($request, $user));
 
          if (blank($validated['password'] ?? null)) {
              unset($validated['password']);
@@ -1027,7 +1029,7 @@ class AdminController extends Controller
          $becomingActive = $validated['status'] === 'active';
 
          $user->update($validated);
-         $this->syncBidderProfile($user);
+         $this->syncBidderProfile($user, $profile);
 
          if ($oldStatus !== $user->status) {
              AuditLog::log('user_status_changed', $user, ['status' => $oldStatus], ['status' => $user->status], [
@@ -2968,9 +2970,22 @@ public function destroyUser(User $user)
                 )),
             ],
             'password' => $passwordRule,
-            'company' => [
+            'position' => [
+                Rule::excludeIf($request->input('role') === 'bidder'),
+                'nullable',
+                'string',
+                'max:120',
+            ],
+            'contact_number' => ['nullable', 'string', 'max:50', 'regex:/^[0-9+()\-.\s\/]+$/'],
+            'business_address' => [
                 Rule::excludeIf($request->input('role') !== 'bidder'),
                 'nullable',
+                'string',
+                'max:500',
+            ],
+            'company' => [
+                Rule::excludeIf($request->input('role') !== 'bidder'),
+                'required',
                 'string',
                 'max:255',
             ],
@@ -2987,7 +3002,33 @@ public function destroyUser(User $user)
             ],
         ], [
             'username.regex' => 'Username may only contain letters, numbers, dots, dashes, and underscores.',
+            'contact_number.regex' => 'Enter a contact number using digits, spaces, +, ( ) or dashes only.',
+            'company.required' => 'Enter the bidder\'s company name.',
         ]);
+    }
+
+    /**
+     * Splits validated user input into the users-table columns and the bidder
+     * profile fields (contact number, business address) that live on bidders.
+     * Position and contact number wait for their migration when it is not applied yet.
+     *
+     * @return array{0: array, 1: array}
+     */
+    protected function splitUserProfile(array $validated): array
+    {
+        $profile = [
+            'contact_number' => $validated['contact_number'] ?? null,
+            'business_address' => $validated['business_address'] ?? null,
+        ];
+        unset($validated['business_address']);
+
+        if (! User::contactColumnsAvailable()) {
+            unset($validated['position'], $validated['contact_number']);
+        } elseif (($validated['role'] ?? null) === 'bidder') {
+            $validated['position'] = null;
+        }
+
+        return [$validated, $profile];
     }
 
     protected function bidDocumentMeta(Bid $bid, string $document): array
@@ -3113,7 +3154,7 @@ public function destroyUser(User $user)
         );
     }
 
-     protected function syncBidderProfile(User $user): void
+     protected function syncBidderProfile(User $user, array $profile = []): void
      {
          if ($user->role !== 'bidder' || ! Schema::hasTable('bidders')) {
              return;
@@ -3124,6 +3165,12 @@ public function destroyUser(User $user)
             'company_name' => $user->company ?: $bidder->company_name ?: $user->name,
             'contact_person' => $bidder->contact_person ?: $user->name,
         ];
+        // Contact number and business address from the admin's create/edit dialog.
+        foreach (['contact_number', 'business_address'] as $field) {
+            if (array_key_exists($field, $profile)) {
+                $updates[$field] = filled($profile[$field]) ? trim((string) $profile[$field]) : $bidder->{$field};
+            }
+        }
 
         $hasActiveSanction = Schema::hasTable('bidder_sanctions')
             && $bidder->activeSanction()->exists();

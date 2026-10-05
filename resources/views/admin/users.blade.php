@@ -127,6 +127,9 @@
         .user-modal .um-hint { color: var(--ui-subtle); font-size: 12px; }
         .user-modal .um-hint:empty { display: none; }
         .user-modal .um-section { margin: 4px 0 -4px; padding-top: 16px; border-top: 1px solid var(--ui-line-soft); color: var(--ui-ink); font-size: 13.5px; font-weight: 700; }
+        .user-modal .um-group { display: grid; gap: 16px; }
+        .user-modal .um-group[hidden] { display: none; }
+        .user-modal .um-note { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 10px 12px; border: 1px solid var(--ui-warning-line); border-radius: var(--ui-radius); background: var(--ui-warning-soft); color: var(--ui-warning); font-size: 12.5px; line-height: 1.45; }
 
         .user-modal .um-roles { margin: 0; padding: 0; border: 0; min-width: 0; }
         .user-modal .um-roles legend { margin-bottom: 8px; padding: 0; }
@@ -844,6 +847,9 @@
                                 </td>
                                 <td style="padding: 12px; font-size: 13px; color: #1b2420;">
                                     {{ in_array($user->role, ['staff', 'end_user'], true) ? ($user->office ?: 'Unassigned') : 'N/A' }}
+                                    @if(filled($user->position ?? null))
+                                        <div style="margin-top: 3px; font-size: 12px; color: #6b736e;">{{ $user->position }}</div>
+                                    @endif
                                 </td>
                                 <td style="padding: 12px;">
                                     <span data-user-status="{{ $user->id }}" style="padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: 500;
@@ -905,6 +911,9 @@
                                                 data-office="{{ e($user->office ?? '') }}"
                                                 data-company="{{ e($user->company ?? '') }}"
                                                 data-registration="{{ e($user->registration_no ?? '') }}"
+                                                data-position="{{ e($user->position ?? '') }}"
+                                                data-contact="{{ e($user->contact_number ?: ($user->role === 'bidder' && $user->relationLoaded('bidderProfile') ? ($user->bidderProfile?->contact_number ?? '') : '')) }}"
+                                                data-address="{{ e($user->role === 'bidder' && $user->relationLoaded('bidderProfile') ? ($user->bidderProfile?->business_address ?? '') : '') }}"
                                             >
                                                 <i class="fas fa-pen" aria-hidden="true"></i>
                                                 <span>Edit</span>
@@ -1025,66 +1034,7 @@
                     </div>
                 @endif
 
-                @include('admin.partials.user-role-picker', ['prefix' => 'create', 'selected' => old('role', 'bidder')])
-
-                <div id="createOfficeField" class="um-field">
-                    <label for="create_office" id="createOfficeLabel" class="um-label">Office</label>
-                    <select name="office" id="create_office" class="form-select">
-                        <option value="">Select office</option>
-                        @foreach($staffOffices as $office)
-                            <option value="{{ $office }}" data-office-role="staff" {{ old('office') === $office ? 'selected' : '' }}>{{ $office }}</option>
-                        @endforeach
-                        @foreach($endUserOffices as $office)
-                            <option value="{{ $office }}" data-office-role="end_user" {{ old('office') === $office ? 'selected' : '' }}>{{ $office }}</option>
-                        @endforeach
-                    </select>
-                    <span class="um-hint" data-office-hint></span>
-                </div>
-
-                <div id="createBidderFields" class="um-grid" aria-hidden="{{ old('role', 'bidder') === 'bidder' ? 'false' : 'true' }}" @if(old('role', 'bidder') !== 'bidder') hidden @endif>
-                    <div class="um-field">
-                        <label for="create_company" class="um-label">Company</label>
-                        <input type="text" name="company" id="create_company" value="{{ old('company') }}" class="form-input">
-                    </div>
-                    <div class="um-field">
-                        <label for="create_registration_no" class="um-label">Registration No.</label>
-                        <input type="text" name="registration_no" id="create_registration_no" value="{{ old('registration_no') }}" class="form-input">
-                    </div>
-                </div>
-
-                <h3 class="um-section">Sign-in details</h3>
-                <div class="um-field">
-                    <label for="create_name" class="um-label">Name <span class="um-req">*</span></label>
-                    <input type="text" name="name" id="create_name" value="{{ old('name') }}" required class="form-input" autocomplete="off">
-                </div>
-                <div class="um-grid">
-                    <div class="um-field">
-                        <label for="create_email" class="um-label">Email <span class="um-req">*</span></label>
-                        <input type="email" name="email" id="create_email" value="{{ old('email') }}" required class="form-input" autocomplete="off">
-                    </div>
-                    <div class="um-field">
-                        <label for="create_username" class="um-label">Username <span class="um-opt">(optional)</span></label>
-                        <input type="text" name="username" id="create_username" value="{{ old('username') }}" class="form-input" placeholder="Email also works to sign in" autocomplete="off">
-                    </div>
-                </div>
-                <div class="um-grid">
-                    <div class="um-field">
-                        <label for="create_password" class="um-label">Password <span class="um-req">*</span></label>
-                        <div class="um-password">
-                            <input type="password" name="password" id="create_password" required minlength="6" class="form-input" autocomplete="new-password">
-                            <button type="button" class="um-password__toggle" data-password-toggle aria-label="Show password"><i class="fas fa-eye" aria-hidden="true"></i></button>
-                        </div>
-                        <span class="um-hint">At least 6 characters.</span>
-                    </div>
-                    <div class="um-field">
-                        <label for="create_status" class="um-label">Account status</label>
-                        <select name="status" id="create_status" class="form-select" required>
-                            <option value="active" {{ old('status', 'active') === 'active' ? 'selected' : '' }}>Active</option>
-                            <option value="pending" {{ old('status') === 'pending' ? 'selected' : '' }}>Pending</option>
-                            <option value="rejected" {{ old('status') === 'rejected' ? 'selected' : '' }}>Rejected</option>
-                        </select>
-                    </div>
-                </div>
+                @include('admin.partials.user-form-fields', ['prefix' => 'create'])
             </div>
 
             <div class="um-actions">
@@ -1120,65 +1070,7 @@
                     </div>
                 @endif
 
-                @include('admin.partials.user-role-picker', ['prefix' => 'edit', 'selected' => 'bidder'])
-
-                <div id="editOfficeField" class="um-field" style="display: none;">
-                    <label for="edit_office" id="editOfficeLabel" class="um-label">Office</label>
-                    <select name="office" id="edit_office" class="form-select">
-                        <option value="">Select office</option>
-                        @foreach($staffOffices as $office)
-                            <option value="{{ $office }}" data-office-role="staff">{{ $office }}</option>
-                        @endforeach
-                        @foreach($endUserOffices as $office)
-                            <option value="{{ $office }}" data-office-role="end_user">{{ $office }}</option>
-                        @endforeach
-                    </select>
-                    <span class="um-hint" data-office-hint></span>
-                </div>
-
-                <div id="editBidderFields" class="um-grid">
-                    <div class="um-field">
-                        <label for="edit_company" class="um-label">Company</label>
-                        <input type="text" name="company" id="edit_company" class="form-input">
-                    </div>
-                    <div class="um-field">
-                        <label for="edit_registration_no" class="um-label">Registration No.</label>
-                        <input type="text" name="registration_no" id="edit_registration_no" class="form-input">
-                    </div>
-                </div>
-
-                <h3 class="um-section">Sign-in details</h3>
-                <div class="um-field">
-                    <label for="edit_name" class="um-label">Name <span class="um-req">*</span></label>
-                    <input type="text" name="name" id="edit_name" required class="form-input" autocomplete="off">
-                </div>
-                <div class="um-grid">
-                    <div class="um-field">
-                        <label for="edit_email" class="um-label">Email <span class="um-req">*</span></label>
-                        <input type="email" name="email" id="edit_email" required class="form-input" autocomplete="off">
-                    </div>
-                    <div class="um-field">
-                        <label for="edit_username" class="um-label">Username <span class="um-opt">(optional)</span></label>
-                        <input type="text" name="username" id="edit_username" class="form-input" placeholder="Email also works to sign in" autocomplete="off">
-                    </div>
-                </div>
-                <div class="um-grid">
-                    <div class="um-field">
-                        <label for="edit_password" class="um-label">New password <span class="um-opt">(optional)</span></label>
-                        <div class="um-password">
-                            <input type="password" name="password" id="edit_password" minlength="6" class="form-input" placeholder="Leave blank to keep it" autocomplete="new-password">
-                            <button type="button" class="um-password__toggle" data-password-toggle aria-label="Show password"><i class="fas fa-eye" aria-hidden="true"></i></button>
-                        </div>
-                    </div>
-                    <div class="um-field">
-                        <label for="edit_status" class="um-label">Account status</label>
-                        <select name="status" id="edit_status" class="form-select" required>
-                            <option value="active">Active</option>
-                            <option value="pending">Pending</option>
-                            <option value="rejected">Rejected</option>
-                        </select>
-                    </div>
-                </div>
+                @include('admin.partials.user-form-fields', ['prefix' => 'edit'])
             </div>
 
             <div class="um-actions">
@@ -1596,6 +1488,9 @@
                 office: source.dataset.office || '',
                 company: source.dataset.company || '',
                 registration: source.dataset.registration || '',
+                position: source.dataset.position || '',
+                contact: source.dataset.contact || '',
+                address: source.dataset.address || '',
             }
             : (source || {});
 
@@ -1621,6 +1516,10 @@
         editOffice.value = data.office || '';
         document.getElementById('edit_company').value = data.company || '';
         document.getElementById('edit_registration_no').value = data.registration || '';
+        document.getElementById('edit_position').value = data.position || '';
+        document.getElementById('edit_contact_number').value = data.contact || '';
+        document.getElementById('edit_bidder_contact_number').value = data.contact || '';
+        document.getElementById('edit_business_address').value = data.address || '';
         document.getElementById('edit_password').value = '';
         toggleRoleFields('edit');
         document.getElementById('editUserModal').style.display = 'flex';
@@ -1787,7 +1686,10 @@
                     status: @json(old('status', 'active')),
                     office: @json(old('office', '')),
                     company: @json(old('company', '')),
-                    registration: @json(old('registration_no', ''))
+                    registration: @json(old('registration_no', '')),
+                    position: @json(old('position', '')),
+                    contact: @json(old('contact_number', '')),
+                    address: @json(old('business_address', ''))
                 });
             @else
                 openCreateUserModal();
@@ -1810,21 +1712,33 @@
         toggleRoleFields(prefix);
     }
 
-    // Office list for staff and end-user offices, company details for bidders.
+    // Shows the blocks for the chosen account type (data-role-group="staff end_user ..."),
+    // disables the hidden ones so they are not submitted, and words the labels for it.
     function toggleRoleFields(prefix) {
+        const form = document.getElementById(prefix + 'UserForm');
+        if (!form) return;
         const role = userRole(prefix);
-        const field = document.getElementById(prefix + 'OfficeField');
+        const has = function (element, attribute) {
+            return (element.getAttribute(attribute) || '').split(' ').includes(role);
+        };
+
+        form.querySelectorAll('[data-role-group]').forEach(function (group) {
+            const visible = has(group, 'data-role-group');
+            group.hidden = !visible;
+            group.setAttribute('aria-hidden', visible ? 'false' : 'true');
+        });
+
+        form.querySelectorAll('input, select, textarea').forEach(function (control) {
+            if (control.name === 'role' || control.type === 'hidden') return;
+            const hiddenGroup = control.closest('[data-role-group][hidden]');
+            const roleInput = control.hasAttribute('data-role-input') && !has(control, 'data-role-input');
+            control.disabled = Boolean(hiddenGroup) || roleInput;
+        });
+
         const officeSelect = document.getElementById(prefix + '_office');
-        const officeLabel = document.getElementById(prefix + 'OfficeLabel');
-        const bidderFields = document.getElementById(prefix + 'BidderFields');
         const needsOffice = role === 'staff' || role === 'end_user';
-        const isBidder = role === 'bidder';
-
-        if (field && officeSelect) {
-            field.style.display = needsOffice ? '' : 'none';
+        if (officeSelect) {
             officeSelect.required = needsOffice;
-            officeSelect.disabled = !needsOffice;
-
             Array.from(officeSelect.options).forEach(function (option) {
                 if (!option.dataset.officeRole) return;
                 const matches = option.dataset.officeRole === role;
@@ -1832,26 +1746,32 @@
                 option.disabled = !matches;
                 if (!matches && option.selected) officeSelect.value = '';
             });
-
-            const hint = field.querySelector('[data-office-hint]');
-            if (hint) {
-                hint.textContent = role === 'end_user'
-                    ? 'Must match the end-user office of its projects, so it can file requests and record site inspections.'
-                    : (role === 'staff' ? 'The BAC office this staff member works in.' : '');
-            }
         }
 
-        if (officeLabel) {
-            officeLabel.innerHTML = (role === 'end_user' ? 'Assigned LGU office' : 'Office') + ' <span class="um-req">*</span>';
-        }
+        const company = document.getElementById(prefix + '_company');
+        if (company) company.required = role === 'bidder';
 
-        if (bidderFields) {
-            bidderFields.hidden = !isBidder;
-            bidderFields.setAttribute('aria-hidden', isBidder ? 'false' : 'true');
-            bidderFields.querySelectorAll('input, select, textarea').forEach(function (control) {
-                control.disabled = !isBidder;
-            });
-        }
+        const copy = {
+            admin: { heading: 'Position', office: 'Office', position: 'e.g. BAC Chairperson', contact: 'Contact no.', name: 'Full name', namePlaceholder: 'e.g. Maria Santos', hint: '' },
+            staff: { heading: 'Office assignment', office: 'BAC office', position: 'e.g. BAC Secretariat Head', contact: 'Office contact no.', name: 'Full name', namePlaceholder: 'e.g. Jose Reyes', hint: 'The BAC office this staff member works in.' },
+            end_user: { heading: 'Office assignment', office: 'Assigned LGU office', position: 'e.g. Municipal Engineer', contact: 'Office contact no.', name: 'Full name', namePlaceholder: 'e.g. Engr. Mark Anthony Reyes', hint: 'Must match the end-user office of its projects, so it can file requests and record site inspections.' },
+            bidder: { heading: '', office: 'Office', position: '', contact: 'Contact no.', name: 'Authorized representative', namePlaceholder: 'Owner or authorized representative', hint: '' },
+        }[role] || {};
+
+        const heading = document.getElementById(prefix + 'OfficeHeading');
+        if (heading && copy.heading) heading.textContent = copy.heading;
+        const officeLabel = document.getElementById(prefix + 'OfficeLabel');
+        if (officeLabel) officeLabel.innerHTML = (copy.office || 'Office') + ' <span class="um-req">*</span>';
+        const hint = form.querySelector('[data-office-hint]');
+        if (hint) hint.textContent = copy.hint || '';
+        const position = form.querySelector('[data-position-placeholder]');
+        if (position) position.placeholder = copy.position || '';
+        const contactLabel = form.querySelector('[data-contact-label]');
+        if (contactLabel) contactLabel.innerHTML = (copy.contact || 'Contact no.') + ' <span class="um-opt">(optional)</span>';
+        const nameLabel = form.querySelector('[data-name-label]');
+        if (nameLabel) nameLabel.innerHTML = (copy.name || 'Full name') + ' <span class="um-req">*</span>';
+        const name = form.querySelector('[data-name-placeholder]');
+        if (name) name.placeholder = copy.namePlaceholder || '';
     }
 </script>
 
