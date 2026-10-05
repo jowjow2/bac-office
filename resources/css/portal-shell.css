@@ -35,12 +35,15 @@
 }
 
 /* Brand: BAC seal and name, set apart from the navigation by a hairline. */
+/* 68px tall, like the page's top bar (.portal-header), so both hairlines line up. */
 .portal-brand {
     display: flex;
+    flex: 0 0 auto;
     align-items: center;
     gap: 10px;
-    margin: 0 10px 6px;
-    padding: 16px 6px 14px;
+    height: var(--ui-topbar-height);
+    margin: 0 0 6px;
+    padding: 0 16px;
     border-bottom: 1px solid rgba(255, 255, 255, .1);
     color: #fff;
     text-decoration: none;
@@ -426,12 +429,33 @@
 
 /* ---------- Page header and notification bell (every page) ---------- */
 
+/* Portal pages: cooler, cleaner surfaces than the public site's warm beige. */
+:root:has(.portal-sidebar) {
+    --ui-page: #f4f6f5;
+    --ui-surface-2: #f8faf9;
+    --ui-line: #e1e6e3;
+    --ui-line-soft: #ecf0ee;
+    --ui-line-strong: #cbd3cf;
+}
+
+:root {
+    --ui-topbar-height: 68px;
+}
+
+/* White top bar: title, subtitle, page actions and the bell; stays in view on scroll. */
 .portal-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 12px 8px;
-    padding: 24px 32px 0;
+    gap: 8px 12px;
+    box-sizing: border-box;
+    min-height: var(--ui-topbar-height);
+    padding: 10px 32px;
+    border-bottom: 1px solid var(--ui-line);
+    background: var(--ui-surface);
 }
 
 .portal-header__titles {
@@ -459,8 +483,9 @@
 }
 
 .portal-header__title {
+    margin: 0;
     color: var(--ui-ink);
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 700;
     letter-spacing: -.015em;
     line-height: 1.25;
@@ -468,9 +493,9 @@
 }
 
 .portal-header__subtitle {
-    margin-top: 3px;
+    margin: 1px 0 0;
     color: var(--ui-muted);
-    font-size: var(--ui-text-sm);
+    font-size: var(--ui-text-xs);
     line-height: 1.5;
 }
 
@@ -725,8 +750,9 @@
     }
 
     /* Phones: [menu] [title] [bell] on one row, page actions full width below. */
-    .portal-header { align-items: flex-start; padding: 16px 16px 0; }
+    .portal-header { min-height: 60px; padding: 8px 16px; }
     .portal-header__titles { flex: 1 1 0; }
+    .portal-header__subtitle { display: none; }
     .portal-bell { order: 1; }
     .portal-header__actions { order: 2; flex: 1 1 100%; justify-content: stretch; }
     .portal-header__actions > * { flex: 1 1 auto; }
@@ -737,38 +763,5 @@
     .portal-sidebar,
     .portal-nav__link {
         transition: none;
-    }
-}
-
-/* ---------- Header as a white top bar (pages opt in with .portal-header--bar) ---------- */
-.portal-header.portal-header--bar {
-    position: sticky;
-    top: 0;
-    z-index: 30;
-    align-items: center;
-    min-height: 68px;
-    padding: 10px 32px;
-    border-bottom: 1px solid var(--ui-line);
-    background: var(--ui-surface);
-}
-
-.portal-header--bar .portal-header__title {
-    font-size: 18px;
-}
-
-.portal-header--bar .portal-header__subtitle {
-    margin-top: 1px;
-    font-size: var(--ui-text-xs);
-}
-
-@media (max-width: 768px) {
-    .portal-header.portal-header--bar {
-        align-items: center;
-        min-height: 60px;
-        padding: 8px 16px;
-    }
-
-    .portal-header--bar .portal-header__subtitle {
-        display: none;
     }
 }
