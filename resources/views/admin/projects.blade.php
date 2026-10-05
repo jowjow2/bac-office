@@ -9,7 +9,7 @@
     <div class="main-area projects-page">
 
         <!-- PAGE HEADER -->
-        <x-page-header title="Projects & biddings" subtitle="Create, publish and track procurement projects" />
+        <x-page-header class="portal-header--bar" title="Projects & biddings" subtitle="Create, publish and track procurement projects" />
 
         <!-- MAIN CONTENT -->
         @php

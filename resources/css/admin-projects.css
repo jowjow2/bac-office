@@ -911,3 +911,12 @@ body .admin-dashboard.admin-role-page .main-area.projects-page {
         & .projects-waiting__go { width: 100% !important; justify-content: flex-end !important; }
     }
 }
+
+/* ---------- Cooler, cleaner surfaces (trial on this page before the rest of the portal) ---------- */
+body .admin-dashboard.admin-role-page .main-area.projects-page {
+    --ui-page: #f4f6f5;
+    --ui-surface-2: #f8faf9;
+    --ui-line: #e1e6e3;
+    --ui-line-soft: #ecf0ee;
+    --ui-line-strong: #cbd3cf;
+}
