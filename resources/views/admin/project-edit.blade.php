@@ -173,7 +173,7 @@
                     </div>
 
                     <div class="pe-field">
-                        <label class="pe-label" for="pe_deadline">Bid submission deadline <span class="pe-req" aria-hidden="true">*</span></label>
+                        <label class="pe-label" for="pe_deadline">{{ $mode->deadlineLabel() }} <span class="pe-req" aria-hidden="true">*</span></label>
                         <input type="datetime-local" id="pe_deadline" name="deadline" value="{{ old('deadline', $when($project->deadline)) }}" required class="pe-input">
                         <p class="pe-error" data-error-for="deadline"></p>
                         <p class="pe-error" data-error-for="bid_submission_deadline"></p>

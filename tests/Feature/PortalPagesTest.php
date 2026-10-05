@@ -141,13 +141,13 @@ it('shows bidders the fee, bid security, submission method, deadline and their s
         ->assertSee('Bid security — required')
         ->assertSee('Bid Securing Declaration or 2% of the ABC in cash.')
         ->assertSee('Online, through this portal')
-        ->assertSee('Bid submission deadline')
+        ->assertSee('Deadline for submission of bids')
         ->assertSee('Not submitted');
 
     testCase()->actingAs($this->bidder)->get(route('bidder.opportunities.show', $this->rfq))
         ->assertOk()
         ->assertSee('none for this notice')
-        ->assertSee('Quotation deadline')
+        ->assertSee('Deadline for submission of quotations')
         ->assertSee('RCPT-0042');
 });
 

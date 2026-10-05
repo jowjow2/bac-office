@@ -592,7 +592,7 @@
                         </li>
                         <li class="pw-timeline__item">
                             <div class="ui-field">
-                                <label class="ui-label" for="bid_submission_deadline"><span data-pw-deadline-label>Bid submission deadline</span> <span class="ui-required" aria-hidden="true">*</span></label>
+                                <label class="ui-label" for="bid_submission_deadline"><span data-pw-deadline-label>Deadline for submission</span> <span class="ui-required" aria-hidden="true">*</span></label>
                                 <input type="datetime-local" id="bid_submission_deadline" name="bid_submission_deadline" class="ui-input" value="{{ old('bid_submission_deadline') }}" required data-pw-date aria-invalid="{{ $invalid('bid_submission_deadline') }}" aria-describedby="bid_submission_deadline-hint bid_submission_deadline-error">
                                 <span class="ui-hint" id="bid_submission_deadline-hint" data-pw-deadline-rule></span>
                                 <span class="pw-when" data-pw-when="bid_submission_deadline"></span>

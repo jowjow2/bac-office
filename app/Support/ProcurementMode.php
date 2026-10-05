@@ -457,9 +457,9 @@ final class ProcurementMode
     public function deadlineLabel(): string
     {
         return match ($this->family()) {
-            self::FAMILY_COMPETITIVE => 'Bid submission deadline',
-            self::FAMILY_NEGOTIATED => 'Deadline for offers',
-            default => 'Quotation deadline',
+            self::FAMILY_COMPETITIVE => 'Deadline for submission of bids',
+            self::FAMILY_NEGOTIATED => 'Deadline for submission of offers',
+            default => 'Deadline for submission of quotations',
         };
     }
 

@@ -259,7 +259,7 @@ if (root && form) {
         $('[data-pw-mode-rule]').textContent = text;
 
         // Dates step wording.
-        $('[data-pw-deadline-label]').textContent = { competitive: 'Bid submission deadline', negotiated: 'Deadline for offers' }[fam] || (fam ? 'Quotation deadline' : 'Submission deadline');
+        $('[data-pw-deadline-label]').textContent = { competitive: 'Deadline for submission of bids', negotiated: 'Deadline for submission of offers' }[fam] || (fam ? 'Deadline for submission of quotations' : 'Deadline for submission');
         $('[data-pw-opening-label]').textContent = fam === 'competitive' || !fam ? 'Bid opening' : `Opening of ${noun()}`;
         $('[data-pw-opening-required]').hidden = !(fam === 'competitive');
         $('[data-pw-opening-rule]').textContent = fam === 'competitive'

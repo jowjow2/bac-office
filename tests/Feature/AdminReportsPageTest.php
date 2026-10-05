@@ -44,7 +44,7 @@ it('shows the pipeline, what needs action and the next 14 days from the saved sc
         ->assertSee('Submission closed · awaiting opening')
         ->assertSee('Project CLOSED')
         ->assertSee('Next 14 days')
-        ->assertSee('Bid submission deadline')
+        ->assertSee('Deadline for submission of bids')
         ->assertSee('This quarter')
         ->assertDontSee('Overdue');
 

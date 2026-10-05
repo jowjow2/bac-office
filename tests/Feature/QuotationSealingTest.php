@@ -35,7 +35,7 @@ it('keeps quotation prices and the ranking hidden until the quotation deadline',
         ->and($bids->first()->fresh()->isFinancialSealed())->toBeTrue();
     testCase()->actingAs($admin)->get(route('admin.bids'))->assertOk()
         ->assertDontSee('20,000.00')->assertDontSee('21,000.00')
-        ->assertSee('Until the quotation deadline');
+        ->assertSee('Until the deadline for submission of quotations');
 
     // The deadline passes: the quotations are reviewed together and ranked by price.
     $this->travel(6)->hours();
