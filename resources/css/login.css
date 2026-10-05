@@ -1544,3 +1544,78 @@
 #authModal .auth-check-row .auth-link {
     margin-left: auto;
 }
+
+/* ---------- Floating labels ----------
+   Every field whose label sits right before its input: the label rests inside
+   the box like a placeholder and moves up onto the border once the field is
+   focused or filled. Selects always show it on the border. The hint placeholder
+   only appears while the field is focused. */
+#authModal .auth-field:has(> .auth-label + :is(.auth-input-wrap, .auth-input)) {
+    position: relative;
+}
+
+#authModal .auth-field:has(> .auth-label + :is(.auth-input-wrap, .auth-input)) > .auth-label {
+    position: absolute;
+    top: 21px;
+    left: 13px;
+    z-index: 1;
+    max-width: calc(100% - 26px);
+    padding: 0;
+    overflow: hidden;
+    color: var(--ui-subtle);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transform: translateY(-50%);
+    pointer-events: none;
+    transition: top .16s ease, left .16s ease, font-size .16s ease, color .16s ease, padding .16s ease;
+}
+
+/* Fields with a leading icon: the resting label starts after the icon. */
+#authModal .auth-field:has(> .auth-label + .auth-input-wrap:not(.is-plain)) > .auth-label {
+    left: 39px;
+}
+
+#authModal .auth-field:has(> .auth-label + :is(.auth-input-wrap, .auth-input)):is(
+    :has(.auth-input:focus),
+    :has(.auth-input:not(:placeholder-shown)),
+    :has(select.auth-input)
+) > .auth-label {
+    top: 0;
+    left: 9px;
+    padding: 0 4px;
+    background: var(--ui-surface);
+    color: var(--ui-ink-2);
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+#authModal .auth-field:has(> .auth-label + :is(.auth-input-wrap, .auth-input)):has(.auth-input:-webkit-autofill) > .auth-label {
+    top: 0;
+    left: 9px;
+    padding: 0 4px;
+    background: var(--ui-surface);
+    color: var(--ui-ink-2);
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+#authModal .auth-field:has(> .auth-label + :is(.auth-input-wrap, .auth-input)):has(.auth-input:focus) > .auth-label {
+    color: var(--ui-primary);
+}
+
+#authModal .auth-field:has(> .auth-label + :is(.auth-input-wrap, .auth-input)):has(.auth-input.input-error) > .auth-label {
+    color: var(--ui-danger);
+}
+
+#authModal .auth-field:has(> .auth-label + :is(.auth-input-wrap, .auth-input)) .auth-input:not(:focus)::placeholder {
+    color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #authModal .auth-field > .auth-label {
+        transition: none;
+    }
+}

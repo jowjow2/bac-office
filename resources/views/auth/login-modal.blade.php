@@ -119,7 +119,7 @@
                     <label for="loginPassword" class="auth-label">Password</label>
                     <div class="auth-input-wrap">
                         <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{!! $lockIcon !!}</svg>
-                        <input type="password" id="loginPassword" name="password" class="auth-input" placeholder="Password" required autocomplete="current-password">
+                        <input type="password" id="loginPassword" name="password" class="auth-input" placeholder=" " required autocomplete="current-password">
                         @include('auth.partials.password-toggle', ['target' => 'loginPassword'])
                     </div>
                     <div class="field-error" data-error-for="password"></div>
@@ -224,7 +224,7 @@
                     <label for="resetPasswordNew" class="auth-label">New password</label>
                     <div class="auth-input-wrap">
                         <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{!! $lockIcon !!}</svg>
-                        <input type="password" id="resetPasswordNew" name="password" class="auth-input" placeholder="New password" required autocomplete="new-password" aria-describedby="resetPasswordHelp">
+                        <input type="password" id="resetPasswordNew" name="password" class="auth-input" placeholder=" " required autocomplete="new-password" aria-describedby="resetPasswordHelp">
                         @include('auth.partials.password-toggle', ['target' => 'resetPasswordNew'])
                     </div>
                     <p id="resetPasswordHelp" class="auth-help">At least 8 characters with uppercase and lowercase letters, a number and a special character.</p>
@@ -234,7 +234,7 @@
                     <label for="resetPasswordConfirm" class="auth-label">Confirm password</label>
                     <div class="auth-input-wrap">
                         <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                        <input type="password" id="resetPasswordConfirm" name="password_confirmation" class="auth-input" placeholder="Confirm password" required autocomplete="new-password">
+                        <input type="password" id="resetPasswordConfirm" name="password_confirmation" class="auth-input" placeholder=" " required autocomplete="new-password">
                         @include('auth.partials.password-toggle', ['target' => 'resetPasswordConfirm'])
                     </div>
                     <div class="field-error" data-error-for="password_confirmation"></div>
@@ -350,7 +350,7 @@
                     <div class="auth-grid">
                         <div class="auth-field">
                             <label for="registerStaffName" class="auth-label">Full name</label>
-                            <input type="text" id="registerStaffName" name="name" value="{{ old('name') }}" class="auth-input" placeholder="Full name" autocomplete="name" {{ $registerRole === 'staff' ? 'required' : '' }}>
+                            <input type="text" id="registerStaffName" name="name" value="{{ old('name') }}" class="auth-input" placeholder=" " autocomplete="name" {{ $registerRole === 'staff' ? 'required' : '' }}>
                             <div class="field-error" data-error-for="name"></div>
                         </div>
                         <div class="auth-field">
@@ -376,7 +376,7 @@
                     <div class="auth-field">
                         <label for="registerPassword" class="auth-label">Create password</label>
                         <div class="auth-input-wrap is-plain">
-                            <input type="password" id="registerPassword" name="password" class="auth-input" placeholder="Create password" required autocomplete="new-password" aria-describedby="registerPasswordHelp">
+                            <input type="password" id="registerPassword" name="password" class="auth-input" placeholder=" " required autocomplete="new-password" aria-describedby="registerPasswordHelp">
                             @include('auth.partials.password-toggle', ['target' => 'registerPassword'])
                         </div>
                         <div class="field-error" data-error-for="password"></div>
