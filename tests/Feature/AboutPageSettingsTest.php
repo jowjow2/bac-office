@@ -48,7 +48,7 @@ it('lets the admin set the office details and the BAC composition shown on the A
         ->assertSee('Monday to Friday, 8:00 AM – 5:00 PM')
         ->assertSee('bac@example.gov.ph')
         ->assertSeeInOrder(['The Bids and Awards Committee', 'Juana Dela Cruz', 'Chairperson', 'BAC Secretariat', 'Pedro Santos'])
-        ->assertDontSee('Technical Working Group');
+        ->assertDontSee('<h3>Technical Working Group</h3>', false);
 });
 
 it('keeps the About page and the settings page working before the settings table exists', function () {
@@ -64,4 +64,16 @@ it('keeps the settings to the BAC admin', function () {
     $staff = User::create(['name' => 'Staff', 'email' => 'about-staff@example.com', 'password' => Hash::make('password'), 'role' => 'staff', 'status' => 'active', 'office' => 'BAC Secretariat']);
     testCase()->actingAs($staff)->get(route('admin.settings.about'))->assertStatus(403);
     expect(SiteSetting::count())->toBe(0);
+});
+
+it('offers the About page sections from the About BAC menu, the Committee only once members are listed', function () {
+    testCase()->get(route('public.procurement'))->assertOk()
+        ->assertSee('aria-controls="aboutMenu"', false)
+        ->assertSee(url('/about').'#how-to-bid', false)
+        ->assertSee(url('/about').'#faq', false)
+        ->assertDontSee(url('/about').'#committee', false);
+
+    SiteSetting::write('about', ['office' => [], 'members' => [['group' => 'bac', 'position' => 'Chairperson', 'name' => 'Juana Dela Cruz']]]);
+    testCase()->get(route('public.procurement'))->assertOk()->assertSee(url('/about').'#committee', false);
+    testCase()->get('/about')->assertOk()->assertSee('id="committee"', false)->assertSee('id="faq"', false);
 });

@@ -103,7 +103,7 @@
     </section>
 
     {{-- What the BAC does --}}
-    <section class="ab-section" aria-labelledby="ab-does-title">
+    <section class="ab-section" id="what-the-bac-does" aria-labelledby="ab-does-title">
         <header class="ab-head">
             <p class="ab-kicker">Mandate</p>
             <h2 id="ab-does-title">What the BAC does</h2>
@@ -131,7 +131,7 @@
 
     {{-- Who sits on the BAC (only when the admin has listed them) --}}
     @if($groups->isNotEmpty())
-        <section class="ab-section" aria-labelledby="ab-people-title">
+        <section class="ab-section" id="committee" aria-labelledby="ab-people-title">
             <header class="ab-head">
                 <p class="ab-kicker">Composition</p>
                 <h2 id="ab-people-title">The Bids and Awards Committee</h2>
@@ -152,7 +152,7 @@
     @endif
 
     {{-- Laws and official resources --}}
-    <section class="ab-section" aria-labelledby="ab-laws-title">
+    <section class="ab-section" id="laws" aria-labelledby="ab-laws-title">
         <header class="ab-head">
             <p class="ab-kicker">Legal basis</p>
             <h2 id="ab-laws-title">Laws and official resources</h2>
@@ -172,7 +172,7 @@
     </section>
 
     {{-- FAQ and contact --}}
-    <section class="ab-section ab-split" aria-labelledby="ab-faq-title">
+    <section class="ab-section ab-split" id="faq" aria-labelledby="ab-faq-title">
         <div>
             <header class="ab-head">
                 <p class="ab-kicker">Questions</p>
@@ -187,7 +187,7 @@
                 @endforeach
             </div>
         </div>
-        <aside class="ab-contact" aria-label="Contact the BAC">
+        <aside class="ab-contact" id="contact-bac" aria-label="Contact the BAC">
             <h3>Contact the BAC Secretariat</h3>
             <dl>
                 @if($office['address'])<div><dt>Office</dt><dd>{{ $office['address'] }}</dd></div>@endif
@@ -219,6 +219,8 @@
     .ab-hero__photo figcaption { position: absolute; left: 14px; bottom: 14px; padding: 6px 10px; border-radius: 8px; background: rgba(27, 36, 32, .72); color: #fff; font-size: 12px; }
 
     .ab-section { display: grid; gap: 18px; }
+    /* Links from the About BAC menu land below the sticky navbar. */
+    .ab [id] { scroll-margin-top: 110px; }
     .ab-head h2 { margin: 4px 0 0; color: var(--ui-ink, #1b2420); font-size: 24px; font-weight: 700; letter-spacing: -.01em; }
     .ab :is(.ab-step h3, .ab-modes h3, .ab-duty h3, .ab-group h3, .ab-contact h3) { font-weight: 700; }
 

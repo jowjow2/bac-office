@@ -20,7 +20,36 @@
 
         <div id="navLinks" class="nav-links">
             <a href="{{ route('home') }}" class="{{ request()->routeIs('home') ? 'active' : '' }}">Home</a>
-            <a href="{{ url('/about') }}" class="{{ request()->is('about') ? 'active' : '' }}">About BAC</a>
+            {{-- About BAC opens a menu of the About page's sections (hover, focus, or the arrow). --}}
+            @php
+                $aboutSections = [
+                    ['how-to-bid', 'How to bid', 'Six steps from registering to the Notice to Proceed'],
+                    ['what-the-bac-does', 'What the BAC does', 'Its mandate and the principles it follows'],
+                    ['committee', 'The Committee', 'BAC members, Secretariat and Technical Working Group'],
+                    ['laws', 'Laws & resources', 'RA 12009, its IRR and official references'],
+                    ['faq', 'Frequently asked', 'PhilGEPS, fees, online bids and deadlines'],
+                    ['contact-bac', 'Contact the BAC', 'Office, hours, email and phone'],
+                ];
+                try {
+                    $aboutHasCommittee = \App\Support\BacProfile::get()['members'] !== [];
+                } catch (\Throwable) {
+                    $aboutHasCommittee = false;
+                }
+                if (! $aboutHasCommittee) {
+                    $aboutSections = array_values(array_filter($aboutSections, fn ($section) => $section[0] !== 'committee'));
+                }
+            @endphp
+            <div class="nav-dropdown" data-nav-dropdown>
+                <a href="{{ url('/about') }}" class="nav-dropdown__link {{ request()->is('about') ? 'active' : '' }}">About BAC</a>
+                <button type="button" class="nav-dropdown__toggle" aria-expanded="false" aria-controls="aboutMenu" aria-label="About BAC sections">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div class="nav-dropdown__menu" id="aboutMenu">
+                    @foreach($aboutSections as [$anchor, $label, $hint])
+                        <a href="{{ url('/about') }}#{{ $anchor }}" class="nav-dropdown__item"><strong>{{ $label }}</strong><small>{{ $hint }}</small></a>
+                    @endforeach
+                </div>
+            </div>
             <a href="{{ route('public.procurement') }}" class="{{ request()->routeIs('public.procurement') ? 'active' : '' }}">Procurement</a>
             <a href="{{ route('public.awards') }}" class="{{ request()->routeIs('public.awards') ? 'active' : '' }}">Awards & Contracts</a>
             <a href="{{ url('/contact') }}" class="{{ request()->is('contact') ? 'active' : '' }}">Contact Us</a>
@@ -50,3 +79,31 @@
         </div>
     </div>
 </nav>
+
+@once
+<script>
+    // About BAC menu: hover opens it on wide screens (CSS); the arrow toggles it everywhere.
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('[data-nav-dropdown]').forEach(function (dropdown) {
+            const toggle = dropdown.querySelector('.nav-dropdown__toggle');
+            const setOpen = function (open) {
+                dropdown.classList.toggle('is-open', open);
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            };
+            toggle.addEventListener('click', function (event) {
+                event.stopPropagation();
+                setOpen(!dropdown.classList.contains('is-open'));
+            });
+            dropdown.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') { setOpen(false); toggle.focus(); }
+            });
+            document.addEventListener('click', function (event) {
+                if (!dropdown.contains(event.target)) setOpen(false);
+            });
+            dropdown.addEventListener('focusout', function (event) {
+                if (!dropdown.contains(event.relatedTarget)) setOpen(false);
+            });
+        });
+    });
+</script>
+@endonce
