@@ -135,6 +135,12 @@ class ProcurementRequestController extends Controller
 
     public function index(Request $request)
     {
+        return view('end-user.requests.index', $this->listData($request));
+    }
+
+    /** The My purchase requests list: its filters, the page of requests and the years to pick from. */
+    private function listData(Request $request): array
+    {
         $status = $request->query('status');
         $search = trim((string) $request->query('q', ''));
 
@@ -154,12 +160,13 @@ class ProcurementRequestController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        return view('end-user.requests.index', compact('requests', 'status', 'search', 'years', 'year'));
+        return compact('requests', 'status', 'search', 'years', 'year');
     }
 
-    public function create()
+    /** The form opens as a dialog over the request list (the list is rendered behind it). */
+    public function create(Request $request)
     {
-        return view('end-user.requests.form', ['procurementRequest' => new ProcurementRequest(['unit' => 'lot'])]);
+        return view('end-user.requests.form', ['procurementRequest' => new ProcurementRequest(['unit' => 'lot'])] + $this->listData($request));
     }
 
     public function store(Request $request)

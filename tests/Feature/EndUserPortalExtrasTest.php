@@ -156,3 +156,18 @@ it('shows the welcome card once after signing in, with the budget summary', func
         ->assertSee('Recent activity');
     testCase()->actingAs($this->juan)->get(route('end-user.dashboard'))->assertOk()->assertDontSee('Welcome back, Juan Reyes!');
 });
+
+it('opens a new purchase request as a dialog over the request list', function () {
+    $request = ($this->makeRequest)(['title' => 'Already filed request']);
+
+    testCase()->actingAs($this->juan)->get(route('end-user.requests.create'))->assertOk()
+        ->assertSee('data-eu-modal', false)
+        ->assertSee('New purchase request')
+        ->assertSee('Already filed request')
+        ->assertSee($request->reference_no);
+
+    // Editing keeps its own page, not a dialog.
+    $draft = ($this->makeRequest)(['status' => ProcurementRequest::STATUS_DRAFT]);
+    testCase()->actingAs($this->juan)->get(route('end-user.requests.edit', $draft))->assertOk()
+        ->assertDontSee('data-eu-modal', false);
+});
