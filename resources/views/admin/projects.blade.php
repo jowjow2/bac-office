@@ -49,6 +49,8 @@
             </section>
             @endunless
 
+            {{-- With no project yet, Create Project and Archived Projects sit inside the start card below. --}}
+            @unless($isEmptyAll)
             <section
                 id="project-management"
                 class="projects-toolbar"
@@ -120,6 +122,7 @@
                 </form>
                 @endunless
             </section>
+            @endunless
 
             @if(! $isEmptyAll && ! ($showArchived ?? false) && $waitingRequestsCount > 0)
                 {{-- Purchase requests forwarded to the BAC that have no project yet. --}}
@@ -218,6 +221,17 @@
                                 <li><strong>Prepare the procurement</strong><span>Mode, ABC, requirements and schedule.</span></li>
                                 <li><strong>Publish</strong><span>Bidders see it under Opportunities.</span></li>
                             </ol>
+                            <div class="projects-start__actions">
+                                <a href="{{ route('admin.projects.create') }}" class="projects-create-link">
+                                    <i class="fas fa-plus" aria-hidden="true"></i>
+                                    <span>Create Project</span>
+                                </a>
+                                <a href="{{ route('admin.projects', ['archived' => 1]) }}" class="projects-archive-link" title="View archived projects">
+                                    <i class="fas fa-box-archive" aria-hidden="true"></i>
+                                    <span>Archived Projects</span>
+                                    @if($archivedCount > 0)<span class="projects-count-chip">{{ $archivedCount }}</span>@endif
+                                </a>
+                            </div>
                         </div>
                         <div class="projects-start__queue">
                             <div class="projects-start__queue-head">
