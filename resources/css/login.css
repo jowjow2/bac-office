@@ -419,8 +419,8 @@
 #authModal .auth-card {
     position: relative;
     display: grid;
-    grid-template-columns: 300px minmax(0, 1fr);
-    width: min(820px, 100%);
+    grid-template-columns: minmax(0, 1fr);
+    width: min(540px, 100%);
     max-height: min(720px, calc(100dvh - 32px));
     overflow: hidden;
     border: 1px solid var(--ui-line);
@@ -436,8 +436,8 @@
 }
 
 #authModal .auth-card.auth-card-wide {
-    grid-template-columns: 260px minmax(0, 1fr);
-    width: min(980px, 100%);
+    grid-template-columns: minmax(0, 1fr);
+    width: min(820px, 100%);
     height: min(760px, calc(100dvh - 32px));
     max-height: none;
 }
@@ -468,140 +468,6 @@
 #authModal .auth-close svg {
     width: 16px;
     height: 16px;
-}
-
-/* Brand panel, in the dashboard sidebar colours. */
-#authModal .auth-side {
-    display: flex;
-    flex-direction: column;
-    gap: 28px;
-    min-height: 0;
-    padding: 28px 26px;
-    background: var(--ui-sidebar);
-    color: var(--ui-sidebar-ink);
-    overflow: hidden;
-}
-
-#authModal .auth-side-brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-#authModal .auth-side-logo {
-    flex: 0 0 auto;
-    width: 46px;
-    height: 46px;
-    padding: 3px;
-    border-radius: 50%;
-    background: #ffffff;
-    object-fit: contain;
-}
-
-#authModal .auth-side-brand strong {
-    display: block;
-    color: #ffffff;
-    font-size: 14px;
-    font-weight: 700;
-    line-height: 1.3;
-}
-
-#authModal .auth-side-brand span {
-    display: block;
-    margin-top: 2px;
-    color: var(--ui-sidebar-muted);
-    font-size: 12px;
-    line-height: 1.35;
-}
-
-#authModal .auth-kicker {
-    display: none;
-}
-
-/* The tab title stays readable by screen readers; the tabs show it on screen. */
-#authModal .auth-visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-    border: 0;
-}
-
-/* Motto at the foot of the panel, the brand at the top. */
-#authModal .auth-heading-copy {
-    position: relative;
-    margin-top: auto;
-}
-
-#authModal .auth-motto {
-    margin: 0;
-    color: #ffffff;
-    font-family: Georgia, "Times New Roman", serif;
-    font-size: 34px;
-    font-weight: 400;
-    line-height: 1.18;
-    letter-spacing: -0.01em;
-}
-
-#authModal .auth-motto span {
-    color: #8fd3b6;
-}
-
-#authModal .auth-heading-copy p#authModalSubtitle {
-    position: relative;
-    margin: 18px 0 0;
-    padding-top: 14px;
-    color: var(--ui-sidebar-muted);
-    font-size: 13px;
-    line-height: 1.55;
-}
-
-#authModal .auth-heading-copy p#authModalSubtitle::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 36px;
-    height: 2px;
-    border-radius: 2px;
-    background: #8fd3b6;
-}
-
-/* Quiet rings behind the motto. */
-#authModal .auth-side {
-    position: relative;
-}
-
-#authModal .auth-side::before,
-#authModal .auth-side::after {
-    content: '';
-    position: absolute;
-    border-radius: 50%;
-    pointer-events: none;
-}
-
-#authModal .auth-side::before {
-    right: -120px;
-    top: 30%;
-    width: 320px;
-    height: 320px;
-    border: 1px solid rgba(255, 255, 255, 0.07);
-}
-
-#authModal .auth-side::after {
-    right: -60px;
-    top: calc(30% + 60px);
-    width: 200px;
-    height: 200px;
-    border: 1px solid rgba(255, 255, 255, 0.09);
-}
-
-#authModal .auth-side > * {
-    position: relative;
 }
 
 /* Forms column */
@@ -1481,7 +1347,7 @@
     box-shadow: none;
 }
 
-#authModal.success-state :is(.auth-side, .auth-close, .auth-tabs, .auth-form, .alert.error) {
+#authModal.success-state :is(.auth-close, .auth-tabs, .auth-form, .alert.error) {
     display: none !important;
 }
 
@@ -1542,40 +1408,9 @@
         max-height: calc(100dvh - 16px);
     }
 
-    #authModal .auth-side {
-        flex: 0 0 auto;
-        gap: 14px;
-        padding: 18px 56px 18px 18px;
-    }
-
-    #authModal .auth-side-logo {
-        width: 38px;
-        height: 38px;
-    }
-
-    /* On a phone the panel is a slim header: brand and one line, no motto or rings. */
-    #authModal .auth-motto,
-    #authModal .auth-heading-copy p#authModalSubtitle::before {
-        display: none;
-    }
-
-    #authModal .auth-side::before,
-    #authModal .auth-side::after {
-        display: none;
-    }
-
-    #authModal .auth-heading-copy p#authModalSubtitle {
-        margin: 0;
-        padding-top: 0;
-        font-size: 12.5px;
-    }
-
     #authModal .auth-close {
         top: 12px;
         right: 12px;
-        border-color: var(--ui-sidebar-line);
-        background: transparent;
-        color: var(--ui-sidebar-ink);
     }
 
     #authModal .auth-main {
@@ -1586,7 +1421,7 @@
     #authModal .auth-tabs {
         top: -18px;
         margin: -18px -18px 0;
-        padding: 18px 18px 0;
+        padding: 18px 56px 0 18px;
     }
 
     #authModal .auth-tabs::after {
@@ -1634,4 +1469,72 @@
 
 #authModal :is(.auth-privacy-link, .auth-register-submit) a:hover {
     color: var(--ui-primary);
+}
+
+/* Brand row above the tabs (logo and portal name). */
+#authModal .auth-brand {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 10px;
+    padding-right: 44px;
+}
+
+#authModal .auth-brand__logo {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--ui-line);
+    border-radius: 50%;
+    background: #fff;
+    object-fit: contain;
+}
+
+#authModal .auth-brand__text {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+}
+
+#authModal .auth-brand__text strong {
+    color: var(--ui-ink);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+#authModal .auth-brand__text small {
+    color: var(--ui-muted);
+    font-size: 12px;
+    line-height: 1.3;
+}
+
+/* With the brand row first, the tabs start below it instead of in the top padding;
+   when they stick, they still sit flush with the top edge (top = -padding). */
+#authModal .auth-brand ~ .auth-tabs {
+    margin-top: 0;
+    padding-top: 6px;
+}
+
+@media (max-width: 760px) {
+    #authModal .auth-brand ~ .auth-tabs {
+        top: -18px;
+    }
+}
+
+#authModal #authMessage:empty {
+    display: none;
+}
+
+/* Names the dialog for screen readers only. */
+#authModal .auth-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
 }

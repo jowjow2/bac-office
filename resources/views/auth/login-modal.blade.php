@@ -31,25 +31,17 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
 
-        <aside class="auth-side">
-            <div class="auth-side-brand">
-                <img src="{{ asset('Images/Logo.png') }}" alt="" class="auth-side-logo">
-                <div>
-                    <strong>SJBAC Procurement Portal</strong>
-                    <span>Municipality of San Jose, Occidental Mindoro</span>
-                </div>
-            </div>
-
-            {{-- The motto leads; the tab's title stays for screen readers (the tabs show it on screen). --}}
-            <div class="auth-heading-copy">
-                <span class="auth-kicker" id="authKicker">SJBAC</span>
-                <h2 id="authModalTitle" class="auth-visually-hidden">Sign in</h2>
-                <p class="auth-motto" aria-hidden="true">Transparent.<br>Fair.<br><span>On time.</span></p>
-                <p id="authModalSubtitle">Use your registered email to continue.</p>
-            </div>
-        </aside>
-
         <div class="auth-main">
+            {{-- The tabs show the title on screen; this names the dialog for screen readers. --}}
+            <h2 id="authModalTitle" class="auth-visually-hidden">Sign in</h2>
+
+            <div class="auth-brand">
+                <img src="{{ asset('Images/Logo.png') }}" alt="" class="auth-brand__logo">
+                <span class="auth-brand__text">
+                    <strong>SJBAC Procurement Portal</strong>
+                    <small>Municipality of San Jose, Occidental Mindoro</small>
+                </span>
+            </div>
             <div id="authMessage"></div>
 
             @if(session('success'))

@@ -434,7 +434,7 @@ function setAuthHeader(tab) {
     const kicker = document.getElementById('authKicker');
     const heading = document.querySelector('#authModal .auth-heading-copy');
 
-    if (!title || !subtitle || !kicker) {
+    if (!title) {
         return;
     }
 
@@ -475,9 +475,9 @@ function setAuthHeader(tab) {
         subtitle: 'Secure access to procurement, bidding, and award management services.',
     };
 
-    kicker.textContent = content.kicker;
+    if (kicker) kicker.textContent = content.kicker;
     title.textContent = content.title;
-    subtitle.textContent = content.subtitle;
+    if (subtitle) subtitle.textContent = content.subtitle;
     replayAuthAnimation(heading, 'auth-header-enter', AUTH_HEADER_ANIMATION_DURATION);
 }
 
