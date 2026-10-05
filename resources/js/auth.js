@@ -532,6 +532,7 @@ window.switchTab = function (tab) {
         animateVisibleAuthForm(login);
         tabLogin.classList.add('active');
         if (tabs) tabs.classList.remove('hidden');
+        focusFirstEmptyField(login);
     } else if (tab === 'verify' && verify) {
         verify.classList.remove('hidden');
         animateVisibleAuthForm(verify);
@@ -547,6 +548,7 @@ window.switchTab = function (tab) {
     } else if (tab === 'forgot' && forgot) {
         forgot.classList.remove('hidden');
         animateVisibleAuthForm(forgot);
+        focusFirstEmptyField(forgot);
         if (tabs) tabs.classList.add('hidden');
     } else if (tab === 'forgot_verify' && forgotVerify) {
         forgotVerify.classList.remove('hidden');
@@ -1528,3 +1530,33 @@ window.addEventListener('keydown', function (event) {
         closeAuth();
     }
 });
+
+// Puts the cursor in the form's first empty field, so the user can type at once.
+// Skipped on touch screens, where focusing would pop the keyboard over the form.
+function focusFirstEmptyField(form) {
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+    const field = Array.from(form.querySelectorAll('input.auth-input')).find((input) => !input.value);
+    if (field) window.requestAnimationFrame(() => field.focus({ preventScroll: true }));
+}
+
+// "Caps Lock is on" under a password field while it has focus.
+function updateCapsLockHint(event) {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement) || !input.matches('#authModal .auth-input')) return;
+    const wrap = input.closest('.auth-input-wrap');
+    if (!wrap || !wrap.querySelector('.auth-password-toggle')) return;
+
+    let hint = wrap.nextElementSibling?.classList.contains('auth-capslock') ? wrap.nextElementSibling : null;
+    const on = event.type !== 'focusout' && typeof event.getModifierState === 'function' && event.getModifierState('CapsLock');
+    if (!hint && !on) return;
+    if (!hint) {
+        hint = document.createElement('p');
+        hint.className = 'auth-capslock';
+        hint.setAttribute('role', 'status');
+        hint.textContent = 'Caps Lock is on.';
+        wrap.after(hint);
+    }
+    hint.hidden = !on;
+}
+
+['keydown', 'keyup', 'focusout'].forEach((type) => document.addEventListener(type, updateCapsLockHint));

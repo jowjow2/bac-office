@@ -48,7 +48,7 @@ it('returns the home view for the landing page', function () {
     $response->assertOk();
     $response->assertViewIs('pages.home');
     $response->assertSee('id="registerForm"', false);
-    $response->assertSee('Sign In');
+    $response->assertSee('Sign in');
 });
 
 it('redirects the standalone login route back to the landing page modal', function () {

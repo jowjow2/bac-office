@@ -8,11 +8,11 @@
         <div class="login-page-grid">
             <section class="login-page-panel">
                 <p class="login-page-kicker">SJBAC Secure Access</p>
-                <h1>Sign In</h1>
+                <h1>Sign in</h1>
                 <p>Access your account to continue.</p>
 
                 <div class="login-page-actions">
-                    <button type="button" class="btn" onclick="activateAuthTab('login')">Sign In</button>
+                    <button type="button" class="btn" onclick="activateAuthTab('login')">Sign in</button>
                 </div>
 
                 <p class="login-page-note">

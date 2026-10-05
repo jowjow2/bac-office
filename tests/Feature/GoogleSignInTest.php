@@ -28,7 +28,9 @@ beforeEach(function () {
 });
 
 it('shows the Google button only once the OAuth client is configured', function () {
-    testCase()->get('/')->assertOk()->assertSee('Continue with Google')->assertSee('data-google-signin', false);
+    testCase()->get('/')->assertOk()->assertSee('Continue with Google')->assertSee('data-google-signin', false)
+        // It only signs in existing accounts, and says so.
+        ->assertSee('For accounts already registered with that Gmail address.');
 
     config()->set('services.google', ['client_id' => null, 'client_secret' => null, 'redirect' => null]);
     testCase()->get('/')->assertOk()->assertDontSee('Continue with Google');
