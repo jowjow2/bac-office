@@ -3062,26 +3062,16 @@ body #bid-management .bid-ranking__foot { border-top: 1px solid var(--ui-line-so
 #bidViewModal .br-award-documents-panel .br-note__label { color: var(--ui-primary); }
 #bidViewModal .br-award-documents { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 
-/* Review modal: "submitted" and "sealed" are normal states, so they read as information (blue),
-   not as a warning (amber). Amber stays for things that need attention. */
-body #bidViewModal .admin-bids-status-pill.is-pending,
-body #bidViewModal .admin-bids-status-pill.is-pending i {
-    background: var(--ui-info-soft) !important;
-    border-color: var(--ui-info-line) !important;
-    color: var(--ui-info) !important;
-    -webkit-text-fill-color: var(--ui-info) !important;
-}
-
-body #bidViewModal .admin-bids-status-pill.is-pending { background: var(--ui-info-soft) !important; }
-
-#bidViewModal .br-banner.is-sealed { border-color: var(--ui-info-line); background: var(--ui-info-soft); color: var(--ui-info); }
-#bidViewModal .br-banner.is-sealed > i { color: var(--ui-info); }
+/* Review modal: sealed items and the process notes use the brand green (consistent with the portal);
+   status pills keep the colour of their own status. Amber stays for things that need attention. */
+#bidViewModal .br-banner.is-sealed { border-color: var(--ui-primary-line); background: var(--ui-primary-soft); color: var(--ui-primary); }
+#bidViewModal .br-banner.is-sealed > i { color: var(--ui-primary); }
 #bidViewModal .br-kpi__value.is-sealed,
 #bidViewModal .br-state.is-sealed,
-#bidViewModal .br-checklist li.is-sealed > i { color: var(--ui-info); }
+#bidViewModal .br-checklist li.is-sealed > i { color: var(--ui-primary); }
 #bidViewModal .br-pill:is(.is-received_sealed, .is-sealed_envelope),
-#bidViewModal .br-file__icon.is-sealed { background: var(--ui-info-soft); color: var(--ui-info); }
+#bidViewModal .br-file__icon.is-sealed { background: var(--ui-primary-soft); color: var(--ui-primary); }
 
-/* The note under Evaluation Actions explains the process: neutral, not a warning. */
-#bidViewModal .br-blocked { background: var(--ui-surface-2); border: 1px solid var(--ui-line); color: var(--ui-ink-2); }
-#bidViewModal .br-blocked i { color: var(--ui-subtle); }
+/* The note under Evaluation Actions explains the process. */
+#bidViewModal .br-blocked { background: var(--ui-primary-soft); border: 1px solid var(--ui-primary-line); color: var(--ui-primary); }
+#bidViewModal .br-blocked i { color: var(--ui-primary); }
