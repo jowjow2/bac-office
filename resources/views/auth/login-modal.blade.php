@@ -116,10 +116,7 @@
                 </div>
 
                 <div class="auth-field">
-                    <div class="auth-label-row">
-                        <label for="loginPassword" class="auth-label">Password</label>
-                        <a href="{{ route('password.request') }}" class="auth-link" onclick="activateAuthTab('forgot'); return false;">Forgot password?</a>
-                    </div>
+                    <label for="loginPassword" class="auth-label">Password</label>
                     <div class="auth-input-wrap">
                         <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{!! $lockIcon !!}</svg>
                         <input type="password" id="loginPassword" name="password" class="auth-input" placeholder="Password" required autocomplete="current-password">
@@ -128,10 +125,13 @@
                     <div class="field-error" data-error-for="password"></div>
                 </div>
 
-                <label class="auth-check">
-                    <input type="checkbox" name="remember" value="1" {{ old('remember') ? 'checked' : '' }}>
-                    <span>Keep me signed in on this device</span>
-                </label>
+                <div class="auth-check-row">
+                    <label class="auth-check">
+                        <input type="checkbox" name="remember" value="1" {{ old('remember') ? 'checked' : '' }}>
+                        <span>Keep me signed in on this device</span>
+                    </label>
+                    <a href="{{ route('password.request') }}" class="auth-link" onclick="activateAuthTab('forgot'); return false;">Forgot password?</a>
+                </div>
 
                 <button type="submit" class="auth-button" data-loading-text="Signing in...">
                     <span>Sign in</span>
