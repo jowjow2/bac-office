@@ -3974,3 +3974,52 @@ body.public-modal-open {
     display: none;
   }
 }
+
+/* ---------- Slimmer public navbar on wide screens (60px) ---------- */
+@media (min-width: 901px) {
+  .navbar {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .navbar,
+  .home-page .navbar,
+  .public-page .navbar {
+    min-height: 60px;
+  }
+
+  .navbar-inner {
+    min-height: 48px;
+  }
+
+  .logo {
+    font-size: 19px;
+  }
+
+  .logo img,
+  .home-page .logo img,
+  .public-page .logo img {
+    width: 40px;
+    height: 40px;
+  }
+
+  .search-form {
+    height: 38px;
+    min-height: 38px;
+  }
+
+  .navbar .login-signup-btn {
+    height: 38px;
+    min-height: 38px;
+  }
+
+  .home-page .navbar .nav-links a,
+  .public-page .navbar .nav-links a {
+    min-height: 34px;
+  }
+
+  /* The fixed navbar of the public pages: the content starts right below it. */
+  .public-page {
+    padding-top: 60px;
+  }
+}
