@@ -151,7 +151,9 @@
                         @if($bid->project && ! $bid->project->requiresRecordedBidOpening())
                             @php $quoteMode = $bid->project->mode(); $quoteDeadline = $bid->project->bidSubmissionDeadline(); @endphp
                             <span>{{ ucfirst($quoteMode->submissionNoun(true)) }} are reviewed together after the {{ strtolower($quoteMode->deadlineLabel()) }}. Until then the price, the files and the ranking stay hidden from the BAC.</span>
-                            @if($quoteDeadline)<small>Opens {{ $quoteDeadline->copy()->timezone($tz)->format('M d, Y h:i A') }} (Asia/Manila).</small>@endif
+                            @php $quoteOpening = $bid->project->schedule?->bid_opening_date; @endphp
+                            @if($quoteDeadline)<small>{{ $quoteMode->deadlineLabel() }}: {{ $quoteDeadline->copy()->timezone($tz)->format('M d, Y h:i A') }} (Asia/Manila).</small>@endif
+                            <small>{{ $quoteMode->openingLabel() }}: {{ $quoteOpening ? $quoteOpening->copy()->timezone($tz)->format('M d, Y h:i A').' (Asia/Manila)' : 'not scheduled yet; the BAC opens them after the deadline.' }}</small>
                         @else
                         <span>Technical and eligibility files open automatically at the scheduled bid-opening time. Financial Bid and the bid amount remain sealed until the technical review is approved and the password is verified.</span>
                         @endif
