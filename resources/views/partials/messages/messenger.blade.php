@@ -65,6 +65,7 @@
             'selectedContact' => $selectedContact,
             'conversationMessages' => $conversationMessages,
             'messageStoreRoute' => $messageStoreRoute,
+            'messageDraft' => $messageDraft ?? '',
         ])
     </div>
 </section>
@@ -563,7 +564,7 @@
             }
 
             function updateHeaderFromCounterpart(counterpart) {
-                const roleLabel = titleCase(counterpart.role || 'User');
+                const roleLabel = counterpart.role_label || titleCase(counterpart.role || 'User');
                 if (title) title.textContent = counterpart.name || 'Conversation';
                 if (subtitle) subtitle.textContent = `${roleLabel} | ${counterpart.email || ''}`;
                 if (initials) initials.textContent = counterpart.initials || initialsFromName(counterpart.name);

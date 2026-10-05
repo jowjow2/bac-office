@@ -3,12 +3,7 @@
     $hasSelectedContact = $selectedContact instanceof \App\Models\User;
     $conversationMessages = collect($conversationMessages ?? []);
     $selectedName = $hasSelectedContact ? ($selectedContact->company ?: $selectedContact->name) : '';
-    $selectedRoleLabel = $hasSelectedContact ? match ($selectedContact->role) {
-        'admin' => 'Admin',
-        'staff' => 'Staff',
-        'bidder' => 'Bidder',
-        default => ucfirst($selectedContact->role ?? 'User'),
-    } : '';
+    $selectedRoleLabel = $hasSelectedContact ? \App\Http\Controllers\MessageController::roleLabelFor($selectedContact) : '';
     $selectedInitials = $hasSelectedContact
         ? (collect(preg_split('/\s+/', trim($selectedName)))
             ->filter()
@@ -26,7 +21,7 @@
     <div class="messenger-empty-chat" data-empty-chat @if($hasSelectedContact) hidden @endif>
         <i class="fas fa-comments"></i>
         <strong>Select a conversation to start messaging.</strong>
-        <p>Choose a bidder or staff conversation from the list to view messages.</p>
+        <p>Choose a conversation from the list to view or send messages.</p>
     </div>
 
     <header class="messenger-chat-header" data-chat-header @unless($hasSelectedContact) hidden @endunless>
@@ -87,7 +82,7 @@
                     accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx,image/jpeg,image/png,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 >
             </label>
-            <textarea class="messenger-input" name="body" rows="1" placeholder="Type a message..." data-message-input></textarea>
+            <textarea class="messenger-input" name="body" rows="1" placeholder="Type a message..." data-message-input>{{ $messageDraft ?? '' }}</textarea>
             <button type="submit" class="messenger-send-button" data-send-button aria-label="Send message">
                 <i class="fas fa-paper-plane"></i>
             </button>

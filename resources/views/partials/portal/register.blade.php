@@ -1,7 +1,8 @@
 {{--
     The procurement register table (admin, staff, end-user dashboards).
     Expects: $rows (LengthAwarePaginator of ProcurementPipeline rows),
-    $filters, $routeName, and optional $title / $showOffice.
+    $filters, $routeName, and optional $title / $showOffice / $progress (the
+    end-user's step tracker under each description).
 --}}
 @use('App\Support\ProcurementPipeline')
 @php
@@ -98,6 +99,15 @@
                         <td data-label="Description">
                             <span class="ui-cell-title">{{ $row['title'] }}</span>
                             <span class="ui-cell-sub">{{ $row['stage_label'] }}@if($row['office']) · {{ $row['office'] }}@endif</span>
+                            @if($progress ?? false)
+                                @php $track = ProcurementPipeline::progressFor($row); @endphp
+                                <span class="ui-track ui-track--{{ $track['tone'] }}" role="img" aria-label="{{ $track['label'] }}" title="{{ implode(' → ', $track['steps']) }}">
+                                    @foreach($track['steps'] as $index => $step)
+                                        <span class="ui-track__step {{ $track['done'] || $index < $track['current'] ? 'is-done' : ($index === $track['current'] ? 'is-current' : '') }}"></span>
+                                    @endforeach
+                                </span>
+                                <span class="ui-track__label">{{ $track['label'] }}</span>
+                            @endif
                         </td>
                         @if($showOffice)
                             <td data-label="End-user">{{ $row['end_user'] ?: '—' }}</td>

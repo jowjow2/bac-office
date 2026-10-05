@@ -14,7 +14,7 @@
         'admin' => 'BAC · Administrator',
         'staff' => 'BAC Secretariat',
         'bidder' => 'Supplier / Bidder',
-        'end_user' => $portalUser?->office ?: 'End-user office',
+        'end_user' => collect([$portalUser?->position ?? null, $portalUser?->office ?: 'End-user office'])->filter()->implode(' · '),
         default => 'User',
     };
     $portalHome = match ($portalUser?->role) {
@@ -72,8 +72,8 @@
     <div class="portal-user">
         <span class="portal-user__avatar" aria-hidden="true">{{ $portalInitials ?: 'U' }}</span>
         <span class="portal-user__meta">
-            <span class="portal-user__name">{{ $portalName ?: 'Signed in' }}</span>
-            <span class="portal-user__role">{{ $portalRoleLabel }}</span>
+            <span class="portal-user__name" title="{{ $portalName }}">{{ $portalName ?: 'Signed in' }}</span>
+            <span class="portal-user__role" title="{{ $portalRoleLabel }}">{{ $portalRoleLabel }}</span>
         </span>
         {{-- Opens the confirmation below (portal.js setupDialogs); the dialog holds the real sign-out form. --}}
         <button type="button" class="portal-user__logout" data-dialog-open="portalSignOutDialog" aria-haspopup="dialog" aria-label="Sign out" title="Sign out">

@@ -3,12 +3,7 @@
     $threadUser = $thread['user'];
     $latestMessage = $thread['latest_message'] ?? null;
     $threadName = $threadUser->company ?: $threadUser->name;
-    $threadRoleLabel = match ($threadUser->role) {
-        'admin' => 'Admin',
-        'staff' => 'Staff',
-        'bidder' => 'Bidder',
-        default => ucfirst($threadUser->role ?? 'User'),
-    };
+    $threadRoleLabel = \App\Http\Controllers\MessageController::roleLabelFor($threadUser);
     $threadRouteTab = $tabByRole[$threadUser->role] ?? $activeTab;
     $threadUrl = route($messageRouteName, ['tab' => $threadRouteTab, 'user' => $threadUser->id]);
     $messageText = $latestMessage?->body

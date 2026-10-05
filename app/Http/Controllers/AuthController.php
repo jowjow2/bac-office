@@ -120,11 +120,15 @@ class AuthController extends Controller
         return ['welcome' => ['name' => (string) $name]];
     }
 
-    /** Bidders get a welcome card on their dashboard once per sign-in (BidderController::index). */
-    protected function queueBidderWelcome(Request $request, User $user): void
+    /**
+     * Bidders and end-user offices get a welcome card on their dashboard once
+     * per sign-in (BidderController::index, ProcurementRequestController::dashboard).
+     */
+    protected function queueDashboardWelcome(Request $request, User $user): void
     {
-        if ($user->role === 'bidder') {
-            $request->session()->put('bidder_welcome', true);
+        $key = ['bidder' => 'bidder_welcome', 'end_user' => 'end_user_welcome'][$user->role] ?? null;
+        if ($key !== null) {
+            $request->session()->put($key, true);
         }
     }
 
@@ -576,7 +580,7 @@ class AuthController extends Controller
 
         Auth::login($user, $request->boolean('remember'));
         $request->session()->regenerate();
-        $this->queueBidderWelcome($request, $user);
+        $this->queueDashboardWelcome($request, $user);
 
         return $this->authResponse(
             $request,
@@ -693,7 +697,7 @@ class AuthController extends Controller
 
         Auth::login($user, $remember);
         $request->session()->regenerate();
-        $this->queueBidderWelcome($request, $user);
+        $this->queueDashboardWelcome($request, $user);
         LoginAudit::record($request, $user, 'google', 'success');
 
         return redirect()->to($this->redirectAfterLogin($request, $user))->with('success', 'Signed in with Google.');
@@ -819,7 +823,7 @@ class AuthController extends Controller
 
         Auth::login($user, $remember);
         $request->session()->regenerate();
-        $this->queueBidderWelcome($request, $user);
+        $this->queueDashboardWelcome($request, $user);
 
         return $this->authResponse(
             $request,

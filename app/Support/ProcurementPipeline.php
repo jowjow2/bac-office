@@ -120,6 +120,51 @@ class ProcurementPipeline
             ->values();
     }
 
+    /** The steps an end-user office follows its request through (dashboard tracker). */
+    public const PROGRESS_STEPS = ['Filed', 'Funds check', 'With the BAC', 'Bidding / RFQ', 'Award', 'Contract', 'Delivery'];
+
+    /**
+     * Where a register row is on PROGRESS_STEPS: the current step (0-based),
+     * whether everything is done, and a tone for a returned, rejected or
+     * failed record.
+     *
+     * @return array{steps: list<string>, current: int, done: bool, tone: string, label: string}
+     */
+    public static function progressFor(array $row): array
+    {
+        $status = $row['type'] === 'request' ? $row['model']->status : null;
+
+        $current = match (true) {
+            in_array($status, [ProcurementRequest::STATUS_DRAFT, ProcurementRequest::STATUS_RETURNED], true) => 0,
+            default => match ($row['bucket']) {
+                'request' => 1,
+                'preparation' => 2,
+                'posted', 'evaluation' => 3,
+                'award' => 4,
+                'contract' => 5,
+                'delivery' => 6,
+                default => 6,
+            },
+        };
+        $done = $row['state'] === 'completed';
+        $tone = match (true) {
+            $row['state'] === 'failed' => 'danger',
+            $status === ProcurementRequest::STATUS_RETURNED => 'warning',
+            $done => 'success',
+            default => 'primary',
+        };
+
+        $label = match (true) {
+            $done => 'Completed',
+            $row['state'] === 'failed' => $row['stage_label'],
+            $status === ProcurementRequest::STATUS_DRAFT => 'Draft · not yet submitted',
+            $status === ProcurementRequest::STATUS_RETURNED => 'Returned for correction',
+            default => 'Step '.($current + 1).' of '.count(self::PROGRESS_STEPS).' · '.self::PROGRESS_STEPS[$current],
+        };
+
+        return ['steps' => self::PROGRESS_STEPS, 'current' => $current, 'done' => $done, 'tone' => $tone, 'label' => $label];
+    }
+
     /** Shortcuts behind the KPI cards. */
     public const FLAGS = [
         'posting' => 'External PhilGEPS posting not recorded',

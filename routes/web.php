@@ -187,6 +187,11 @@ Route::middleware(['auth', 'end_user'])->prefix('end-user')->name('end-user.')->
     Route::get('/infrastructure-contracts', [\App\Http\Controllers\InfrastructureImplementationController::class, 'endUserIndex'])->name('infrastructure.index');
     Route::post('/infrastructure-contracts/{award}/inspect', [\App\Http\Controllers\InfrastructureImplementationController::class, 'inspect'])->name('infrastructure.inspect');
     Route::get('/notifications', [ProcurementRequestController::class, 'notifications'])->name('notifications');
+    Route::get('/messages', [MessageController::class, 'endUserIndex'])->name('messages');
+    Route::get('/messages/status-sync', [MessageController::class, 'endUserStatusSync'])->name('messages.status-sync');
+    Route::get('/messages/conversation-sync', [MessageController::class, 'endUserConversationSync'])->name('messages.conversation-sync');
+    Route::post('/messages/typing', [MessageController::class, 'endUserTyping'])->name('messages.typing');
+    Route::post('/messages', [MessageController::class, 'endUserStore'])->name('messages.store');
     Route::get('/requests', [ProcurementRequestController::class, 'index'])->name('requests.index');
     Route::get('/requests/create', [ProcurementRequestController::class, 'create'])->name('requests.create');
     Route::post('/requests', [ProcurementRequestController::class, 'store'])->name('requests.store');
@@ -194,6 +199,8 @@ Route::middleware(['auth', 'end_user'])->prefix('end-user')->name('end-user.')->
     Route::get('/requests/{procurementRequest}/edit', [ProcurementRequestController::class, 'edit'])->name('requests.edit');
     Route::put('/requests/{procurementRequest}', [ProcurementRequestController::class, 'update'])->name('requests.update');
     Route::post('/requests/{procurementRequest}/submit', [ProcurementRequestController::class, 'submit'])->name('requests.submit');
+    Route::post('/requests/{procurementRequest}/duplicate', [ProcurementRequestController::class, 'duplicate'])->name('requests.duplicate');
+    Route::get('/requests/{procurementRequest}/print', [ProcurementRequestController::class, 'printForm'])->name('requests.print');
     Route::delete('/requests/{procurementRequest}/documents/{document}', [ProcurementRequestController::class, 'destroyDocument'])->name('requests.documents.destroy');
 });
 

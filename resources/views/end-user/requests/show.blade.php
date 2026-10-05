@@ -14,6 +14,15 @@
         default => '',
     };
     $orDash = fn ($value) => filled($value) ? $value : '—';
+    // "Ask the BAC": the reviewer if a BAC account reviewed it, otherwise the Secretariat.
+    $bacContact = in_array($procurementRequest->reviewer?->role, ['admin', 'staff'], true)
+        ? $procurementRequest->reviewer
+        : \App\Models\User::query()->where('role', 'staff')->where('status', 'active')->orderBy('id')->first();
+    $askUrl = route('end-user.messages', array_filter([
+        'tab' => $bacContact?->role === 'admin' ? 'admin' : 'staff',
+        'user' => $bacContact?->id,
+        'draft' => 'Re: '.$procurementRequest->reference_no.' – '.$procurementRequest->title.': ',
+    ]));
 @endphp
 
 @section('title', $procurementRequest->title)
@@ -45,12 +54,22 @@
         </div>
     @endif
 
-    <div class="ui-actions" aria-label="Status">
-        <span class="ui-badge ui-badge--{{ $procurementRequest->statusTone() }}">{{ $procurementRequest->statusLabel() }}</span>
-        @if($project)
-            <span class="ui-mode ui-mode--{{ $project->mode()->family() }}">{{ $project->mode()->label() }}</span>
-            <span class="ui-badge ui-badge--{{ $project->portalStatus()['tone'] }}">Project: {{ $project->portalStatus()['label'] }}</span>
-        @endif
+    <div class="pr-toolbar">
+        <div class="ui-actions" aria-label="Status">
+            <span class="ui-badge ui-badge--{{ $procurementRequest->statusTone() }}">{{ $procurementRequest->statusLabel() }}</span>
+            @if($project)
+                <span class="ui-mode ui-mode--{{ $project->mode()->family() }}">{{ $project->mode()->label() }}</span>
+                <span class="ui-badge ui-badge--{{ $project->portalStatus()['tone'] }}">Project: {{ $project->portalStatus()['label'] }}</span>
+            @endif
+        </div>
+        <div class="ui-actions pr-toolbar__tools">
+            <a href="{{ $askUrl }}" class="ui-btn ui-btn--ghost ui-btn--sm"><i class="fas fa-comments" aria-hidden="true"></i> Ask the BAC</a>
+            <a href="{{ route('end-user.requests.print', $procurementRequest) }}" class="ui-btn ui-btn--ghost ui-btn--sm" target="_blank" rel="noopener"><i class="fas fa-print" aria-hidden="true"></i> Print PR form</a>
+            <form method="POST" action="{{ route('end-user.requests.duplicate', $procurementRequest) }}" data-confirm="Make a new draft with the same items, specifications and amounts? Attachments are not copied." data-confirm-title="Duplicate {{ $procurementRequest->reference_no }}?" data-confirm-button="Duplicate">
+                @csrf
+                <button type="submit" class="ui-btn ui-btn--ghost ui-btn--sm"><i class="fas fa-copy" aria-hidden="true"></i> Duplicate</button>
+            </form>
+        </div>
     </div>
 
     @if($missing !== [])
@@ -160,3 +179,11 @@
     </div>
 </div>
 @endsection
+
+@push('head')
+<style>
+    .pr-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+    .pr-toolbar__tools { gap: 6px; }
+    .pr-toolbar__tools form { display: contents; }
+</style>
+@endpush

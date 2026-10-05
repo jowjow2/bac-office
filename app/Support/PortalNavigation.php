@@ -30,6 +30,7 @@ class PortalNavigation
                 'admin' => self::item('Messages', 'admin.messages', 'fa-comments', ['admin.messages*'], badge: $unreadMessages, badgeAttr: 'data-message-badge'),
                 'staff' => self::item('Messages', 'staff.messages', 'fa-comments', ['staff.messages*'], badge: $unreadMessages, badgeAttr: 'data-message-badge'),
                 'bidder' => self::item('BAC messages', 'bidder.messages', 'fa-comments', ['bidder.messages*'], badge: $unreadMessages, badgeAttr: 'data-message-badge'),
+                'end_user' => self::item('Messages', 'end-user.messages', 'fa-comments', ['end-user.messages*'], badge: $unreadMessages, badgeAttr: 'data-message-badge'),
                 default => null,
             },
             self::item('Notifications', match ($user->role) {
@@ -118,8 +119,8 @@ class PortalNavigation
             ]],
             ['title' => 'Purchase requests', 'items' => [
                 self::item('Infrastructure tracking', 'end-user.infrastructure.index', 'fa-helmet-safety', ['end-user.infrastructure.*']),
-                self::item('My purchase requests', 'end-user.requests.index', 'fa-file-signature', ['end-user.requests.index', 'end-user.requests.show', 'end-user.requests.edit']),
-                self::item('New purchase request', 'end-user.requests.create', 'fa-circle-plus', ['end-user.requests.create']),
+                // New requests start from the button on the dashboard and on this list.
+                self::item('My purchase requests', 'end-user.requests.index', 'fa-file-signature', ['end-user.requests.*']),
             ]],
         ];
     }

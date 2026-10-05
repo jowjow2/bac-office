@@ -1,7 +1,7 @@
 @extends('layouts.portal')
 
 @section('title', 'My purchase requests')
-@section('subtitle', 'Every purchase request filed by '.auth()->user()->office.'.')
+@section('subtitle', 'The purchase requests you filed for '.auth()->user()->office.'.')
 
 @section('actions')
     <a href="{{ route('end-user.requests.create') }}" class="ui-btn ui-btn--primary"><i class="fas fa-plus" aria-hidden="true"></i> New purchase request</a>
@@ -12,9 +12,9 @@
 <div class="ui-page">
     <section class="ui-card">
         <nav class="ui-tabs ui-tabs--inset" aria-label="Filter by status">
-            <a class="ui-tab" href="{{ route('end-user.requests.index', array_filter(['q' => $search])) }}" @if(! $status) aria-current="page" @endif>All</a>
+            <a class="ui-tab" href="{{ route('end-user.requests.index', array_filter(['q' => $search, 'year' => $year])) }}" @if(! $status) aria-current="page" @endif>All</a>
             @foreach($statuses as $key => $label)
-                <a class="ui-tab" href="{{ route('end-user.requests.index', array_filter(['status' => $key, 'q' => $search])) }}" @if($status === $key) aria-current="page" @endif>{{ $label }}</a>
+                <a class="ui-tab" href="{{ route('end-user.requests.index', array_filter(['status' => $key, 'q' => $search, 'year' => $year])) }}" @if($status === $key) aria-current="page" @endif>{{ $label }}</a>
             @endforeach
         </nav>
 
@@ -25,6 +25,17 @@
                 <span class="sr-only">Search requests</span>
                 <input type="search" name="q" value="{{ $search }}" class="ui-input" placeholder="Search by title or PR number">
             </label>
+            @if($years->count() > 1)
+                <div class="ui-field">
+                    <label for="request-year" class="sr-only">Year</label>
+                    <select id="request-year" name="year" class="ui-input" data-autosubmit>
+                        <option value="">All years</option>
+                        @foreach($years as $option)
+                            <option value="{{ $option }}" @selected($year === $option)>{{ $option }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
             <button type="submit" class="ui-btn ui-btn--secondary">Search</button>
         </form>
 

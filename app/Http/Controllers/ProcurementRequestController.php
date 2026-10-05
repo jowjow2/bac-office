@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\AuditLog;
 use App\Models\ProcurementRequest;
 use App\Models\ProcurementRequestDocument;
+use App\Models\Project;
 use App\Models\User;
+use App\Models\UserNotification;
 use App\Support\EndUserAccess;
 use App\Support\ProcurementPipeline;
 use App\Support\ProcurementTimeline;
@@ -27,6 +29,9 @@ use Throwable;
  */
 class ProcurementRequestController extends Controller
 {
+    /** Days a draft can sit before its owner is reminded about it. */
+    private const DRAFT_REMINDER_DAYS = 7;
+
     /* ---------------------------------------------------------------------
      | End-user office
      * ------------------------------------------------------------------- */
@@ -36,6 +41,7 @@ class ProcurementRequestController extends Controller
         $office = Auth::user()->office;
         // This account's own requests and procurements, not its office colleagues' (EndUserAccess).
         $requests = EndUserAccess::requests(Auth::user())->latest('updated_at')->get();
+        $this->remindAboutStaleDrafts(Auth::user(), $requests);
         $pipeline = ProcurementPipeline::forEndUser(Auth::user());
         $filters = ProcurementPipeline::filtersFrom($request);
 
@@ -51,7 +57,73 @@ class ProcurementRequestController extends Controller
             'filters' => $filters,
             'rows' => $pipeline->paginate($filters, 10),
             'upcoming' => $pipeline->upcoming(),
+            'budget' => $this->budgetSummary($requests),
+            'activity' => SystemNotification::forUser(Auth::id(), 5),
+            // Shown once per sign-in, like the bidder's welcome card.
+            'welcome' => (bool) $request->session()->pull('end_user_welcome', false),
         ]);
+    }
+
+    /**
+     * A draft untouched for a week gets one reminder notification ("You still
+     * have a draft"). Done when the owner opens the dashboard, because the
+     * hosting has no scheduler; it is never sent twice for the same draft.
+     */
+    private function remindAboutStaleDrafts(User $user, $requests): void
+    {
+        $stale = $requests->filter(fn (ProcurementRequest $request) => $request->status === ProcurementRequest::STATUS_DRAFT
+            && $request->updated_at !== null
+            && $request->updated_at->lt(now()->subDays(self::DRAFT_REMINDER_DAYS)));
+
+        foreach ($stale as $draft) {
+            $already = UserNotification::query()
+                ->where('user_id', $user->id)
+                ->where('type', 'procurement_request')
+                ->where('title', 'Draft still waiting')
+                ->where('message', 'like', $draft->reference_no.'%')
+                ->exists();
+
+            if ($already) {
+                continue;
+            }
+
+            SystemNotification::createForUser(
+                $user->id,
+                'Draft still waiting',
+                $draft->reference_no.' ('.$draft->title.') has been a draft since '.$draft->updated_at->diffForHumans().'. Complete it and submit it for the PPMP/APP review, or delete what you no longer need.',
+                'procurement_request',
+                ['url' => route('end-user.requests.edit', $draft)],
+            );
+        }
+    }
+
+    /**
+     * This year's money on the dashboard: what the account requested, what is
+     * in procurement, what was awarded and the savings against the ABC.
+     *
+     * @return array{requested: float, in_procurement: float, awarded: float, savings: float, year: int}
+     */
+    private function budgetSummary($requests): array
+    {
+        $year = (int) now()->year;
+        $thisYear = $requests->filter(fn (ProcurementRequest $request) => (int) $request->created_at?->year === $year);
+        $filed = $thisYear->reject(fn (ProcurementRequest $request) => in_array($request->status, [ProcurementRequest::STATUS_DRAFT, ProcurementRequest::STATUS_REJECTED], true));
+
+        $projects = Project::query()
+            ->whereIn('procurement_request_id', $thisYear->pluck('id'))
+            ->with('awards')
+            ->get();
+        // The award in force: the latest one that was not cancelled.
+        $contract = fn (Project $project) => $project->awards->whereNull('cancelled_at')->sortByDesc('id')->first()?->contract_amount;
+        $awarded = $projects->filter(fn (Project $project) => $contract($project) !== null);
+
+        return [
+            'year' => $year,
+            'requested' => (float) $filed->sum('estimated_cost'),
+            'in_procurement' => (float) $projects->reject(fn (Project $project) => $awarded->contains($project))->sum('budget'),
+            'awarded' => (float) $awarded->sum(fn (Project $project) => (float) $contract($project)),
+            'savings' => (float) $awarded->sum(fn (Project $project) => max(0, (float) $project->budget - (float) $contract($project))),
+        ];
     }
 
     public function notifications()
@@ -66,7 +138,14 @@ class ProcurementRequestController extends Controller
         $status = $request->query('status');
         $search = trim((string) $request->query('q', ''));
 
+        // Years the account has requests in, newest first, for the year filter.
+        $years = EndUserAccess::requests(Auth::user())->pluck('created_at')
+            ->map(fn ($date) => (int) $date?->year)->filter()->unique()->sortDesc()->values();
+        $year = (int) $request->query('year', 0);
+        $year = $years->contains($year) ? $year : null;
+
         $requests = EndUserAccess::requests(Auth::user())
+            ->when($year, fn ($query) => $query->whereBetween('created_at', [now()->setYear($year)->startOfYear(), now()->setYear($year)->endOfYear()]))
             ->when(array_key_exists((string) $status, ProcurementRequest::STATUSES), fn ($query) => $query->where('status', $status))
             ->when($search !== '', fn ($query) => $query->where(fn ($inner) => $inner
                 ->where('title', 'like', '%'.$search.'%')
@@ -75,7 +154,7 @@ class ProcurementRequestController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        return view('end-user.requests.index', compact('requests', 'status', 'search'));
+        return view('end-user.requests.index', compact('requests', 'status', 'search', 'years', 'year'));
     }
 
     public function create()
@@ -186,6 +265,44 @@ class ProcurementRequestController extends Controller
 
         return redirect()->route('end-user.requests.show', $procurementRequest)
             ->with('success', 'Request '.$procurementRequest->reference_no.' submitted for PPMP/APP review.');
+    }
+
+    /**
+     * A new draft with the same items, specifications and amounts, for an
+     * office that buys the same things again (e.g. supplies every quarter).
+     * Attachments, reviews and dates are not copied.
+     */
+    public function duplicate(ProcurementRequest $procurementRequest)
+    {
+        $this->authorizeRequester($procurementRequest);
+
+        $fields = ['title', 'category', 'specifications', 'quantity', 'unit', 'estimated_cost', 'fund_source', 'delivery_period', 'justification'];
+        if (ProcurementRequest::storesItems()) {
+            $fields[] = 'items';
+        }
+
+        $copy = DB::transaction(fn () => ProcurementRequest::create($procurementRequest->only($fields) + [
+            'reference_no' => ProcurementRequest::nextReferenceNo(),
+            'end_user_office' => Auth::user()->office,
+            'requested_by' => Auth::id(),
+            'status' => ProcurementRequest::STATUS_DRAFT,
+        ]));
+
+        AuditLog::log('procurement_request_duplicated', $copy, null, ['reference_no' => $copy->reference_no, 'copied_from' => $procurementRequest->reference_no]);
+
+        return redirect()->route('end-user.requests.edit', $copy)
+            ->with('success', 'Copied '.$procurementRequest->reference_no.' to the new draft '.$copy->reference_no.'. Check the quantities and the estimated cost, then submit it.');
+    }
+
+    /** The Purchase Request form to print and sign (the paper copy for the records). */
+    public function printForm(ProcurementRequest $procurementRequest)
+    {
+        $this->authorizeRequester($procurementRequest);
+
+        return view('end-user.requests.print', [
+            'procurementRequest' => $procurementRequest->load('requester'),
+            'rows' => $procurementRequest->itemRows(),
+        ]);
     }
 
     public function destroyDocument(ProcurementRequest $procurementRequest, ProcurementRequestDocument $document)
