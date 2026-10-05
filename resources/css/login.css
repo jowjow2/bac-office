@@ -1340,7 +1340,7 @@
     box-shadow: none;
 }
 
-#authModal.success-state :is(.auth-close, .auth-tabs, .auth-form, .alert.error) {
+#authModal.success-state :is(.auth-close, .auth-brand, .auth-tabs, .auth-form, .alert.error) {
     display: none !important;
 }
 
