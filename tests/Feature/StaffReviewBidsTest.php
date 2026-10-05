@@ -237,8 +237,19 @@ it('shows staff their assigned projects with tasks and review links, and honest 
         ->assertDontSee('>Validate<', false);
 
     $report = testCase()->actingAs($staff)->get(route('staff.reports'))->assertOk()
-        ->assertSee('Government savings')->assertSee('Passed preliminary');
+        ->assertSee('Government savings')->assertSee('Passed preliminary')
+        ->assertSee('Where your projects stand')->assertSee('5.6% below the ABC of awarded projects')->assertSee('50,000.00');
     // Savings count only the awarded project's ABC (900,000 - 850,000), not the open project's.
     expect($report->viewData('governmentSavings'))->toBe(50000.0)
         ->and($report->viewData('totalAwardedAmount'))->toBe(850000.0);
+});
+
+it('explains an empty staff report instead of showing zeros', function () {
+    testCase()->withoutVite();
+    $staff = \App\Models\User::create(['name' => 'New Staff', 'email' => 'new-staff-report@example.com', 'password' => \Illuminate\Support\Facades\Hash::make('password'), 'role' => 'staff', 'status' => 'active', 'office' => 'BAC Secretariat']);
+
+    testCase()->actingAs($staff)->get(route('staff.reports'))->assertOk()
+        ->assertSee('No projects are assigned to you yet')
+        ->assertDontSee('Download PDF')
+        ->assertDontSee('Total ABC');
 });

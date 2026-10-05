@@ -657,7 +657,9 @@ class StaffController extends Controller
             'governmentSavings',
             'bidParticipation',
             'bidderPerformance',
-            'staffNotifications'
+            'staffNotifications',
+            'activeAwards',
+            'awardedBudget'
         ) + [
             'staffNotificationCount' => $staffNotificationItems->whereNull('read_at')->count(),
         ];
