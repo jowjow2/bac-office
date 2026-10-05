@@ -64,10 +64,8 @@
         </div>
     </section>
 
-    @include('partials.portal.pipeline', ['routeName' => $routeName])
-
     <div class="ui-grid ui-grid--sidebar">
-        @include('partials.portal.register', ['routeName' => $routeName])
+        @include('partials.portal.register', ['routeName' => $routeName, 'stageTabs' => true])
 
         <div class="ui-stack">
             @include('partials.portal.upcoming')

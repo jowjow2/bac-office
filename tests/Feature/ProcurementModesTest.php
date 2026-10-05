@@ -173,7 +173,7 @@ it('groups procurements into pipeline buckets and filters the register', functio
 
     testCase()->actingAs($this->admin)->get(route('admin.dashboard', ['stage' => 'posted']))
         ->assertOk()
-        ->assertSee('Pipeline by stage')
+        ->assertSee('aria-label="Filter by stage"', false)
         ->assertSee('Posted RFQ')
         ->assertSee('Road bidding')
         ->assertDontSee('Draft goods');

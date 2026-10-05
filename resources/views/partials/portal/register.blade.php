@@ -23,6 +23,21 @@
         @endif
     </header>
 
+    {{-- The procurement stages as filters of this list (overview only). --}}
+    @if($stageTabs ?? false)
+        @php
+            $keep = array_filter(['mode' => $filters['mode'], 'q' => $filters['q'] ?: null, 'state' => $filters['state'] !== 'active' ? $filters['state'] : null]);
+            $allCount = array_sum(array_map('intval', $buckets));
+        @endphp
+        <nav class="ui-stage-tabs" aria-label="Filter by stage">
+            <a href="{{ route($routeName, $keep) }}" class="ui-stage-tab" @unless($filters['stage']) aria-current="true" @endunless>All <span>{{ number_format($allCount) }}</span></a>
+            @foreach(ProcurementPipeline::BUCKETS as $key => $bucket)
+                @php $count = (int) ($buckets[$key] ?? 0); @endphp
+                <a href="{{ route($routeName, $keep + ['stage' => $key]) }}" class="ui-stage-tab {{ $count === 0 ? 'is-empty' : '' }}" title="{{ $bucket['hint'] }}" @if($filters['stage'] === $key) aria-current="true" @endif>{{ $bucket['label'] }} <span>{{ number_format($count) }}</span></a>
+            @endforeach
+        </nav>
+    @endif
+
     <form method="GET" action="{{ route($routeName) }}" class="ui-toolbar" role="search" aria-label="Filter the register">
         <div class="ui-search">
             <i class="fas fa-magnifying-glass" aria-hidden="true"></i>

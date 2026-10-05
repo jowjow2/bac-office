@@ -93,7 +93,7 @@ it('renders the admin procurement overview with KPIs, pipeline, register and upc
     ($this->dump)('admin-dashboard', testCase()->actingAs($this->admin)->get(route('admin.dashboard')))
         ->assertOk()
         ->assertSee('Procurement overview')
-        ->assertSee('Pipeline by stage')
+        ->assertSee('aria-label="Filter by stage"', false)
         ->assertSee('SJ-BAC-2026-I-004')
         ->assertSee('PR-2026-0031')
         ->assertSee('Competitive')
@@ -168,7 +168,7 @@ it('leads the overview with the work waiting for each role, and leaves out what 
     User::create(['name' => 'New Supplier', 'email' => 'portal-new-bidder@example.com', 'password' => Hash::make('password'), 'role' => 'bidder', 'status' => 'pending', 'company' => 'New Supplier Co.']);
 
     testCase()->actingAs($this->admin)->get(route('admin.dashboard'))->assertOk()
-        ->assertSeeInOrder(['Needs your action', 'Purchase requests to review', 'Bidder registrations', 'Pipeline by stage'])
+        ->assertSeeInOrder(['Needs your action', 'Purchase requests to review', 'Bidder registrations', 'Filter by stage'])
         ->assertSee(route('admin.users', ['filter' => 'pending']), false)
         ->assertDontSee('Notices to Proceed to issue')
         ->assertDontSee('Past the IRR award period');
