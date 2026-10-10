@@ -2013,7 +2013,7 @@
                                             <a href="{{ $award->noticeToProceedUrl() }}" target="_blank" rel="noopener">View NTP <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
                                         </span>
                                         <ul class="award-stage-checks">
-                                            @foreach([['Received by bidder', $award->ntp_received_on], ['Posted on PhilGEPS', $award->ntp_philgeps_posted_on]] as [$checkLabel, $checkDate])
+                                            @foreach([['Received by bidder', $award->ntp_received_on]] as [$checkLabel, $checkDate])
                                                 <li class="{{ $checkDate ? 'is-done' : 'is-todo' }}">
                                                     <i class="fas {{ $checkDate ? 'fa-circle-check' : 'fa-circle' }}" aria-hidden="true"></i>
                                                     <span>{{ $checkLabel }}<small>{{ $checkDate ? $checkDate->format('M d, Y') : 'Not recorded' }}</small></span>
@@ -2021,18 +2021,12 @@
                                             @endforeach
                                         </ul>
                                         <details class="award-ntp-record">
-                                            <summary><i class="fas fa-pen" aria-hidden="true"></i> {{ $award->ntp_received_on && $award->ntp_philgeps_posted_on ? 'Edit' : 'Record' }} receipt &amp; PhilGEPS</summary>
+                                            <summary><i class="fas fa-pen" aria-hidden="true"></i> {{ $award->ntp_received_on ? 'Edit' : 'Record' }} receipt</summary>
                                             <form action="{{ route('admin.awards.ntp.update', $award) }}" method="POST">
                                                 @csrf
                                                 @method('PUT')
                                                 <label>Received by the bidder on
                                                     <input type="date" name="ntp_received_on" value="{{ $award->ntp_received_on?->toDateString() }}" min="{{ $award->ntp_issued_on->toDateString() }}" max="{{ now($ntpTz)->toDateString() }}">
-                                                </label>
-                                                <label>Posted on PhilGEPS on
-                                                    <input type="date" name="ntp_philgeps_posted_on" value="{{ $award->ntp_philgeps_posted_on?->toDateString() }}" min="{{ $award->ntp_issued_on->toDateString() }}" max="{{ now($ntpTz)->toDateString() }}">
-                                                </label>
-                                                <label>PhilGEPS reference or link
-                                                    <input type="text" name="ntp_philgeps_reference" maxlength="500" value="{{ $award->ntp_philgeps_reference }}">
                                                 </label>
                                                 <button type="submit" class="award-ntp-save">Save</button>
                                             </form>
