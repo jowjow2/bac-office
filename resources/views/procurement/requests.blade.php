@@ -275,5 +275,21 @@
     .pr-delete__go { border-color: var(--ui-danger) !important; background: var(--ui-danger) !important; color: #fff !important; }
     .pr-delete__go:hover { filter: brightness(.95); }
 </style>
+    @if($recordForm ?? false)
+        <div class="eu-modal" role="dialog" aria-modal="true" aria-labelledby="eu-modal-title" data-eu-modal data-close-url="{{ route('admin.requests') }}">
+            <div class="eu-modal__card">
+                <header class="eu-modal__head">
+                    <div>
+                        <h2 id="eu-modal-title">Record purchase request</h2>
+                        <p>Record the signed hard copy an end-user office handed to the BAC. It goes straight to the PPMP/APP and funds review.</p>
+                    </div>
+                    <a href="{{ route('admin.requests') }}" class="eu-modal__close" data-eu-modal-close aria-label="Close"><i class="fas fa-xmark" aria-hidden="true"></i></a>
+                </header>
+                <div class="eu-modal__body">
+                    @include('procurement.request-form')
+                </div>
+            </div>
+        </div>
+    @endif
 @endsection
 

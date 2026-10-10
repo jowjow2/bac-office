@@ -1,5 +1,4 @@
-@extends('layouts.portal')
-
+{{-- The Record purchase request form, shown as a dialog over the queue (ProcurementRequestController::adminCreate). --}}
 @php
     /** @var \App\Models\ProcurementRequest $procurementRequest */
     $editing = false;
@@ -16,15 +15,6 @@
     $steps = ['What to procure', 'Quantity, cost & schedule', 'Planning documents', 'Review & submit'];
 @endphp
 
-@section('title', 'Record purchase request')
-@section('crumbs')
-    <a href="{{ route('admin.requests') }}">Purchase requests</a>
-    <span aria-hidden="true">/</span>
-    <span>New</span>
-@endsection
-@section('subtitle', 'Record the signed hard copy an end-user office handed to the BAC. It goes straight to the PPMP/APP and funds review.');
-
-@section('content')
     @if($errors->any())
         <div class="ui-alert ui-alert--danger" role="alert" id="form-errors" tabindex="-1">
             <i class="fas fa-circle-exclamation" aria-hidden="true"></i>
@@ -66,7 +56,7 @@
                                 <option value="{{ $office }}" @selected(old('end_user_office') === $office)>{{ $office }}</option>
                             @endforeach
                         </select>
-                        <span class="ui-hint">The office on the signed hard copy. Its accounts can follow the request.</span>
+                        <span class="ui-hint">The office named on the signed hard copy.</span>
                         <span class="ui-error" id="end_user_office-error" data-client @unless($errors->has('end_user_office')) hidden @endunless>{{ $errors->first('end_user_office') }}</span>
                     </div>
 
@@ -264,9 +254,6 @@
         </div>
     </form>
 
-
-@endsection
-
 @push('head')
 <style>
     .pr-items { display: grid; gap: 10px; min-width: 0; }
@@ -415,3 +402,61 @@
 </script>
 @endpush
 
+
+@push('head')
+<style>
+    .eu-modal { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 20px; background: rgba(15, 25, 21, .55); backdrop-filter: blur(2px); animation: eu-modal-fade .2s ease both; }
+    .eu-modal__card { display: grid; grid-template-rows: auto minmax(0, 1fr); width: min(960px, 100%); max-height: min(920px, calc(100dvh - 40px)); overflow: hidden; border-radius: 16px; background: var(--ui-surface); box-shadow: 0 24px 70px rgba(0, 0, 0, .32); animation: eu-modal-rise .28s cubic-bezier(.2, .8, .2, 1) both; }
+    .eu-modal__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px 22px 14px; border-bottom: 1px solid var(--ui-line); }
+    .eu-modal__head h2 { margin: 0; color: var(--ui-ink); font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
+    .eu-modal__head p { margin: 3px 0 0; color: var(--ui-muted); font-size: 13px; line-height: 1.45; }
+    .eu-modal__close { display: grid; flex: 0 0 34px; width: 34px; height: 34px; place-items: center; border: 1px solid var(--ui-line); border-radius: 9px; color: var(--ui-muted); text-decoration: none; }
+    .eu-modal__close:hover { background: var(--ui-surface-2); color: var(--ui-ink); }
+    .eu-modal__body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+    .eu-modal__body > .ui-alert { margin: 14px 22px 0; }
+    .eu-modal__body > form.ui-card { border: 0; border-radius: 0; box-shadow: none; }
+    body.eu-modal-open { overflow: hidden; }
+    @keyframes eu-modal-fade { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes eu-modal-rise { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
+    @media (max-width: 760px) {
+        .eu-modal { padding: 0; align-items: end; }
+        .eu-modal__card { width: 100%; max-height: 94dvh; border-radius: 16px 16px 0 0; }
+        .eu-modal__head { padding: 14px 16px 12px; }
+    }
+    @media (prefers-reduced-motion: reduce) { .eu-modal, .eu-modal__card { animation: none; } }
+</style>
+@endpush
+
+@push('scripts')
+<script>
+    // Esc, the X and the backdrop go back to the queue; a form with typed-in details asks first.
+    (function () {
+        const modal = document.querySelector('[data-eu-modal]');
+        if (!modal) return;
+        const form = modal.querySelector('form');
+        const closeUrl = modal.dataset.closeUrl;
+        document.body.classList.add('eu-modal-open');
+
+        const dirty = () => Array.from(form.querySelectorAll('input:not([type=hidden]):not([type=file]):not([type=radio]), textarea, select'))
+            .some((field) => field.value !== field.defaultValue && field.value !== '' && !(field.tagName === 'SELECT' && field.selectedIndex === 0));
+        const leave = async () => {
+            if (dirty() && window.bacConfirm) {
+                const yes = await window.bacConfirm({ title: 'Discard this request?', message: 'What you typed has not been recorded.', confirmLabel: 'Discard', tone: 'danger' });
+                if (!yes) return;
+            }
+            window.location.href = closeUrl;
+        };
+
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal || event.target.closest('[data-eu-modal-close]')) { event.preventDefault(); leave(); }
+        });
+        // Esc acts on key-up, and only when the key went down with no confirmation open.
+        let escArmed = false;
+        const confirmOpen = () => Boolean(document.querySelector('.bac-confirm'));
+        document.addEventListener('keydown', (event) => { if (event.key === 'Escape') escArmed = !confirmOpen(); });
+        document.addEventListener('keyup', (event) => { if (event.key === 'Escape' && escArmed) { escArmed = false; leave(); } });
+        const first = form.querySelector('select[name="end_user_office"]');
+        if (first && window.matchMedia('(hover: hover) and (pointer: fine)').matches) first.focus({ preventScroll: true });
+    })();
+</script>
+@endpush

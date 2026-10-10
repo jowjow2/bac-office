@@ -49,9 +49,11 @@ class ProcurementRequestController extends Controller
      | no individual owner, so every account of that office can follow it.
      * ------------------------------------------------------------------- */
 
-    public function adminCreate()
+    /** The queue, with the recording form open as a dialog over it. */
+    public function adminCreate(Request $request)
     {
-        return view('procurement.request-form', [
+        return $this->queue($request)->with([
+            'recordForm' => true,
             'procurementRequest' => new ProcurementRequest(['unit' => 'lot']),
             'adminMode' => true,
             'offices' => User::assignableEndUserOffices(),
