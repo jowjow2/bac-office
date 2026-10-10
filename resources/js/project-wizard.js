@@ -259,8 +259,8 @@ if (root && form) {
         $('[data-pw-mode-rule]').textContent = text;
 
         // Dates step wording.
-        $('[data-pw-deadline-label]').textContent = { competitive: 'Deadline for submission of bids', negotiated: 'Deadline for submission of offers' }[fam] || (fam ? 'Deadline for submission of quotations' : 'Deadline for submission');
-        $('[data-pw-opening-label]').textContent = fam === 'competitive' || !fam ? 'Bid opening' : `Opening of ${noun()}`;
+        $('[data-pw-deadline-label]').textContent = { competitive: 'Deadline for submission of bids', negotiated: 'Deadline for submission of offers' }[fam] || (fam ? 'Deadline for submission of bids' : 'Deadline for submission');
+        $('[data-pw-opening-label]').textContent = fam === 'competitive' || !fam ? 'Bid opening' : (fam === 'negotiated' ? 'Opening of offers' : 'Opening of bids');
         $('[data-pw-opening-required]').hidden = false;
         $('[data-pw-opening-rule]').textContent = fam === 'competitive'
             ? 'Same day as the deadline, right after it.'
@@ -1358,7 +1358,6 @@ function nextWorkingDay(date, inclusive = true) {
             ...(isCompetitive() ? [['Pre-procurement conference', dated('pre_procurement_conference_at') ? `${dated('pre_procurement_conference_at')}${val('pre_procurement_reference') ? ` — ${val('pre_procurement_reference')}` : ''}` : (preProcRequired() ? '' : 'Not held (optional at this ABC)'), preProcRequired()]] : []),
             ['Publication', `On publishing: ${phLabel(rules.today)}`],
             ['Pre-bid conference', dated('pre_bid_conference_date') || (prebidRequired() ? '' : 'Not scheduled'), prebidRequired()],
-            ['Clarifications close', dated('clarification_deadline')],
             [$('[data-pw-deadline-label]').textContent, dated('bid_submission_deadline'), true],
             [$('[data-pw-opening-label]').textContent, dated('bid_opening_date'), true],
             ...(isCompetitive() ? [['Place of bid opening', val('bid_opening_venue'), true]] : []),

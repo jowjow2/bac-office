@@ -459,12 +459,16 @@ final class ProcurementMode
         return match ($this->family()) {
             self::FAMILY_COMPETITIVE => 'Deadline for submission of bids',
             self::FAMILY_NEGOTIATED => 'Deadline for submission of offers',
-            default => 'Deadline for submission of quotations',
+            default => 'Deadline for submission of bids',
         };
     }
 
     public function openingLabel(): string
     {
-        return $this->isCompetitive() ? 'Bid opening' : 'Opening of '.$this->submissionNoun(true);
+        if ($this->isCompetitive()) {
+            return 'Bid opening';
+        }
+
+        return $this->family() === self::FAMILY_NEGOTIATED ? 'Opening of offers' : 'Opening of bids';
     }
 }

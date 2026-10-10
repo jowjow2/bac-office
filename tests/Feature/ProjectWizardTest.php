@@ -49,7 +49,7 @@ it('shows the linked purchase request and every field of the five steps', functi
         'required_documents[]', 'eligibility_requirements', 'technical_requirements', 'financial_requirements', 'qualification_notes', 'special_instructions',
         'submission_mode', 'submission_venue', 'bidding_documents_fee', 'payment_venue', 'bid_security_required', 'bid_security_notes', 'electronic_submission_authority',
         'document_type[]', 'project_documents[]',
-        'date_posted', 'pre_bid_conference_date', 'clarification_deadline', 'bid_submission_deadline', 'bid_opening_date', 'evaluation_start_date', 'expected_award_date',
+        'date_posted', 'pre_bid_conference_date', 'bid_submission_deadline', 'bid_opening_date', 'evaluation_start_date', 'expected_award_date',
         'confirm_correct', 'status',
     ] as $name) {
         $response->assertSee('name="'.$name.'"', false);

@@ -147,7 +147,7 @@ it('shows bidders the fee, bid security, submission method, deadline and their s
     testCase()->actingAs($this->bidder)->get(route('bidder.opportunities.show', $this->rfq))
         ->assertOk()
         ->assertSee('none for this notice')
-        ->assertSee('Deadline for submission of quotations')
+        ->assertSee('Deadline for submission of bids')
         ->assertSee('RCPT-0042');
 });
 
