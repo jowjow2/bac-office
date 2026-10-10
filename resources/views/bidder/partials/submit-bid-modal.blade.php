@@ -208,7 +208,13 @@
                                 </div>
                                 <span class="sb-count" data-sb-count="1"></span>
                             </div>
-                            @include('bidder.partials.submit-bid-files', ['items' => $components['technical']['items'], 'component' => 'technical'])
+                            @php $combinedOffered = $electronic && $components['technical']['items']->where('required', true)->count() > 1; @endphp
+                            @if($combinedOffered)
+                                @include('bidder.partials.submit-bid-combined', ['items' => $components['technical']['items']])
+                            @endif
+                            <div data-sb-separate @if($combinedOffered && ! ($isModifying && $draftFiles->isNotEmpty())) hidden @endif>
+                                @include('bidder.partials.submit-bid-files', ['items' => $components['technical']['items'], 'component' => 'technical'])
+                            </div>
                         </section>
 
                         {{-- Financial component stays separate and sealed, but is submitted with the technical component. --}}

@@ -497,3 +497,36 @@ it('keeps bids submitted before submission channels existed as submitted', funct
         ->assertSee('Bid submitted')
         ->assertDontSee('Continue draft');
 });
+
+it('takes the whole technical component as one combined file recorded against every required item', function () {
+    $project = ($this->makeProject)();
+    ($this->authorizeElectronic)($project);
+
+    testCase()->actingAs($this->bidder)->get(route('bidder.available-projects'))->assertOk()
+        ->assertSee('One combined file')
+        ->assertSee('name="documents[technical_combined]"', false)
+        ->assertSee('Your file must include');
+
+    $requirements = BidSubmissionRequirements::for($project);
+    $financial = $requirements->financial()->where('required', true)->mapWithKeys(fn ($item) => [$item['key'] => ($this->pdf)($item['key'].'.pdf')])->all();
+    $technicalKeys = $requirements->technical()->where('required', true)->pluck('key')->all();
+
+    ($this->submit)($project, ['bid_amount' => '2,400,000.00', 'documents' => ['technical_combined' => ($this->pdf)('technical-all-in-one.pdf')] + $financial])
+        ->assertSessionHasNoErrors();
+
+    $bid = Bid::where('user_id', $this->bidder->id)->firstOrFail();
+    $technical = $bid->documents()->where('component', 'technical')->get();
+    expect($technical->pluck('requirement_key')->all())->toEqualCanonicalizing($technicalKeys)
+        ->and($technical->pluck('original_name')->unique()->all())->toBe(['technical-all-in-one.pdf'])
+        ->and($technical->pluck('file_path')->unique())->toHaveCount(1)
+        ->and($technical->every(fn ($document) => $document->reviewEvents()->count() === 1))->toBeTrue();
+});
+
+it('still asks for every required technical item when no combined file is sent', function () {
+    $project = ($this->makeProject)();
+    ($this->authorizeElectronic)($project);
+    $financial = BidSubmissionRequirements::for($project)->financial()->where('required', true)->mapWithKeys(fn ($item) => [$item['key'] => ($this->pdf)($item['key'].'.pdf')])->all();
+
+    ($this->submit)($project, ['bid_amount' => '2,400,000.00', 'documents' => $financial])->assertSessionHasErrors('documents');
+    expect(Bid::where('user_id', $this->bidder->id)->exists())->toBeFalse();
+});

@@ -473,6 +473,47 @@
         .bidder-submit-modal-overlay .sb-filetable .sb-file-actions .sb-btn { flex: 0 1 auto; }
     }
 
+    /* ---------- Technical component as one combined file ---------- */
+    .bidder-submit-modal-overlay .sb-mode { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0 0 14px; }
+    .bidder-submit-modal-overlay .sb-mode-opt { position: relative; display: flex; align-items: flex-start; gap: 11px; padding: 13px 15px; border: 1px solid var(--sb-line); border-radius: 12px; background: #fff; cursor: pointer; transition: border-color .15s ease, background .15s ease, box-shadow .15s ease; }
+    .bidder-submit-modal-overlay .sb-mode-opt:hover { border-color: var(--ui-line-strong); }
+    .bidder-submit-modal-overlay .sb-mode-opt input { margin: 3px 0 0; accent-color: var(--ui-primary, #1d4f40); }
+    .bidder-submit-modal-overlay .sb-mode-opt:has(input:checked) { border-color: var(--ui-primary, #1d4f40); background: var(--ui-success-soft, #eaf6ef); box-shadow: 0 0 0 1px var(--ui-primary, #1d4f40) inset; }
+    .bidder-submit-modal-overlay .sb-mode-opt:has(input:focus-visible) { outline: 2px solid var(--ui-primary, #1d4f40); outline-offset: 2px; }
+    .bidder-submit-modal-overlay .sb-mode-copy { display: grid; gap: 2px; }
+    .bidder-submit-modal-overlay .sb-mode-copy strong { color: var(--ui-ink); font-size: 13.5px; }
+    .bidder-submit-modal-overlay .sb-mode-copy small { color: var(--ui-muted); font-size: 12px; line-height: 1.4; }
+    .bidder-submit-modal-overlay .sb-combined { display: grid; gap: 14px; }
+    .bidder-submit-modal-overlay .sb-combined[hidden], .bidder-submit-modal-overlay [data-sb-separate][hidden] { display: none; }
+    .bidder-submit-modal-overlay .sb-drop { position: relative; display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 22px 22px; border: 2px dashed var(--ui-line-strong, #cfd8d3); border-radius: 14px; background: var(--ui-surface-2, #f7faf8); transition: border-color .15s ease, background .15s ease; }
+    .bidder-submit-modal-overlay .sb-drop:hover { border-color: var(--ui-primary, #1d4f40); }
+    .bidder-submit-modal-overlay .sb-drop.has-file { border-style: solid; border-color: var(--ui-success-line, #b7dfc8); background: var(--ui-success-soft, #eaf6ef); }
+    .bidder-submit-modal-overlay .sb-drop.is-invalid { border-color: var(--ui-danger-line, #f1b9b0); }
+    .bidder-submit-modal-overlay .sb-drop-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px; background: #fff; color: var(--ui-primary, #1d4f40); font-size: 22px; box-shadow: 0 1px 2px rgba(27, 36, 32, .08); }
+    .bidder-submit-modal-overlay .sb-drop-copy { display: grid; gap: 3px; min-width: 0; }
+    .bidder-submit-modal-overlay .sb-drop-copy strong { color: var(--ui-ink); font-size: 14.5px; }
+    .bidder-submit-modal-overlay .sb-drop-copy > span { color: var(--ui-muted); font-size: 12.5px; }
+    .bidder-submit-modal-overlay .sb-drop-chosen { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bidder-submit-modal-overlay .sb-drop.has-file .sb-drop-chosen { color: var(--ui-success, #1f7a4d); font-weight: 700; }
+    .bidder-submit-modal-overlay .sb-drop-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    .bidder-submit-modal-overlay .sb-includes { padding: 16px 18px; border: 1px solid var(--sb-line); border-radius: 14px; background: #fff; }
+    .bidder-submit-modal-overlay .sb-includes h4 { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin: 0; color: var(--ui-ink); font-size: 14px; }
+    .bidder-submit-modal-overlay .sb-includes h4 span { color: var(--ui-muted); font-size: 12px; font-weight: 600; }
+    .bidder-submit-modal-overlay .sb-includes > p { margin: 4px 0 0; color: var(--ui-muted); font-size: 12.5px; }
+    .bidder-submit-modal-overlay .sb-includes-list { display: grid; gap: 0; margin: 12px 0 0; padding: 0; list-style: none; }
+    .bidder-submit-modal-overlay .sb-includes-list li { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-top: 1px solid var(--ui-line-soft, #eef2ef); color: var(--ui-ink); font-size: 13.5px; line-height: 1.4; }
+    .bidder-submit-modal-overlay .sb-includes-list li:first-child { border-top: 0; }
+    .bidder-submit-modal-overlay .sb-includes-list small { display: block; margin-top: 2px; color: var(--ui-muted); font-size: 12px; }
+    .bidder-submit-modal-overlay .sb-includes-no { display: grid; flex: 0 0 26px; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--sb-soft); color: var(--ui-ink-2); font-size: 12px; font-weight: 700; }
+    .bidder-submit-modal-overlay .sb-combined.is-filled .sb-includes-no { background: var(--ui-success, #1f7a4d); color: #fff; }
+    .bidder-submit-modal-overlay .sb-includes-extra { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--ui-line-soft, #eef2ef); }
+    @media (max-width: 760px) {
+        .bidder-submit-modal-overlay .sb-mode { grid-template-columns: 1fr; }
+        .bidder-submit-modal-overlay .sb-drop { grid-template-columns: 44px minmax(0, 1fr); padding: 16px; }
+        .bidder-submit-modal-overlay .sb-drop-icon { width: 44px; height: 44px; }
+        .bidder-submit-modal-overlay .sb-drop-actions { grid-column: 1 / -1; justify-content: flex-start; }
+    }
+
     /* ---------- Financial offer: ABC reference, live budget check, PIN boxes ---------- */
     .bidder-submit-modal-overlay .sb-abc { display: grid; gap: 2px; margin: 12px 0 0; padding: 10px 12px; border: 1px solid var(--sb-line); border-radius: 10px; background: var(--ui-surface-2, #f7faf8); }
     .bidder-submit-modal-overlay .sb-abc span { color: var(--ui-muted); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
@@ -594,8 +635,44 @@
             function rows(component) {
                 return Array.from(form.querySelectorAll('[data-sb-files="' + component + '"] [data-upload-box]'));
             }
+            // "One combined file": the single file stands for every required technical item.
+            function combinedInput() { return form.querySelector('[data-combined-input]'); }
+            function combinedOn() {
+                const choice = form.querySelector('input[name="technical_mode"]:checked');
+                return Boolean(choice) && choice.value === 'combined' && Boolean(combinedInput());
+            }
+            function combinedName() {
+                const input = combinedInput();
+                return input && input.files && input.files.length ? input.files[0].name : '';
+            }
+            function setActive(input, active) {
+                if (!input) return;
+                if (active) {
+                    input.disabled = false;
+                    if (input.dataset.wasRequired === '1') { input.setAttribute('data-required-upload', ''); input.required = true; }
+                } else {
+                    if (input.hasAttribute('data-required-upload')) { input.dataset.wasRequired = '1'; }
+                    input.removeAttribute('data-required-upload');
+                    input.required = false;
+                    input.disabled = true;
+                }
+            }
+            function applyMode() {
+                const combined = combinedOn();
+                form.querySelectorAll('[data-sb-files="technical"] [data-upload-input]').forEach(function (input) { setActive(input, !combined); });
+                setActive(combinedInput(), combined);
+                const drop = form.querySelector('[data-sb-combined]');
+                const separate = form.querySelector('[data-sb-separate]');
+                if (drop) drop.hidden = !combined;
+                if (separate) separate.hidden = combined;
+                if (drop) drop.classList.toggle('is-filled', Boolean(combinedName()));
+            }
             function rowState(row) {
                 const input = row.querySelector('[data-upload-input]');
+                if (combinedOn() && row.closest('[data-sb-files="technical"]')) {
+                    const shared = combinedName();
+                    return { label: row.dataset.label, file: shared, record: '', required: row.dataset.required === '1', missing: !shared && row.dataset.required === '1' };
+                }
                 const file = input && input.files && input.files.length ? input.files[0].name : '';
                 return {
                     label: row.dataset.label,
@@ -727,8 +804,21 @@
                 }
             }
 
-            form.addEventListener('input', refresh);
-            form.addEventListener('change', refresh);
+            form.querySelectorAll('input[name="technical_mode"]').forEach(function (radio) {
+                radio.addEventListener('change', function () {
+                    applyMode();
+                    const input = combinedInput();
+                    // Lets the page's own readiness checks run again for the active set.
+                    if (input) input.dispatchEvent(new Event('change', { bubbles: true }));
+                    refresh();
+                });
+            });
+            applyMode();
+            // The page's own readiness check ran before this mode was applied; let it run again.
+            const priceBox = form.querySelector('[data-bid-amount]');
+            if (priceBox) priceBox.dispatchEvent(new Event('blur'));
+            form.addEventListener('input', function () { applyMode(); refresh(); });
+            form.addEventListener('change', function () { applyMode(); refresh(); });
             dialog.querySelectorAll('[data-upload-remove]').forEach(function (button) {
                 button.addEventListener('click', function () { setTimeout(function () { refresh(); }, 0); });
             });

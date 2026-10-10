@@ -49,6 +49,8 @@ class BidSubmission
             throw ValidationException::withMessages(['financial_password' => 'Set a 6-digit financial PIN.']);
         }
 
+        $files = $this->expandCombinedTechnicalFile($requirements, $files);
+
         $this->assertBeforeDeadline($project);
         $this->assertBiddingFeePaid($project, $bidder);
         $amount = $this->normalizeAmount($amount);
@@ -64,9 +66,11 @@ class BidSubmission
         $this->assertFiles($requirements, $files, $electronic, $modifying ? $existing->documents->pluck('requirement_key')->all() : []);
 
         $stored = [];
+        // One combined technical file is stored once and recorded against every required technical item.
+        $sharedPaths = [];
 
         try {
-            $bid = DB::transaction(fn () => VercelBlob::batchWrites(function () use ($project, $bidder, $amount, $files, $notes, $financialPassword, $requirements, $electronic, &$stored) {
+            $bid = DB::transaction(fn () => VercelBlob::batchWrites(function () use ($project, $bidder, $amount, $files, $notes, $financialPassword, $requirements, $electronic, &$stored, &$sharedPaths) {
                 $lockedProject = Project::with('schedule')->lockForUpdate()->findOrFail($project->id);
                 // Checked again under the lock: the deadline is enforced at the moment of saving.
                 $this->assertBeforeDeadline($lockedProject);
@@ -116,14 +120,19 @@ class BidSubmission
                         $storedFile = app(FinancialBidFile::class)->store($file, $project->id, $bid->id, (string) $key);
                         $path = $storedFile['path'];
                         $encryptedAt = $storedFile['encrypted_at'];
+                    } elseif (isset($sharedPaths[spl_object_id($file)])) {
+                        $path = $sharedPaths[spl_object_id($file)];
                     } else {
                         $path = Uploads::store(
                             $file,
                             'bid-submissions/'.$project->id.'/'.$bid->id.'/'.$item['component'],
                             $key.'_'.bin2hex(random_bytes(6)).'.'.strtolower($file->getClientOriginalExtension())
                         );
+                        $sharedPaths[spl_object_id($file)] = $path;
                     }
-                    $stored[] = $path;
+                    if (! in_array($path, $stored, true)) {
+                        $stored[] = $path;
+                    }
                     $previous = $bid->documents()->where('requirement_key', $key)->first();
                     $documentAttributes = [
                         'requirement_key' => $key,
@@ -304,6 +313,29 @@ class BidSubmission
                     .number_format((float) $abc, 2).'. Bids above the ABC are not accepted.',
             ]);
         }
+    }
+
+    /**
+     * The bidder may send the whole technical component as one combined file ("technical_combined").
+     * It stands for every required technical item that was not uploaded on its own; each item keeps
+     * its own record, so the BAC still checks the requirements one by one.
+     *
+     * @param  array<string, UploadedFile>  $files
+     * @return array<string, UploadedFile>
+     */
+    private function expandCombinedTechnicalFile(BidSubmissionRequirements $requirements, array $files): array
+    {
+        $combined = $files['technical_combined'] ?? null;
+        unset($files['technical_combined']);
+        if ($combined === null) {
+            return $files;
+        }
+
+        foreach ($requirements->technical()->where('required', true) as $item) {
+            $files[$item['key']] ??= $combined;
+        }
+
+        return $files;
     }
 
     /**
