@@ -24,6 +24,7 @@
                 @endif
             </div>
             <div class="sb-file-actions">
+                <button type="button" class="sb-btn sb-btn--secondary sb-btn--sm" data-upload-change>Choose file</button>
                 <button type="button" class="sb-btn sb-btn--ghost sb-btn--sm" data-upload-remove hidden>Remove</button>
             </div>
             <input type="file" class="sb-file-input" name="documents[{{ $item['key'] }}]" id="{{ $inputId }}" accept=".pdf,.doc,.docx,.xls,.xlsx" data-upload-input @if($mustUpload) data-required-upload required @endif>

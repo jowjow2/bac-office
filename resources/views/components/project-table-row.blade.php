@@ -8,17 +8,21 @@
         && (!$project->deadline->isToday() || $project->deadline->format('H:i:s') !== '00:00:00');
     // Past the deadline the project no longer takes bids: submissions are closed until the opening is recorded.
     $displayStatusLabel = $isOverdue
-        ? ($project->requiresRecordedBidOpening() ? 'Awaiting opening' : 'Submission closed')
+        ? 'Awaiting opening'
         : \Illuminate\Support\Str::ucfirst(str_replace('_', ' ', $project->status ?: 'draft'));
     $displayStatusClass = $isOverdue ? 'closed' : str_replace('_', '-', $project->status ?: 'draft');
     $hasBidAnomaly = $budget > 0 && $project->relationLoaded('bids') && $project->bids->contains(function ($bid) use ($budget) {
-        return (((float) $bid->bid_amount - $budget) / $budget) * 100 > 500;
+        return $bid->financial_opened_at !== null && $bid->financial_opened_by !== null
+            && (((float) $bid->bid_amount - $budget) / $budget) * 100 > 500;
     });
     $deadlineTone = 'none';
     $deadlineMeta = 'No date set';
 
     if ($project->deadline) {
         if ($isOverdue) {
+            $deadlineTone = 'past';
+            $deadlineMeta = 'Submission closed';
+        } elseif ($project->bidSubmissionDeadline()?->isPast()) {
             $deadlineTone = 'past';
             $deadlineMeta = 'Submission closed';
         } elseif ($project->deadline->isToday()) {
@@ -61,7 +65,7 @@
     </td>
     <td data-label="Deadline">
         <span class="projects-deadline projects-deadline--{{ $deadlineTone }}">
-            <strong>{{ $project->deadline ? $project->deadline->format('M d, Y') : 'Not set' }}</strong>
+            <strong>{{ $project->bidSubmissionDeadline()?->timezone(config('bac-office.display_timezone'))->format('M d, Y h:i A') ?? 'Not set' }}</strong>
             <small>{{ $deadlineMeta }}</small>
         </span>
     </td>

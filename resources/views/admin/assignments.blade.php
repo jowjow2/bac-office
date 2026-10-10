@@ -376,6 +376,250 @@
             border-color: var(--ui-info) !important;
             background: var(--ui-info) !important;
         }
+
+        /* Staff assignment workspace */
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignments-page {
+            background: #f5f7f6;
+        }
+
+        .assignments-ui .assignment-overview {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding: 22px 26px;
+            border: 1px solid #dce6e1;
+            border-radius: 14px;
+            background: #fff;
+        }
+
+        .assignments-ui .assignment-overview-eyebrow,
+        .assignments-ui .assignment-card-label {
+            margin: 0 0 6px;
+            color: #4c6c60;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .assignments-ui .assignment-overview h2 {
+            margin: 0 0 4px;
+            color: #173b31;
+            font-size: 21px;
+            line-height: 1.25;
+        }
+
+        .assignments-ui .assignment-overview p:last-child {
+            margin: 0;
+            color: #62736b;
+            font-size: 13px;
+        }
+
+        .assignments-ui .assignment-overview-stats {
+            display: flex;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .assignments-ui .assignment-overview-stat {
+            min-width: 120px;
+            padding: 11px 16px;
+            border: 1px solid #dce6e1;
+            border-radius: 10px;
+            background: #f8faf9;
+        }
+
+        .assignments-ui .assignment-overview-stat strong {
+            display: block;
+            color: #173b31;
+            font-size: 22px;
+            line-height: 1.1;
+        }
+
+        .assignments-ui .assignment-overview-stat span {
+            display: block;
+            margin-top: 4px;
+            color: #66776e;
+            font-size: 11px;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-staff-list {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            align-items: start;
+            gap: 18px;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-staff-card {
+            min-width: 0;
+            border: 1px solid #dce6e1 !important;
+            border-radius: 14px !important;
+            box-shadow: 0 6px 20px rgba(21, 57, 45, .04) !important;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-staff-head {
+            gap: 14px !important;
+            padding: 21px 22px 18px !important;
+        }
+
+        .assignments-ui .assignment-staff-identity {
+            display: flex;
+            align-items: center;
+            gap: 13px;
+            min-width: 0;
+        }
+
+        .assignments-ui .assignment-avatar {
+            display: grid;
+            place-items: center;
+            width: 44px;
+            height: 44px;
+            flex: 0 0 44px;
+            border-radius: 12px;
+            background: #e5f1eb;
+            color: #1d5946;
+            font-size: 16px;
+            font-weight: 800;
+        }
+
+        .assignments-ui .assignment-staff-details {
+            min-width: 0;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-staff-head h2 {
+            margin-bottom: 3px !important;
+            color: #19382e !important;
+            font-size: 17px !important;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-staff-head p {
+            overflow-wrap: anywhere;
+            color: #66776e !important;
+            font-size: 12px !important;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-open-btn {
+            flex: 0 0 auto;
+            min-height: 38px;
+            padding: 8px 13px !important;
+            border-radius: 8px !important;
+            font-size: 12px !important;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-project-strip {
+            display: block !important;
+            padding: 17px 22px 20px !important;
+            background: #fff !important;
+        }
+
+        .assignments-ui .assignment-card-label {
+            margin-bottom: 11px;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-chip {
+            display: flex !important;
+            width: 100% !important;
+            min-height: 66px !important;
+            justify-content: space-between !important;
+            gap: 14px !important;
+            margin-top: 8px;
+            padding: 11px 12px !important;
+            border-color: #e0e8e3 !important;
+            border-radius: 9px !important;
+            background: #f9fbfa !important;
+            box-shadow: none !important;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-chip-main {
+            display: flex;
+            min-width: 0;
+            flex: 1;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 5px;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-chip-title {
+            color: #203d32 !important;
+            font-size: 13px !important;
+            font-weight: 700 !important;
+            line-height: 1.35;
+        }
+
+        .assignments-ui .assignment-chip-meta {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            color: #65766d;
+            font-size: 11px;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-chip-remove {
+            width: auto !important;
+            height: 32px !important;
+            gap: 6px;
+            padding: 0 10px !important;
+            border-radius: 7px !important;
+            background: #fff !important;
+            font-size: 11px !important;
+            white-space: nowrap;
+        }
+
+        .assignments-ui .assignment-empty {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 13px 14px;
+            border: 1px dashed #cddbd2;
+            border-radius: 9px;
+            background: #f9fbfa;
+            color: #687b70;
+            font-size: 12px;
+        }
+
+        .assignments-ui .assignment-empty i {
+            color: #749584;
+            font-size: 15px;
+        }
+
+        body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-modal-actions .btn-primary {
+            border-color: #1d4f40 !important;
+            background: #1d4f40 !important;
+        }
+
+        @media (max-width: 1050px) {
+            body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-staff-list {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .assignments-ui .assignment-overview {
+                align-items: stretch;
+                flex-direction: column;
+                padding: 19px;
+            }
+
+            .assignments-ui .assignment-overview-stats {
+                width: 100%;
+            }
+
+            .assignments-ui .assignment-overview-stat {
+                min-width: 0;
+                flex: 1;
+            }
+
+            body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-staff-head {
+                padding: 18px !important;
+            }
+
+            body .admin-dashboard.admin-role-page .main-area.assignments-ui .assignment-project-strip {
+                padding: 16px 18px 18px !important;
+            }
+        }
     </style>
 
     @include('partials.admin-sidebar')
@@ -403,19 +647,32 @@
                 </div>
             @endif
 
-            <section class="assignment-staff-list">
+            @php
+                $assignmentTotal = $staffMembers->sum(fn ($staff) => $staff->assignments->count());
+            @endphp
+
+            <section class="assignment-overview" aria-label="Assignment summary">
+                <div>
+                    <p class="assignment-overview-eyebrow">Team coverage</p>
+                    <h2>Project assignments</h2>
+                    <p>Manage the projects each staff member can work on.</p>
+                </div>
+                <div class="assignment-overview-stats">
+                    <div class="assignment-overview-stat"><strong>{{ $staffMembers->count() }}</strong><span>Active staff</span></div>
+                    <div class="assignment-overview-stat"><strong>{{ $assignmentTotal }}</strong><span>Assignments</span></div>
+                </div>
+            </section>
+
+            <section class="assignment-staff-list" aria-label="Staff and assigned projects">
                 @forelse($staffMembers as $staff)
                     <article class="assignment-staff-card">
                         <div class="assignment-staff-head">
-                            <div>
-                                <h2>{{ $staff->name }}</h2>
-                                <p>
-                                    {{ $staff->email }}
-                                    @if($staff->office)
-                                        &middot; {{ $staff->office }}
-                                    @endif
-                                    &middot; {{ $staff->assignments->count() }} project(s) assigned
-                                </p>
+                            <div class="assignment-staff-identity">
+                                <div class="assignment-avatar" aria-hidden="true">{{ mb_strtoupper(mb_substr($staff->name, 0, 1)) }}</div>
+                                <div class="assignment-staff-details">
+                                    <h2>{{ $staff->name }}</h2>
+                                    <p>{{ $staff->email }}@if($staff->office) &middot; {{ $staff->office }}@endif</p>
+                                </div>
                             </div>
 
                             <button
@@ -423,30 +680,34 @@
                                 class="btn-primary assignment-open-btn"
                                 data-modal-target="assignment-modal-{{ $staff->id }}"
                             >
-                                <i class="fas fa-plus"></i> Assign Project
+                                <i class="fas fa-plus" aria-hidden="true"></i> Assign project
                             </button>
                         </div>
 
                         <div class="assignment-project-strip">
+                            <p class="assignment-card-label">Assigned projects &middot; {{ $staff->assignments->count() }}</p>
                             @forelse($staff->assignments as $assignment)
                                 <div class="assignment-chip">
                                     <div class="assignment-chip-main">
                                         <span class="assignment-chip-title">{{ $assignment->project->title ?? 'N/A' }}</span>
-                                        <span class="status-pill status-{{ $assignment->project->status ?? 'open' }}">
-                                            {{ $assignment->project->status ?? 'open' }}
+                                        <span class="assignment-chip-meta">
+                                            @if($assignment->project?->reference_no)
+                                                <span>{{ $assignment->project->reference_no }}</span>
+                                            @endif
+                                            <span class="status-pill status-{{ $assignment->project->status ?? 'open' }}">{{ ucfirst($assignment->project->status ?? 'open') }}</span>
                                         </span>
                                     </div>
 
                                     <form action="{{ route('admin.assignments.destroy', $assignment) }}" method="POST" data-confirm-title="Remove this assignment?" data-confirm="{{ $assignment->project->title ?? 'This project' }} will no longer be assigned to this staff member." data-confirm-button="Remove assignment" data-confirm-tone="danger">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="assignment-chip-remove" aria-label="Remove assignment">
-                                            <i class="fas fa-times"></i>
+                                        <button type="submit" class="assignment-chip-remove" aria-label="Remove {{ $assignment->project->title ?? 'project' }} from {{ $staff->name }}">
+                                            <i class="fas fa-times" aria-hidden="true"></i> Remove
                                         </button>
                                     </form>
                                 </div>
                             @empty
-                                <div class="empty-state">No projects assigned yet.</div>
+                                <div class="assignment-empty"><i class="far fa-folder-open" aria-hidden="true"></i><span>No projects assigned yet. Use “Assign project” to get started.</span></div>
                             @endforelse
                         </div>
                     </article>
@@ -475,8 +736,11 @@
 
                                 <div class="assignment-form-grid" style="margin-bottom: 12px;">
                                     <div class="field-group">
-                                        <label>Select Project</label>
-                                        <select name="project_id" class="form-select" required>
+                                        <label for="assignment-project-{{ $staff->id }}">Select project</label>
+                                        <select id="assignment-project-{{ $staff->id }}" name="project_id" class="form-select" required {{ $staff->available_projects->isEmpty() ? 'disabled' : '' }}>
+                                            @if($staff->available_projects->isEmpty())
+                                                <option value="">No projects available</option>
+                                            @endif
                                             @foreach($staff->available_projects as $project)
                                                 <option value="{{ $project->id }}">{{ $project->title }}</option>
                                             @endforeach
@@ -486,7 +750,7 @@
 
                                 <div class="assignment-modal-actions" style="border-top: 1px solid #edf2f7; padding-top: 18px; margin-top: 10px;">
                                     <button type="button" class="btn-secondary" data-modal-close="assignment-modal-{{ $staff->id }}">Cancel</button>
-                                    <button type="submit" class="btn-primary">Assign</button>
+                                    <button type="submit" class="btn-primary" {{ $staff->available_projects->isEmpty() ? 'disabled' : '' }}>Assign project</button>
                                 </div>
                             </form>
                         </div>

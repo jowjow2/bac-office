@@ -143,9 +143,7 @@ class BidWorkflow
         }
 
         if (! $f['bids_opened']) {
-            return $bid->project?->mode()->isCompetitive()
-                ? 'Bids for this project have not been opened yet.'
-                : 'The quotation/offer deadline has not passed yet.';
+            return 'The scheduled bid opening has not been recorded yet.';
         }
 
         if ($action === self::START_POST_QUALIFICATION
@@ -156,6 +154,7 @@ class BidWorkflow
             self::PASS_PRELIMINARY, self::FAIL_PRELIMINARY => $f['prelim_passed'] ? 'Preliminary examination is already recorded for this bid.' : null,
             self::START_EVALUATION => match (true) {
                 ! $f['prelim_passed'] => 'The bid must pass preliminary examination first.',
+                $bid->isFinancialSealed() => 'Open the financial bid with the bidder password before starting evaluation.',
                 $f['evaluated'] || $f['evaluation_started_at'] !== null => 'Evaluation is already started for this bid.',
                 default => null,
             },
@@ -168,6 +167,7 @@ class BidWorkflow
             },
             self::FAIL_EVALUATION => match (true) {
                 ! $f['prelim_passed'] => 'Use "Failed Preliminary Examination" for a bid that has not passed preliminary examination.',
+                $bid->isFinancialSealed() => 'Open the financial bid with the bidder password before recording an evaluation result.',
                 $f['evaluation_started_at'] === null => 'Start detailed evaluation before recording its result.',
                 $f['post_qualification_started'] => 'Use "Failed Post-Qualification" for a bid under post-qualification.',
                 $f['recommended'] => 'This bid is already recommended for award.',

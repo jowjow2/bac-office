@@ -180,9 +180,9 @@
                     </div>
 
                     <div class="pe-field">
-                        <label class="pe-label" for="pe_opening">Bid opening</label>
-                        <input type="datetime-local" id="pe_opening" name="bid_opening_date" value="{{ old('bid_opening_date', $when($project->schedule?->bid_opening_date)) }}" class="pe-input">
-                        <p class="pe-hint">Same day, right after the deadline.</p>
+                        <label class="pe-label" for="pe_opening">{{ $mode->openingLabel() }} @if($project->status !== 'draft')<span class="pe-req" aria-hidden="true">*</span>@endif</label>
+                        <input type="datetime-local" id="pe_opening" name="bid_opening_date" value="{{ old('bid_opening_date', $when($project->schedule?->bid_opening_date)) }}" @if($project->status !== 'draft') required @endif class="pe-input">
+                        <p class="pe-hint">After the submission deadline. Technical files open at this time.</p>
                         <p class="pe-error" data-error-for="bid_opening_date"></p>
                     </div>
 

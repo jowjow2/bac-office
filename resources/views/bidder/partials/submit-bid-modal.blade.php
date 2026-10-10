@@ -36,6 +36,7 @@
                 </p>
                 <h2 class="sb-title" id="bid-modal-title-{{ $pid }}">{{ $title }}</h2>
                 <p class="sb-project">{{ $project->title }}</p>
+                <p class="sb-seal-note"><i class="fas fa-shield-halved" aria-hidden="true"></i> Submit both components now. Technical opens at the scheduled bid opening; financial stays sealed until the BAC approves the technical review.</p>
                 <div class="sb-chips">
                     <span class="sb-chip"><i class="fas fa-scale-balanced" aria-hidden="true"></i> ABC &#8369;{{ number_format($abc, 2) }}</span>
                     <span class="sb-chip {{ $daysLeftLabel && str_contains($daysLeftLabel, 'today') ? 'is-warn' : '' }}"><i class="fas fa-clock" aria-hidden="true"></i> Deadline {{ $deadlineLocal ? $deadlineLocal->format('M d, Y h:i A') : 'not set' }}{{ $daysLeftLabel ? ' · '.$daysLeftLabel : '' }}</span>
@@ -49,7 +50,35 @@
             </button>
         </header>
 
-<div class="sb-body" data-scroll-body>
+        <div class="sb-body" data-scroll-body>
+            <details class="sb-context" data-sb-notice>
+                <summary>
+                    <span class="sb-context-title"><i class="fas fa-circle-info" aria-hidden="true"></i> Project notice &amp; bidding documents</span>
+                    <span class="sb-context-times">Deadline {{ $deadlineLocal?->format('M d, h:i A') ?? 'not set' }} <span aria-hidden="true">&middot;</span> Opening {{ $openingAt?->format('M d, h:i A') ?? 'not set' }}</span>
+                </summary>
+                <div class="sb-context-content">
+                    <div class="sb-context-card">
+                        <h3>Project notice</h3>
+                        <dl class="sb-notice">
+                            <div><dt>BAC publication</dt><dd>{{ $project->published_at ? $project->published_at->timezone($tz)->format('M d, Y h:i A') : 'Published in this system' }}</dd></div>
+                            <div><dt>PhilGEPS Reference No.</dt><dd>{{ $project->philgeps_reference_no ?: 'Not recorded' }}</dd></div>
+                            <div><dt>Solicitation No.</dt><dd>{{ $project->reference_no ?: 'Not provided' }}</dd></div>
+                            <div><dt>Procurement Category</dt><dd>{{ $requirements->categoryLabel() }}</dd></div>
+                            <div><dt>Mode of Procurement</dt><dd>{{ $requirements->modeLabel() }}</dd></div>
+                            <div><dt>Approved Budget for the Contract</dt><dd><strong>&#8369;{{ number_format($abc, 2) }}</strong></dd></div>
+                            <div><dt>Submission Deadline</dt><dd>{{ $deadlineLocal ? $deadlineLocal->format('M d, Y h:i A') : 'Not set' }}</dd></div>
+                            <div><dt>Bid Opening</dt><dd>{{ $openingAt ? $openingAt->format('M d, Y h:i A') : 'To be announced' }}</dd></div>
+                            <div><dt>Submission Method</dt><dd>{{ $electronic ? 'Online' : 'Manual (sealed bid)' }}</dd></div>
+                            <div><dt>Bidding Documents Fee</dt><dd>{{ $requiresFee ? $feeLabel.', paid at the BAC' : ($project->biddingFeeWaived() ? 'Waived by the BAC' : 'Free') }}</dd></div>
+                            <div><dt>Bid Security</dt><dd>{{ $project->bid_security_required ? 'Required, submitted with the bid' : 'Not required' }}</dd></div>
+                        </dl>
+                    </div>
+                    <div class="sb-context-files">
+                        @include('bidder.partials.project-documents', ['project' => $project, 'compact' => true])
+                        @include('bidder.partials.project-requirements', ['project' => $project, 'showDocumentChips' => false])
+                    </div>
+                </div>
+            </details>
             <div class="sb-main">
                 <form method="POST" action="{{ route('bidder.bids.store', $project) }}" enctype="multipart/form-data" class="sb-form" id="{{ $formId }}" novalidate data-bid-form data-abc="{{ number_format($abc, 2, '.', '') }}" data-payment-locked="{{ $paymentLocked ? 'true' : 'false' }}" data-project-id="{{ $pid }}" data-owner="{{ auth()->id() }}" @if($electronic && \App\Support\VercelBlob::enabled()) data-direct-upload-url="{{ route('bidder.bids.upload-token', $project) }}" data-direct-upload-folder="bid-uploads/{{ auth()->id() }}/{{ $pid }}" @endif data-electronic="{{ $electronic ? 'true' : 'false' }}">
                     @csrf
@@ -311,28 +340,6 @@
                 </form>
             </div>
 
-            <aside class="sb-rail" aria-label="Project notice">
-                <details class="sb-rail-block" open data-sb-notice>
-                    <summary>Project notice</summary>
-                    <dl class="sb-notice">
-                        <div><dt>BAC publication</dt><dd>{{ $project->published_at ? $project->published_at->timezone($tz)->format('M d, Y h:i A') : 'Published in this system' }}</dd></div>
-                        <div><dt>PhilGEPS Reference No.</dt><dd>{{ $project->philgeps_reference_no ?: 'Not recorded' }}</dd></div>
-                        <div><dt>Solicitation No.</dt><dd>{{ $project->reference_no ?: 'Not provided' }}</dd></div>
-                        <div><dt>Procurement Category</dt><dd>{{ $requirements->categoryLabel() }}</dd></div>
-                        <div><dt>Mode of Procurement</dt><dd>{{ $requirements->modeLabel() }}</dd></div>
-                        <div><dt>Approved Budget for the Contract</dt><dd><strong>&#8369;{{ number_format($abc, 2) }}</strong></dd></div>
-                        <div><dt>Submission Deadline</dt><dd>{{ $deadlineLocal ? $deadlineLocal->format('M d, Y h:i A') : 'Not set' }}</dd></div>
-                        <div><dt>Bid Opening</dt><dd>{{ $openingAt ? $openingAt->format('M d, Y h:i A') : 'To be announced' }}</dd></div>
-                        <div><dt>Submission Method</dt><dd>{{ $electronic ? 'Online' : 'Manual (sealed bid)' }}</dd></div>
-                        <div><dt>Bidding Documents Fee</dt><dd>{{ $requiresFee ? $feeLabel.', paid at the BAC' : ($project->biddingFeeWaived() ? 'Waived by the BAC' : 'Free') }}</dd></div>
-                        <div><dt>Bid Security</dt><dd>{{ $project->bid_security_required ? 'Required, submitted with the bid' : 'Not required' }}</dd></div>
-                    </dl>
-                </details>
-                <div class="sb-rail-block sb-rail-docs">
-                    @include('bidder.partials.project-documents', ['project' => $project, 'compact' => true])
-                    @include('bidder.partials.project-requirements', ['project' => $project, 'showDocumentChips' => false])
-                </div>
-            </aside>
         </div>
 
         <footer class="sb-foot">

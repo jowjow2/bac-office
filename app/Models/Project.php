@@ -348,10 +348,9 @@ class Project extends Model
     }
 
     /**
-     * Competitive bidding is the only mode in this application that uses a
-     * sealed submission followed by an explicit BAC opening event. RFQs,
-     * negotiated offers and direct quotations follow the configured mode's
-     * deadline/review rules instead of inheriting a competitive-bidding gate.
+     * Competitive bidding uses additional BAC opening records and rules.
+     * Every mode still keeps submitted components sealed until its scheduled
+     * technical opening is recorded.
      */
     public function requiresRecordedBidOpening(): bool
     {
@@ -387,9 +386,7 @@ class Project extends Model
                 'open' => match (true) {
                     $this->isScheduledForPublication() => ['label' => 'Scheduled for publication', 'tone' => 'info'],
                     // The deadline closed submissions; the status column changes at the opening.
-                    $this->submissionDeadlinePassed() => $this->requiresRecordedBidOpening()
-                        ? ['label' => 'Submission closed · awaiting opening', 'tone' => 'warning']
-                        : ['label' => 'Submission closed', 'tone' => 'warning'],
+                    $this->submissionDeadlinePassed() => ['label' => 'Submission closed · awaiting opening', 'tone' => 'warning'],
                     default => ['label' => 'Open for bidding', 'tone' => 'success'],
                 },
                 'closed' => ['label' => 'Bidding closed', 'tone' => 'warning'],
@@ -616,12 +613,14 @@ class Project extends Model
             $warnings['date_posted'] = "The {$deadlineLabel} is less than {$minimumPostingDays} calendar days after the local BAC publication.";
         }
 
+        if ($opening === null) {
+            $conflicts['bid_opening_date'] = 'Set the bid opening schedule.';
+        } elseif ($deadline !== null && $opening->lessThanOrEqualTo($deadline)) {
+            $conflicts['bid_opening_date'] = 'The bid opening must be after the submission deadline.';
+        }
+
         if ($mode->isCompetitive()) {
-            if ($opening === null) {
-                $conflicts['bid_opening_date'] = 'Set the bid opening schedule.';
-            } elseif ($deadline !== null && $opening->lessThan($deadline)) {
-                $conflicts['bid_opening_date'] = 'The bid opening cannot be before the submission deadline.';
-            } elseif ($deadline !== null && ! $opening->isSameDay($deadline)) {
+            if ($opening !== null && $deadline !== null && ! $opening->isSameDay($deadline)) {
                 $warnings['bid_opening_date'] = 'The bid opening is not on the same day as the submission deadline.';
             }
 
@@ -636,8 +635,6 @@ class Project extends Model
                     $warnings['pre_bid_conference_date'] = 'The pre-bid conference is less than 7 calendar days after the local BAC publication (RA 12009 IRR Sec. 51.2).';
                 }
             }
-        } elseif ($opening !== null && $deadline !== null && $opening->lessThan($deadline)) {
-            $conflicts['bid_opening_date'] = 'The '.strtolower($mode->openingLabel()).' cannot be before the '.$deadlineLabel.'.';
         }
 
         return ['conflicts' => $conflicts, 'warnings' => $warnings];

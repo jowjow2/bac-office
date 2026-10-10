@@ -93,7 +93,6 @@ it('shows the project notice and a category-specific checklist in the submit mod
         ->assertSee('Choose technical files')
         ->assertSee('Choose financial files')
         ->assertDontSee('>Choose files</span>', false)
-        ->assertDontSee('data-upload-change>', false)
         ->assertSee('class="sb-steps"', false)
         ->assertSee('data-sb-go="1"', false)
         ->assertSee('data-sb-go="2"', false)

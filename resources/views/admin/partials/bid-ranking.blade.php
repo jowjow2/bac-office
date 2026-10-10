@@ -20,7 +20,7 @@
     ])->filter(fn ($label, $status) => ($counts[$status] ?? 0) > 0)
         ->map(fn ($label, $status) => $counts[$status].' '.$label);
 @endphp
-<section class="bid-ranking" aria-labelledby="bid-ranking-title">
+<section class="bid-ranking {{ $projectRanking->isEmpty() ? 'is-waiting' : '' }}" aria-labelledby="bid-ranking-title">
     <header class="bid-ranking__head">
         <div>
             <p class="bid-ranking__eyebrow">Ranking &middot; {{ $rankedProject->reference_no ?: 'Project #'.$rankedProject->id }}</p>
@@ -36,10 +36,14 @@
     </header>
 
     @if($projectRanking->isEmpty())
-        <p class="bid-ranking__empty">
-            <i class="fas fa-ranking-star" aria-hidden="true"></i>
-            {{ $basis['uses_price'] ? 'No bid can be ranked yet. Bids are ranked once their financial component opening is recorded.' : 'No bid can be ranked yet. Bids are ranked once their technical scores are recorded.' }}
-        </p>
+        <div class="bid-ranking__waiting">
+            <span class="bid-ranking__waiting-icon" aria-hidden="true"><i class="fas {{ $basis['uses_price'] ? 'fa-lock' : 'fa-list-check' }}"></i></span>
+            <div>
+                <strong>{{ $basis['uses_price'] ? 'Financial bids are still sealed' : 'Technical scoring is still in progress' }}</strong>
+                <p>{{ $basis['uses_price'] ? 'Review technical documents first. After approval and PIN verification, opened prices appear here in rank order.' : 'Record the required technical scores to show the ranking.' }}</p>
+            </div>
+            @if($pendingCount > 0)<span class="bid-ranking__waiting-count">{{ $pendingCount }} pending</span>@endif
+        </div>
     @else
         <ol class="bid-ranking__list">
             @foreach($projectRanking as $rankedBid)
@@ -76,7 +80,7 @@
         </ol>
     @endif
 
-    @if($notRanked->isNotEmpty())
+    @if($notRanked->isNotEmpty() && $projectRanking->isNotEmpty())
         <p class="bid-ranking__foot">Not ranked: {{ $notRanked->implode(' · ') }}.</p>
     @endif
 </section>

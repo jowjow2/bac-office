@@ -748,6 +748,54 @@ body .admin-dashboard.admin-role-page .main-area.projects-page {
     & .projects-pagination-page.is-current { border-color: var(--ui-primary) !important; background: var(--ui-primary) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; }
 }
 
+/* Project register and quick view: put the project, schedule, and next action first. */
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-summary-card { min-height: 78px !important; box-shadow: none !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-summary-card.is-active { background: #e8f4ed !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-toolbar { box-shadow: none !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-table-panel { box-shadow: none !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-list-head { display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 12px !important; padding: 16px 18px !important; border-bottom: 1px solid var(--ui-line) !important; background: #fff !important; border-radius: var(--ui-radius-lg) var(--ui-radius-lg) 0 0 !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-list-head span { color: var(--ui-primary) !important; font-size: 10.5px !important; font-weight: 800 !important; letter-spacing: .08em !important; text-transform: uppercase !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-list-head h2 { margin: 3px 0 0 !important; color: var(--ui-ink) !important; font-size: 18px !important; letter-spacing: -.02em !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-list-head > strong { flex: 0 0 auto !important; padding: 5px 10px !important; border-radius: 999px !important; background: var(--ui-primary-soft) !important; color: var(--ui-primary) !important; font-size: 11.5px !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-table th { background: #f8faf8 !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-table td { padding-top: 16px !important; padding-bottom: 16px !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-table :is(th, td):nth-child(3) { width: 168px !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-table :is(th, td):nth-child(6) { width: 135px !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-deadline strong { font-variant-numeric: tabular-nums !important; }
+body #viewProjectModal > div { width: min(980px, 100%) !important; }
+body #viewProjectModal .view-project-modal-header { min-height: 0 !important; padding: 20px 68px 18px 26px !important; background: #fff !important; }
+body #viewProjectModal .view-project-eyebrow { color: var(--ui-primary) !important; font-size: 10.5px !important; font-weight: 800 !important; letter-spacing: .07em !important; text-transform: uppercase !important; }
+body #viewProjectModal .view-project-modal-header h2 { max-width: 760px; font-size: 20px !important; font-weight: 700 !important; line-height: 1.28 !important; }
+body #viewProjectModal .view-project-modal-body { gap: 14px !important; padding: 18px 22px 24px !important; background: #f6f8f6 !important; }
+body #viewProjectModal .vp-hero { display: grid !important; gap: 12px !important; padding: 20px 22px !important; border: 1px solid var(--ui-primary-line) !important; border-radius: 14px !important; background: linear-gradient(120deg, #fff 60%, #f1f8f3) !important; box-shadow: 0 4px 14px rgba(27, 36, 32, .04) !important; }
+body #viewProjectModal .vp-hero-intro { display: flex !important; flex-wrap: wrap !important; align-items: center !important; gap: 8px 12px !important; color: var(--ui-muted) !important; font-size: 12px !important; }
+body #viewProjectModal .vp-hero-description { max-width: 780px !important; margin: 0 !important; color: var(--ui-ink-2) !important; font-size: 13.5px !important; line-height: 1.5 !important; }
+body #viewProjectModal .vp-hero-stats { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 0 !important; margin-top: 4px !important; padding-top: 15px !important; border-top: 1px solid var(--ui-line) !important; }
+body #viewProjectModal .vp-hero-stats > div { display: grid !important; align-content: start !important; gap: 4px !important; min-width: 0 !important; padding: 0 14px !important; border-right: 1px solid var(--ui-line) !important; }
+body #viewProjectModal .vp-hero-stats > div:first-child { padding-left: 0 !important; }
+body #viewProjectModal .vp-hero-stats > div:last-child { padding-right: 0 !important; border-right: 0 !important; }
+body #viewProjectModal .vp-hero-stats span { color: var(--ui-muted) !important; font-size: 11px !important; font-weight: 600 !important; }
+body #viewProjectModal .vp-hero-stats strong { color: var(--ui-ink) !important; font-size: 13px !important; font-variant-numeric: tabular-nums !important; line-height: 1.35 !important; overflow-wrap: anywhere !important; }
+body #viewProjectModal .view-project-summary-section { padding: 18px 22px !important; background: #fff !important; box-shadow: none !important; }
+body #viewProjectModal .view-project-summary-section-title { margin-bottom: 8px !important; font-weight: 700 !important; }
+body #viewProjectModal .view-project-actions { background: #fff !important; }
+@media (max-width: 900px) {
+    body .admin-dashboard.admin-role-page .main-area.projects-page .projects-table :is(th, td):nth-child(3) { width: 144px !important; }
+    body #viewProjectModal .vp-hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px 0 !important; }
+    body #viewProjectModal .vp-hero-stats > div:nth-child(2) { border-right: 0 !important; }
+    body #viewProjectModal .vp-hero-stats > div:nth-child(3) { padding-left: 0 !important; }
+}
+@media (max-width: 640px) {
+    body #viewProjectModal .view-project-modal-header { padding: 16px 54px 14px 18px !important; }
+    body #viewProjectModal .view-project-modal-header h2 { font-size: 17px !important; }
+    body #viewProjectModal .view-project-modal-body { padding: 14px !important; }
+    body #viewProjectModal .vp-hero { padding: 16px !important; }
+    body #viewProjectModal .vp-hero-stats { grid-template-columns: 1fr !important; }
+    body #viewProjectModal .vp-hero-stats > div { padding: 0 0 9px !important; border-right: 0 !important; border-bottom: 1px solid var(--ui-line) !important; }
+    body #viewProjectModal .vp-hero-stats > div:last-child { border-bottom: 0 !important; padding-bottom: 0 !important; }
+    body #viewProjectModal .view-project-summary-section { padding: 16px !important; }
+}
+
 /* ---------- Small laptops: tighter columns keep the title column readable ---------- */
 @media (max-width: 1440px) {
     body .admin-dashboard.admin-role-page .main-area.projects-page {
@@ -911,4 +959,10 @@ body .admin-dashboard.admin-role-page .main-area.projects-page {
         & .projects-waiting { flex-wrap: wrap !important; }
         & .projects-waiting__go { width: 100% !important; justify-content: flex-end !important; }
     }
+}
+
+/* The project summary uses a wider record layout than the edit dialog. */
+body #viewProjectModal > div { width: min(980px, 100%) !important; }
+@media (max-width: 720px) {
+    body #viewProjectModal > div { width: calc(100vw - 24px) !important; }
 }

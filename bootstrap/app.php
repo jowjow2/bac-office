@@ -51,13 +51,18 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->map(fn ($frame) => $relative($frame['file']).':'.($frame['line'] ?? '?'))
                 ->implode(' < ');
             $previous = $exception->getPrevious();
+            $causeFrames = collect($previous?->getTrace() ?? [])
+                ->filter(fn ($frame) => isset($frame['file']) && ! str_contains($frame['file'], DIRECTORY_SEPARATOR.'vendor'.DIRECTORY_SEPARATOR))
+                ->take(4)
+                ->map(fn ($frame) => $relative($frame['file']).':'.($frame['line'] ?? '?'))
+                ->implode(' < ');
             error_log(sprintf('[app-error] %s: %s at %s:%d%s%s',
                 $exception::class,
                 \Illuminate\Support\Str::limit(str_replace(["\r", "\n"], ' ', $exception->getMessage()), 600),
                 $relative($exception->getFile()),
                 $exception->getLine(),
                 $frames !== '' ? ' | via '.$frames : '',
-                $previous ? ' | caused by '.$previous::class.': '.\Illuminate\Support\Str::limit(str_replace(["\r", "\n"], ' ', $previous->getMessage()), 300) : ''
+                $previous ? ' | caused by '.$previous::class.': '.\Illuminate\Support\Str::limit(str_replace(["\r", "\n"], ' ', $previous->getMessage()), 300).($causeFrames !== '' ? ' | from '.$causeFrames : '') : ''
             ));
 
             // Logging to stderr (Vercel): this line is the report; a full stack trace

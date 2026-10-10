@@ -8,7 +8,7 @@
     $nextAction = $bid->isSealed()
         ? 'View sealed submission'
         : ($mode?->isCompetitive() ? 'Review bid' : 'Review '.$mode?->submissionNoun());
-    $openingAt = $mode?->isCompetitive() ? $bid->project?->schedule?->bid_opening_date : null;
+    $openingAt = $bid->project?->schedule?->bid_opening_date;
 @endphp
 <tr>
     <td data-label="Project" class="bid-project-cell">
@@ -37,7 +37,7 @@
     <td data-label="Bid amount" class="bid-amount-cell bid-numeric">
         @if($bid->isFinancialSealed())
             <span class="bid-sealed-value"><i class="fas fa-lock" aria-hidden="true"></i> Sealed</span>
-            <small>{{ ! ($mode?->isCompetitive() ?? true) ? 'Until the '.strtolower($mode->deadlineLabel()) : ($bid->isSealed() ? 'Until recorded opening' : 'Until recorded financial opening') }}</small>
+            <small>{{ $bid->isSealed() ? 'Technical opens at scheduled opening' : 'Opens after technical approval and PIN' }}</small>
         @else
             <strong>&#8369;{{ number_format((float) $bid->amount, 2) }}</strong>
         @endif

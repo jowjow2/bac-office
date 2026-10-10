@@ -99,8 +99,7 @@ it('allows admins to upload a project file during project creation', function ()
         ->get(route('admin.project.view', $project));
 
     $viewResponse->assertOk();
-    $viewResponse->assertSee('Project Files');
-    $viewResponse->assertSee('Click any file below to open its PDF preview.');
+    $viewResponse->assertSee('Bidding Documents');
     $viewResponse->assertSee('scope-of-work.pdf');
     $viewResponse->assertSee('project-specs.docx');
     $viewResponse->assertSee(route('admin.project.document.pdf', ['project' => $project, 'document' => 0]), false);

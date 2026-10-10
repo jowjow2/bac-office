@@ -261,10 +261,10 @@ if (root && form) {
         // Dates step wording.
         $('[data-pw-deadline-label]').textContent = { competitive: 'Deadline for submission of bids', negotiated: 'Deadline for submission of offers' }[fam] || (fam ? 'Deadline for submission of quotations' : 'Deadline for submission');
         $('[data-pw-opening-label]').textContent = fam === 'competitive' || !fam ? 'Bid opening' : `Opening of ${noun()}`;
-        $('[data-pw-opening-required]').hidden = !(fam === 'competitive');
+        $('[data-pw-opening-required]').hidden = false;
         $('[data-pw-opening-rule]').textContent = fam === 'competitive'
             ? 'Same day as the deadline, right after it.'
-            : `Optional. If set, after the ${$('[data-pw-deadline-label]').textContent.toLowerCase()}.`;
+            : `Required. After the ${$('[data-pw-deadline-label]').textContent.toLowerCase()}.`;
         const days = postingDays();
         $('[data-pw-deadline-rule]').textContent = days
             ? `At least ${days} calendar days after publication in this system.`
@@ -952,8 +952,8 @@ if (root && form) {
             warnings.bid_submission_deadline = `Publishing today, the ${deadlineName} should be on or after ${phLabel(addDays(today, postingDays()))} (${postingDays()} calendar days).`;
         }
 
-        if (isCompetitive() && !opening) {
-            errors.bid_opening_date = 'Set the bid opening.';
+        if (!opening) {
+            errors.bid_opening_date = `Set the ${openingName}.`;
         } else if (opening && deadline && opening <= deadline) {
             errors.bid_opening_date = `The ${openingName} must be after the ${deadlineName}.`;
         } else if (opening && deadline && isCompetitive() && datePart(opening) !== datePart(deadline)) {
@@ -1056,15 +1056,11 @@ function nextWorkingDay(date, inclusive = true) {
         }
         setSuggestedDate('bid_submission_deadline', `${deadlineDate}T${deadlineTime}`, changed);
 
-        if (isCompetitive()) {
-            const deadline = val('bid_submission_deadline');
-            const [hour, minute] = (deadline.slice(11, 16) || '10:00').split(':').map(Number);
-            const openingMinute = Math.min(hour * 60 + minute + 30, 17 * 60);
-            const openingTime = `${String(Math.floor(openingMinute / 60)).padStart(2, '0')}:${String(openingMinute % 60).padStart(2, '0')}`;
-            setSuggestedDate('bid_opening_date', `${datePart(deadline)}T${openingTime}`, changed);
-        } else {
-            clearSuggestedDate('bid_opening_date', changed);
-        }
+        const deadline = val('bid_submission_deadline');
+        const [hour, minute] = (deadline.slice(11, 16) || '10:00').split(':').map(Number);
+        const openingMinute = Math.min(hour * 60 + minute + 30, 17 * 60);
+        const openingTime = `${String(Math.floor(openingMinute / 60)).padStart(2, '0')}:${String(openingMinute % 60).padStart(2, '0')}`;
+        setSuggestedDate('bid_opening_date', `${datePart(deadline)}T${openingTime}`, changed);
 
         const anchor = val('bid_opening_date') || val('bid_submission_deadline');
         if (anchor) setSuggestedDate('evaluation_start_date', nextWorkingDay(datePart(anchor), false), changed);
@@ -1364,7 +1360,7 @@ function nextWorkingDay(date, inclusive = true) {
             ['Pre-bid conference', dated('pre_bid_conference_date') || (prebidRequired() ? '' : 'Not scheduled'), prebidRequired()],
             ['Clarifications close', dated('clarification_deadline')],
             [$('[data-pw-deadline-label]').textContent, dated('bid_submission_deadline'), true],
-            [$('[data-pw-opening-label]').textContent, dated('bid_opening_date'), isCompetitive()],
+            [$('[data-pw-opening-label]').textContent, dated('bid_opening_date'), true],
             ...(isCompetitive() ? [['Place of bid opening', val('bid_opening_venue'), true]] : []),
             ['Evaluation starts', dated('evaluation_start_date')],
             ['Expected award', dated('expected_award_date')],

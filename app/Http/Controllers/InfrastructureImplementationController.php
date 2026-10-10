@@ -20,14 +20,14 @@ class InfrastructureImplementationController extends Controller
     public function showAdmin(Award $award) { $this->authorizeLgu($award); return $this->show($award, 'admin'); }
     public function showStaff(Award $award) { $this->authorizeLgu($award); abort_unless(Auth::user()->role === 'staff', 403); return $this->show($award, 'staff'); }
     public function showBidder(Award $award) { $this->authorizeWinner($award); return $this->show($award, 'bidder'); }
-    private function show(Award $award, string $mode) { $record = $this->workflow->ensure($award); $award->load(['project', 'bid.user']); return view('infrastructure-contracts.show', compact('award', 'record', 'mode')); }
+    private function show(Award $award, string $mode) { $record = $this->workflow->ensure($award); $award->load(['project', 'bid.user']); return view(request()->boolean('embed') && in_array($mode, ['admin', 'staff', 'bidder'], true) ? 'infrastructure-contracts.embedded' : 'infrastructure-contracts.show', compact('award', 'record', 'mode')); }
     public function configure(Request $request, Award $award)
     {
         $this->authorizeLgu($award);
         abort_unless(Auth::user()->role === 'admin' || Auth::user()->role === 'staff', 403);
         $data = $this->validatedTerms($request, true);
         $this->workflow->configure($award, Auth::user(), $data, $request->file('document'));
-        return redirect()->route($request->routeIs('staff.*') ? 'staff.infrastructure.show' : 'admin.infrastructure.show', $award)->with('success', 'Infrastructure contract terms recorded from the signed contract.');
+        return redirect()->route($request->routeIs('staff.*') ? 'staff.infrastructure.show' : 'admin.infrastructure.show', array_filter(['award' => $award->id, 'embed' => $request->boolean('embed') ? 1 : null]))->with('success', 'Infrastructure contract terms recorded from the signed contract.');
     }
 
     public function correctTerms(Request $request, Award $award)
@@ -36,7 +36,7 @@ class InfrastructureImplementationController extends Controller
         abort_unless(Auth::user()->role === 'admin', 403);
         $data = $this->validatedTerms($request, false);
         $this->workflow->correctTerms($award, Auth::user(), $data, $request->file('document'));
-        return redirect()->route('admin.infrastructure.show', $award)->with('success', 'Infrastructure contract terms corrected. The change and its reason are in the activity history.');
+        return redirect()->route('admin.infrastructure.show', array_filter(['award' => $award->id, 'embed' => $request->boolean('embed') ? 1 : null]))->with('success', 'Infrastructure contract terms corrected. The change and its reason are in the activity history.');
     }
 
     private function validatedTerms(Request $request, bool $documentRequired): array
@@ -63,7 +63,7 @@ class InfrastructureImplementationController extends Controller
         $data = $request->validate(['progress_percent' => ['required', 'integer', 'min:0', 'max:100'], 'milestone' => ['required', 'string', 'max:255'], 'remarks' => ['required', 'string', 'max:2000'], 'request_inspection' => ['nullable', 'boolean'], 'document' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:20480']]);
         $record = $this->workflow->ensure($award);
         $this->workflow->progress($award, Auth::user(), $data, $request->file('document'), $record->status === ContractImplementation::INFRA_FOR_CORRECTION);
-        return redirect()->route('bidder.awarded-contracts', ['award' => $award->id])->with('success', 'Infrastructure progress update submitted.');
+        return redirect()->route($request->boolean('embed') ? 'bidder.infrastructure.show' : 'bidder.awarded-contracts', $request->boolean('embed') ? ['award' => $award->id, 'embed' => 1] : ['award' => $award->id])->with('success', 'Infrastructure progress update submitted.');
     }
 
     public function inspect(Request $request, Award $award)
@@ -82,7 +82,7 @@ class InfrastructureImplementationController extends Controller
         abort_unless(in_array(Auth::user()->role, ['admin', 'staff'], true), 403);
         $data = $request->validate(['action' => ['required', Rule::in(['accept', 'payment_processing', 'paid', 'complete'])], 'remarks' => ['required', 'string', 'max:2000'], 'document' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:20480']]);
         $this->workflow->action($award, Auth::user(), $data['action'], $data, $request->file('document'));
-        return redirect()->route($request->routeIs('staff.*') ? 'staff.infrastructure.show' : 'admin.infrastructure.show', $award)->with('success', 'Infrastructure contract status updated; the winning supplier was notified.');
+        return redirect()->route($request->routeIs('staff.*') ? 'staff.infrastructure.show' : 'admin.infrastructure.show', array_filter(['award' => $award->id, 'embed' => $request->boolean('embed') ? 1 : null]))->with('success', 'Infrastructure contract status updated; the winning supplier was notified.');
     }
 
     public function document(ContractImplementationEvent $event)

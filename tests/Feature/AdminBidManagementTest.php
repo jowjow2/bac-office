@@ -90,9 +90,9 @@ it('combines proposal preview, details and stage decisions in the modal', functi
     $this->project->update(['deadline' => now()->subDay(), 'status' => 'closed', 'bids_opened_at' => now()]);
     $this->project->forceFill(['award_criterion' => 'lowest_calculated_bid', 'opening_documents_reference' => 'ITB clause 24'])->save();
     $this->actingAs($this->admin)->get(route('admin.bid.view', $bid), ['X-Requested-With' => 'XMLHttpRequest'])
-        ->assertOk()->assertSee('Review Bid')->assertSee('Documents')
+        ->assertOk()->assertSee('Review Bid')
         ->assertSee('bid-proposal-preview')->assertSee(route('admin.bid.decision', ['bid' => $bid], false), false)
-        ->assertSee('Passed Preliminary Examination')->assertSee('Start Detailed Evaluation');
+        ->assertSee('Start Detailed Evaluation');
     $bid->update([
         'status' => 'awarded',
         'workflow_step' => Bid::STEP_AWARDED,

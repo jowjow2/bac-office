@@ -15,7 +15,7 @@
             default => 'admin.infrastructure.show',
         };
     @endphp
-    <a class="ci-open" href="{{ route($infraRoute, $award) }}">
+    <a class="ci-open" href="{{ route($infraRoute, $award) }}" @if(request()->routeIs('admin.awards.index', 'bidder.awarded-contracts')) data-infra-modal aria-haspopup="dialog" aria-controls="infrastructureTrackingModal" @endif>
         <i class="fas fa-helmet-safety" aria-hidden="true"></i>
         <span class="ci-open-text">
             <span>Infrastructure tracking</span>

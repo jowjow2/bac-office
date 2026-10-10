@@ -87,8 +87,8 @@ it('posts an SVP RFQ only above ₱200,000 and caps SVP at the LGU ceiling', fun
         ->and(ProcurementMode::lguSvpCeiling())->toBe(400000.0)
         ->and($tooLarge->publicationBlockers()['budget'])->toContain('Small Value Procurement ceiling');
 
-    // An RFQ does not need a bid opening schedule to be posted.
-    expect($small->publicationBlockers())->not->toHaveKey('bid_opening_date');
+    // Every mode keeps submissions sealed until its scheduled opening, so an RFQ needs that schedule to be posted too.
+    expect($small->publicationBlockers())->toHaveKey('bid_opening_date');
 });
 
 it('rejects Shopping under RA 12009 and requires a ground for Negotiated Procurement', function () {

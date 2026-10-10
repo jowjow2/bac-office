@@ -9,16 +9,16 @@
     $bidderName = $bid->user?->company ?: ($bid->user?->name ?? 'N/A');
     $sealed = $bid->isSealed();
     $financialSealed = $bid->isFinancialSealed();
-    $proposalPreviewUrl = ! $financialSealed && $bid->proposal_url ? $portalRoute('bid.document.pdf', ['bid' => $bid, 'document' => 'proposal']) : null;
+    $proposalPreviewUrl = ! $financialSealed && $bid->proposal_url ? $portalRoute('bid.document.pdf', ['bid' => $bid->id, 'document' => 'proposal']) : null;
     $certificatePreviewUrl = ! $sealed && $bid->user?->philgepsCertificate?->file_url
-        ? $portalRoute('bid.document.pdf', ['bid' => $bid, 'document' => 'certificate'])
+        ? $portalRoute('bid.document.pdf', ['bid' => $bid->id, 'document' => 'certificate'])
         : null;
     $tz = config('bac-office.display_timezone');
     $mode = $project?->mode();
     $competitive = (bool) $mode?->isCompetitive();
     $reviewLabel = $competitive ? 'Review Bid' : 'Review '.ucfirst($mode?->submissionNoun() ?? 'submission');
     $openingRequired = $project?->requiresRecordedBidOpening() ?? true;
-    $openingAt = $openingRequired ? $project?->schedule?->bid_opening_date : null;
+    $openingAt = $project?->schedule?->bid_opening_date;
     $deadline = $project?->bidSubmissionDeadline();
     $openingActor = $project?->bidsOpenedByUser;
     $documentStatus = $bid->submissionDocumentStatus();
@@ -32,7 +32,8 @@
     $evaluationCriteria ??= app(\App\Support\BidWorkflow::class)->evaluationCriteria($bid);
     $history ??= \App\Support\BidHistory::for($bid)->forAdmin();
     $ranking ??= null;
-    $missingRequirements = collect($checklist)->where('submitted', false)->filter(fn ($item) => $item['required'] ?? true);
+    $technicalChecklist = collect($checklist)->where('component', \App\Models\BidDocument::COMPONENT_TECHNICAL)->values();
+    $missingRequirements = $technicalChecklist->where('submitted', false)->filter(fn ($item) => $item['required'] ?? true);
     $prelimEvent = collect($bid->trackings ?? [])->filter(fn ($event) => $event->stage === \App\Support\BidProgress::STAGE_PRELIMINARY && in_array($event->decision, ['passed', 'failed'], true))->sortByDesc('created_at')->first();
     $prelimResults = collect($prelimEvent?->details['requirements'] ?? [])->keyBy('key');
     $componentFiles = $bid->documents->groupBy('component');
@@ -53,8 +54,10 @@
     $canScore = $scored && $rulesRecorded && $technicalOpened && ! $bid->isDraft() && $bid->documents_validated_at
         && ! $bid->technical_scored_at && ! $bid->financial_opened_at;
     $financialOpened = $bid->financial_opened_at && $bid->financial_opened_by;
-    $financialBlocker = $openingRequired && $project && ! $bid->isDraft() ? app(\App\Support\BidOpening::class)->financialBlocker($bid) : null;
-    $technicalBlocker = $openingBlocker ?? $project?->bidOpeningBlocker();
+    $financialBlocker = $project && ! $bid->isDraft() ? app(\App\Support\BidOpening::class)->financialBlocker($bid) : null;
+    $technicalBlocker = $openingRequired
+        ? ($openingBlocker ?? $project?->bidOpeningBlocker())
+        : ($openingAt ? 'Technical files open at the scheduled opening on '.$openingAt->copy()->timezone($tz)->format('M d, Y h:i A').'.' : 'Set the opening schedule before technical files can be reviewed.');
     $manila = fn ($at, $format = 'M d, Y h:i A') => $at?->timezone('Asia/Manila')->format($format);
 
 
@@ -66,9 +69,9 @@
         $bid->isDraft() => $bid->submission_channel === \App\Models\Bid::CHANNEL_MANUAL ? 'record_manual_receipt' : 'submit-bid',
         $progress->isClosed(), $facts['notice_to_proceed_at'] !== null => null,
         // Resolve the earliest unmet review gate before trusting any later award fields.
-        $openingRequired && ! $technicalOpened => 'technical-opening',
+        ! $technicalOpened => 'technical-opening',
         ! $facts['prelim_passed'] => 'pass_preliminary',
-        $openingRequired && ! $financialOpened => 'financial-opening',
+        ! $financialOpened => 'financial-opening',
         $facts['evaluation_started_at'] === null && ! $facts['evaluated'] => 'start_evaluation',
         ! $facts['evaluated'] => 'evaluate',
         $facts['post_qualification_result'] === null && $facts['post_qualification_started'] => 'pass_post_qualification',
@@ -80,6 +83,18 @@
         $facts['contract_signed_at'] !== null && $facts['notice_to_proceed_at'] === null => 'notice_to_proceed',
         default => null,
     };
+    $focusTechnicalReview = $nextAction === 'pass_preliminary';
+    $focusFinancialOpening = $nextAction === 'financial-opening' && $financialSealed;
+    $focusFinancialDocuments = (bool) $facts['prelim_passed'] && (bool) $financialOpened
+        && in_array($nextAction, ['start_evaluation', 'evaluate'], true);
+    $focusFinancialReview = $focusFinancialOpening || $focusFinancialDocuments;
+    $focusReview = $focusTechnicalReview || $focusFinancialReview;
+    $displayChecklist = $focusTechnicalReview ? $technicalChecklist : collect($checklist);
+    $visibleComponentFiles = $focusReview
+        ? $componentFiles->filter(fn ($files, $component) => $component === ($focusTechnicalReview
+            ? \App\Models\BidDocument::COMPONENT_TECHNICAL
+            : \App\Models\BidDocument::COMPONENT_FINANCIAL))
+        : $componentFiles;
     $selectedAction = array_key_exists((string) $nextAction, $actions) ? $nextAction : null;
     $nextLabel = match ($nextAction) {
         null => 'None',
@@ -88,6 +103,7 @@
         'financial-opening' => 'Verify Financial Password',
         default => $modalActionLabels[$nextAction] ?? $workflow::label($nextAction),
     };
+    $technicalAvailable = ! $sealed;
     $proceedBlocker = match ($nextAction) {
         null => $progress->isClosed() ? 'This bid is closed. No further decision can be recorded.' : 'All bid workflow stages are complete.',
         'submit-bid' => 'This is an unsubmitted draft. The bidder must submit it before the deadline.',
@@ -104,19 +120,20 @@
 
     // Files the reviewer may read inline; sealed components never get a URL.
     $previews = [];
-    if ($proposalPreviewUrl) $previews[] = ['url' => $proposalPreviewUrl, 'title' => 'Proposal file', 'name' => $bid->proposal_filename ?: 'Proposal file'];
+    if ($proposalPreviewUrl && ! $focusTechnicalReview) $previews[] = ['url' => $proposalPreviewUrl, 'title' => 'Proposal file', 'name' => $bid->proposal_filename ?: 'Proposal file'];
     foreach (['technical' => $sealed, 'financial' => $financialSealed] as $componentKey => $componentSealed) {
-        if ($componentSealed) continue;
+        if ($componentSealed || ($focusTechnicalReview && $componentKey !== 'technical')
+            || ($focusFinancialReview && $componentKey !== 'financial')) continue;
         foreach ($componentFiles[$componentKey] ?? [] as $file) {
-            $previews[] = ['url' => $portalRoute('bid.component-file', ['bid' => $bid, 'bidDocument' => $file]), 'title' => $file->label, 'name' => $file->original_name];
+            $previews[] = ['url' => $portalRoute('bid.component-file', ['bid' => $bid->id, 'bidDocument' => $file->id]), 'title' => $file->label, 'name' => $file->original_name];
         }
     }
-    if ($certificatePreviewUrl) $previews[] = ['url' => $certificatePreviewUrl, 'title' => 'Certificate Proof', 'name' => $bid->user?->philgepsCertificate?->display_name ?: 'Certificate proof'];
+    if ($certificatePreviewUrl && ! $focusFinancialReview) $previews[] = ['url' => $certificatePreviewUrl, 'title' => 'Certificate Proof', 'name' => $bid->user?->philgepsCertificate?->display_name ?: 'Certificate proof'];
     $firstPreview = $previews[0] ?? null;
     $documentCount = $bid->documents->count() + ($bid->proposal_file ? 1 : 0) + ($bid->user?->philgepsCertificate ? 1 : 0);
 @endphp
 
-<div class="br" data-bid-review-modal data-bid-id="{{ $bid->id }}" data-technical-open="{{ $technicalOpened ? '1' : '0' }}">
+<div class="br" data-bid-review-modal data-bid-id="{{ $bid->id }}" data-technical-open="{{ $technicalAvailable ? '1' : '0' }}">
     <header class="br-head">
         <div class="br-head__main">
             <p class="br-eyebrow">
@@ -137,7 +154,13 @@
             </ul>
         </div>
         <div class="br-head__status">
-            <x-bid-status-badge :bid="$bid" />
+            @if($focusFinancialOpening)
+                <span class="br-stage-badge"><i class="fas fa-lock" aria-hidden="true"></i> Financial opening</span>
+            @elseif($focusFinancialDocuments)
+                <span class="br-stage-badge"><i class="fas fa-file-invoice" aria-hidden="true"></i> Financial review</span>
+            @else
+                <x-bid-status-badge :bid="$bid" />
+            @endif
         </div>
     </header>
 
@@ -148,30 +171,16 @@
                     <i class="fas fa-lock" aria-hidden="true"></i>
                     <div>
                         <strong>Submission sealed</strong>
-                        @if($bid->project && ! $bid->project->requiresRecordedBidOpening())
-                            @php $quoteMode = $bid->project->mode(); $quoteDeadline = $bid->project->bidSubmissionDeadline(); @endphp
-                            <span>{{ ucfirst($quoteMode->submissionNoun(true)) }} are reviewed together after the {{ strtolower($quoteMode->deadlineLabel()) }}. Until then the price, the files and the ranking stay hidden from the BAC.</span>
-                            @php $quoteOpening = $bid->project->schedule?->bid_opening_date; @endphp
-                            @if($quoteDeadline)<small>{{ $quoteMode->deadlineLabel() }}: {{ $quoteDeadline->copy()->timezone($tz)->format('M d, Y h:i A') }} (Asia/Manila).</small>@endif
-                            <small>{{ $quoteMode->openingLabel() }}: {{ $quoteOpening ? $quoteOpening->copy()->timezone($tz)->format('M d, Y h:i A').' (Asia/Manila)' : 'not scheduled yet; the BAC opens them after the deadline.' }}</small>
-                        @else
                         <span>Technical and eligibility files open automatically at the scheduled bid-opening time. Financial Bid and the bid amount remain sealed until the technical review is approved and the password is verified.</span>
-                        @endif
                         @if($openingAt)
                             <small>Scheduled {{ $openingAt->timezone($tz)->format('M d, Y h:i A') }} (Asia/Manila). Technical and eligibility files open automatically at this time.</small>
                         @endif
                     </div>
                 </div>
-            @elseif(! $openingRequired)
-                <div class="br-banner is-info" role="status">
-                    <i class="fas fa-list-check" aria-hidden="true"></i>
-                    <div>
-                        <span>{{ $mode?->label() ?? 'Alternative procurement mode' }} uses quotation/offer review after the {{ strtolower($mode?->deadlineLabel() ?? 'deadline') }}; no separate competitive bid-opening event is required.</span>
-                    </div>
-                </div>
             @endif
 
-            <dl class="br-kpis">
+            @unless($focusTechnicalReview || $focusFinancialOpening)
+            <dl class="br-kpis {{ $focusFinancialDocuments ? 'is-financial' : '' }}">
                 <div class="br-kpi">
                     <dt>Bid amount</dt>
                     <dd class="br-kpi__value {{ $financialSealed ? 'is-sealed' : '' }}">
@@ -190,20 +199,68 @@
                     <dt>Variance vs ABC</dt>
                     <dd class="br-kpi__value">@if($financialSealed)<span class="br-muted">&mdash;</span>@else<x-bid-variance :bid="$bid" />@endif</dd>
                 </div>
+                @unless($focusFinancialDocuments)
                 <div class="br-kpi">
                     <dt>Submission</dt>
                     <dd><span class="br-pill is-{{ $documentStatus['key'] }}">{{ $documentStatus['label'] }}</span></dd>
                 </div>
+                @endunless
             </dl>
+            @endunless
 
+            @if($focusFinancialOpening)
+                <section class="br-financial-gate" data-review-target="opening" data-br-action="financial-opening" tabindex="-1" aria-labelledby="br-financial-gate-title">
+                    <div class="br-financial-gate__icon"><i class="fas fa-lock" aria-hidden="true"></i></div>
+                    <p class="br-financial-gate__eyebrow">Current step · Financial opening</p>
+                    <h3 id="br-financial-gate-title">{{ $bid->submission_channel === \App\Models\Bid::CHANNEL_MANUAL && ! $bid->financial_opening_password_hash ? 'Open the financial envelope' : 'Open the financial quotation' }}</h3>
+                    <p class="br-financial-gate__intro">The technical review is approved. {{ $bid->submission_channel === \App\Models\Bid::CHANNEL_MANUAL && ! $bid->financial_opening_password_hash ? 'Record the amount read from the sealed envelope to begin financial evaluation.' : 'Enter the bidder\'s financial password to reveal the quotation, bid amount, and financial documents for evaluation.' }}</p>
+                    <div class="br-financial-gate__budget"><span>Approved budget (ABC)</span><strong>&#8369;{{ number_format($budget, 2) }}</strong></div>
+                    @if($errors->has('opening') || $errors->has('opening_password') || $errors->has('bid_amount'))
+                        <p class="br-blocked" role="alert">{{ $errors->first('opening') ?: ($errors->first('opening_password') ?: $errors->first('bid_amount')) }}</p>
+                    @endif
+                    @if($financialBlocker)
+                        <p class="br-blocked"><i class="fas fa-lock" aria-hidden="true"></i> {{ $financialBlocker }}</p>
+                    @elseif(! $canDecide)
+                        <p class="br-hint">Waiting for the BAC Admin to open the financial component.</p>
+                    @elseif($bid->financial_opening_password_hash)
+                        <form action="{{ route('admin.bid.open-financial', ['bid' => $bid->id]) }}" method="POST" class="br-form br-financial-gate__form" autocomplete="off" data-br-financial-form>
+                            @csrf
+                            <input type="hidden" name="opening_method" value="password">
+                            <label class="br-field">Financial Password
+                                <span class="br-password-control"><input type="password" name="opening_password" minlength="6" maxlength="128" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore="true" required><button type="button" class="br-btn" data-br-password-toggle aria-label="Show financial password">Show</button></span>
+                            </label>
+                            <p class="br-pin-feedback" data-br-financial-error role="alert" hidden></p>
+                            <button type="submit" class="br-btn br-btn--primary">Verify password and open quotation <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+                        </form>
+                    @elseif($bid->submission_channel === \App\Models\Bid::CHANNEL_MANUAL)
+                        <form action="{{ route('admin.bid.open-financial', ['bid' => $bid->id]) }}" method="POST" class="br-form br-financial-gate__form">
+                            @csrf
+                            <p class="br-hint">Open the sealed financial envelope before the BAC and bidders present, then record the amount read out.</p>
+                            <label class="br-field">Bid amount read from the envelope (₱)
+                                <input type="text" name="bid_amount" inputmode="decimal" required placeholder="0.00" autocomplete="off">
+                            </label>
+                            <button type="submit" class="br-btn br-btn--primary">Record financial opening <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+                        </form>
+                    @else
+                        <p class="br-blocked">No bidder financial password is on record for this submission.</p>
+                    @endif
+                </section>
+            @else
             <div class="br-tabs" role="tablist" aria-label="Bid review sections">
-                <button type="button" role="tab" id="br-tab-overview" aria-controls="br-panel-overview" aria-selected="true" class="br-tab is-active" data-br-tab="overview">Overview</button>
-                <button type="button" role="tab" id="br-tab-documents" aria-controls="br-panel-documents" aria-selected="false" class="br-tab" data-br-tab="documents" tabindex="-1">Documents <span class="br-count">{{ $documentCount }}</span></button>
-                <button type="button" role="tab" id="br-tab-checklist" aria-controls="br-panel-checklist" aria-selected="false" class="br-tab" data-br-tab="checklist" tabindex="-1">Checklist <span class="br-count">{{ count($checklist) }}</span></button>
-                <button type="button" role="tab" id="br-tab-history" aria-controls="br-panel-history" aria-selected="false" class="br-tab" data-br-tab="history" tabindex="-1"><span class="br-hide-sm">Activity</span>History <span class="br-count">{{ count($history) }}</span></button>
+                @unless($focusReview)
+                    <button type="button" role="tab" id="br-tab-overview" aria-controls="br-panel-overview" aria-selected="true" class="br-tab is-active" data-br-tab="overview">Overview</button>
+                @endunless
+                <button type="button" role="tab" id="br-tab-documents" aria-controls="br-panel-documents" aria-selected="{{ $focusReview ? 'true' : 'false' }}" class="br-tab {{ $focusReview ? 'is-active' : '' }}" data-br-tab="documents" @unless($focusReview) tabindex="-1" @endunless>{{ $focusTechnicalReview ? 'Technical documents' : ($focusFinancialDocuments ? 'Financial documents' : 'Documents') }} <span class="br-count">{{ $focusReview ? $visibleComponentFiles->sum(fn ($files) => $files->count()) + ($focusTechnicalReview && $certificatePreviewUrl ? 1 : 0) + ($focusFinancialDocuments && $proposalPreviewUrl ? 1 : 0) : $documentCount }}</span></button>
+                @unless($focusFinancialDocuments)
+                    <button type="button" role="tab" id="br-tab-checklist" aria-controls="br-panel-checklist" aria-selected="false" class="br-tab" data-br-tab="checklist" tabindex="-1">{{ $focusTechnicalReview ? 'Technical checklist' : 'Checklist' }} <span class="br-count">{{ $displayChecklist->count() }}</span></button>
+                @endunless
+                @unless($focusReview)
+                    <button type="button" role="tab" id="br-tab-history" aria-controls="br-panel-history" aria-selected="false" class="br-tab" data-br-tab="history" tabindex="-1"><span class="br-hide-sm">Activity</span>History <span class="br-count">{{ count($history) }}</span></button>
+                @endunless
             </div>
 
             {{-- Overview --}}
+            @unless($focusReview)
             <section class="br-panel" role="tabpanel" id="br-panel-overview" aria-labelledby="br-tab-overview" data-br-panel="overview">
                 <dl class="br-facts">
                     <div><dt>Bidder / Company</dt><dd>{{ $bidderName }}</dd></div>
@@ -242,10 +299,8 @@
                                 Opened automatically {{ $manila($project->bids_opened_at, 'M d, Y h:i:s A') }} (Asia/Manila)
                             @elseif($openingAt)
                                 Scheduled {{ $openingAt->timezone($tz)->format('M d, Y h:i A') }}
-                            @elseif($openingRequired)
-                                Not yet opened
                             @else
-                                Not required for this mode
+                                Not yet scheduled
                             @endif
                         </dd>
                     </div>
@@ -256,15 +311,15 @@
                         <p class="br-note__label" id="br-award-documents-title"><i class="fas fa-file-circle-check" aria-hidden="true"></i> BAC recommendation documents</p>
                         <p>Download or print these records to present the recommendation to the HoPE. They do not record the HoPE's decision.</p>
                         <div class="br-award-documents">
-                            <a class="br-btn" href="{{ $portalRoute('bid.award-recommendation.document', ['bid' => $bid, 'document' => 'resolution']) }}" target="_blank" rel="noopener">BAC Resolution (PDF)</a>
-                            <a class="br-btn" href="{{ $portalRoute('bid.award-recommendation.document', ['bid' => $bid, 'document' => 'post-qualification-report']) }}" target="_blank" rel="noopener">Post-Qualification Report (PDF)</a>
+                            <a class="br-btn" href="{{ $portalRoute('bid.award-recommendation.document', ['bid' => $bid->id, 'document' => 'resolution']) }}" target="_blank" rel="noopener">BAC Resolution (PDF)</a>
+                            <a class="br-btn" href="{{ $portalRoute('bid.award-recommendation.document', ['bid' => $bid->id, 'document' => 'post-qualification-report']) }}" target="_blank" rel="noopener">Post-Qualification Report (PDF)</a>
                         </div>
                     </section>
                 @endif
 
                 @unless($sealed)
                     @if($canDecide)
-                    <a href="{{ route('admin.bid.edit', $bid) }}" onclick="event.preventDefault(); loadBidEditModal({{ $bid->id }});" class="br-btn">
+                    <a href="{{ route('admin.bid.edit', ['bid' => $bid->id]) }}" onclick="event.preventDefault(); loadBidEditModal({{ $bid->id }});" class="br-btn">
                         <i class="fas fa-pen-to-square" aria-hidden="true"></i> Internal Notes
                     </a>
                     @endif
@@ -277,15 +332,17 @@
                     </div>
                 @endif
             </section>
+            @endunless
 
             {{-- Documents --}}
-            <section class="br-panel" role="tabpanel" id="br-panel-documents" aria-labelledby="br-tab-documents" data-br-panel="documents" hidden>
-                @if($componentFiles->isNotEmpty())
-                    <p class="br-hint">Technical & Eligibility files open at the scheduled time. Financial Bid stays sealed until technical approval and password verification.{{ $bid->isDraft() ? ' These are draft copies, not an official submission.' : '' }}</p>
+            <section class="br-panel" role="tabpanel" id="br-panel-documents" aria-labelledby="br-tab-documents" data-br-panel="documents" @unless($focusReview) hidden @endunless>
+                @if($visibleComponentFiles->isNotEmpty())
+                    <p class="br-hint">{{ $focusTechnicalReview ? 'Review the technical and eligibility documents for this step. The financial quotation remains sealed.' : ($focusFinancialDocuments ? 'Review the opened financial quotation and documents for this step.' : 'Technical and eligibility files are available after opening. Financial documents stay sealed until technical approval and password verification.') }}{{ $bid->isDraft() ? ' These are draft copies, not an official submission.' : '' }}</p>
                     @foreach(['technical' => 'Technical Component (including Eligibility Documents)', 'financial' => 'Financial Component'] as $componentKey => $componentLabel)
+                        @if(($focusTechnicalReview && $componentKey !== 'technical') || ($focusFinancialDocuments && $componentKey !== 'financial')) @continue @endif
                         @php
                             $componentSealed = $componentKey === 'financial' ? $financialSealed : $sealed;
-                            $filesInComponent = $componentFiles[$componentKey] ?? collect();
+                            $filesInComponent = $visibleComponentFiles[$componentKey] ?? collect();
                         @endphp
                         <div class="br-group">
                             <div class="br-group__head">
@@ -297,7 +354,7 @@
                             </div>
                             <ul class="br-files">
                                 @forelse($filesInComponent as $file)
-                                    @php $fileUrl = ($componentSealed || blank($file->file_path)) ? null : $portalRoute('bid.component-file', ['bid' => $bid, 'bidDocument' => $file]); @endphp
+                                    @php $fileUrl = ($componentSealed || blank($file->file_path)) ? null : $portalRoute('bid.component-file', ['bid' => $bid->id, 'bidDocument' => $file->id]); @endphp
                                     <li class="br-file {{ $fileUrl && $firstPreview && $firstPreview['url'] === $fileUrl ? 'is-active' : '' }}">
                                         <span class="br-file__icon {{ $componentSealed ? 'is-sealed' : '' }}"><i class="fas {{ $componentSealed ? 'fa-lock' : 'fa-file-lines' }}" aria-hidden="true"></i></span>
                                         <span class="br-file__text">
@@ -330,9 +387,9 @@
                                                 @if($reviewStatus === \App\Models\BidDocumentReviewEvent::STATUS_NEEDS_REVISION && filled($currentReview?->comment))
                                                     <p class="br-doc-review__comment"><strong>Revision reason:</strong> {{ $currentReview->comment }}</p>
                                                 @endif
-                                                @if($reviewEvents->isNotEmpty())
+                                                @if($reviewEvents->count() > 1)
                                                     <details class="br-doc-review__history">
-                                                        <summary>Revision history ({{ $reviewEvents->count() }})</summary>
+                                                        <summary>Earlier versions ({{ $reviewEvents->count() - 1 }})</summary>
                                                         <ol>
                                                             @foreach($reviewEvents as $reviewEvent)
                                                                 <li>
@@ -374,8 +431,9 @@
                             <section class="br-submission-review">
                                 <div class="br-submission-review__heading">
                                     <div>
-                                        <strong>Submission review</strong>
-                                        <p>{{ $hasRevisionRequest ? 'For Revision — waiting for the bidder to replace the requested document.' : ($allAccepted ? 'Approved' : 'Review the technical and eligibility documents together.') }}</p>
+                                        <span class="br-submission-review__eyebrow">Document check</span>
+                                        <strong>Technical files</strong>
+                                        <p>{{ $hasRevisionRequest ? 'Waiting for the bidder to upload the requested correction.' : ($allAccepted ? 'All technical files are approved. Record the preliminary decision on the right.' : 'Check the files, then approve them or request a correction.') }}</p>
                                     </div>
                                     <span class="br-doc-review__status {{ $hasRevisionRequest ? 'is-needs_revision' : ($allAccepted ? 'is-accepted' : 'is-pending') }}">{{ $hasRevisionRequest ? 'For Revision' : ($allAccepted ? 'Approved' : 'Awaiting review') }}</span>
                                 </div>
@@ -383,15 +441,15 @@
                                     <p class="br-submission-review__error">{{ $errors->first('submission') ?: ($errors->first('requirement_key') ?: $errors->first('comment')) }}</p>
                                 @endif
                                 <div class="br-submission-review__actions">
-                                    <form method="POST" action="{{ route($submissionReviewRoute, ['bid' => $bid]) }}">
+                                    <form method="POST" action="{{ route($submissionReviewRoute, ['bid' => $bid->id]) }}">
                                         @csrf
                                         <input type="hidden" name="action" value="approve">
-                                        <button type="submit" class="br-btn br-btn--accept" {{ $allAccepted ? 'disabled' : '' }}>Approve Submission</button>
+                                        <button type="submit" class="br-btn br-btn--accept" {{ $allAccepted || $hasRevisionRequest ? 'disabled' : '' }}>Approve technical files</button>
                                     </form>
                                     @if($reviewOptions->isNotEmpty() && ! $hasRevisionRequest)
                                         <details class="br-submission-review__request">
-                                            <summary class="br-btn br-btn--danger">Request Revision</summary>
-                                            <form method="POST" action="{{ route($submissionReviewRoute, ['bid' => $bid]) }}">
+                                            <summary class="br-btn br-btn--revision">Request a correction</summary>
+                                            <form method="POST" action="{{ route($submissionReviewRoute, ['bid' => $bid->id]) }}">
                                                 @csrf
                                                 <input type="hidden" name="action" value="request_revision">
                                                 <label>Document to revise
@@ -418,13 +476,14 @@
                 <div class="br-group">
                     <div class="br-group__head"><h3>Submission files</h3></div>
                     <ul class="br-files">
+                        @unless($focusTechnicalReview)
                         <li class="br-file {{ $proposalPreviewUrl && $firstPreview && $firstPreview['url'] === $proposalPreviewUrl ? 'is-active' : '' }}" data-review-target="proposal" tabindex="-1">
                             <span class="br-file__icon {{ $financialSealed ? 'is-sealed' : '' }}"><i class="fas {{ $financialSealed ? 'fa-lock' : 'fa-file-lines' }}" aria-hidden="true"></i></span>
                             <span class="br-file__text">
                                 <strong>Proposal File</strong>
                                 <small>
                                     @if($financialSealed && $bid->proposal_file)
-                                        Received &middot; sealed until bid opening
+                                        Received &middot; sealed until technical approval and financial opening
                                     @elseif($financialSealed && $bid->submission_channel === \App\Models\Bid::CHANNEL_MANUAL)
                                         Sealed envelope &mdash; verify at opening
                                     @else
@@ -441,6 +500,8 @@
                                 @endif
                             </span>
                         </li>
+                        @endunless
+                        @unless($focusFinancialDocuments)
                         <li class="br-file">
                             <span class="br-file__icon {{ $sealed ? 'is-sealed' : '' }}"><i class="fas {{ $sealed ? 'fa-lock' : 'fa-certificate' }}" aria-hidden="true"></i></span>
                             <span class="br-file__text">
@@ -464,6 +525,7 @@
                                 @endif
                             </span>
                         </li>
+                        @endunless
                     </ul>
                 </div>
 
@@ -482,13 +544,14 @@
                     @else
                         <div class="br-empty">
                             <i class="fas fa-file-circle-xmark" aria-hidden="true"></i>
-                            <p>{{ $financialSealed ? 'Financial files stay sealed until the financial opening is recorded.' : 'No proposal file was uploaded for this bid.' }}</p>
+                            <p>{{ $financialSealed ? 'Financial files stay sealed until the financial opening is recorded.' : ($focusFinancialDocuments ? 'No financial file is available for this bid.' : 'No proposal file was uploaded for this bid.') }}</p>
                         </div>
                     @endif
                 </div>
             </section>
 
             {{-- Checklist --}}
+            @unless($focusFinancialDocuments)
             <section class="br-panel" role="tabpanel" id="br-panel-checklist" aria-labelledby="br-tab-checklist" data-br-panel="checklist" hidden>
                 <div class="br-panel__head">
                     <div>
@@ -498,7 +561,7 @@
                     <span class="br-pill is-{{ $documentStatus['key'] }}">{{ $documentStatus['label'] }}</span>
                 </div>
                 <ul class="br-checklist">
-                    @foreach($checklist as $item)
+                    @foreach($displayChecklist as $item)
                         @php
                             $itemResult = $prelimResults->get($item['key']);
                             $itemState = $item['submitted'] === null ? 'is-sealed' : ($item['submitted'] ? 'is-present' : 'is-missing');
@@ -530,8 +593,10 @@
                     <p class="br-hint br-hint--end">No preliminary examination result has been recorded yet.</p>
                 @endif
             </section>
+            @endunless
 
             {{-- Activity history --}}
+            @unless($focusReview)
             <section class="br-panel" role="tabpanel" id="br-panel-history" aria-labelledby="br-tab-history" data-br-panel="history" data-review-target="history" tabindex="-1" hidden>
                 <h3 class="br-visually-hidden">Activity History</h3>
                 @if(empty($history))
@@ -570,42 +635,91 @@
                     </ol>
                 @endif
             </section>
+            @endunless
+            @endif
         </div>
 
         <aside class="br-rail" aria-label="Opening and decisions">
-            @if($openingRequired && $project)
+            @if($project)
+                @if($focusTechnicalReview)
+                    <section class="br-card" aria-labelledby="br-opening-title">
+                        <div class="br-card__head">
+                            <h3 id="br-opening-title">Current review</h3>
+                            <span class="br-mono br-muted">Asia/Manila</span>
+                        </div>
+                        <p class="br-hint">Review only the technical and eligibility documents. The financial bid, quotation, and ranking remain sealed until this review is approved and the bidder's password is verified.</p>
+                        <ol class="br-steps">
+                            <li class="br-step is-current">
+                                <span class="br-step__dot" aria-hidden="true"><i class="fas fa-folder-open"></i></span>
+                                <div class="br-step__body">
+                                    <strong>Technical &amp; Eligibility</strong>
+                                    <small>Available for BAC review</small>
+                                </div>
+                            </li>
+                            <li class="br-step">
+                                <span class="br-step__dot" aria-hidden="true"><i class="fas fa-lock"></i></span>
+                                <div class="br-step__body">
+                                    <strong>Financial / Quotation</strong>
+                                    <small>Opens after technical approval and password verification</small>
+                                </div>
+                            </li>
+                        </ol>
+                    </section>
+                @elseif($focusFinancialReview)
+                    <section class="br-card" aria-labelledby="br-opening-title">
+                        <div class="br-card__head">
+                            <h3 id="br-opening-title">Current review</h3>
+                        </div>
+                        <ol class="br-steps">
+                            <li class="br-step is-done">
+                                <span class="br-step__dot" aria-hidden="true"><i class="fas fa-check"></i></span>
+                                <div class="br-step__body"><strong>Technical &amp; Eligibility</strong><small>Approved</small></div>
+                            </li>
+                            <li class="br-step is-current">
+                                <span class="br-step__dot" aria-hidden="true"><i class="fas {{ $focusFinancialOpening ? 'fa-lock' : 'fa-folder-open' }}"></i></span>
+                                <div class="br-step__body">
+                                    <strong>Financial / Quotation</strong>
+                                    <small>{{ $focusFinancialOpening ? 'Verify the bidder password to open' : 'Opened · review amount and financial files' }}</small>
+                                </div>
+                            </li>
+                        </ol>
+                    </section>
+                @else
                 <section class="br-card" data-review-target="opening" tabindex="-1" aria-labelledby="br-opening-title">
                     <div class="br-card__head">
                         <h3 id="br-opening-title">Bid Progress</h3>
                         <span class="br-mono br-muted">Asia/Manila</span>
                     </div>
-                    <p class="br-hint">Technical and eligibility files open automatically at the scheduled time. Financial Bid stays sealed until technical approval and password verification.</p>
+                    <p class="br-hint">Technical and eligibility files open at the scheduled bid opening. The BAC reviews and approves them first. Then the BAC opens the financial bid with the bidder's password.</p>
 
                     <ol class="br-steps">
-                        <li data-br-action="technical-opening" tabindex="-1" class="br-step {{ $technicalOpened ? ($bid->documents_validated_at ? 'is-done' : 'is-current') : 'is-current' }}">
-                            <span class="br-step__dot" aria-hidden="true"><i class="fas {{ $technicalOpened ? 'fa-check' : 'fa-lock' }}"></i></span>
+                        <li data-br-action="technical-opening" tabindex="-1" class="br-step {{ $bid->documents_validated_at ? 'is-done' : 'is-current' }}">
+                            <span class="br-step__dot" aria-hidden="true"><i class="fas {{ $bid->documents_validated_at ? 'fa-check' : ($technicalAvailable ? 'fa-folder-open' : 'fa-lock') }}"></i></span>
                             <div class="br-step__body">
                                 <strong>Technical &amp; Eligibility</strong>
                                 <small>
-                                    @if($technicalOpened)
-                                        Opened automatically {{ $manila($project->bids_opened_at, 'M d, Y h:i:s A') }}
+                                    @if($technicalAvailable)
+                                        @if($bid->documents_validated_at)
+                                            Approved after opening
+                                        @else
+                                            Opened automatically {{ $manila($project->bids_opened_at, 'M d, Y h:i:s A') }} &middot; technical review pending
+                                        @endif
                                     @else
                                         Sealed
                                     @endif
                                 </small>
-                                @unless($technicalOpened)
+                                @unless($technicalAvailable)
                                     @if($technicalBlocker)
                                         <p class="br-blocked"><i class="fas fa-clock" aria-hidden="true"></i> {{ $technicalBlocker }}</p>
-                                    @else
                                     @endif
                                 @endunless
                             </div>
                         </li>
 
-                        <li data-br-action="financial-opening" tabindex="-1" class="br-step {{ $financialOpened ? 'is-done' : ($technicalOpened && ! $financialBlocker ? 'is-current' : '') }}">
+                        <li data-br-action="financial-opening" tabindex="-1" class="br-step {{ $financialOpened ? 'is-done' : ($technicalAvailable && ! $financialBlocker ? 'is-current' : '') }}">
                             <span class="br-step__dot" aria-hidden="true"><i class="fas {{ $financialOpened ? 'fa-check' : 'fa-lock' }}"></i></span>
                             <div class="br-step__body">
-                                <strong>Financial Bid</strong>
+                                <strong>{{ $openingRequired ? 'Financial Bid' : 'Financial / Quotation' }}</strong>
                                 <small>
                                     @if($financialOpened)
                                         Opened {{ $manila($bid->financial_opened_at, 'M d, Y h:i:s A') }} by {{ $bid->financialOpenedByUser?->name ?? 'BAC Admin' }}
@@ -616,8 +730,8 @@
                                 @if(! $bid->isDraft() && ! $bid->financial_opened_at)
                                     @if($financialBlocker)
                                         <p class="br-blocked"><i class="fas fa-lock" aria-hidden="true"></i> {{ $financialBlocker }}</p>
-                                        @if($technicalOpened && ! $rulesRecorded && ! $bid->isDraft() && ! $bid->financial_opened_at && auth()->user()?->role === 'admin')
-                                            <form action="{{ route('admin.project.bid-opening-rules', $project) }}" method="POST" class="br-form br-opening-rules" aria-label="Record financial opening rules">
+                                        @if($openingRequired && $technicalOpened && ! $rulesRecorded && ! $bid->isDraft() && ! $bid->financial_opened_at && auth()->user()?->role === 'admin')
+                                            <form action="{{ route('admin.project.bid-opening-rules', ['project' => $project->id]) }}" method="POST" class="br-form br-opening-rules" aria-label="Record financial opening rules">
                                                 @csrf
                                                 <strong>Record opening rules</strong>
                                                 <p class="br-hint">Use the award criterion and reference from the signed bidding documents.</p>
@@ -647,18 +761,19 @@
                                             <p class="br-blocked" role="alert">{{ $errors->first('opening') }}</p>
                                         @endif
                                         @if($bid->financial_opening_password_hash)
-                                            <form action="{{ route('admin.bid.open-financial', $bid) }}" method="POST" class="br-form">
+                                            <form action="{{ route('admin.bid.open-financial', ['bid' => $bid->id]) }}" method="POST" class="br-form" autocomplete="off" data-br-financial-form>
                                                 @csrf
                                                 <input type="hidden" name="opening_method" value="password">
                                                 <label class="br-field">Financial Password
-                                                    <span class="br-password-control"><input type="password" name="opening_password" minlength="6" maxlength="128" autocomplete="new-password" required><button type="button" class="br-btn" data-br-password-toggle aria-label="Show financial password">Show</button></span>
+                                                    <span class="br-password-control"><input type="password" name="opening_password" minlength="6" maxlength="128" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore="true" required><button type="button" class="br-btn" data-br-password-toggle aria-label="Show financial password">Show</button></span>
                                                 </label>
+                                                <p class="br-pin-feedback" data-br-financial-error role="alert" hidden></p>
                                                 @if($errors->has('opening_password'))<p class="br-blocked" role="alert">{{ $errors->first('opening_password') }}</p>@endif
                                                 <p class="br-hint">Verified on the server. The PIN is never saved, displayed after entry, or included in notifications and audit records.</p>
                                             </form>
                                         @elseif($bid->submission_channel === \App\Models\Bid::CHANNEL_MANUAL)
                                             {{-- A sealed paper bid has no PIN: its envelope is opened at the opening and recorded here. --}}
-                                            <form action="{{ route('admin.bid.open-financial', $bid) }}" method="POST" class="br-form">
+                                            <form action="{{ route('admin.bid.open-financial', ['bid' => $bid->id]) }}" method="POST" class="br-form">
                                                 @csrf
                                                 <p class="br-hint">Sealed paper bid: open its financial envelope before the BAC and bidders present, then record the amount read out.</p>
                                                 <label class="br-field">Bid amount read from the envelope (₱)
@@ -678,17 +793,19 @@
                         <li class="br-step {{ $facts['evaluated'] ? 'is-done' : ($financialOpened ? 'is-current' : '') }}"><span class="br-step__dot" aria-hidden="true"><i class="fas fa-clipboard-check"></i></span><div class="br-step__body"><strong>Review &amp; Decision</strong><small>{{ $facts['evaluated'] ? 'In review' : ($financialOpened ? 'Current stage' : 'Follows financial bid') }}</small></div></li>
                     </ol>
                 </section>
+                @endif
             @endif
 
+            @unless($focusFinancialOpening)
             <section class="br-card" data-review-target="decision" tabindex="-1" aria-labelledby="br-decision-title">
                 <div class="br-card__head">
-                    <h3 id="br-decision-title">{{ $canDecide ? 'Evaluation Actions' : 'Decisions' }}</h3>
+                    <h3 id="br-decision-title">{{ $focusTechnicalReview ? 'Technical review decision' : ($canDecide ? 'Evaluation Actions' : 'Decisions') }}</h3>
                 </div>
 
                 @if(! $canDecide)
                     <div class="br-empty is-compact">
                         <i class="fas fa-user-shield" aria-hidden="true"></i>
-                        <p>The BAC Admin records the opening and every evaluation decision. Check the technical documents under <strong>Documents</strong>; your accept or revision request is sent to the bidder.</p>
+                        <p>{{ $focusFinancialDocuments ? 'The BAC Admin records the financial evaluation decision. Review the opened financial documents here.' : 'The BAC Admin records the opening and every evaluation decision. Check the technical documents under Documents; your accept or revision request is sent to the bidder.' }}</p>
                     </div>
                 @elseif($sealed && ! array_key_exists(\App\Support\BidWorkflow::RECORD_MANUAL_RECEIPT, $actions))
                     <p class="br-hint">Proposals and bid amounts stay sealed until the bid opening is recorded. It can be recorded only after the submission deadline{{ $openingAt ? ' and the scheduled opening' : '' }}.</p>
@@ -701,7 +818,7 @@
                         <p>No further decision can be recorded for this bid at its current stage.</p>
                     </div>
                 @else
-                    <p class="br-hint">Select an action to record the bid evaluation result.</p>
+                    <p class="br-hint">{{ $focusTechnicalReview ? 'Review the technical documents and checklist, then pass or fail the preliminary examination.' : 'Select an action to record the bid evaluation result.' }}</p>
                     @if($errors->any())
                         <div class="br-blocked" role="alert">
                             <strong>Review the following before continuing:</strong>
@@ -725,7 +842,7 @@
                                     <span>{{ $modalActionLabels[$action] ?? $label }}</span>
                                     <i class="fas fa-chevron-down br-decision__chevron" aria-hidden="true"></i>
                                 </summary>
-                                <form action="{{ route('admin.bid.decision', ['bid' => $bid], false) }}" method="POST" class="br-form" enctype="multipart/form-data">
+                                <form action="{{ route('admin.bid.decision', ['bid' => $bid->id], false) }}" method="POST" class="br-form" enctype="multipart/form-data">
                                     @csrf
                                     <input type="hidden" name="action" value="{{ $action }}">
 
@@ -735,7 +852,7 @@
                                         @endif
                                         <fieldset class="br-fieldset">
                                             <legend>Confirm each requirement was checked and complies (pass/fail)</legend>
-                                            @foreach($checklist as $item)
+                                            @foreach($displayChecklist as $item)
                                                 <label class="br-check">
                                                     <input type="checkbox" name="verified_requirements[]" value="{{ $item['key'] }}" @if($item['required'] ?? true) required @endif @disabled($item['submitted'] === false)>
                                                     <span>{{ $item['label'] }}{{ ($item['required'] ?? true) ? '' : ' (if applicable)' }}{{ $item['submitted'] === null ? ' - check the sealed envelope' : '' }}</span>
@@ -747,7 +864,7 @@
                                     @if($action === \App\Support\BidWorkflow::FAIL_PRELIMINARY)
                                         <fieldset class="br-fieldset">
                                             <legend>Requirements that failed (optional)</legend>
-                                            @foreach($checklist as $item)
+                                            @foreach($displayChecklist as $item)
                                                 <label class="br-check">
                                                     <input type="checkbox" name="failed_requirements[]" value="{{ $item['key'] }}" @checked(! $item['submitted'])>
                                                     <span>{{ $item['label'] }}{{ $item['submitted'] ? '' : ' (not submitted)' }}</span>
@@ -871,6 +988,7 @@
                     </div>
                 @endif
             </section>
+            @endunless
         </aside>
     </div>
 

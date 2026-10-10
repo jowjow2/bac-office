@@ -104,7 +104,11 @@ it('shows a bid anomaly link for projects with bids over 500 percent above budge
         'project_id' => $project->id,
         'bid_amount' => 700000,
         'status' => 'pending',
-    ]);
+    ])->forceFill([
+        // The price counts only once its financial component has been opened.
+        'financial_opened_at' => now(),
+        'financial_opened_by' => $this->admin->id,
+    ])->save();
 
     $response = $this->actingAs($this->admin)->get(route('admin.projects'));
 

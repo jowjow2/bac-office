@@ -551,33 +551,15 @@ class Bid extends Model
             ->all();
     }
 
-    /**
-     * Technical component contents stay sealed only for competitive bidding
-     * until the project's authorized opening is recorded. RFQ/quotation and
-     * other alternative modes do not inherit this competitive gate.
-     */
+    /** Technical contents stay sealed until the scheduled opening is recorded. */
     public function isSealed(): bool
     {
-        // Quotations and offers (SVP, RFQ, negotiated) have no opening ceremony but are
-        // reviewed only after the deadline (BidProgress 'bids_opened'): until then the BAC
-        // sees no price or file, and nothing is ranked.
-        if ($this->project !== null && ! $this->project->requiresRecordedBidOpening()) {
-            return ! $this->project->submissionDeadlinePassed();
-        }
-
-        return ($this->project?->requiresRecordedBidOpening() ?? true)
-            && ($this->isDraft() || ! ($this->project?->bidsAreOpened() ?? false));
+        return $this->isDraft() || ! ($this->project?->bidsAreOpened() ?? false);
     }
 
-    /**
-     * Competitive bidding uses a two-envelope reveal: the financial component
-     * becomes available after opening and a recorded preliminary examination.
-     * Alternative modes use the configured quotation/offer review rules.
-     */
+    /** The financial component stays sealed until technical approval and recorded password opening. */
     public function isFinancialSealed(): bool
     {
-        // Alternative modes open the quotation as a whole once the deadline passes.
-        if ($this->project !== null && ! $this->project->mode()->isCompetitive()) return $this->isSealed();
         if ($this->isSealed()) return true;
         if (! $this->documents_validated_at || ! $this->documents_validated_by
             || $this->disqualified_at !== null || $this->status === 'rejected') return true;

@@ -18,7 +18,7 @@
 @section('subtitle', 'Contracts you won, their award documents, and delivery through contract completion.')
 
 @section('actions')
-    <a href="{{ route('bidder.bidding-track') }}" class="ui-btn ui-btn--secondary"><i class="fas fa-route" aria-hidden="true"></i> Track evaluation</a>
+    <a href="{{ route('bidder.bidding-track') }}" class="ui-btn ui-btn--secondary"><i class="fas fa-route" aria-hidden="true"></i> Submission status</a>
 @endsection
 
 @push('head')
@@ -58,6 +58,33 @@
     .awc-cert-pending { display: grid; justify-items: center; gap: 6px; color: var(--ui-subtle); font-size: var(--ui-text-sm); }
     .awc-cert-pending i { font-size: 26px; color: var(--ui-line-strong); }
 
+    .bidder-infra-modal {
+        position: fixed !important;
+        inset: auto !important;
+        top: 50% !important;
+        left: 50% !important;
+        width: min(1380px, calc(100vw - 32px)) !important;
+        height: min(920px, calc(100dvh - 32px)) !important;
+        max-width: calc(100vw - 32px) !important;
+        max-height: calc(100dvh - 32px) !important;
+        margin: 0 !important;
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid #d8e3dc;
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 26px 70px rgba(15, 38, 31, .28);
+        transform: translate(-50%, -50%) !important;
+    }
+    .bidder-infra-modal::backdrop { background: rgba(9, 28, 22, .62); backdrop-filter: blur(3px); }
+    .bidder-infra-modal__shell { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100%; }
+    .bidder-infra-modal__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; border-bottom: 1px solid #e0e8e3; background: #fff; }
+    .bidder-infra-modal__head span { display: block; color: #5f766b; font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+    .bidder-infra-modal__head h2 { margin: 3px 0 0; color: #17372b; font-size: 18px; line-height: 1.3; }
+    .bidder-infra-modal__close { display: grid; width: 38px; height: 38px; flex: 0 0 38px; place-items: center; border: 1px solid #d8e3dc; border-radius: 9px; background: #fff; color: #263a31; cursor: pointer; }
+    .bidder-infra-modal__close:hover { background: #eef5f0; }
+    .bidder-infra-modal iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+
     @media (max-width: 760px) {
         .awc { grid-template-columns: 1fr; }
         .awc-cert { grid-template-columns: auto 1fr; justify-items: start; text-align: left; border-top: 1px solid var(--ui-line); border-left: 0; }
@@ -69,6 +96,9 @@
         .awc-steps li { padding: 0 0 0 26px; }
         .awc-steps li::before { top: 2px; }
         .awc-steps li::after { top: 22px; bottom: -8px; left: 7px; right: auto; width: 2px; height: auto; }
+    }
+    @media (max-width: 640px) {
+        .bidder-infra-modal { width: 100vw !important; height: 100dvh !important; max-width: 100vw !important; max-height: 100dvh !important; border: 0; border-radius: 0; }
     }
 </style>
 @endpush
@@ -282,4 +312,51 @@
     </section>
 
     @include('partials.contract-implementation-dialogs', ['awards' => $awardedProjects, 'viewerMode' => 'bidder'])
+
+    <dialog id="infrastructureTrackingModal" class="bidder-infra-modal" aria-labelledby="infrastructureTrackingTitle">
+        <div class="bidder-infra-modal__shell">
+            <header class="bidder-infra-modal__head">
+                <div><span>Awarded contracts</span><h2 id="infrastructureTrackingTitle">Infrastructure tracking</h2></div>
+                <button type="button" class="bidder-infra-modal__close" data-infra-modal-close aria-label="Close infrastructure tracking"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+            </header>
+            <iframe title="Infrastructure contract tracking" data-infra-modal-frame></iframe>
+        </div>
+    </dialog>
 @endsection
+
+@push('scripts')
+<script>
+    (() => {
+        const dialog = document.getElementById('infrastructureTrackingModal');
+        const frame = dialog?.querySelector('[data-infra-modal-frame]');
+        if (!dialog || !frame) return;
+        let opener = null;
+        let updated = false;
+
+        document.addEventListener('click', event => {
+            const link = event.target.closest('a[data-infra-modal]');
+            if (!link || typeof dialog.showModal !== 'function') return;
+            event.preventDefault();
+            opener = link;
+            updated = false;
+            const url = new URL(link.href, window.location.href);
+            url.searchParams.set('embed', '1');
+            frame.src = url.href;
+            dialog.showModal();
+            dialog.querySelector('[data-infra-modal-close]').focus();
+        });
+
+        dialog.querySelector('[data-infra-modal-close]').addEventListener('click', () => dialog.close());
+        dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
+        window.addEventListener('message', event => {
+            if (event.origin === window.location.origin && event.source === frame.contentWindow
+                && event.data?.type === 'sjbac:infrastructure-updated') updated = true;
+        });
+        dialog.addEventListener('close', () => {
+            frame.src = 'about:blank';
+            if (updated) window.location.reload();
+            else if (opener?.isConnected) opener.focus();
+        });
+    })();
+</script>
+@endpush

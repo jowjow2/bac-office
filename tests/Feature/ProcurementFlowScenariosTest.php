@@ -214,6 +214,7 @@ it('runs a small value procurement from quotations to award, and can fail it', f
             'procurement_mode' => 'small_value_procurement', 'legal_basis' => 'ra_12009', 'source_of_fund' => 'General Fund',
             'contract_duration' => '30 calendar days', 'budget' => 350000, 'status' => 'open', 'end_user_unit' => 'MPDO',
             'date_posted' => now()->toDateString(), 'bid_submission_deadline' => ($this->local)(workdayAt(5, 10, 0)),
+            'bid_opening_date' => ($this->local)(workdayAt(5, 10, 30)),
             'submission_mode' => 'electronic', 'electronic_submission_authority' => 'BAC Resolution No. 2026-014',
             'document_type' => ['invitation_to_bid'], 'project_documents' => [($this->pdf)('RFQ.pdf')], 'confirm_correct' => 'on',
         ])->assertSessionHasNoErrors();
@@ -232,6 +233,8 @@ it('runs a small value procurement from quotations to award, and can fail it', f
     ($this->pagesLoad)('SVP after deadline');
     $keys = BidSubmissionRequirements::for($project)->requiredKeys();
     ($this->decide)($bidA, BidWorkflow::PASS_PRELIMINARY, ['verified_requirements' => $keys])->assertSessionHasNoErrors();
+    // The quotation's price opens with the bidder's password once the technical review is approved.
+    testCase()->actingAs($this->admin)->post(route('admin.bid.open-financial', $bidA), ['opening_password' => '482913'])->assertSessionHasNoErrors();
     ($this->decide)($bidA, BidWorkflow::START_EVALUATION)->assertSessionHasNoErrors();
     ($this->decide)($bidA, BidWorkflow::EVALUATE, ['evaluation_result' => 'responsive', 'evaluation_findings' => 'Lowest calculated and responsive quotation.'])->assertSessionHasNoErrors();
     ($this->decide)($bidA, BidWorkflow::START_POST_QUALIFICATION)->assertSessionHasNoErrors();
@@ -262,7 +265,7 @@ function scenarioOpenAndEvaluate(object $test, Project $project): array
         if ($bid->submission_channel === Bid::CHANNEL_MANUAL) {
             // A sealed paper bid has no PIN; the modal offers to record the envelope opened.
             testCase()->actingAs($test->admin)->withHeader('X-Requested-With', 'XMLHttpRequest')->get(route('admin.bid.view', $bid))
-                ->assertSee('Record financial envelope opened');
+                ->assertSee('Record financial opening');
             testCase()->actingAs($test->admin)->post(route('admin.bid.open-financial', $bid))->assertSessionHasErrors('bid_amount');
             $read = number_format(800000 + $bid->id * 10000, 2);
             testCase()->actingAs($test->admin)->post(route('admin.bid.open-financial', $bid), ['bid_amount' => $read])->assertSessionHasNoErrors();

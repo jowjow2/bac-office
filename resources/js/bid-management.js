@@ -557,6 +557,65 @@ if (root && root.dataset.bidManagementReady !== '1') {
         const form = event.target.closest('form.br-form');
         if (!form) return;
 
+        if (form.matches('[data-br-financial-form]')) {
+            event.preventDefault();
+            if (form.dataset.brSubmitInFlight === '1') return;
+            form.dataset.brSubmitInFlight = '1';
+            const input = form.querySelector('input[name="opening_password"]');
+            const notice = form.querySelector('[data-br-financial-error]');
+            const submitButton = form.querySelector('button[type="submit"]');
+            const proceedButton = body.querySelector('[data-br-proceed="financial-opening"]');
+            if (notice) {
+                notice.hidden = true;
+                notice.textContent = '';
+            }
+            input?.removeAttribute('aria-invalid');
+            if (submitButton) submitButton.disabled = true;
+            if (proceedButton) proceedButton.disabled = true;
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    body: new FormData(form)
+                });
+                if (response.redirected) throw new Error('Session expired. Sign in again, then reopen this bid.');
+                if (response.status === 419 || response.status === 401) {
+                    throw new Error('Session expired. Sign in again, then reopen this bid.');
+                }
+                const result = response.headers.get('content-type')?.includes('application/json')
+                    ? await response.json() : {};
+                if (!response.ok) {
+                    const validation = result.errors || {};
+                    const message = response.status === 422
+                        ? validation.opening?.[0] || validation.opening_password?.[0] || result.message
+                        : 'The financial password could not be verified. Try again.';
+                    throw new Error(message || 'The financial password could not be verified. Try again.');
+                }
+                const bidId = body.querySelector('[data-bid-review-modal]')?.dataset.bidId;
+                if (!bidId) throw new Error('The financial opening was recorded. Reopen the bid to continue.');
+                await loadModal(bidId, false, 'opening');
+                return;
+            } catch (error) {
+                if (notice && form.isConnected) {
+                    notice.textContent = error.message || 'Could not verify the financial password. Try again.';
+                    notice.hidden = false;
+                    input?.setAttribute('aria-invalid', 'true');
+                    if (input) input.value = '';
+                    input?.focus();
+                }
+            } finally {
+                delete form.dataset.brSubmitInFlight;
+                if (submitButton) submitButton.disabled = false;
+                if (proceedButton) {
+                    proceedButton.disabled = false;
+                    delete proceedButton.dataset.submitting;
+                }
+            }
+            return;
+        }
+
         const actionUrl = new URL(form.action, window.location.href);
         if (!/\/decisions\/?$/.test(actionUrl.pathname)) return;
         if (form.dataset.brFooterSubmit !== '1') {

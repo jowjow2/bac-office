@@ -1491,6 +1491,223 @@
         .award-stage-checks li.is-todo small { color: var(--ui-warning) !important; }
         .awards-contracts-table td[data-label="Contract stage"] :is(.ci-open, #award-x#award-x) { display: flex !important; width: 100% !important; margin-top: 10px !important; }
         .awards-contracts-table td[data-label="Contract stage"] :is(.ci-open-status, #award-x#award-x) { white-space: normal !important; }
+
+        /* Registry cards keep long NTP details readable without squeezing seven columns. */
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-summary-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+            padding: 0 !important;
+            gap: 12px !important;
+        }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-stat-card {
+            min-height: 122px !important;
+            padding: 18px 20px !important;
+            background: #fff !important;
+            border-top: 3px solid var(--ui-primary) !important;
+        }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-stat-card:nth-child(2) { border-top-color: #2c8b6b !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-stat-card:nth-child(3) { border-top-color: #c99228 !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-stat-card:nth-child(4) { border-top-color: #527ba9 !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-toolbar-card {
+            margin-top: 22px !important;
+            padding: 20px 24px 16px !important;
+            background: #fff !important;
+        }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-toolbar-controls { margin-top: 16px !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-filter-group { flex: 1 1 420px !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-search-field { max-width: 660px !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-filter-tabs {
+            margin-top: 14px !important;
+            gap: 6px !important;
+        }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-table-card {
+            margin-top: 14px !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            border: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-table-wrap { overflow: visible !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table,
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody {
+            display: block !important;
+            width: 100% !important;
+        }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table thead { display: none !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row]:not([hidden]) {
+            display: grid !important;
+            grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.2fr) minmax(0, .95fr) minmax(0, .85fr) !important;
+            grid-template-areas: "project bidder amount actions" "date stage stage documents" !important;
+            gap: 0 !important;
+            margin-bottom: 14px !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            border: 1px solid var(--ui-line) !important;
+            border-radius: 14px !important;
+            background: #fff !important;
+            box-shadow: 0 5px 18px rgba(18, 52, 43, .045) !important;
+        }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row]:hover {
+            border-color: #bfd5ca !important;
+            background: #fff !important;
+        }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td {
+            display: block !important;
+            width: auto !important;
+            min-width: 0 !important;
+            padding: 18px 20px !important;
+            border: 0 !important;
+            text-align: left !important;
+            white-space: normal !important;
+            vertical-align: top !important;
+        }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td[data-label]::before {
+            display: block !important;
+            margin-bottom: 9px !important;
+            color: var(--ui-muted) !important;
+            content: attr(data-label) !important;
+            font-size: 10px !important;
+            font-weight: 700 !important;
+            letter-spacing: .055em !important;
+            line-height: 1.2 !important;
+            text-transform: uppercase !important;
+        }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td:nth-child(-n+3),
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td:nth-child(7) {
+            border-bottom: 1px solid var(--ui-line-soft) !important;
+        }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td:nth-child(1) { grid-area: project !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td:nth-child(2) { grid-area: bidder !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td:nth-child(3) { grid-area: amount !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td:nth-child(4) { grid-area: date !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td:nth-child(5) {
+            grid-area: stage !important;
+            background: #f8fbf9 !important;
+            border-left: 1px solid var(--ui-line-soft) !important;
+            border-right: 1px solid var(--ui-line-soft) !important;
+        }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td:nth-child(6) { grid-area: documents !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td:nth-child(7) {
+            grid-area: actions !important;
+            align-self: stretch !important;
+            justify-content: flex-start !important;
+            align-items: stretch !important;
+        }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-project-cell,
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-party-cell { align-items: flex-start !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-project-cell strong {
+            display: block !important;
+            overflow: visible !important;
+            font-size: 15px !important;
+            font-weight: 700 !important;
+            line-height: 1.4 !important;
+        }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-party-cell strong { font-weight: 650 !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-amount {
+            font-size: 19px !important;
+            font-weight: 750 !important;
+            letter-spacing: -.025em !important;
+        }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-stage-checks {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 8px 16px !important;
+            max-width: 550px !important;
+            margin: 12px 0 !important;
+        }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-ntp-record { margin-top: 12px !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-ntp-record summary {
+            width: fit-content !important;
+            padding: 7px 10px !important;
+            border: 1px solid var(--ui-primary-line) !important;
+            border-radius: 7px !important;
+            background: #fff !important;
+        }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-ntp-record form {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            max-width: 580px !important;
+            padding: 14px !important;
+        }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-ntp-record form label:nth-of-type(3) { grid-column: 1 / -1 !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-row-action { width: 100% !important; min-height: 38px !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr:not([data-award-row]):not([hidden]) { display: block !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr:not([data-award-row]):not([hidden]) > td { display: block !important; }
+        @media (max-width: 1180px) {
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row]:not([hidden]) {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                grid-template-areas: "project actions" "bidder amount" "date documents" "stage stage" !important;
+            }
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td:nth-child(5) {
+                border-top: 1px solid var(--ui-line-soft) !important;
+                border-left: 0 !important;
+                border-right: 0 !important;
+            }
+        }
+        @media (max-width: 640px) {
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row]:not([hidden]) {
+                grid-template-columns: 1fr !important;
+                grid-template-areas: "project" "bidder" "amount" "date" "stage" "documents" "actions" !important;
+            }
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td {
+                padding: 15px 17px !important;
+                border-bottom: 1px solid var(--ui-line-soft) !important;
+            }
+            body .admin-dashboard.admin-role-page.admin-awards-page .award-stage-checks { grid-template-columns: 1fr !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .award-ntp-record form { grid-template-columns: 1fr !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .award-ntp-record form label:nth-of-type(3) { grid-column: auto !important; }
+        }
+        @media (max-width: 430px) {
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-summary-grid { grid-template-columns: 1fr !important; }
+        }
+        .infra-tracking-modal {
+            position: fixed !important;
+            inset: auto !important;
+            top: 50% !important;
+            left: 50% !important;
+            width: min(1380px, calc(100vw - 32px)) !important;
+            height: min(920px, calc(100dvh - 32px)) !important;
+            max-width: calc(100vw - 32px) !important;
+            max-height: calc(100dvh - 32px) !important;
+            margin: 0 !important;
+            padding: 0;
+            overflow: hidden;
+            border: 1px solid #d8e3dc;
+            border-radius: 16px;
+            background: #fff;
+            box-shadow: 0 26px 70px rgba(15, 38, 31, .28);
+            transform: translate(-50%, -50%) !important;
+        }
+        .infra-tracking-modal::backdrop { background: rgba(9, 28, 22, .62); backdrop-filter: blur(3px); }
+        .infra-tracking-modal__shell { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100%; }
+        .infra-tracking-modal__head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 14px 20px;
+            border-bottom: 1px solid #e0e8e3;
+            background: #fff;
+        }
+        .infra-tracking-modal__head span { display: block; color: #5f766b; font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+        .infra-tracking-modal__head h2 { margin: 3px 0 0; color: #17372b; font-size: 18px; line-height: 1.3; }
+        .infra-tracking-modal__close {
+            display: grid;
+            width: 38px;
+            height: 38px;
+            flex: 0 0 38px;
+            place-items: center;
+            border: 1px solid #d8e3dc;
+            border-radius: 9px;
+            background: #fff;
+            color: #263a31;
+            cursor: pointer;
+        }
+        .infra-tracking-modal__close:hover { background: #eef5f0; }
+        .infra-tracking-modal iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+        @media (max-width: 640px) {
+            .infra-tracking-modal { width: 100vw !important; height: 100dvh !important; max-width: 100vw !important; max-height: 100dvh !important; border: 0; border-radius: 0; }
+        }
     </style>
 
     @include('partials.admin-sidebar')
@@ -1537,6 +1754,7 @@
                     return (float) $award->contract_amount;
                 });
                 $awaitingNoticeCount = $awardsInForce->filter(fn ($award) => $award->awaitsNoticeOfAward())->count();
+                $issuedNtpCount = $awardsInForce->filter(fn ($award) => $award->hasPublishedNoticeToProceed())->count();
             @endphp
 
             <section class="awards-summary-grid" aria-label="Awards summary">
@@ -1554,6 +1772,14 @@
                         <span class="awards-stat-label">Valid Certificates</span>
                         <strong class="awards-stat-value">{{ $validAwardCount }}</strong>
                         <span class="awards-stat-note">Ready to verify</span>
+                    </div>
+                </article>
+                <article class="awards-stat-card">
+                    <span class="awards-stat-icon is-green" aria-hidden="true"><i class="fas fa-file-circle-check"></i></span>
+                    <div>
+                        <span class="awards-stat-label">Notices to Proceed</span>
+                        <strong class="awards-stat-value">{{ $issuedNtpCount }}</strong>
+                        <span class="awards-stat-note">Issued and published</span>
                     </div>
                 </article>
                 <article class="awards-stat-card">
@@ -1628,7 +1854,7 @@
                 <div class="awards-toolbar-top">
                     <div>
                         <h2 id="awards-registry-title" class="awards-toolbar-title">Awarded contracts</h2>
-                        <p class="awards-toolbar-description">Search and review every awarded procurement project.</p>
+                        <p class="awards-toolbar-description">Track the award, contract, and Notice to Proceed for each project.</p>
                     </div>
                     <span id="awardsRecordCount" class="awards-record-count">{{ $awardCollection->count() }} records</span>
                 </div>
@@ -1638,16 +1864,6 @@
                             <svg class="admin-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
                             <span class="sr-only">Search awards</span>
                             <input id="awardSearch" type="search" class="awards-search-input" placeholder="Search project, bidder, or certificate..." autocomplete="off">
-                        </label>
-                        <span class="awards-filter-divider" aria-hidden="true"></span>
-                        <label class="awards-status-field">
-                            <span class="sr-only">Filter by status</span>
-                            <select id="awardStatusFilter" class="awards-status-select">
-                                <option value="all">All statuses</option>
-                                <option value="valid">Valid</option>
-                                <option value="revoked">Revoked</option>
-                                <option value="expired">Expired</option>
-                            </select>
                         </label>
                     </div>
                     <button type="button" id="clearAwardFilters" class="awards-clear-button">Clear</button>
@@ -1879,6 +2095,16 @@
         </main>
     </div>
 </div>
+
+<dialog id="infrastructureTrackingModal" class="infra-tracking-modal" aria-labelledby="infrastructureTrackingTitle">
+    <div class="infra-tracking-modal__shell">
+        <header class="infra-tracking-modal__head">
+            <div><span>Awards &amp; contracts</span><h2 id="infrastructureTrackingTitle">Infrastructure tracking</h2></div>
+            <button type="button" class="infra-tracking-modal__close" data-infra-modal-close aria-label="Close infrastructure tracking"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+        </header>
+        <iframe title="Infrastructure contract tracking" data-infra-modal-frame></iframe>
+    </div>
+</dialog>
 
 <div id="awardViewModal" style="display: none; position: fixed; inset: 0; padding: 20px; background: rgba(27, 36, 32, 0.45); z-index: 10000; justify-content: center; align-items: center; box-sizing: border-box;">
     <div style="background: white; border-radius: 14px; width: min(720px, 100%); overflow: hidden; position: relative; box-shadow: 0 20px 44px rgba(27, 36, 32, 0.16); box-sizing: border-box;">
@@ -2246,5 +2472,44 @@
         });
 
         applyFilters();
+    })();
+</script>
+
+<script>
+    (() => {
+        const dialog = document.getElementById('infrastructureTrackingModal');
+        const frame = dialog?.querySelector('[data-infra-modal-frame]');
+        if (!dialog || !frame) return;
+        let opener = null;
+        let updated = false;
+
+        document.addEventListener('click', event => {
+            const link = event.target.closest('a[data-infra-modal]');
+            if (!link) return;
+            if (typeof dialog.showModal !== 'function') return;
+            event.preventDefault();
+            opener = link;
+            updated = false;
+            const url = new URL(link.href, window.location.href);
+            url.searchParams.set('embed', '1');
+            frame.src = url.href;
+            dialog.showModal();
+            dialog.querySelector('[data-infra-modal-close]').focus();
+        });
+
+        dialog.querySelector('[data-infra-modal-close]').addEventListener('click', () => dialog.close());
+        dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
+        window.addEventListener('message', event => {
+            if (event.origin === window.location.origin && event.source === frame.contentWindow
+                && event.data?.type === 'sjbac:infrastructure-updated') updated = true;
+        });
+        dialog.addEventListener('close', () => {
+            frame.src = 'about:blank';
+            if (updated) {
+                window.location.reload();
+            } else if (opener?.isConnected) {
+                opener.focus();
+            }
+        });
     })();
 </script>

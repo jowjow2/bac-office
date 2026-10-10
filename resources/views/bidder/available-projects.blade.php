@@ -2380,7 +2380,11 @@
                 if (next) next.hidden = activeStep === 3;
                 if (submit) submit.hidden = activeStep !== 3;
                 const body = form.closest('.sb-body');
-                if (body) body.scrollTop = 0;
+                if (body) {
+                    const notice = body.querySelector('[data-sb-notice]');
+                    if (notice) notice.open = false;
+                    body.scrollTop = 0;
+                }
             };
 
             // A step shows a check once its required items are actually complete.

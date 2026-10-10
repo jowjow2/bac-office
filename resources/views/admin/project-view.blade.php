@@ -4,17 +4,20 @@
     // Amounts are sealed until the bid opening, so no variance warning before it.
     $unusualBidCount = $budget > 0 && $project->bidsAreOpened()
         ? $project->bids->filter(function ($bid) use ($budget) {
-            return ((((float) $bid->bid_amount - $budget) / $budget) * 100) > 200;
+            return $bid->financial_opened_at !== null && $bid->financial_opened_by !== null
+                && ((((float) $bid->bid_amount - $budget) / $budget) * 100) > 200;
         })->count()
         : 0;
     $assignedStaff = $project->assignments->first()?->staff;
+    $projectDeadline = $project->bidSubmissionDeadline()?->copy()->timezone(config('bac-office.display_timezone'));
+    $projectOpening = $project->schedule?->bid_opening_date?->copy()->timezone(config('bac-office.display_timezone'));
 @endphp
 
 <div class="view-project-modal-shell">
     <div class="view-project-modal-header">
         <div>
-            <p class="view-project-eyebrow">Project summary</p>
-            <h2>View Project</h2>
+            <p class="view-project-eyebrow">Project record &middot; {{ $project->reference_no ?: 'Project #'.$project->id }}</p>
+            <h2>{{ $project->title }}</h2>
         </div>
     </div>
 
@@ -37,41 +40,23 @@
             </div>
         @endif
 
-        <x-project-summary-section title="Project Overview" class="view-project-overview">
-            <x-project-field-row label="Project Title" class="view-project-field--primary view-project-overview-title">
-                {{ $project->title }}
-            </x-project-field-row>
+        <section class="vp-hero" aria-label="Project overview">
+            <div class="vp-hero-intro">
+                <span class="view-project-status-pill {{ $project->status }}">{{ $project->portalStatus()['label'] }}</span>
+                <span>{{ $project->modeLabel() }} &middot; {{ $project->mode()->legalBasisShort() }}</span>
+            </div>
+            <p class="vp-hero-description">{{ $project->description ?: 'No description provided.' }}</p>
+            <div class="vp-hero-stats">
+                <div><span>Approved budget</span><strong>&#8369;{{ number_format((float) $project->budget, 2) }}</strong></div>
+                <div><span>Submitted bids</span><strong>{{ $project->bids_count }}</strong></div>
+                <div><span>Submission deadline</span><strong>{{ $projectDeadline?->format('M d, Y h:i A') ?? 'Not set' }}</strong></div>
+                <div><span>Bid opening</span><strong>{{ $projectOpening?->format('M d, Y h:i A') ?? 'Not scheduled' }}</strong></div>
+            </div>
+        </section>
 
-            <x-project-field-row label="Status" class="view-project-overview-status">
-                <span class="view-project-status-pill {{ $project->status }}">
-                    {{ \Illuminate\Support\Str::headline($project->status) }}
-                </span>
-            </x-project-field-row>
-
-            <x-project-field-row label="Budget (PHP)" class="view-project-overview-budget">
-                P{{ number_format((float) $project->budget, 2) }}
-            </x-project-field-row>
-
-            <x-project-field-row label="Total Bids" class="view-project-overview-bids">
-                <span class="view-project-bid-count">{{ $project->bids_count }}</span>
-                @if($unusualBidCount > 0)
-                    <a href="{{ route('admin.bids', ['project' => $project->id]) }}" class="view-project-inline-warning" title="Review unusual bid variance" aria-label="Review unusual bid variance">
-                        <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
-                    </a>
-                @endif
-            </x-project-field-row>
-        </x-project-summary-section>
-
-        <x-project-summary-section title="Project Details" class="view-project-details">
-            <x-project-field-row label="Description" :block="true">
-                {{ $project->description ?: 'N/A' }}
-            </x-project-field-row>
-
+        <x-project-summary-section title="Bidding Documents" class="view-project-details">
             <div class="view-project-field view-project-field--block">
-                <div class="view-project-field-label">Project Files</div>
-                <div class="view-project-file-note">
-                    Click any file below to open its PDF preview.
-                </div>
+                <div class="view-project-file-note">Official files attached to this project. Open a file to preview it.</div>
                 <div class="view-project-file-list">
                     @if($projectDocuments->isNotEmpty())
                         @foreach($projectDocuments as $documentIndex => $document)
@@ -86,7 +71,7 @@
 
         <x-project-summary-section title="Schedule & Staffing" class="view-project-schedule">
             <x-project-field-row label="Deadline">
-                {{ $project->deadline ? $project->deadline->format('m/d/Y') : 'N/A' }}
+                {{ $projectDeadline?->format('M d, Y h:i A') ?? 'Not set' }}
             </x-project-field-row>
 
             <x-project-field-row label="Assign Staff">

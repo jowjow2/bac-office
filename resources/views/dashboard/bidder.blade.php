@@ -20,8 +20,8 @@
 
 @section('actions')
     @if($isApproved)
-        <a href="{{ route('bidder.my-bids') }}" class="ui-btn ui-btn--secondary">My bids &amp; quotations</a>
-        <a href="{{ route('bidder.available-projects') }}" class="ui-btn ui-btn--primary"><i class="fas fa-bullhorn" aria-hidden="true"></i> Browse opportunities</a>
+        <a href="{{ route('bidder.my-bids') }}" class="ui-btn ui-btn--secondary">My submission bids</a>
+        <a href="{{ route('bidder.available-projects') }}" class="ui-btn ui-btn--primary"><i class="fas fa-bullhorn" aria-hidden="true"></i> Available bids</a>
     @else
         <a href="{{ route('bidder.company-profile') }}" class="ui-btn ui-btn--primary"><i class="fas fa-folder-open" aria-hidden="true"></i> Registration documents</a>
     @endif
@@ -141,7 +141,7 @@
                         <h2 class="ui-card__title" id="open-title">Open opportunities · {{ $opportunities->count() }}</h2>
                         <p class="ui-card__desc">Closest deadline first. Open one to see its requirements, fee, bid security and how to submit.</p>
                     </div>
-                    <a href="{{ route('bidder.available-projects') }}" class="ui-link">All opportunities</a>
+                    <a href="{{ route('bidder.available-projects') }}" class="ui-link">All available bids</a>
                 </header>
                 @if($opportunities->isEmpty())
                     <div class="ui-empty">
@@ -205,10 +205,10 @@
         <section class="ui-card" aria-labelledby="mine-title">
             <header class="ui-card__head">
                 <div>
-                    <h2 class="ui-card__title" id="mine-title">My bids and quotations</h2>
+                    <h2 class="ui-card__title" id="mine-title">My submission bids</h2>
                     <p class="ui-card__desc">The status the BAC has recorded for each submission.</p>
                 </div>
-                <a href="{{ route('bidder.bidding-track') }}" class="ui-link">Track evaluation</a>
+                <a href="{{ route('bidder.bidding-track') }}" class="ui-link">Submission status</a>
             </header>
             @if($myBids->isEmpty())
                 <div class="ui-empty">

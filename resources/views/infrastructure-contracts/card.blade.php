@@ -5,6 +5,32 @@
     $isWinner = $mode === 'bidder';
     $canInspect = in_array($mode, ['admin', 'staff'], true) && $status === CI::INFRA_FOR_INSPECTION;
     $canAct = in_array($mode, ['admin', 'staff'], true) && in_array($status, [CI::INFRA_RECOMMENDED, CI::INFRA_ACCEPTED, CI::INFRA_PAYMENT_PROCESSING, CI::INFRA_PAID], true);
+    $actionDocument = match ($status) {
+        CI::INFRA_RECOMMENDED => [
+            'label' => 'Signed Certificate of Acceptance / IAR',
+            'hint' => 'Upload the signed LGU document that formally accepts the completed work. Reuse the End-user inspection report only if it already contains the required acceptance signatures.',
+            'button' => 'Record formal acceptance',
+        ],
+        CI::INFRA_ACCEPTED => [
+            'label' => 'Payment processing document',
+            'hint' => 'Upload the document showing that payment processing has started, such as the applicable voucher or processing record.',
+            'button' => 'Record payment processing',
+        ],
+        CI::INFRA_PAYMENT_PROCESSING => [
+            'label' => 'Proof of payment / disbursement record',
+            'hint' => 'Upload the official record confirming that payment was released or completed.',
+            'button' => 'Record paid status',
+        ],
+        CI::INFRA_PAID => [
+            'label' => 'Contract completion / closeout record',
+            'hint' => 'Upload the signed document supporting final contract completion and closeout.',
+            'button' => 'Mark implementation completed',
+        ],
+        default => ['label' => 'Supporting document', 'hint' => 'Upload the document supporting this action.', 'button' => 'Record action'],
+    };
+    $latestInspection = $status === CI::INFRA_RECOMMENDED
+        ? $record->events->sortByDesc('occurred_at')->first(fn ($event) => $event->action === 'infrastructure_site_inspection' && $event->document_path)
+        : null;
 
     // Who acts next, for viewers who have no form at this stage.
     $canReport = $isWinner && in_array($status, [CI::INFRA_IN_PROGRESS, CI::INFRA_FOR_CORRECTION], true);
@@ -141,6 +167,7 @@
         <form method="POST" enctype="multipart/form-data" action="{{ route($mode === 'staff' ? 'staff.infrastructure.configure' : 'admin.infrastructure.configure', $award) }}" class="infra-panel">
             @csrf
             @method('PUT')
+            @if(request()->boolean('embed'))<input type="hidden" name="embed" value="1">@endif
             <div class="infra-panel__head">
                 <h3>Record terms from signed contract</h3>
                 <p class="ui-hint">Enter the actual completion deadline and work site from the signed contract. The NTP date is shown separately and is not the deadline.</p>
@@ -197,6 +224,7 @@
                 <form method="POST" enctype="multipart/form-data" action="{{ route('admin.infrastructure.terms.correct', $award) }}" class="infra-correct__form">
                     @csrf
                     @method('PUT')
+                    @if(request()->boolean('embed'))<input type="hidden" name="embed" value="1">@endif
                     <p class="ui-hint">Use this only when the terms were recorded wrongly. The status and history stay as they are; the old and new values and your reason are logged, and the contractor is notified.</p>
                     @include('infrastructure-contracts.terms-fields', [
                         'form' => 'correct',
@@ -235,6 +263,7 @@
         @if($canReport)
             <form method="POST" enctype="multipart/form-data" action="{{ route('bidder.infrastructure.progress', $award) }}" class="infra-panel">
                 @csrf
+                @if(request()->boolean('embed'))<input type="hidden" name="embed" value="1">@endif
                 <div class="infra-panel__head"><h3>{{ $status === CI::INFRA_FOR_CORRECTION ? 'Submit corrected work' : 'Submit progress update' }}</h3></div>
                 <div class="ui-fields">
                     <label class="ui-field"><span class="ui-label">Progress (%) <span class="ui-required">*</span></span><input name="progress_percent" class="ui-input" type="number" min="0" max="100" required placeholder="e.g. 45"><span class="ui-hint">Overall physical accomplishment of the whole contract.</span></label>
@@ -267,6 +296,7 @@
         @if($canAct)
             <form method="POST" enctype="multipart/form-data" action="{{ route($mode === 'staff' ? 'staff.infrastructure.action' : 'admin.infrastructure.action', $award) }}" class="infra-panel">
                 @csrf
+                @if(request()->boolean('embed'))<input type="hidden" name="embed" value="1">@endif
                 <div class="infra-panel__head">
                     <h3>Authorized LGU contract action</h3>
                     <p class="ui-hint">Status tracking only; this system does not transfer funds.</p>
@@ -281,10 +311,19 @@
                             @endif
                         </select>
                     </label>
-                    <label class="ui-field"><span class="ui-label">Acceptance / payment / completion record <span class="ui-required">*</span></span><input type="file" name="document" class="ui-input" required></label>
+                    <label class="ui-field">
+                        <span class="ui-label">{{ $actionDocument['label'] }} <span class="ui-required">*</span></span>
+                        <input type="file" name="document" class="ui-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" required>
+                        <span class="ui-hint">{{ $actionDocument['hint'] }}</span>
+                        @if($latestInspection)
+                            <a href="{{ route('infrastructure.document', $latestInspection) }}" class="infra-supporting-link">
+                                <i class="fas fa-paperclip" aria-hidden="true"></i> Review End-user inspection document
+                            </a>
+                        @endif
+                    </label>
                     <label class="ui-field ui-field--wide"><span class="ui-label">Remarks <span class="ui-required">*</span></span><textarea name="remarks" class="ui-input" rows="2" required></textarea></label>
                 </div>
-                <div class="infra-panel__foot"><button class="ui-btn ui-btn--primary">Record action</button></div>
+                <div class="infra-panel__foot"><button class="ui-btn ui-btn--primary">{{ $actionDocument['button'] }}</button></div>
             </form>
         @endif
     @elseif($mode === 'bidder')
@@ -364,6 +403,8 @@
         .infra-fields--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .infra-panel .ui-input { background: var(--ui-surface); }
         .infra-panel textarea.ui-input { min-height: 72px; resize: vertical; }
+        .infra-supporting-link { display: inline-flex; align-items: center; gap: 7px; width: fit-content; margin-top: 7px; color: var(--ui-primary); font-size: 12px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+        .infra-supporting-link:hover { color: var(--ui-primary-hover); }
         .infra-items { display: grid; gap: 8px; }
         .infra-items__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
         .infra-items__cols, .infra-items__row { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1fr) 34px; gap: 8px; align-items: center; }

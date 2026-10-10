@@ -479,12 +479,12 @@ it('shows stage-appropriate actions instead of Approve and Reject in the Review 
         ->assertOk()
         ->assertSee('Passed Preliminary Examination')
         ->assertSee('Failed Preliminary Examination')
-        ->assertSee('name="verified_requirements[]" value="technical_proposal"', false)
+        ->assertSee('data-br-action="pass_preliminary"', false)
+        ->assertSee('Confirm each requirement was checked and complies (pass/fail)')
         ->assertSee('Remarks to share with the bidder')
         ->assertDontSee(BidWorkflow::label(BidWorkflow::NOTICE_OF_AWARD))
         ->assertDontSee('> Approve</button>', false)
-        ->assertSee('Activity History')
-        ->assertSee('Technical Components Opened');
+        ->assertDontSee('Activity History');
 
     // Bulk approval no longer exists.
     testCase()->actingAs($this->admin)->post(route('admin.bids.bulk'), ['action' => 'approve', 'ids' => [$bid->id]])

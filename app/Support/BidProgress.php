@@ -150,7 +150,6 @@ class BidProgress
         }
 
         $project = $bid->project;
-        $competitiveOpening = $project?->requiresRecordedBidOpening() ?? true;
         $awardedToOther = false;
         if (! $awardApproved && $project !== null) {
             $awardedToOther = $project->awards
@@ -179,13 +178,7 @@ class BidProgress
             'submitted_at' => $draft ? null : ($bid->submitted_at ?? $bid->created_at),
             'receipt_no' => $bid->receipt_no,
             'submission_channel' => $bid->submission_channel,
-            // Legacy projects without a recorded opening but with a decided bid
-            // were opened (see the 2026_09_26 migration backfill). RFQ and
-            // alternative-mode review starts after the configured deadline and
-            // does not require a competitive bid-opening event.
-            'bids_opened' => $competitiveOpening
-                ? ! $bid->isSealed()
-                : ($project?->submissionDeadlinePassed() ?? false),
+            'bids_opened' => ! $bid->isSealed(),
             'prelim_passed' => $prelimPassed,
             'prelim_passed_at' => $bid->documents_validated_at
                 ?? ($bid->eligibility_status === Bid::ELIGIBILITY_VALID ? $bid->eligibility_reviewed_at : null),
@@ -516,7 +509,7 @@ class BidProgress
             // Earlier review gates take priority over stale downstream award fields.
             ! $f['bids_opened'] => 'submitted',
             ! $f['prelim_passed'] => self::STAGE_PRELIMINARY,
-            $this->bid->project?->mode()->isCompetitive() && $this->bid->isFinancialSealed() => self::STAGE_EVALUATION,
+            $this->bid->isFinancialSealed() => self::STAGE_EVALUATION,
             ! $f['evaluated'] => self::STAGE_EVALUATION,
             $f['post_qualification_started'] && $f['post_qualification_result'] !== Bid::POST_QUALIFICATION_PASSED => self::STAGE_POST_QUALIFICATION,
             $f['post_qualification_result'] === Bid::POST_QUALIFICATION_PASSED && ! $f['recommended'] => self::STAGE_POST_QUALIFICATION,

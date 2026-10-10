@@ -97,9 +97,9 @@ class PortalNavigation
                 self::item('Dashboard', 'bidder.dashboard', 'fa-gauge-high', ['bidder.dashboard']),
             ]],
             ['title' => 'Bidding', 'items' => $approved ? [
-                self::item('Opportunities', 'bidder.available-projects', 'fa-bullhorn', ['bidder.available-projects', 'bidder.opportunities.*', 'bidder.project.document.*']),
-                self::item('My bids & quotations', 'bidder.my-bids', 'fa-envelope-circle-check', ['bidder.my-bids']),
-                self::item('Track evaluation', 'bidder.bidding-track', 'fa-route', ['bidder.bidding-track*'], badgeAttr: 'data-bidding-track-badge'),
+                self::item('Available bids', 'bidder.available-projects', 'fa-bullhorn', ['bidder.available-projects', 'bidder.opportunities.*', 'bidder.project.document.*']),
+                self::item('My submission bids', 'bidder.my-bids', 'fa-envelope-circle-check', ['bidder.my-bids']),
+                self::item('Submission status', 'bidder.bidding-track', 'fa-route', ['bidder.bidding-track*'], badgeAttr: 'data-bidding-track-badge'),
                 self::item('Awarded contracts', 'bidder.awarded-contracts', 'fa-award', ['bidder.awarded-contracts']),
             ] : []],
             ['title' => 'Account', 'items' => [

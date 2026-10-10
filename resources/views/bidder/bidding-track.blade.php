@@ -5,11 +5,11 @@
     $refreshLabel = intdiv($refreshSeconds, 60) === 1 ? 'minute' : intdiv($refreshSeconds, 60).' minutes';
 @endphp
 
-@section('title', 'Track evaluation')
+@section('title', 'Submission status')
 @section('subtitle', 'Follow each bid through the BAC process. A stage changes only when the BAC or LGU records an action.')
 
 @section('actions')
-    <a href="{{ route('bidder.my-bids') }}" class="ui-btn ui-btn--secondary"><i class="fas fa-list" aria-hidden="true"></i> My bids</a>
+    <a href="{{ route('bidder.my-bids') }}" class="ui-btn ui-btn--secondary"><i class="fas fa-list" aria-hidden="true"></i> My submission bids</a>
 @endsection
 
 @push('head')
@@ -124,7 +124,7 @@
                 <i class="fas fa-folder-open" aria-hidden="true"></i>
                 <strong>You haven't submitted any bids yet.</strong>
                 <span>Browse the open opportunities to start bidding and follow their progress here.</span>
-                <a href="{{ route('bidder.available-projects') }}" class="ui-btn ui-btn--primary ui-btn--sm ui-mt-sm">Find opportunities</a>
+                <a href="{{ route('bidder.available-projects') }}" class="ui-btn ui-btn--primary ui-btn--sm ui-mt-sm">View available bids</a>
             </div>
         </div>
     @else

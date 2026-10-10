@@ -22,7 +22,7 @@ it('keeps quotation prices and the ranking hidden until the quotation deadline',
         'title' => 'Purchase of Office Supplies', 'description' => 'Supplies.', 'reference_no' => 'SJ-BAC-2026-G-001', 'category' => 'goods',
         'procurement_mode' => 'small_value_procurement', 'legal_basis' => 'ra_12009', 'budget' => 24450, 'status' => 'open', 'deadline' => now()->addHours(5),
     ]);
-    ProjectSchedule::create(['project_id' => $project->id, 'date_posted' => now()->subDays(4)->toDateString(), 'bid_submission_deadline' => $project->deadline]);
+    ProjectSchedule::create(['project_id' => $project->id, 'date_posted' => now()->subDays(4)->toDateString(), 'bid_submission_deadline' => $project->deadline, 'bid_opening_date' => $project->deadline->copy()->addMinutes(30)]);
 
     $bids = collect([['Divine Company', 20000], ['PCIC Corporation', 21000]])->map(function ($row, $i) use ($project) {
         $bidder = User::create(['name' => $row[0], 'email' => "q-bidder{$i}@example.com", 'password' => Hash::make('password'), 'role' => 'bidder', 'status' => 'active', 'company' => $row[0]]);
@@ -35,10 +35,23 @@ it('keeps quotation prices and the ranking hidden until the quotation deadline',
         ->and($bids->first()->fresh()->isFinancialSealed())->toBeTrue();
     testCase()->actingAs($admin)->get(route('admin.bids'))->assertOk()
         ->assertDontSee('20,000.00')->assertDontSee('21,000.00')
-        ->assertSee('Until the deadline for submission of quotations');
+        ->assertSee('Technical opens at scheduled opening');
 
-    // The deadline passes: the quotations are reviewed together and ranked by price.
-    $this->travel(6)->hours();
+    // The deadline passes, but the quotations stay sealed until the scheduled opening.
+    $this->travel(5)->hours();
+    $this->travel(10)->minutes();
+    testCase()->get('/')->assertOk();
+    expect(collect($rank())->pluck('status')->unique()->all())->toBe([BidRanking::SEALED]);
+
+    // At the scheduled opening the technical part opens; the prices wait for technical approval and the password.
+    $this->travel(30)->minutes();
+    testCase()->get('/')->assertOk();
+    expect($bids->first()->fresh()->isSealed())->toBeFalse()
+        ->and($bids->first()->fresh()->isFinancialSealed())->toBeTrue();
+    testCase()->actingAs($admin)->get(route('admin.bids'))->assertOk()->assertDontSee('20,000.00');
+
+    // Once each bid's financial component is opened, the quotations are ranked by price.
+    $bids->each(fn ($bid) => $bid->forceFill(['documents_validated_at' => now(), 'documents_validated_by' => $admin->id, 'financial_opened_at' => now(), 'financial_opened_by' => $admin->id])->save());
     expect($rank()[$bids->first()->id]['rank'])->toBe(1)
         ->and($rank()[$bids->last()->id]['rank'])->toBe(2);
     testCase()->actingAs($admin)->get(route('admin.bids'))->assertOk()

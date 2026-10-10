@@ -68,11 +68,11 @@
     ];
 @endphp
 
-@section('title', 'My bids')
+@section('title', 'My submission bids')
 @section('subtitle', 'Every bid you submitted, where it stands with the BAC, and what you can still change.')
 
 @section('actions')
-    <a href="{{ route('bidder.available-projects') }}" class="ui-btn ui-btn--secondary"><i class="fas fa-bullhorn" aria-hidden="true"></i> Find opportunities</a>
+    <a href="{{ route('bidder.available-projects') }}" class="ui-btn ui-btn--secondary"><i class="fas fa-bullhorn" aria-hidden="true"></i> View available bids</a>
 @endsection
 
 @push('head')
@@ -192,7 +192,7 @@
                 <i class="fas fa-file-circle-question" aria-hidden="true"></i>
                 <strong>No bids yet</strong>
                 <span>Browse the open opportunities to submit your first bid.</span>
-                <a href="{{ route('bidder.available-projects') }}" class="ui-btn ui-btn--primary ui-btn--sm ui-mt-sm">Find opportunities</a>
+                <a href="{{ route('bidder.available-projects') }}" class="ui-btn ui-btn--primary ui-btn--sm ui-mt-sm">View available bids</a>
             </div>
         @else
             <div class="mb-toolbar">
@@ -373,7 +373,7 @@
                         </div>
 
                         <div class="mb-side">
-                            <a href="{{ $trackUrl }}" class="ui-btn {{ $row['canModify'] || $row['canContinueDraft'] ? 'ui-btn--secondary' : 'ui-btn--primary' }}"><i class="fas fa-route" aria-hidden="true"></i> Track bid</a>
+                            <a href="{{ $trackUrl }}" class="ui-btn {{ $row['canModify'] || $row['canContinueDraft'] ? 'ui-btn--secondary' : 'ui-btn--primary' }}"><i class="fas fa-route" aria-hidden="true"></i> Submission status</a>
                             @if($row['canModify'])
                                 <a href="{{ $modifyUrl }}" class="ui-btn ui-btn--primary"><i class="fas fa-pen-to-square" aria-hidden="true"></i> Modify bid</a>
                                 <p class="mb-side-note">You can change your price or files until {{ $row['deadline']?->format('M d, h:i A') ?? 'the deadline' }}.</p>

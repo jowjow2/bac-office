@@ -187,6 +187,13 @@
 
             <!-- PROJECTS CARD -->
             <section class="projects-table-panel" aria-label="Project list">
+                <div class="projects-list-head">
+                    <div>
+                        <span>Procurement register</span>
+                        <h2>{{ ($showArchived ?? false) ? 'Archived projects' : 'Active projects' }}</h2>
+                    </div>
+                    <strong>{{ method_exists($projects, 'total') ? $projects->total() : $projects->count() }} {{ \Illuminate\Support\Str::plural('project', method_exists($projects, 'total') ? $projects->total() : $projects->count()) }}</strong>
+                </div>
                 @if($projects->count() > 0)
                     <div class="projects-table-scroll">
                         <table class="projects-table">

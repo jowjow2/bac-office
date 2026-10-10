@@ -170,26 +170,23 @@ it('requires explicit opening, records Manila server time and writes one audit e
     expect(AuditLog::where('action', 'bids_opened')->where('auditable_id', $this->project->id)->count())->toBe(1);
 });
 
-it('does not apply competitive opening to an RFQ quotation', function () {
+it('keeps an RFQ quotation sealed until its scheduled opening, like any other submission', function () {
     $this->project->update([
         'procurement_mode' => 'small_value_procurement',
         'legal_basis' => 'ra_12009',
     ]);
 
-    expect($this->bid->fresh()->isSealed())->toBeFalse()
-        ->and($this->bid->fresh()->isFinancialSealed())->toBeFalse();
+    expect($this->bid->fresh()->isSealed())->toBeTrue()
+        ->and($this->bid->fresh()->isFinancialSealed())->toBeTrue();
 
     testCase()->actingAs($this->admin)->get(route('admin.bids'))
         ->assertSee('Small Value Procurement')
-        ->assertSee('Review quotation')
-        ->assertSee('812,345.67')
-        ->assertDontSee('View sealed submission');
+        ->assertDontSee('812,345.67');
 
-    testCase()->actingAs($this->admin)
-        ->post(route('admin.project.open-bids', $this->project))
-        ->assertSessionHasErrors('bids_opened_at');
-
-    expect($this->project->fresh()->bids_opened_at)->toBeNull();
+    // Once the opening is recorded, the technical part is available; the price still waits for technical approval.
+    $this->project->update(['bids_opened_at' => now(), 'bids_opened_by' => $this->admin->id]);
+    expect($this->bid->fresh()->isSealed())->toBeFalse()
+        ->and($this->bid->fresh()->isFinancialSealed())->toBeTrue();
 });
 
 it('records a structured preliminary result after opening instead of treating review as award', function () {

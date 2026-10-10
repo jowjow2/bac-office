@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
-/** Explicit component openings; schedules and review milestones only permit an action. */
+/** Scheduled technical opening and separately authorized financial opening. */
 class BidOpening
 {
     public const CRITERIA = ['lowest_calculated_bid', 'mearb', 'marb'];
@@ -75,7 +75,7 @@ class BidOpening
      * Open technical and eligibility files once the scheduled Manila time
      * arrives, exactly like a recorded opening: submissions close and every
      * bidder, the BAC and the assigned staff are told. Only a published,
-     * active competitive project whose deadline has also passed is opened.
+     * active project whose deadline has also passed is opened.
      */
     public function openScheduledTechnical(Project $project): bool
     {
@@ -85,7 +85,7 @@ class BidOpening
             $openingAt = $locked->schedule?->bid_opening_date;
             $deadline = $locked->bidSubmissionDeadline();
             $publishedAt = $locked->publicationTime();
-            if (! $locked->requiresRecordedBidOpening() || $locked->bids_opened_at !== null
+            if ($locked->bids_opened_at !== null
                 || $locked->status !== 'open' || $locked->archived_at !== null || $locked->failed_bidding_at !== null
                 || ! $openingAt || $openingAt->greaterThan($now)
                 || ! $deadline || $deadline->greaterThan($now)
@@ -120,11 +120,9 @@ class BidOpening
      */
     public function openDueTechnicalProjects(): int
     {
-        $alternativeModes = collect(ProcurementMode::MODES)->reject(fn ($mode) => $mode['family'] === ProcurementMode::FAMILY_COMPETITIVE)->keys()->all();
         $now = now('Asia/Manila');
         $projects = Project::query()->with('schedule')
             ->where('status', 'open')->whereNull('bids_opened_at')->whereNull('archived_at')->whereNull('failed_bidding_at')
-            ->where(fn ($mode) => $mode->whereNull('procurement_mode')->orWhereNotIn('procurement_mode', $alternativeModes))
             ->whereHas('schedule', fn ($query) => $query->where('bid_opening_date', '<=', $now))
             ->get();
         $opened = 0;
@@ -134,16 +132,19 @@ class BidOpening
     public function financialBlocker(Bid $bid): ?string
     {
         $project = $bid->project;
-        if (! $project?->requiresRecordedBidOpening()) return 'This action is for competitive bids.';
+        if (! $project) return 'This bid has no project.';
         if ($bid->financial_opened_at) return 'Financial opening is already recorded.';
-        if ($bid->isSealed()) return 'Technical and eligibility documents are not yet available.';
+        if ($bid->isSealed()) {
+            return 'Technical and eligibility documents are sealed until the scheduled opening.';
+        }
         if ($project->archived_at || $project->failed_bidding_at || $bid->progress()->facts()['disqualified']
             || $bid->progress()->facts()['not_awarded']) return 'This bid is closed for opening.';
         if (! $bid->documents_validated_at || ! $bid->documents_validated_by) {
             return 'Approve the technical and eligibility review first.';
         }
-        if (! in_array($project->award_criterion, self::CRITERIA, true)
-            || ! $project->opening_documents_reference) {
+        if ($project->requiresRecordedBidOpening()
+            && (! in_array($project->award_criterion, self::CRITERIA, true)
+                || ! $project->opening_documents_reference)) {
             return 'Award criteria and the bidding-documents reference must be recorded first.';
         }
         return null;

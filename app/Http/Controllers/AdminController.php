@@ -176,7 +176,7 @@ class AdminController extends Controller
     private function filteredProjectsQuery(string $search, string $status, bool $showArchived)
     {
         return Project::withCount('bids')
-            ->with(['assignments.staff', 'documents', 'bids:id,project_id,bid_amount'])
+            ->with(['assignments.staff', 'documents', 'bids:id,project_id,bid_amount,financial_opened_at,financial_opened_by'])
             ->when($showArchived, function ($query) {
                 $query->whereNotNull('archived_at');
             }, function ($query) {
@@ -323,10 +323,9 @@ class AdminController extends Controller
     {
         $status = $request->input('status') === 'open' ? 'open' : 'draft';
         $publishRule = $status === 'open' ? 'required' : 'nullable';
-        // Only competitive bidding has a public bid opening that must be
-        // scheduled; RFQ-based modes open quotations after their deadline.
+        // Every mode keeps submissions sealed until its scheduled opening.
         $competitive = \App\Support\ProcurementMode::familyOf($request->input('procurement_mode')) === \App\Support\ProcurementMode::FAMILY_COMPETITIVE;
-        $openingRule = $status === 'open' && $competitive ? 'required' : 'nullable';
+        $openingRule = $status === 'open' ? 'required' : 'nullable';
         $confirmationRule = $status === 'open' ? 'accepted' : 'nullable';
 
         $validated = $request->validate([
@@ -1884,6 +1883,10 @@ public function destroyUser(User $user)
         );
         event(new \App\Events\BidWorkflowUpdated($bid->fresh()));
 
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Financial component opening recorded.']);
+        }
+
         return redirect()->route('admin.bids', ['view_bid' => $bid->id])->with('success', 'Financial component opening recorded.');
     }
 
@@ -2166,7 +2169,7 @@ public function destroyUser(User $user)
         $zone = config('bac-office.display_timezone', 'Asia/Manila');
         $format = fn (?string $moment) => $moment ? \Carbon\Carbon::parse($moment)->timezone($zone)->format('M d, Y h:i A') : 'not set';
         $message = 'Schedule updated for '.$project->title.': '.lcfirst($project->mode()->deadlineLabel()).' '.$format($after['deadline'])
-            .($project->requiresRecordedBidOpening() ? ', bid opening '.$format($after['bid_opening_date']) : '').'.';
+            .', '.lcfirst($project->mode()->openingLabel()).' '.$format($after['bid_opening_date']).'.';
         $recipients = Bid::where('project_id', $project->id)->pluck('user_id')
             ->merge(\App\Models\BiddingFeePayment::where('project_id', $project->id)->pluck('user_id'))
             ->merge($project->assignments()->pluck('staff_id'))
@@ -2186,7 +2189,7 @@ public function destroyUser(User $user)
     public function viewProject(Project $project)
     {
         $project->loadCount('bids');
-        $project->load(['assignments.staff', 'documents', 'bids:id,project_id,bid_amount', 'rebidProject:id,title']);
+        $project->load(['assignments.staff', 'documents', 'bids:id,project_id,bid_amount,financial_opened_at,financial_opened_by', 'rebidProject:id,title']);
 
         $staffMembers = User::where('role', 'staff')
             ->where('status', 'active')
@@ -3390,7 +3393,7 @@ public function destroyUser(User $user)
                 $any($project, 'notice_of_award_at') || $project->awards->isNotEmpty() => 'notice_of_award',
                 $any($project, 'post_qualification_completed_at') => 'post_qualified',
                 $any($project, 'evaluated_at') => 'evaluated',
-                $project->bidsAreOpened() || (! $project->requiresRecordedBidOpening() && $project->submissionDeadlinePassed()) => 'opened',
+                $project->bidsAreOpened() => 'opened',
                 in_array($project->status, Project::PUBLIC_STATUSES, true) && $project->submissionDeadlinePassed() => 'closed',
                 in_array($project->status, Project::PUBLIC_STATUSES, true) => 'published',
                 default => null,
@@ -3426,7 +3429,7 @@ public function destroyUser(User $user)
             ->flatMap(fn (Project $project) => collect([
                 ['pre_bid', 'Pre-bid conference', $project->schedule?->pre_bid_conference_date],
                 ['deadline', $project->mode()->deadlineLabel(), $project->bidSubmissionDeadline()],
-                ['opening', $project->mode()->openingLabel(), $project->requiresRecordedBidOpening() ? $project->schedule?->bid_opening_date : null],
+                ['opening', $project->mode()->openingLabel(), $project->schedule?->bid_opening_date],
             ])->filter(fn ($event) => $event[2] !== null && $event[2]->between($now, $until))
                 ->map(fn ($event) => ['time' => $event[2]->copy()->timezone($zone), 'type' => $event[0], 'label' => $event[1], 'project' => $project]))
             ->sortBy(fn ($event) => $event['time']->getTimestamp())
@@ -3610,7 +3613,7 @@ public function destroyUser(User $user)
                     ? $project->mode()->awardDueDate($project->bids_opened_at)
                     : null;
                 $reason = match (true) {
-                    $project->status === 'open' && $project->requiresRecordedBidOpening() && $project->submissionDeadlinePassed() && ! $project->bidsAreOpened()
+                    $project->status === 'open' && $project->submissionDeadlinePassed() && ! $project->bidsAreOpened()
                         => ['Submission closed · awaiting opening', 'warning'],
                     $awardDue !== null && $awardDue->isPast()
                         => ['Past the award period ('.$awardDue->timezone(config('bac-office.display_timezone'))->format('M d').')', 'danger'],

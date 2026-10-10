@@ -53,6 +53,14 @@
                 data-export-form-selector=".admin-bids-toolbar" data-register-stage="bac-review"
                 data-export-status-order="{{ implode(',', array_keys($statusOptions ?? [])) }}"
                 data-export-status-labels='@json($statusOptions ?? [])'>
+                <div class="bid-register-heading">
+                    <div>
+                        <span class="bid-register-heading__eyebrow">BAC review workspace</span>
+                        <h2>Submitted bids</h2>
+                        <p>Open a submission to review its current stage and required documents.</p>
+                    </div>
+                    <span class="bid-register-heading__count">{{ $bids->total() }} {{ \Illuminate\Support\Str::plural('submission', $bids->total()) }}</span>
+                </div>
                 <form method="GET" action="{{ route($isStaff ? 'staff.review-bids' : 'admin.bids') }}" class="admin-bids-toolbar">
                     <input type="hidden" name="per_page" value="{{ $bids->perPage() }}">
                     <div class="admin-bids-filter-group">
@@ -62,6 +70,7 @@
                         </div>
                         <span class="admin-bids-filter-divider" aria-hidden="true"></span>
                         <div class="admin-bids-toolbar-field">
+                            <span class="bid-filter-caption">Stage</span>
                             <select name="status" onchange="this.form.submit()" class="admin-bids-select" aria-label="Filter by stage">
                                 <option value="">All Stages</option>
                                 @foreach(($statusOptions ?? []) as $value => $label)
@@ -71,6 +80,7 @@
                         </div>
                         <span class="admin-bids-filter-divider" aria-hidden="true"></span>
                         <div class="admin-bids-toolbar-field">
+                            <span class="bid-filter-caption">Project</span>
                             <select name="project" onchange="this.form.submit()" class="admin-bids-select" aria-label="Filter by project">
                                 <option value="">All Projects</option>
                                 @foreach(($projects ?? collect()) as $project)
@@ -80,6 +90,7 @@
                         </div>
                         <span class="admin-bids-filter-divider" aria-hidden="true"></span>
                         <div class="admin-bids-toolbar-field">
+                            <span class="bid-filter-caption">Procurement</span>
                             <select name="mode" onchange="this.form.submit()" class="admin-bids-select" aria-label="Filter by procurement mode">
                                 <option value="">All Procurement Modes</option>
                                 @foreach(($modeOptions ?? []) as $value => $label)
@@ -89,6 +100,7 @@
                         </div>
                         <span class="admin-bids-filter-divider" aria-hidden="true"></span>
                         <div class="admin-bids-toolbar-field">
+                            <span class="bid-filter-caption">Documents</span>
                             <select name="document_status" onchange="this.form.submit()" class="admin-bids-select" aria-label="Filter by document status">
                                 <option value="">All Document States</option>
                                 @foreach(($documentStatusOptions ?? []) as $value => $label)

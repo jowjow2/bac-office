@@ -188,7 +188,7 @@
                             $portalStatus = $project->portalStatus();
                             $officialBids = $project->bids->reject(fn ($bid) => $bid->isDraft())->sortBy(fn ($bid) => $bid->submitted_at ?? $bid->created_at)->values();
                             $deadline = $project->bidSubmissionDeadline();
-                            $openingAt = $project->requiresRecordedBidOpening() ? $project->schedule?->bid_opening_date : null;
+                            $openingAt = $project->schedule?->bid_opening_date;
                             // Technical documents a staff member still has to check (opened, latest version not yet reviewed).
                             $documentsToCheck = $project->bidsAreOpened()
                                 ? $officialBids->sum(fn ($bid) => $bid->documents

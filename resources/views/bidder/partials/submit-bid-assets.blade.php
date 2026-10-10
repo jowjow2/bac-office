@@ -19,6 +19,7 @@
 
 
     .sb-bulk-upload { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 14px; align-items: center; padding: 14px 16px; border: 1px solid var(--sb-line); border-radius: 12px; background: #fff; }
+    .sb-bulk-upload[hidden] { display: none; }
     .sb-bulk-copy h3 { margin: 0; color: var(--ui-ink); font-size: 14px; font-weight: 700; }
     .sb-bulk-copy p, .sb-bulk-status, .sb-bulk-queue-hint { margin: 3px 0 0; color: var(--ui-muted); font-size: 12px; line-height: 1.45; }
     .sb-bulk-picker { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 0 14px; overflow: hidden; border: 1px solid var(--ui-primary); border-radius: 9px; background: var(--ui-primary); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
@@ -223,16 +224,16 @@
     .sg-envelope li > i { margin-top: 2px; color: var(--ui-subtle); }
     .sg-envelope li em { color: var(--ui-muted); font-style: normal; font-size: 11.5px; }
     .sg-envelope li small { display: block; color: var(--ui-muted); font-size: 11.5px; }
-    /* "Requirements to Include" in the rail: a light card like the bidding documents above it (beats the dashboard's dark theme rule). */
-    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-rail .bidder-requirements-card { display: grid !important; gap: 10px !important; margin: 0 !important; padding: 12px 14px !important; border: 1px solid var(--sb-line) !important; border-radius: 10px !important; background: #fff !important; box-shadow: none !important; color: var(--ui-ink) !important; }
-    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-rail .bidder-requirements-heading { display: block !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: transparent !important; }
-    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-rail .bidder-requirements-heading h4 { margin: 0 !important; color: var(--ui-ink-2) !important; font-size: 12px !important; font-weight: 700 !important; letter-spacing: .02em !important; text-transform: uppercase !important; }
-    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-rail .bidder-requirements-heading p { margin: 3px 0 0 !important; color: var(--ui-muted) !important; font-size: 12px !important; line-height: 1.45 !important; }
-    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-rail .bidder-requirements-icon { display: none !important; }
-    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-rail .bidder-requirements-grid { display: grid !important; grid-template-columns: minmax(0, 1fr) !important; gap: 10px !important; margin: 0 !important; padding: 10px 0 0 !important; border-top: 1px solid var(--sb-line) !important; }
-    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-rail .bidder-requirement-section { margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; }
-    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-rail .bidder-requirement-section strong { display: block !important; margin: 0 0 2px !important; color: var(--ui-ink) !important; font-size: 12px !important; font-weight: 700 !important; }
-    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-rail .bidder-requirement-section p { margin: 0 !important; color: var(--ui-ink-2) !important; font-size: 12.5px !important; line-height: 1.5 !important; white-space: pre-line !important; overflow-wrap: anywhere !important; }
+    /* Keep project requirements legible inside the expandable notice. */
+    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-context-files .bidder-requirements-card { display: grid !important; gap: 10px !important; margin: 0 !important; padding: 12px 14px !important; border: 1px solid var(--sb-line) !important; border-radius: 10px !important; background: #fff !important; box-shadow: none !important; color: var(--ui-ink) !important; }
+    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-context-files .bidder-requirements-heading { display: block !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: transparent !important; }
+    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-context-files .bidder-requirements-heading h4 { margin: 0 !important; color: var(--ui-ink-2) !important; font-size: 12px !important; font-weight: 700 !important; letter-spacing: .02em !important; text-transform: uppercase !important; }
+    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-context-files .bidder-requirements-heading p { margin: 3px 0 0 !important; color: var(--ui-muted) !important; font-size: 12px !important; line-height: 1.45 !important; }
+    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-context-files .bidder-requirements-icon { display: none !important; }
+    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-context-files .bidder-requirements-grid { display: grid !important; grid-template-columns: minmax(0, 1fr) !important; gap: 10px !important; margin: 0 !important; padding: 10px 0 0 !important; border-top: 1px solid var(--sb-line) !important; }
+    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-context-files .bidder-requirement-section { margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; }
+    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-context-files .bidder-requirement-section strong { display: block !important; margin: 0 0 2px !important; color: var(--ui-ink) !important; font-size: 12px !important; font-weight: 700 !important; }
+    body .admin-dashboard .bidder-submit-modal-overlay .sb .sb-context-files .bidder-requirement-section p { margin: 0 !important; color: var(--ui-ink-2) !important; font-size: 12.5px !important; line-height: 1.5 !important; white-space: pre-line !important; overflow-wrap: anywhere !important; }
 
     .sb-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 12px 22px; border-top: 1px solid var(--sb-line); background: #fff; }
     .sb-status { color: var(--ui-muted); font-size: 12.5px; }
@@ -280,6 +281,71 @@
         .sb-foot-actions > [data-close-modal]:not(.sb-btn--primary) { display: none; }
         .sb .sb-btn { padding: 0 10px; }
         .sb-status { text-align: center; }
+    }
+
+    /* Submission workspace: keep the task in one wide column and tuck the
+       full project notice behind a disclosure above the form. */
+    .bidder-submit-modal-overlay .sb { width: min(1160px, calc(100vw - 32px)); max-height: min(92dvh, calc(100dvh - 20px)); border-radius: 18px; }
+    .bidder-submit-modal-overlay .sb-head { padding: 22px 30px 18px; background: linear-gradient(120deg, #fff 68%, #f1f7f3); }
+    .bidder-submit-modal-overlay .sb-title { font-size: clamp(22px, 2vw, 27px); letter-spacing: -.025em; }
+    .bidder-submit-modal-overlay .sb-project { margin-top: 4px; font-size: 15px; }
+    .sb-seal-note { display: flex; align-items: flex-start; gap: 7px; margin: 9px 0 0; color: var(--ui-muted); font-size: 12px; line-height: 1.45; }
+    .sb-seal-note i { margin-top: 2px; color: var(--ui-primary); }
+    .bidder-submit-modal-overlay .sb-body { display: block; overflow-y: auto; }
+    .bidder-submit-modal-overlay .sb-main { padding: 0 30px 30px; }
+    .bidder-submit-modal-overlay .sb-form { gap: 18px; }
+    .bidder-submit-modal-overlay .sb-steps { top: 0; gap: 10px; margin: 0 -30px 22px; padding: 13px 30px; background: #f7f9f7; box-shadow: 0 4px 10px rgba(27, 36, 32, .03); }
+    .bidder-submit-modal-overlay .sb-step { justify-content: flex-start; gap: 12px; min-height: 56px; padding: 9px 14px; border-color: var(--sb-line); border-radius: 11px; background: #fff; }
+    .bidder-submit-modal-overlay .sb-step.is-current { border-color: var(--ui-primary); background: var(--ui-primary-soft); box-shadow: inset 0 0 0 1px var(--ui-primary); }
+    .bidder-submit-modal-overlay .sb-step small { display: block; margin-top: 2px; color: var(--ui-muted); font-size: 11px; line-height: 1.2; }
+    .bidder-submit-modal-overlay .sb-step__number { flex-basis: 28px; height: 28px; font-size: 12px; }
+    .bidder-submit-modal-overlay .sb-bulk-upload { padding: 19px 21px; border-style: dashed; border-color: var(--ui-primary-line); background: #f7fbf8; }
+    .bidder-submit-modal-overlay .sb-bulk-copy h3 { font-size: 15px; }
+    .bidder-submit-modal-overlay .sb-bulk-copy p { max-width: 600px; font-size: 12.5px; }
+    .bidder-submit-modal-overlay .sb-bulk-status { color: var(--ui-ink-2); }
+    .bidder-submit-modal-overlay .sb-panel { gap: 16px; }
+    .bidder-submit-modal-overlay .sb-panel-head { align-items: center; padding-bottom: 10px; border-bottom: 1px solid var(--sb-line); }
+    .bidder-submit-modal-overlay .sb-panel-title { font-size: 17px; }
+    .bidder-submit-modal-overlay .sb-panel-hint { font-size: 12.5px; }
+    .bidder-submit-modal-overlay .sb-files { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .bidder-submit-modal-overlay .sb-file { min-height: 104px; grid-template-columns: 36px minmax(0, 1fr); align-content: center; gap: 8px 11px; padding: 13px 15px; }
+    .bidder-submit-modal-overlay .sb-file-icon { align-self: start; width: 36px; height: 36px; }
+    .bidder-submit-modal-overlay .sb-file-actions { grid-column: 2; justify-content: flex-start; }
+    .bidder-submit-modal-overlay .sb-file-title { font-size: 13px; line-height: 1.35; }
+    .bidder-submit-modal-overlay .sb-context { margin: 0; border-bottom: 1px solid var(--sb-line); background: #fff; }
+    .bidder-submit-modal-overlay .sb-context > summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 7px 18px; padding: 12px 30px; color: var(--ui-ink-2); cursor: pointer; list-style-position: inside; }
+    .bidder-submit-modal-overlay .sb-context > summary:hover { background: var(--sb-soft); }
+    .bidder-submit-modal-overlay .sb-context-title { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; }
+    .bidder-submit-modal-overlay .sb-context-title i { color: var(--ui-primary); }
+    .bidder-submit-modal-overlay .sb-context-times { color: var(--ui-muted); font-size: 12px; }
+    .bidder-submit-modal-overlay .sb-context-times > span { margin: 0 6px; }
+    .bidder-submit-modal-overlay .sb-context-content { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 4px 30px 20px; }
+    .bidder-submit-modal-overlay .sb-context-card, .bidder-submit-modal-overlay .sb-context-files { min-width: 0; padding: 16px; border: 1px solid var(--sb-line); border-radius: 12px; background: #fff; }
+    .bidder-submit-modal-overlay .sb-context-card h3 { margin: 0 0 9px; color: var(--ui-ink); font-size: 14px; }
+    .bidder-submit-modal-overlay .sb-context-files { display: grid; align-content: start; gap: 16px; }
+    .bidder-submit-modal-overlay .sb-context .sb-notice { margin: 0; }
+    .bidder-submit-modal-overlay .sb-context .sb-notice > div { gap: 16px; }
+    .bidder-submit-modal-overlay .sb-context .sb-notice dd { max-width: 55%; }
+    .bidder-submit-modal-overlay .sb-foot { padding: 13px 30px; box-shadow: 0 -8px 20px rgba(27, 36, 32, .04); }
+    .bidder-submit-modal-overlay .sb-status { max-width: 58%; line-height: 1.4; }
+    @media (max-width: 900px) {
+        .bidder-submit-modal-overlay .sb-files { grid-template-columns: 1fr; }
+        .bidder-submit-modal-overlay .sb-context-content { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+        .bidder-submit-modal-overlay .sb { width: 100%; max-height: calc(100dvh - 12px); border-radius: 13px; }
+        .bidder-submit-modal-overlay .sb-head { padding: 16px; }
+        .bidder-submit-modal-overlay .sb-main { padding: 0 16px 20px; }
+        .bidder-submit-modal-overlay .sb-steps { gap: 5px; margin: 0 -16px 18px; padding: 9px 16px; }
+        .bidder-submit-modal-overlay .sb-step { min-height: 42px; padding: 6px 7px; }
+        .bidder-submit-modal-overlay .sb-step:not(.is-current) { flex: 0 0 auto; }
+        .bidder-submit-modal-overlay .sb-step small { display: none; }
+        .bidder-submit-modal-overlay .sb-step__number { flex-basis: 24px; height: 24px; }
+        .bidder-submit-modal-overlay .sb-context > summary { padding: 12px 16px; }
+        .bidder-submit-modal-overlay .sb-context-content { padding: 4px 16px 18px; }
+        .bidder-submit-modal-overlay .sb-bulk-upload { padding: 16px; }
+        .bidder-submit-modal-overlay .sb-foot { padding: 11px 16px; }
+        .bidder-submit-modal-overlay .sb-status { max-width: none; }
     }
 </style>
 
@@ -488,8 +554,8 @@
 
             function show(n, focus) {
                 step = Math.max(1, Math.min(3, n));
-                panels.forEach(function (panel) { panel.hidden = false; });
-                if (submit) submit.hidden = false;
+                const tab = dialog.querySelector('[data-sb-go="' + step + '"]');
+                if (tab) tab.click();
                 refresh();
                 if (focus) {
                     const title = dialog.querySelector('[data-sb-panel="' + step + '"] .sb-panel-title');

@@ -16,6 +16,9 @@
 /public/build
 /.tmp
 /UsersCEDRICKAppDataLocalTemp*
+/Bid_Submission_Sample_Files.zip
+/TODO.md
+/test_write_probe.txt
 /.vercel
 /.kilo
 /storage
