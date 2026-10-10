@@ -224,6 +224,25 @@
     .ci-history p { color: var(--ui-ink-2, #33403a); font-size: var(--ui-text-sm, 12.5px); line-height: 1.5; }
     .ci-history a { display: inline-flex; align-items: center; gap: 6px; width: fit-content; color: var(--ui-primary, #1d4f40); font-size: var(--ui-text-sm, 12.5px); font-weight: 600; text-decoration: none; }
     .ci-history a:hover { text-decoration: underline; }
+    .ci-history-count { padding: 3px 10px; border-radius: 999px; background: var(--ui-line-soft, #eef2ef); color: var(--ui-muted, #5d6b64); font-size: 11.5px; font-weight: 700; }
+    .ci-card-head:has(.ci-history-count) { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .ci-history { margin: 0; padding: 0; list-style: none; }
+    .ci-history li { position: relative; display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 0 14px; padding: 0 0 18px; }
+    .ci-history li::before { display: none; }
+    .ci-history li::after { content: ''; position: absolute; top: 40px; bottom: 2px; left: 18px; width: 2px; background: var(--ui-line, #e5e0d4); }
+    .ci-history li:last-child { padding-bottom: 0; }
+    .ci-history li:last-child::after { display: none; }
+    .ci-history-icon { display: grid; width: 38px; height: 38px; place-items: center; border: 2px solid var(--ui-line, #e5e0d4); border-radius: 50%; background: #fff; color: var(--ui-muted, #5d6b64); font-size: 14px; }
+    .ci-history li.is-latest .ci-history-icon { border-color: var(--ui-primary, #1f5c45); background: var(--ui-primary, #1f5c45); color: #fff; box-shadow: 0 0 0 4px rgba(31, 92, 69, .14); }
+    .ci-history-body { display: grid; gap: 6px; min-width: 0; padding: 12px 16px; border: 1px solid var(--ui-line, #e5e0d4); border-radius: 12px; background: #fff; }
+    .ci-history li.is-latest .ci-history-body { border-color: var(--ui-primary-line, #cfe3d9); background: var(--ui-primary-soft, #f1f8f4); }
+    .ci-history-title { font-size: 14px; }
+    .ci-history-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: var(--ui-muted, #5d6b64); font-size: 12px; }
+    .ci-history-meta b { color: var(--ui-ink-2, #33403a); }
+    .ci-role { padding: 1px 8px; border-radius: 999px; background: var(--ui-line-soft, #eef2ef); color: var(--ui-ink-2, #33403a); font-size: 10.5px; font-weight: 700; }
+    .ci-history .ci-history-remark { margin: 0; padding: 8px 12px; border-left: 3px solid var(--ui-line-strong, #cfd8d3); border-radius: 0 8px 8px 0; background: var(--ui-surface-2, #f7faf8); }
+    .ci-history a.ci-file { padding: 6px 12px; border: 1px solid var(--ui-line, #e5e0d4); border-radius: 9px; background: #fff; }
+    .ci-history a.ci-file:hover { border-color: var(--ui-primary, #1f5c45); text-decoration: none; }
 
     @media (max-width: 900px) {
         .ci-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -454,16 +473,36 @@
 
         @if($implementation && $implementation->events->isNotEmpty())
             <div class="ci-card">
-                <div class="ci-card-head"><h3>Activity history</h3></div>
+                <div class="ci-card-head"><h3>Activity history</h3><span class="ci-history-count">{{ $implementation->events->count() }} {{ \Illuminate\Support\Str::plural('update', $implementation->events->count()) }}</span></div>
+                @php
+                    $ciIcon = function (string $action): string {
+                        return match (true) {
+                            str_contains($action, 'supplier_delivery') || str_contains($action, 'delivery') => 'fa-truck-fast',
+                            str_contains($action, 'receipt') || str_contains($action, 'received') => 'fa-box-open',
+                            str_contains($action, 'inspect') => 'fa-clipboard-check',
+                            str_contains($action, 'accept') => 'fa-circle-check',
+                            str_contains($action, 'payment') || str_contains($action, 'paid') => 'fa-peso-sign',
+                            str_contains($action, 'warranty') => 'fa-shield-halved',
+                            str_contains($action, 'extension') || str_contains($action, 'extend') => 'fa-calendar-plus',
+                            str_contains($action, 'correction') => 'fa-rotate-left',
+                            str_contains($action, 'complete') => 'fa-flag-checkered',
+                            str_contains($action, 'term') || str_contains($action, 'configure') || str_contains($action, 'record') => 'fa-file-signature',
+                            default => 'fa-circle-dot',
+                        };
+                    };
+                    $ciRole = fn (?string $role): string => match ($role) { 'bidder' => 'Supplier', 'admin' => 'BAC Admin', 'staff' => 'BAC Staff', default => 'User' };
+                @endphp
                 <ol class="ci-history">
                     @foreach($implementation->events->sortByDesc('occurred_at') as $event)
-                        <li>
+                        <li class="{{ $loop->first ? 'is-latest' : '' }}">
+                            <span class="ci-history-icon" aria-hidden="true"><i class="fas {{ $ciIcon((string) $event->action) }}"></i></span>
+                            <div class="ci-history-body">
                             <span class="ci-history-title">
                                 {{ \Illuminate\Support\Str::headline($event->action) }}
                                 @if($event->status_to)<span class="ci-pill is-info">{{ \Illuminate\Support\Str::headline($event->status_to) }}</span>@endif
                             </span>
-                            <span class="ci-history-meta">{{ $event->occurred_at?->timezone($tz)->format('M d, Y g:i A') }} &middot; {{ $event->actor?->name ?? 'User no longer available' }}</span>
-                            @if($event->remarks)<p>{{ $event->remarks }}</p>@endif
+                            <span class="ci-history-meta"><b>{{ $event->actor?->name ?? 'User no longer available' }}</b><span class="ci-role">{{ $ciRole($event->actor_role) }}</span><span>{{ $event->occurred_at?->timezone($tz)->format('M d, Y g:i A') }}</span>@if($event->occurred_at)<span>&middot; {{ $event->occurred_at->diffForHumans() }}</span>@endif</span>
+                            @if($event->remarks)<p class="ci-history-remark">{{ $event->remarks }}</p>@endif
                             @if($event->details['actual_received_on'] ?? null)<p>Actual receipt: {{ $event->details['actual_received_on'] }}</p>@endif
                             @if($event->details['iar_number'] ?? null)<p>{{ $event->details['iar_number'] }} · inspected {{ \Illuminate\Support\Carbon::parse($event->details['inspected_on'])->format('M d, Y') }}</p>@endif
                             @if($event->details['inspection_findings'] ?? null)<p>Inspection: {{ $event->details['inspection_findings'] }}</p>@endif
@@ -471,7 +510,8 @@
                             @if(array_key_exists('liquidated_damages', $event->details ?? []))<p>Liquidated damages at payment: {{ ($event->details['damages_priced'] ?? true) ? $peso($event->details['liquidated_damages']) : 'not computed (no unit prices)' }}@if($event->details['warranty_security_amount'] ?? null) · warranty security {{ $peso($event->details['warranty_security_amount']) }}@endif</p>@endif
                             @if($event->details['warranty_released_on'] ?? null)<p>Warranty security released {{ \Illuminate\Support\Carbon::parse($event->details['warranty_released_on'])->format('M d, Y') }}{{ ($event->details['released_after_consumption'] ?? false) ? ' (supplies consumed)' : '' }}</p>@endif
                             @if($event->details['correction_request'] ?? null)<p>Correction: {{ $event->details['correction_request'] }}</p>@endif
-                            @if($event->document_path)<a href="{{ route('contract-implementation.document', $event) }}" target="_blank" rel="noopener"><i class="fas fa-file-lines" aria-hidden="true"></i> {{ $event->document_name ?: 'Supporting document' }}</a>@endif
+                            @if($event->document_path)<a class="ci-file" href="{{ route('contract-implementation.document', $event) }}" target="_blank" rel="noopener"><i class="fas fa-file-lines" aria-hidden="true"></i> {{ $event->document_name ?: 'Supporting document' }}</a>@endif
+                            </div>
                         </li>
                     @endforeach
                 </ol>
