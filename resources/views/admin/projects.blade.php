@@ -1,5 +1,6 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 @include('partials.dashboard-viewport')
+@include('partials.searchable-select')
 <div class="admin-dashboard admin-role-page">
     @vite(['resources/css/dashboard.css', 'resources/css/bid-management.css', 'resources/css/admin-projects.css', 'resources/js/bid-management.js'])
 

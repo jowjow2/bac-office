@@ -454,6 +454,25 @@
         .bidder-submit-modal-overlay .sb-filetable .sb-file-actions { justify-content: flex-start; padding-left: 48px; }
     }
 
+    /* ---------- Requirement rows: number, name with its tags, and one action ---------- */
+    .bidder-submit-modal-overlay .sb-files-head { grid-template-columns: 44px minmax(0, 1fr) 150px; padding: 10px 20px; }
+    .bidder-submit-modal-overlay .sb-files-head span:last-child { text-align: right; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file { grid-template-columns: 44px minmax(0, 1fr) auto; grid-template-areas: "icon copy actions"; align-items: start; gap: 6px 16px; padding: 18px 20px; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-icon { width: 32px; height: 32px; margin-top: 1px; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-copy { display: grid; gap: 6px; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-title { display: block; font-size: 14px; font-weight: 600; line-height: 1.4; }
+    .bidder-submit-modal-overlay .sb-file-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+    .bidder-submit-modal-overlay .sb-file-sub .sb-file-meta { font-size: 12px; line-height: 1.4; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-status { display: grid; gap: 2px; margin-top: 2px; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-chosen { font-size: 12.5px; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-actions { align-self: center; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-actions .sb-btn { min-width: 128px; justify-content: center; }
+    @media (max-width: 760px) {
+        .bidder-submit-modal-overlay .sb-filetable .sb-file { grid-template-columns: 34px minmax(0, 1fr); grid-template-areas: "icon copy" "actions actions"; padding: 14px 16px; }
+        .bidder-submit-modal-overlay .sb-filetable .sb-file-actions { padding-left: 50px; align-self: start; }
+        .bidder-submit-modal-overlay .sb-filetable .sb-file-actions .sb-btn { flex: 0 1 auto; }
+    }
+
     /* ---------- Financial offer: ABC reference, live budget check, PIN boxes ---------- */
     .bidder-submit-modal-overlay .sb-abc { display: grid; gap: 2px; margin: 12px 0 0; padding: 10px 12px; border: 1px solid var(--sb-line); border-radius: 10px; background: var(--ui-surface-2, #f7faf8); }
     .bidder-submit-modal-overlay .sb-abc span { color: var(--ui-muted); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }

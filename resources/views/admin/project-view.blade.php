@@ -274,7 +274,7 @@
                     <form action="{{ route('admin.project.sealed-bids.store', $project) }}" method="POST" style="display:grid; gap:10px; margin-top:12px;">
                         @csrf
                         <label class="view-project-field-label" for="sealed-bidder-{{ $project->id }}">Record a sealed bid handed in</label>
-                        <select id="sealed-bidder-{{ $project->id }}" name="bidder_id" required style="border:1px solid #d2cbbb; border-radius:8px; padding:8px 10px; font:inherit;">
+                        <select id="sealed-bidder-{{ $project->id }}" name="bidder_id" required data-searchable="Search the bidder by company or name" style="border:1px solid #d2cbbb; border-radius:8px; padding:8px 10px; font:inherit;">
                             <option value="">Choose the bidder</option>
                             @foreach($sealedBidders as $option)
                                 <option value="{{ $option['id'] }}" @disabled(! $option['fee_paid'])>{{ $option['label'] }}{{ $option['fee_paid'] ? '' : ' (bidding fee not recorded)' }}</option>
