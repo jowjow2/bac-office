@@ -286,6 +286,7 @@
     /* Submission workspace: keep the task in one wide column and tuck the
        full project notice behind a disclosure above the form. */
     .bidder-submit-modal-overlay .sb { width: min(1160px, calc(100vw - 32px)); max-height: min(92dvh, calc(100dvh - 20px)); border-radius: 18px; }
+    .bidder-submit-modal-overlay .sb-head-main { flex: 1 1 auto; }
     .bidder-submit-modal-overlay .sb-head { padding: 22px 30px 18px; background: linear-gradient(120deg, #fff 68%, #f1f7f3); }
     .bidder-submit-modal-overlay .sb-title { font-size: clamp(22px, 2vw, 27px); letter-spacing: -.025em; }
     .bidder-submit-modal-overlay .sb-project { margin-top: 4px; font-size: 15px; }
@@ -346,6 +347,78 @@
         .bidder-submit-modal-overlay .sb-bulk-upload { padding: 16px; }
         .bidder-submit-modal-overlay .sb-foot { padding: 11px 16px; }
         .bidder-submit-modal-overlay .sb-status { max-width: none; }
+    }
+
+    /* ---------- Professional pass: header facts, payment path, component cards ---------- */
+    .bidder-submit-modal-overlay .sb { border-radius: 18px; box-shadow: 0 30px 80px rgba(15, 25, 21, .35); }
+    .bidder-submit-modal-overlay .sb-head-main { flex: 1 1 auto; }
+    .bidder-submit-modal-overlay .sb-head { padding: 22px 30px 18px; border-bottom: 0; background: linear-gradient(180deg, var(--ui-surface-2, #f7faf8), #fff); }
+    .bidder-submit-modal-overlay .sb-eyebrow { gap: 8px; margin-bottom: 8px; }
+    .bidder-submit-modal-overlay .sb-eyebrow span { padding: 3px 10px; border-radius: 999px; background: var(--ui-primary-soft, #e8f3ee); color: var(--ui-primary, #1f5c45); font-size: 11px; font-weight: 700; letter-spacing: .02em; }
+    .bidder-submit-modal-overlay .sb-eyebrow code { padding: 3px 9px; border: 1px solid var(--sb-line); border-radius: 999px; background: #fff; font-size: 11px; }
+    .bidder-submit-modal-overlay .sb-title { font-size: 24px; letter-spacing: -.015em; }
+    .bidder-submit-modal-overlay .sb-project { margin-top: 4px; color: var(--ui-muted); font-size: 15px; font-weight: 500; line-height: 1.4; }
+    .bidder-submit-modal-overlay .sb-seal-note { align-items: center; margin-top: 12px; padding: 9px 12px; border: 1px solid var(--ui-primary-line, #cfe3d9); border-radius: 10px; background: var(--ui-primary-soft, #e8f3ee); color: var(--ui-ink-2); }
+    .bidder-submit-modal-overlay .sb-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 14px 0 0; border: 1px solid var(--sb-line); border-radius: 12px; background: #fff; overflow: hidden; }
+    .bidder-submit-modal-overlay .sb-facts > div { padding: 11px 14px; border-right: 1px solid var(--sb-line); min-width: 0; }
+    .bidder-submit-modal-overlay .sb-facts > div:last-child { border-right: 0; }
+    .bidder-submit-modal-overlay .sb-facts dt { color: var(--ui-muted); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .bidder-submit-modal-overlay .sb-facts dd { margin: 3px 0 0; color: var(--ui-ink); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    .bidder-submit-modal-overlay .sb-facts dd small { display: block; margin-top: 1px; color: var(--ui-muted); font-size: 11.5px; font-weight: 600; }
+    .bidder-submit-modal-overlay .sb-facts .is-warn dd small, .bidder-submit-modal-overlay .sb-facts .is-warn dd { color: var(--ui-warning); }
+    .bidder-submit-modal-overlay .sb-facts .is-ok dd { color: var(--ui-success); }
+    .bidder-submit-modal-overlay .sb-close { width: 38px; height: 38px; border-radius: 11px; }
+    .bidder-submit-modal-overlay .sb-main { padding: 22px 30px 26px; }
+
+    .bidder-submit-modal-overlay .sb-flow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; counter-reset: none; }
+    .bidder-submit-modal-overlay .sb-flow li { position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr); column-gap: 10px; padding: 12px 14px; border: 1px solid var(--sb-line); border-radius: 12px; background: #fff; }
+    .bidder-submit-modal-overlay .sb-flow li > span { grid-row: 1 / span 2; display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; background: var(--sb-soft); color: var(--ui-muted); font-size: 13px; font-weight: 700; }
+    .bidder-submit-modal-overlay .sb-flow li strong { color: var(--ui-ink-2); font-size: 13px; }
+    .bidder-submit-modal-overlay .sb-flow li small { color: var(--ui-muted); font-size: 11.5px; line-height: 1.4; }
+    .bidder-submit-modal-overlay .sb-flow li.is-current { border-color: var(--ui-primary, #1f5c45); background: var(--ui-primary-soft, #e8f3ee); }
+    .bidder-submit-modal-overlay .sb-flow li.is-current > span { background: var(--ui-primary, #1f5c45); color: #fff; }
+    .bidder-submit-modal-overlay .sb-flow li.is-current strong { color: var(--ui-ink); }
+
+    .bidder-submit-modal-overlay .sb-pay { grid-template-columns: 230px minmax(0, 1fr); gap: 0; padding: 0; overflow: hidden; border: 1px solid var(--ui-warning-line); border-radius: 14px; background: #fff; }
+    .bidder-submit-modal-overlay .sb-pay-box { display: grid; align-content: center; gap: 4px; padding: 22px 20px; background: var(--ui-warning-soft); border-right: 1px solid var(--ui-warning-line); }
+    .bidder-submit-modal-overlay .sb-pay-box span { color: var(--ui-warning); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .bidder-submit-modal-overlay .sb-pay-box strong { color: var(--ui-ink); font-size: 30px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+    .bidder-submit-modal-overlay .sb-pay-box small { color: var(--ui-muted); font-size: 11.5px; }
+    .bidder-submit-modal-overlay .sb-pay-main { padding: 18px 22px; }
+    .bidder-submit-modal-overlay .sb-pay-main h3 { font-size: 16px; }
+    .bidder-submit-modal-overlay .sb-pay-details { margin: 12px 0 10px; }
+    .bidder-submit-modal-overlay .sb-pay-details div { grid-template-columns: 100px minmax(0, 1fr); padding: 7px 0; border-top: 1px solid var(--ui-line-soft, #eef2ef); }
+    .bidder-submit-modal-overlay .sb-pay-details div:first-child { border-top: 0; }
+
+    .bidder-submit-modal-overlay .sb-comp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .bidder-submit-modal-overlay .sb-comp { padding: 16px 18px; border: 1px solid var(--sb-line); border-radius: 14px; background: #fff; }
+    .bidder-submit-modal-overlay .sb-comp .sb-group-title { display: flex; align-items: center; gap: 9px; margin: 0; font-size: 14px; }
+    .bidder-submit-modal-overlay .sb-comp .sb-group-title > span { display: grid; flex: 0 0 24px; width: 24px; height: 24px; place-items: center; border-radius: 50%; background: var(--ui-primary-soft, #e8f3ee); color: var(--ui-primary, #1f5c45); font-size: 12px; }
+    .bidder-submit-modal-overlay .sb-comp .sb-group-title small { margin-left: auto; color: var(--ui-muted); font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+    .bidder-submit-modal-overlay .sb-comp-hint { margin: 6px 0 10px; color: var(--ui-muted); font-size: 12px; line-height: 1.45; }
+    .bidder-submit-modal-overlay .sb-comp .sb-checklist { gap: 0; }
+    .bidder-submit-modal-overlay .sb-comp .sb-checklist li { display: flex; align-items: flex-start; gap: 8px; padding: 8px 0; border-top: 1px solid var(--ui-line-soft, #eef2ef); line-height: 1.4; }
+    .bidder-submit-modal-overlay .sb-comp .sb-checklist li:first-child { border-top: 0; }
+    .bidder-submit-modal-overlay .sb-comp .sb-checklist .sb-tag { margin-left: auto; flex: 0 0 auto; }
+
+    .bidder-submit-modal-overlay .sb-foot { padding: 14px 30px; background: var(--ui-surface-2, #f7faf8); box-shadow: none; }
+    .bidder-submit-modal-overlay .sb-btn { min-height: 42px; padding: 0 20px; border-radius: 11px; font-weight: 700; }
+    .bidder-submit-modal-overlay .sb-btn--primary:disabled { border-color: var(--ui-line); background: var(--ui-line-soft, #eef2ef); color: var(--ui-subtle); cursor: not-allowed; }
+
+    @media (max-width: 900px) {
+        .bidder-submit-modal-overlay .sb-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .bidder-submit-modal-overlay .sb-facts > div:nth-child(2) { border-right: 0; }
+        .bidder-submit-modal-overlay .sb-facts > div:nth-child(-n+2) { border-bottom: 1px solid var(--sb-line); }
+        .bidder-submit-modal-overlay .sb-comp-grid, .bidder-submit-modal-overlay .sb-flow { grid-template-columns: 1fr; }
+        .bidder-submit-modal-overlay .sb-pay { grid-template-columns: 1fr; }
+        .bidder-submit-modal-overlay .sb-pay-box { border-right: 0; border-bottom: 1px solid var(--ui-warning-line); padding: 16px 20px; }
+    }
+    @media (max-width: 640px) {
+        .bidder-submit-modal-overlay .sb-head { padding: 16px 16px 14px; }
+        .bidder-submit-modal-overlay .sb-title { font-size: 20px; }
+        .bidder-submit-modal-overlay .sb-main { padding: 16px 16px 20px; }
+        .bidder-submit-modal-overlay .sb-pay-box strong { font-size: 26px; }
+        .bidder-submit-modal-overlay .sb-pay-main { padding: 16px; }
     }
 </style>
 

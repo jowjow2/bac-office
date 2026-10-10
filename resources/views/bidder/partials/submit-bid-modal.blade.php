@@ -37,13 +37,18 @@
                 <h2 class="sb-title" id="bid-modal-title-{{ $pid }}">{{ $title }}</h2>
                 <p class="sb-project">{{ $project->title }}</p>
                 <p class="sb-seal-note"><i class="fas fa-shield-halved" aria-hidden="true"></i> Submit both components now. Technical opens at the scheduled bid opening; financial stays sealed until the BAC approves the technical review.</p>
-                <div class="sb-chips">
-                    <span class="sb-chip"><i class="fas fa-scale-balanced" aria-hidden="true"></i> ABC &#8369;{{ number_format($abc, 2) }}</span>
-                    <span class="sb-chip {{ $daysLeftLabel && str_contains($daysLeftLabel, 'today') ? 'is-warn' : '' }}"><i class="fas fa-clock" aria-hidden="true"></i> Deadline {{ $deadlineLocal ? $deadlineLocal->format('M d, Y h:i A') : 'not set' }}{{ $daysLeftLabel ? ' · '.$daysLeftLabel : '' }}</span>
-                    @if($requiresFee && $feePayment)
-                        <span class="sb-chip is-ok"><i class="fas fa-circle-check" aria-hidden="true"></i> Bidding fee paid</span>
-                    @endif
-                </div>
+                <dl class="sb-facts">
+                    <div><dt>Approved budget</dt><dd>&#8369;{{ number_format($abc, 2) }}</dd></div>
+                    <div class="{{ $daysLeftLabel && str_contains($daysLeftLabel, 'today') ? 'is-warn' : '' }}">
+                        <dt>Submission deadline</dt>
+                        <dd>{{ $deadlineLocal ? $deadlineLocal->format('M d, Y · h:i A') : 'Not set' }}@if($daysLeftLabel)<small>{{ ucfirst($daysLeftLabel) }}</small>@endif</dd>
+                    </div>
+                    <div><dt>Bid opening</dt><dd>{{ $openingAt ? $openingAt->format('M d, Y · h:i A') : 'To be announced' }}</dd></div>
+                    <div class="{{ $requiresFee ? ($feePayment ? 'is-ok' : 'is-warn') : '' }}">
+                        <dt>Bidding documents fee</dt>
+                        <dd>@if($requiresFee){{ $feePayment ? 'Paid' : $feeLabel }}<small>{{ $feePayment ? 'OR No. '.$feePayment->or_number : 'Pay at the BAC office' }}</small>@else{{ $project->biddingFeeWaived() ? 'Waived' : 'None' }}@endif</dd>
+                    </div>
+                </dl>
             </div>
             <button type="button" class="sb-close" data-close-modal="bid-modal-{{ $pid }}" aria-label="Close">
                 <i class="fas fa-times" aria-hidden="true"></i>
@@ -109,13 +114,21 @@
                                 </div>
                             </div>
                         @endunless
+                        <ol class="sb-flow" aria-label="How to submit">
+                            <li class="is-current"><span>1</span><strong>Pay at the BAC office</strong><small>Bring your company name and the reference no.</small></li>
+                            <li><span>2</span><strong>The BAC records your receipt</strong><small>You are notified right away</small></li>
+                            <li><span>3</span><strong>Submit your bid here</strong><small>Technical and financial files</small></li>
+                        </ol>
                         <section class="sb-pay" aria-labelledby="bsm-pay-title-{{ $pid }}">
-                            <span class="sb-pay-icon" aria-hidden="true"><i class="fas fa-receipt"></i></span>
-                            <div>
+                            <div class="sb-pay-box">
+                                <span>Amount to pay</span>
+                                <strong>{{ $feeLabel }}</strong>
+                                <small>Bidding documents fee, non-refundable</small>
+                            </div>
+                            <div class="sb-pay-main">
                                 <h3 id="bsm-pay-title-{{ $pid }}">Pay the bidding documents fee first</h3>
                                 <p>Pay in person at the BAC office. You can submit your bid here once the BAC records your Official Receipt.</p>
                                 <dl class="sb-pay-details">
-                                    <div><dt>Amount</dt><dd class="sb-pay-amount">{{ $feeLabel }}</dd></div>
                                     <div><dt>Where to pay</dt><dd>{{ $project->paymentVenueLabel() }}</dd></div>
                                     <div><dt>Pay before</dt><dd>{{ $deadlineLocal ? $deadlineLocal->format('M d, Y h:i A') : 'the submission deadline' }}, during office hours (Mon&ndash;Fri, 8:00 AM&ndash;5:00 PM)</dd></div>
                                     <div><dt>Bring</dt><dd>Your company name and this project's reference no. ({{ $project->reference_no ?: 'shown above' }})</dd></div>
@@ -127,14 +140,19 @@
                         <section class="sb-panel">
                             <h3 class="sb-panel-title">What you will submit</h3>
                             <p class="sb-panel-hint">Prepare these files while you wait for the BAC to record your payment.</p>
+                            <div class="sb-comp-grid">
                             @foreach($components as $component)
-                                <h4 class="sb-group-title">{{ $component['title'] }}</h4>
+                                <div class="sb-comp">
+                                <h4 class="sb-group-title"><span>{{ $component['step'] }}</span>{{ $component['title'] }}<small>{{ count($component['items']) }} {{ \Illuminate\Support\Str::plural('file', count($component['items'])) }}</small></h4>
+                                <p class="sb-comp-hint">{{ $component['hint'] }}</p>
                                 <ul class="sb-checklist">
                                     @foreach($component['items'] as $item)
                                         <li><i class="fas fa-file-lines" aria-hidden="true"></i> {{ $item['label'] }} <span class="sb-tag {{ $item['required'] ? 'is-required' : '' }}">{{ $item['required'] ? 'Required' : 'If applicable' }}</span></li>
                                     @endforeach
                                 </ul>
+                                </div>
                             @endforeach
+                            </div>
                         </section>
                     @else
                         {{-- Step navigation: one final submission contains both sealed components. --}}
