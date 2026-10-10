@@ -45,6 +45,7 @@ class AuditLog extends Model
         'bid_financial_opened' => 'Financial bid opened',
         'bid_financial_password_failed' => 'Wrong financial bid PIN entered',
         'project_schedule_changed' => 'Schedule changed',
+        'project_submission_reopened' => 'Submission period reopened (no bids had been received)',
         'philgeps_posting_recorded' => 'PhilGEPS posting recorded',
         'proceeding_recorded' => 'Proceeding recorded',
         'failed_bidding_declared' => 'Failure of bidding declared',

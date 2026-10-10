@@ -136,6 +136,8 @@ it('never opens drafts, archived projects or failed biddings by date', function 
 it('does not let a schedule change reopen a closed submission or rewrite an opened bidding', function () {
     // Deadline passed this morning, opening later today.
     $project = ($this->makeProject)(['deadline' => Carbon::parse('2026-10-14 10:00', 'Asia/Manila')], ['bid_submission_deadline' => Carbon::parse('2026-10-14 10:00', 'Asia/Manila'), 'bid_opening_date' => Carbon::parse('2026-10-14 16:00', 'Asia/Manila')]);
+    // A bid was received, so the closed submission period cannot be reopened.
+    ($this->makeBid)($project);
     ($this->editSchedule)($project, '2026-10-21T10:00', '2026-10-21T10:30')->assertSessionHasErrors('deadline');
     expect($project->fresh()->bidSubmissionDeadline()->format('Y-m-d H:i'))->toBe('2026-10-14 10:00');
 
@@ -144,6 +146,35 @@ it('does not let a schedule change reopen a closed submission or rewrite an open
     app(\App\Support\BidOpening::class)->openDueTechnicalProjects();
     ($this->editSchedule)($project->fresh(), '2026-10-14T10:00', '2026-10-15T10:30')->assertSessionHasErrors('bid_opening_date');
     expect($project->fresh()->schedule->bid_opening_date->format('Y-m-d H:i'))->toBe('2026-10-14 16:00');
+});
+
+it('lets a deadline that passed with no bids received be moved, and keeps that on record', function () {
+    $past = Carbon::parse('2026-10-14 10:00', 'Asia/Manila');
+    $project = ($this->makeProject)(['deadline' => $past], ['bid_submission_deadline' => $past, 'bid_opening_date' => $past->copy()->addHours(6)]);
+
+    ($this->editSchedule)($project, '2026-10-21T10:00', '2026-10-21T10:30')->assertSessionHasNoErrors();
+
+    $project = $project->fresh(['schedule']);
+    expect($project->bidSubmissionDeadline()->format('Y-m-d H:i'))->toBe('2026-10-21 10:00')
+        ->and($project->isOpenForBidding())->toBeTrue()
+        ->and(AuditLog::where('action', 'project_submission_reopened')->count())->toBe(1);
+});
+
+it('undoes an opening that ran on an empty period when the deadline is moved', function () {
+    $past = Carbon::parse('2026-10-14 10:00', 'Asia/Manila');
+    $project = ($this->makeProject)(['deadline' => $past], ['bid_submission_deadline' => $past, 'bid_opening_date' => $past->copy()->addMinutes(30)]);
+    app(\App\Support\BidOpening::class)->openDueTechnicalProjects();
+    expect($project->fresh()->bidsAreOpened())->toBeTrue();
+
+    testCase()->actingAs($this->admin)->from(route('admin.projects'))->put(route('admin.project.update', $project), [
+        'title' => $project->title, 'description' => $project->description, 'budget' => (string) $project->budget,
+        'status' => $project->fresh()->status, 'deadline' => '2026-10-21T10:00', 'bid_opening_date' => '2026-10-21T10:30',
+    ])->assertSessionHasNoErrors();
+
+    $project = $project->fresh(['schedule']);
+    expect($project->bidsAreOpened())->toBeFalse()
+        ->and($project->status)->toBe('open')
+        ->and($project->isOpenForBidding())->toBeTrue();
 });
 
 it('rejects conflicting schedules and keeps a held pre-bid conference', function () {

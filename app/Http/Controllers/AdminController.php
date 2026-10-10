@@ -2122,7 +2122,7 @@ public function destroyUser(User $user)
             $project->failed_bidding_at !== null => 'a failure of bidding was declared',
             $project->status === 'awarded' || $project->awards()->exists() => 'the contract was awarded',
             $project->archived_at !== null => 'the project is archived',
-            $project->bidsAreOpened() => 'the bids were opened on '.$project->bids_opened_at->timezone($zone)->format('M d, Y h:i A'),
+            $project->bidsAreOpened() && $project->bids()->whereNotNull('submitted_at')->exists() => 'the bids were opened on '.$project->bids_opened_at->timezone($zone)->format('M d, Y h:i A'),
             default => null,
         };
         if ($lockedBy !== null) {
@@ -2130,8 +2130,10 @@ public function destroyUser(User $user)
         }
 
         $errors = [];
-        if (isset($changed['deadline']) && $oldDeadline !== null && ! $oldDeadline->isAfter(now($zone))) {
-            $errors['deadline'] = 'Submissions closed on '.$oldDeadline->timezone($zone)->format('M d, Y h:i A').'. The deadline cannot be moved after it has passed, since that would reopen or rewrite the submission period.';
+        // A deadline that passed with no bid received can be moved: nobody's submission is affected.
+        // Once any bid exists, moving it would reopen or rewrite a closed submission period.
+        if (isset($changed['deadline']) && $oldDeadline !== null && ! $oldDeadline->isAfter(now($zone)) && $project->bids()->whereNotNull('submitted_at')->exists()) {
+            $errors['deadline'] = 'Submissions closed on '.$oldDeadline->timezone($zone)->format('M d, Y h:i A').' and bids were already received. The deadline cannot be moved, since that would reopen or rewrite the submission period.';
         }
         if (isset($changed['pre_bid_conference_date']) && $project->proceedings()->where('type', \App\Models\ProjectProceeding::TYPE_PRE_BID)->exists()) {
             $errors['pre_bid_conference_date'] = 'The pre-bid conference was already held and recorded; its date cannot change.';
@@ -2168,6 +2170,14 @@ public function destroyUser(User $user)
         // Legal periods the BAC chose not to meet are kept with the change.
         $warnings = $project->scheduleWarnings($project->postingDateForReview());
         AuditLog::log('project_schedule_changed', $project, $before, $after + ($warnings === [] ? [] : ['schedule_warnings' => array_values($warnings)]));
+        // A closed submission period with no bids was reopened by moving its deadline: kept on record.
+        if ($before['deadline'] && \Carbon\Carbon::parse($before['deadline'])->isPast() && $after['deadline'] && \Carbon\Carbon::parse($after['deadline'])->isFuture()) {
+            AuditLog::log('project_submission_reopened', $project, ['deadline' => $before['deadline']], ['deadline' => $after['deadline']]);
+            // The opening that ran on an empty period (no bid was received) is undone with it.
+            if ($project->bids_opened_at !== null && ! $project->bids()->whereNotNull('submitted_at')->exists()) {
+                $project->forceFill(['bids_opened_at' => null, 'bids_opened_by' => null, 'status' => 'open'])->save();
+            }
+        }
 
         $zone = config('bac-office.display_timezone', 'Asia/Manila');
         $format = fn (?string $moment) => $moment ? \Carbon\Carbon::parse($moment)->timezone($zone)->format('M d, Y h:i A') : 'not set';
