@@ -888,7 +888,7 @@
                                                     <span>Edit</span>
                                                 </button>
     
-                                                <form method="POST" action="{{ route('admin.users.destroy', $user) }}" onsubmit="openDeleteUserModal(event, this);" data-delete-user-name="{{ e($user->name) }}" class="user-actions-delete-form">
+                                                <form method="POST" action="{{ route('admin.users.destroy', $user) }}" onsubmit="openDeleteUserModal(event, this);" data-delete-user-name="{{ e($user->company ?: $user->name) }}" data-delete-user-email="{{ e($user->email) }}" data-delete-user-role="{{ e(ucfirst($user->role)) }}" data-delete-user-initial="{{ e(mb_strtoupper(mb_substr($user->company ?: $user->name, 0, 1))) }}" class="user-actions-delete-form">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button
@@ -962,21 +962,48 @@
 </div>
 
 <div id="deleteUserModal" class="delete-user-modal bac-confirm-modal" aria-hidden="true">
-    <div class="delete-user-modal-card bac-confirm-card" role="dialog" aria-modal="true" aria-labelledby="deleteUserModalTitle">
-        <div class="delete-user-modal-header bac-confirm-header">
-            <h2 id="deleteUserModalTitle" class="delete-user-modal-title">Delete User?</h2>
-            <button type="button" onclick="closeDeleteUserModal()" class="delete-user-modal-close" aria-label="Close">&times;</button>
+    <div class="du-card" role="alertdialog" aria-modal="true" aria-labelledby="deleteUserModalTitle" aria-describedby="deleteUserModalDesc">
+        <div class="du-body">
+            <span class="du-icon" aria-hidden="true"><i class="fas fa-trash-can"></i></span>
+            <h2 id="deleteUserModalTitle" class="du-title">Delete this account?</h2>
+            <p id="deleteUserModalDesc" class="du-desc">The account is removed and its holder can no longer sign in. This cannot be undone.</p>
+            <div class="du-user">
+                <span class="du-avatar" id="deleteUserInitial" aria-hidden="true">?</span>
+                <span class="du-who">
+                    <strong id="deleteUserName">this user</strong>
+                    <small><span id="deleteUserEmail"></span></small>
+                </span>
+                <span class="du-role" id="deleteUserRole"></span>
+            </div>
         </div>
-        <div class="delete-user-modal-body bac-confirm-body">
-            <p>Are you sure you want to delete <strong id="deleteUserName">this user</strong>? This action cannot be undone.</p>
-        </div>
-        <div class="delete-user-modal-actions bac-confirm-actions">
-            <button type="button" onclick="closeDeleteUserModal()" class="delete-user-cancel bac-confirm-cancel">Cancel</button>
-            <button type="button" onclick="confirmDeleteUser()" class="delete-user-confirm bac-confirm-danger">Delete</button>
+        <div class="du-actions">
+            <button type="button" onclick="closeDeleteUserModal()" class="du-btn" data-du-cancel>Cancel</button>
+            <button type="button" onclick="confirmDeleteUser()" class="du-btn du-btn--danger"><i class="fas fa-trash-can" aria-hidden="true"></i> Delete account</button>
         </div>
     </div>
 </div>
 
+<style>
+    #deleteUserModal .du-card { width: min(420px, calc(100vw - 24px)); overflow: hidden; border-radius: 16px; background: #fff; box-shadow: 0 24px 70px rgba(15, 25, 21, .35); animation: du-rise .24s cubic-bezier(.2, .8, .2, 1) both; }
+    #deleteUserModal .du-body { padding: 26px 24px 18px; text-align: center; }
+    #deleteUserModal .du-icon { display: inline-grid; width: 52px; height: 52px; place-items: center; border-radius: 50%; background: #fdecea; color: #d92d20; font-size: 20px; }
+    #deleteUserModal .du-title { margin: 14px 0 6px; color: var(--ui-ink); font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+    #deleteUserModal .du-desc { margin: 0 auto; max-width: 320px; color: var(--ui-muted); font-size: 13.5px; line-height: 1.5; }
+    #deleteUserModal .du-user { display: flex; align-items: center; gap: 12px; margin-top: 18px; padding: 12px 14px; border: 1px solid var(--ui-line); border-radius: 12px; background: var(--ui-surface-2); text-align: left; }
+    #deleteUserModal .du-avatar { display: grid; flex: 0 0 38px; width: 38px; height: 38px; place-items: center; border-radius: 50%; background: #fdecea; color: #b42318; font-weight: 700; }
+    #deleteUserModal .du-who { min-width: 0; flex: 1 1 auto; }
+    #deleteUserModal .du-who strong { display: block; overflow: hidden; color: var(--ui-ink); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+    #deleteUserModal .du-who small { display: block; overflow: hidden; color: var(--ui-muted); font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
+    #deleteUserModal .du-role { flex: 0 0 auto; padding: 3px 10px; border-radius: 999px; background: var(--ui-line-soft); color: var(--ui-ink-2); font-size: 11.5px; font-weight: 700; }
+    #deleteUserModal .du-actions { display: flex; gap: 10px; padding: 14px 24px; border-top: 1px solid var(--ui-line); background: var(--ui-surface-2); }
+    #deleteUserModal .du-btn { display: inline-flex; flex: 1 1 0; align-items: center; justify-content: center; gap: 8px; height: 40px; border: 1px solid var(--ui-line-strong); border-radius: 10px; background: #fff; color: var(--ui-ink-2); font: 600 13.5px/1 inherit; cursor: pointer; }
+    #deleteUserModal .du-btn:hover { background: var(--ui-surface-2); }
+    #deleteUserModal .du-btn--danger { border-color: #d92d20; background: #d92d20; color: #fff; }
+    #deleteUserModal .du-btn--danger:hover { background: #b42318; }
+    #deleteUserModal .du-btn:focus-visible { outline: 3px solid rgba(29, 79, 64, .35); outline-offset: 2px; }
+    @keyframes du-rise { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { #deleteUserModal .du-card { animation: none; } }
+</style>
 <div id="createUserModal" class="user-modal" aria-hidden="true">
     <div class="user-modal-card" role="dialog" aria-modal="true" aria-labelledby="createUserModalTitle">
         <div class="um-head">
@@ -1143,10 +1170,16 @@
         if (name) {
             name.textContent = form?.dataset?.deleteUserName || 'this user';
         }
+        const setText = function (id, value) { const node = document.getElementById(id); if (node) node.textContent = value || ''; };
+        setText('deleteUserEmail', form?.dataset?.deleteUserEmail);
+        setText('deleteUserRole', form?.dataset?.deleteUserRole);
+        setText('deleteUserInitial', form?.dataset?.deleteUserInitial || '?');
 
         if (modal) {
             modal.style.display = 'flex';
             modal.setAttribute('aria-hidden', 'false');
+            // Cancel has the focus, so Enter never deletes by accident.
+            window.requestAnimationFrame(function () { modal.querySelector('[data-du-cancel]')?.focus(); });
         }
     }
 
