@@ -238,7 +238,7 @@ it('records the PhilGEPS posting and BAC proceedings with date checks and docume
 
     $show($this->admin)->assertOk()
         ->assertSee('Progress timeline')
-        ->assertSee('PhilGEPS posting not recorded')
+        ->assertDontSee('PhilGEPS posting not recorded')
         ->assertSee('This system does not post to PhilGEPS');
     $show($this->staff)->assertOk()->assertSee('Next required action');
 

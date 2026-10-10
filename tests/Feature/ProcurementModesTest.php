@@ -168,8 +168,7 @@ it('groups procurements into pipeline buckets and filters the register', functio
         ->and($pipeline->bucketCounts(['mode' => 'alternative'])['posted'])->toBe(1)
         ->and($pipeline->bucketCounts(['q' => 'road'])['posted'])->toBe(1)
         ->and($pipeline->filtered(['mode' => 'alternative', 'state' => 'active'])->pluck('title')->all())->toEqualCanonicalizing(['Draft goods', 'Posted RFQ'])
-        ->and($pipeline->filtered(['q' => 'road', 'state' => 'active'])->pluck('title')->all())->toBe(['Road bidding'])
-        ->and($pipeline->filtered(['flag' => 'posting', 'state' => 'active'])->pluck('title')->all())->toEqualCanonicalizing(['Draft goods', 'Road bidding']);
+        ->and($pipeline->filtered(['q' => 'road', 'state' => 'active'])->pluck('title')->all())->toBe(['Road bidding']);
 
     testCase()->actingAs($this->admin)->get(route('admin.dashboard', ['stage' => 'posted']))
         ->assertOk()

@@ -28,7 +28,6 @@
     $localInput = fn ($date) => $date ? $date->copy()->timezone($tz)->format('Y-m-d\TH:i') : '';
     $nowLocal = now()->timezone($tz)->format('Y-m-d\TH:i');
     $reference = $project->reference_no ?: 'Reference pending';
-    $needsPostingRecord = $published && $mode->requiresPosting() && ! $project->philgeps_posted_at;
     $awardDue = $timeline->awardDueDate();
 @endphp
 
@@ -109,17 +108,6 @@
         <div class="ui-alert ui-alert--info" role="note">
             <i class="fas fa-circle-info" aria-hidden="true"></i>
             <div><strong>Published in the BAC system.</strong> This local publication makes the project visible to eligible bidders and starts the local submission schedule. It does not complete or certify any separate official PhilGEPS posting obligation.</div>
-        </div>
-    @endif
-
-    @if($needsPostingRecord)
-        <div class="ui-alert ui-alert--warning" role="note">
-            <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
-            <div>
-                <strong>PhilGEPS posting not recorded.</strong>
-                This system does not post to PhilGEPS. Post the {{ $mode->noticeLabel() }} on PhilGEPS, then record its reference number, link and posting date here. {{ $mode->postingRule() }}
-                <div class="ui-mt-sm"><button type="button" class="ui-btn ui-btn--secondary ui-btn--sm" data-dialog-open="dialog-publication">Record PhilGEPS posting</button></div>
-            </div>
         </div>
     @endif
 

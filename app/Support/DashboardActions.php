@@ -16,7 +16,7 @@ use Illuminate\Support\Collection;
 class DashboardActions
 {
     /**
-     * @param  array{awaiting_posting: array{count: int}, past_period: array{count: int}, openings_week: array{count: int}}  $kpis
+     * @param  array{past_period: array{count: int}, openings_week: array{count: int}}  $kpis
      * @param  list<int>|null  $projectIds  the staff member's assigned projects; null for the BAC admin
      * @return list<array{key: string, count: int, label: string, hint: string, url: string, tone: string, icon: string}>
      */

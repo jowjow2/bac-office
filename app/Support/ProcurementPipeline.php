@@ -156,7 +156,6 @@ class ProcurementPipeline
 
     /** Shortcuts behind the KPI cards. */
     public const FLAGS = [
-        'posting' => 'External PhilGEPS posting not recorded',
         'week' => 'Deadlines in the next 7 days',
         'late' => 'Past the IRR award period',
     ];
@@ -195,7 +194,6 @@ class ProcurementPipeline
         $weekEnd = now()->addDays(7);
 
         return $this->rows()
-            ->when($flag === 'posting', fn (Collection $rows) => $rows->where('awaiting_posting', true))
             ->when($flag === 'late', fn (Collection $rows) => $rows->where('past_award_period', true))
             ->when($flag === 'week', fn (Collection $rows) => $rows->filter(fn (array $row) => $row['type'] === 'project' && $row['deadline'] !== null && $row['deadline']->between(now()->startOfDay(), $weekEnd)))
             ->when($state !== 'all', fn (Collection $rows) => $rows->where('state', array_key_exists($state, self::STATES) ? $state : 'active'))
@@ -253,9 +251,6 @@ class ProcurementPipeline
             'open' => [
                 'count' => $active->count(),
                 'abc' => (float) $active->sum('abc'),
-            ],
-            'awaiting_posting' => [
-                'count' => $active->where('awaiting_posting', true)->count(),
             ],
             'openings_week' => [
                 'count' => $active->filter(fn (array $row) => $row['deadline'] !== null && $row['deadline']->between(now()->startOfDay(), $weekEnd))->count(),
