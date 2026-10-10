@@ -98,6 +98,12 @@ Route::get('/contact', function () {
 Route::view('/privacy', 'pages.privacy')->name('privacy');
 
 Route::get('/procurement', [PublicProcurementController::class, 'index'])->name('public.procurement');
+// Lets the public pages notice a change and refresh themselves (App\Support\LiveVersion).
+Route::get('/live/public', function (Request $request) {
+    $version = \App\Support\LiveVersion::forPublic(in_array($request->query('scope'), ['public-procurement', 'public-awards'], true) ? $request->query('scope') : null);
+
+    return response()->json(['version' => $version])->header('Cache-Control', 'no-store');
+})->middleware('throttle:90,1')->name('public.live');
 Route::get('/procurement/projects/{project}/documents/{document}', [PublicProcurementController::class, 'previewDocument'])->name('public.procurement.document.preview');
 Route::get('/procurement/projects/{project}/documents/{document}/pdf', [PublicProcurementController::class, 'streamDocumentPdf'])->name('public.procurement.document.pdf');
 Route::get('/procurement/projects/{project}/qr.svg', [PublicProcurementController::class, 'qr'])->name('public.procurement.qr');

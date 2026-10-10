@@ -210,4 +210,6 @@
     </style>
 
     @vite('resources/js/public-awards.js')
+
+    @include('partials.public-live', ['scope' => 'public-awards'])
 @endsection

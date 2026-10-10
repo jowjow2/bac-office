@@ -143,4 +143,6 @@
             @endforeach
         @endif
     </main>
+
+    @include('partials.public-live', ['scope' => 'public-procurement'])
 @endsection

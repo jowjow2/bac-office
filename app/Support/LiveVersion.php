@@ -68,11 +68,34 @@ class LiveVersion
         'reports' => ['projects', 'project_schedules', 'bids', 'awards', 'bidding_fee_payments', 'procurement_requests', 'users', 'deadlines'],
         'audit' => ['audit_logs'],
         'bidder-profile' => ['own_profile'],
+        // The public pages, for visitors who are not signed in (see forPublic()).
+        'public-procurement' => ['public_projects', 'project_schedules', 'project_documents', 'deadlines'],
+        'public-awards' => ['public_awards', 'contract_implementations'],
     ];
 
     public static function scopeForRoute(?string $routeName): ?string
     {
         return $routeName !== null ? (self::ROUTE_SCOPES[$routeName] ?? null) : null;
+    }
+
+    /** Fingerprint of a public page; the same idea as for(), with nothing tied to a person. */
+    public static function forPublic(?string $scope): ?string
+    {
+        if ($scope === null || ! str_starts_with($scope, 'public-') || ! isset(self::SCOPES[$scope])) {
+            return null;
+        }
+
+        $parts = [];
+        foreach (self::SCOPES[$scope] as $source) {
+            $parts[] = match ($source) {
+                'deadlines' => self::deadlines(),
+                'public_projects' => self::table('projects', fn ($query) => $query->whereIn('status', \App\Models\Project::PUBLIC_STATUSES)->whereNull('archived_at')),
+                'public_awards' => self::publicAwards(),
+                default => self::table($source),
+            };
+        }
+
+        return substr(sha1(implode('|', $parts)), 0, 16);
     }
 
     public static function for(?string $scope, ?User $user): ?string
@@ -92,6 +115,14 @@ class LiveVersion
         }
 
         return substr(sha1(implode('|', $parts)), 0, 16);
+    }
+
+    /** The awards the public sees, which also changes when a Notice of Award date arrives. */
+    private static function publicAwards(): string
+    {
+        $row = \App\Models\Award::query()->publiclyPosted()->selectRaw('count(*) as total, max(updated_at) as latest')->first();
+
+        return 'public_awards:'.($row->total ?? 0).':'.($row->latest ?? '-');
     }
 
     /** Row count and latest change of a table: an insert, edit or delete moves one of them. */

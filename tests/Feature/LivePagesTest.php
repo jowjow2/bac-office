@@ -113,3 +113,20 @@ it('marks each open project row with the second its bidding closes', function ()
         ->assertSee('data-live-close', false)
         ->assertSee('liveScope: "bidder-projects"', false);
 });
+
+it('lets the public pages notice a change without signing in', function () {
+    $procurement = testCase()->getJson(route('public.live', ['scope' => 'public-procurement']))->assertOk()->json('version');
+    $awards = testCase()->getJson(route('public.live', ['scope' => 'public-awards']))->assertOk()->json('version');
+    expect($procurement)->toBeString()->and($awards)->toBeString();
+
+    // Unknown scopes get nothing, and the pages carry the poller.
+    testCase()->getJson(route('public.live', ['scope' => 'bids']))->assertOk()->assertJson(['version' => null]);
+    testCase()->get(route('public.procurement'))->assertOk()->assertSee(str_replace('/', '\/', route('public.live', ['scope' => 'public-procurement'])), false);
+    testCase()->get(route('public.awards'))->assertOk()->assertSee(str_replace('/', '\/', route('public.live', ['scope' => 'public-awards'])), false);
+
+    // A newly published project changes the fingerprint of the procurement page only.
+    $this->travel(2)->seconds();
+    $this->project->update(['title' => 'Renamed for the public']);
+    expect(testCase()->getJson(route('public.live', ['scope' => 'public-procurement']))->json('version'))->not->toBe($procurement)
+        ->and(testCase()->getJson(route('public.live', ['scope' => 'public-awards']))->json('version'))->toBe($awards);
+});
