@@ -9,7 +9,11 @@
     <div class="main-area projects-page">
 
         <!-- PAGE HEADER -->
-        <x-page-header title="Projects & biddings" subtitle="Create, publish and track procurement projects" />
+        <x-page-header title="Projects & biddings" subtitle="Create, publish and track procurement projects">
+            <x-slot:actions>
+                <a href="{{ route('admin.projects.create') }}" class="ui-btn ui-btn--primary pj-create"><i class="fas fa-plus" aria-hidden="true"></i> Create project</a>
+            </x-slot:actions>
+        </x-page-header>
 
         <!-- MAIN CONTENT -->
         @php
@@ -64,10 +68,6 @@
                 data-export-status-order="awarded,open,closed,approved_for_bidding,draft"
             >
                 <div class="projects-toolbar-actions">
-                    <a href="{{ route('admin.projects.create') }}" class="projects-create-link">
-                        <i class="fas fa-plus" aria-hidden="true"></i>
-                        <span>Create Project</span>
-                    </a>
                     <a href="{{ ($showArchived ?? false) ? route('admin.projects') : route('admin.projects', ['archived' => 1]) }}" class="projects-archive-link {{ ($showArchived ?? false) ? 'is-active' : '' }}" title="{{ ($showArchived ?? false) ? 'Return to active projects' : 'View archived projects' }}">
                         <i class="fas fa-box-archive" aria-hidden="true"></i>
                         <span>{{ ($showArchived ?? false) ? 'Active Projects' : 'Archived Projects' }}</span>

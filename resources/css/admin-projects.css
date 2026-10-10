@@ -966,3 +966,33 @@ body #viewProjectModal > div { width: min(980px, 100%) !important; }
 @media (max-width: 720px) {
     body #viewProjectModal > div { width: calc(100vw - 24px) !important; }
 }
+
+/* ---------- Redesign: status tabs, one-line toolbar, quieter list header ---------- */
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-command-panel { margin: 0 !important; padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-summary-grid { display: flex !important; flex-wrap: wrap !important; gap: 4px !important; width: fit-content !important; max-width: 100% !important; padding: 4px !important; border: 1px solid var(--ui-line) !important; border-radius: 12px !important; background: var(--ui-surface) !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-summary-card { display: inline-flex !important; align-items: center !important; width: auto !important; min-height: 0 !important; height: 36px !important; padding: 0 12px !important; gap: 8px !important; border: 0 !important; border-radius: 9px !important; background: transparent !important; box-shadow: none !important; transform: none !important; grid-column: auto !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-summary-card:hover { background: var(--ui-surface-2) !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-summary-icon { display: none !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-summary-card > span:last-child { display: inline-flex !important; flex-direction: row !important; align-items: center !important; justify-content: flex-start !important; gap: 8px !important; width: auto !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-summary-card small { margin: 0 !important; color: var(--ui-muted) !important; -webkit-text-fill-color: var(--ui-muted) !important; font-size: 13px !important; font-weight: 600 !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-summary-card strong { display: inline-grid !important; min-width: 22px !important; height: 20px !important; place-items: center !important; padding: 0 6px !important; border-radius: 999px !important; background: var(--ui-line-soft) !important; color: var(--ui-ink-2) !important; -webkit-text-fill-color: var(--ui-ink-2) !important; font-size: 11.5px !important; font-weight: 700 !important; line-height: 1 !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-summary-card.is-active { background: var(--ui-primary-soft) !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-summary-card.is-active small { color: var(--ui-primary) !important; -webkit-text-fill-color: var(--ui-primary) !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-summary-card.is-active strong { background: var(--ui-primary) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-summary-card.is-empty small { color: var(--ui-subtle) !important; -webkit-text-fill-color: var(--ui-subtle) !important; }
+
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-list-head span { display: none !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-list-head h2 { margin: 0 !important; font-size: 15px !important; }
+
+@media (max-width: 768px) {
+    body .admin-dashboard.admin-role-page .main-area.projects-page .projects-summary-grid { width: 100% !important; flex-wrap: nowrap !important; overflow-x: auto !important; scrollbar-width: none !important; }
+    body .admin-dashboard.admin-role-page .main-area.projects-page .projects-summary-card { flex: 0 0 auto !important; }
+}
+
+/* The deadline now carries its time: give it room, and style the top-bar Create project button. */
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-table :is(th, td):nth-child(3) { width: 190px !important; min-width: 190px !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-table td:nth-child(3) strong { display: block !important; white-space: nowrap !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-table :is(th, td):nth-child(4) { width: 150px !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page a.ui-btn.pj-create { display: inline-flex !important; align-items: center !important; gap: 8px !important; height: 38px !important; padding: 0 16px !important; border-radius: 9px !important; background: var(--ui-primary) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; font-size: 13.5px !important; font-weight: 600 !important; text-decoration: none !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page a.ui-btn.pj-create:hover { background: var(--ui-primary-hover) !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page a.ui-btn.pj-create i { color: inherit !important; -webkit-text-fill-color: currentColor !important; font-size: 12px !important; }
