@@ -174,6 +174,13 @@
     .fee-report-frame { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
     @media (max-width: 760px) { .fee-report-dialog { width: 100vw; height: 100dvh; max-width: none; border-radius: 0; } }
 
+    @media (max-width: 640px) {
+        .fee-board section.fee-card > .fee-card-head { flex-wrap: wrap; }
+        .fee-board section.fee-card > .fee-card-head > .fee-btn { width: 100%; }
+        .fee-board .fee-stat { border-right: 0; }
+        .fee-board .fee-stat:last-child { border-bottom: 0; }
+    }
+
     @media (max-width: 1180px) {
         .fee-board .fee-stat { border-bottom: 1px solid var(--fee-line); }
         .fee-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }

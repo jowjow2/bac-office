@@ -1725,6 +1725,14 @@
         body .admin-dashboard.admin-role-page.admin-awards-page .awards-toolbar-controls { flex: 1 1 260px !important; display: flex !important; align-items: center !important; gap: 10px !important; margin: 0 !important; }
         body .admin-dashboard.admin-role-page.admin-awards-page .awards-filter-group { flex: 1 1 auto !important; }
         body .admin-dashboard.admin-role-page.admin-awards-page .awards-filter-tabs { flex: 0 0 auto !important; margin: 0 !important; }
+        @media (max-width: 560px) {
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-stat-card { gap: 10px !important; padding: 12px 14px !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-stat-icon { display: none !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-stat-value { font-size: 16px !important; overflow-wrap: anywhere !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-toolbar-controls { flex: 1 1 100% !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-filter-group, body .admin-dashboard.admin-role-page.admin-awards-page .awards-search-field { width: 100% !important; max-width: none !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-filter-tabs { flex: 1 1 100% !important; overflow-x: auto !important; scrollbar-width: none !important; }
+        }
         @media (max-width: 900px) {
             body .admin-dashboard.admin-role-page.admin-awards-page .awards-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
             body .admin-dashboard.admin-role-page.admin-awards-page .awards-stat-card:nth-child(2) { border-right: 0 !important; }

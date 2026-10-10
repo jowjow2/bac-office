@@ -41,7 +41,7 @@
         .sign { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; margin-top: 56px; }
         .sign div { padding-top: 6px; border-top: 1px solid var(--ink); font-size: 12.5px; color: var(--muted); }
         .sign strong { display: block; color: var(--ink); }
-        @media (max-width: 760px) { .sheet { margin: 12px; padding: 20px 16px; } .kpis { grid-template-columns: 1fr 1fr; } .head { flex-direction: column; } .head .right { text-align: left; } .sign { gap: 24px; } table { display: block; overflow-x: auto; } }
+        @media (max-width: 760px)  .bar { padding: 10px 14px; } .bar form { width: 100%; } .bar .spacer { display: none; } .bar .primary { width: 100%; justify-content: center; } .sheet { margin: 12px; padding: 20px 16px; } .kpis { grid-template-columns: 1fr 1fr; } .head { flex-direction: column; } .head .right { text-align: left; } .sign { gap: 24px; } table { display: block; overflow-x: auto; } }
         @media print {
             body { background: #fff; }
             .bar { display: none; }
