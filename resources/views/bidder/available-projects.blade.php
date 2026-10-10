@@ -1821,7 +1821,7 @@
                 flex: 1 1 auto;
             }
         }
-        .sb-panel[hidden],.sb-bulk-upload[hidden],.sb-foot-actions [hidden] { display:none !important; }
+        .sb-panel[hidden],.sb-foot-actions [hidden] { display:none !important; }
     </style>
 
         @include('partials.bidder-sidebar')
@@ -2358,16 +2358,12 @@
             const back = footer ? footer.querySelector('[data-sb-prev]') : null;
             const next = footer ? footer.querySelector('[data-sb-next]') : null;
             const submit = footer ? footer.querySelector('[data-bid-submit]') : null;
-            const uploaders = Array.from(form.querySelectorAll('[data-bulk-uploader]'));
             let activeStep = 1;
 
             const showStep = function (step, focus) {
                 activeStep = Math.max(1, Math.min(3, Number(step) || 1));
                 panels.forEach(function (panel) {
                     panel.hidden = Number(panel.dataset.sbPanel) !== activeStep;
-                });
-                uploaders.forEach(function (uploader) {
-                    uploader.hidden = activeStep !== (uploader.dataset.bulkUploader === 'financial' ? 2 : 1);
                 });
                 tabs.forEach(function (tab) {
                     const active = Number(tab.dataset.sbGo) === activeStep;

@@ -18,34 +18,6 @@
     .sb-close:hover { color: var(--ui-ink); border-color: var(--ui-line-strong); }
 
 
-    .sb-bulk-upload { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 14px; align-items: center; padding: 14px 16px; border: 1px solid var(--sb-line); border-radius: 12px; background: #fff; }
-    .sb-bulk-upload[hidden] { display: none; }
-    .sb-bulk-copy h3 { margin: 0; color: var(--ui-ink); font-size: 14px; font-weight: 700; }
-    .sb-bulk-copy p, .sb-bulk-status, .sb-bulk-queue-hint { margin: 3px 0 0; color: var(--ui-muted); font-size: 12px; line-height: 1.45; }
-    .sb-bulk-picker { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 0 14px; overflow: hidden; border: 1px solid var(--ui-primary); border-radius: 9px; background: var(--ui-primary); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-    .sb-bulk-picker:hover { background: var(--ui-primary-hover); }
-    /* Legacy dashboard modal rules give labels !important text colors. Keep the
-       bulk picker label and icon readable on its filled primary background. */
-    .bidder-submit-modal-overlay .sb .sb-bulk-picker,
-    .bidder-submit-modal-overlay .sb .sb-bulk-picker :is(i, span) {
-        color: #fff !important;
-        -webkit-text-fill-color: #fff !important;
-    }
-    .bidder-submit-modal-overlay .sb .sb-bulk-picker:focus-within {
-        outline: 3px solid rgba(32, 88, 70, .28);
-        outline-offset: 2px;
-    }
-    .sb-bulk-picker input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-    .sb-bulk-status { grid-column: 1 / -1; margin: 0; }
-    .sb-bulk-queue { grid-column: 1 / -1; display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--sb-line); }
-    .sb-bulk-queue[hidden] { display: none; }
-    .sb-bulk-queue-hint { margin: 0; }
-    .sb-bulk-assignments { display: grid; gap: 6px; }
-    .sb-bulk-assignment { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, .9fr); gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--sb-line); border-radius: 8px; background: var(--sb-soft); }
-    .sb-bulk-assignment-name { min-width: 0; overflow-wrap: anywhere; color: var(--ui-ink-2); font-size: 12px; }
-    .sb-bulk-assignment select { min-width: 0; min-height: 36px; padding: 0 9px; border: 1px solid var(--sb-line); border-radius: 7px; background: #fff; color: var(--ui-ink); font: inherit; font-size: 12px; }
-    .sb-bulk-apply { justify-self: start; }
-    .sb-bulk-clear { justify-self: start; }
     .sb-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
     .sb-main { min-width: 0; padding: 18px 22px 22px; }
     /* Steps: a slim bar of three pills, pinned at the top while the form scrolls. */
@@ -271,9 +243,6 @@
         .sb-step strong { font-size: 12.5px; }
         .sb-main, .sb-rail { padding: 14px 16px 18px; }
         .sb-file { grid-template-columns: 30px minmax(0, 1fr); }
-        .sb-bulk-upload { grid-template-columns: 1fr; }
-        .sb-bulk-picker { justify-self: start; }
-        .sb-bulk-assignment { grid-template-columns: 1fr; }
         .sb-file-actions { grid-column: 1 / -1; }
         .sb-file-actions .sb-btn { flex: 1; }
         .sb-foot { flex-direction: column; align-items: stretch; padding: 10px 16px; }
@@ -300,10 +269,6 @@
     .bidder-submit-modal-overlay .sb-step.is-current { border-color: var(--ui-primary); background: var(--ui-primary-soft); box-shadow: inset 0 0 0 1px var(--ui-primary); }
     .bidder-submit-modal-overlay .sb-step small { display: block; margin-top: 2px; color: var(--ui-muted); font-size: 11px; line-height: 1.2; }
     .bidder-submit-modal-overlay .sb-step__number { flex-basis: 28px; height: 28px; font-size: 12px; }
-    .bidder-submit-modal-overlay .sb-bulk-upload { padding: 19px 21px; border-style: dashed; border-color: var(--ui-primary-line); background: #f7fbf8; }
-    .bidder-submit-modal-overlay .sb-bulk-copy h3 { font-size: 15px; }
-    .bidder-submit-modal-overlay .sb-bulk-copy p { max-width: 600px; font-size: 12.5px; }
-    .bidder-submit-modal-overlay .sb-bulk-status { color: var(--ui-ink-2); }
     .bidder-submit-modal-overlay .sb-panel { gap: 16px; }
     .bidder-submit-modal-overlay .sb-panel-head { align-items: center; padding-bottom: 10px; border-bottom: 1px solid var(--sb-line); }
     .bidder-submit-modal-overlay .sb-panel-title { font-size: 17px; }
@@ -344,7 +309,6 @@
         .bidder-submit-modal-overlay .sb-step__number { flex-basis: 24px; height: 24px; }
         .bidder-submit-modal-overlay .sb-context > summary { padding: 12px 16px; }
         .bidder-submit-modal-overlay .sb-context-content { padding: 4px 16px 18px; }
-        .bidder-submit-modal-overlay .sb-bulk-upload { padding: 16px; }
         .bidder-submit-modal-overlay .sb-foot { padding: 11px 16px; }
         .bidder-submit-modal-overlay .sb-status { max-width: none; }
     }
@@ -420,6 +384,27 @@
         .bidder-submit-modal-overlay .sb-pay-box strong { font-size: 26px; }
         .bidder-submit-modal-overlay .sb-pay-main { padding: 16px; }
     }
+
+    /* ---------- Upload rows: numbered requirement cards ---------- */
+    .bidder-submit-modal-overlay .sb-panel-head { align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--sb-line); }
+    .bidder-submit-modal-overlay .sb-panel-title { font-size: 17px; letter-spacing: -.01em; }
+    .bidder-submit-modal-overlay .sb-count { padding: 5px 12px; border: 1px solid var(--sb-line); background: #fff; font-size: 12px; }
+    .bidder-submit-modal-overlay .sb-count.is-done { border-color: var(--ui-success-line); }
+    .bidder-submit-modal-overlay .sb-files { counter-reset: sbfile; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .bidder-submit-modal-overlay .sb-file { counter-increment: sbfile; grid-template-columns: 40px minmax(0, 1fr); grid-template-areas: "icon copy" "icon actions"; align-items: start; gap: 4px 14px; padding: 16px; border-radius: 14px; box-shadow: 0 1px 2px rgba(27, 36, 32, .04); }
+    .bidder-submit-modal-overlay .sb-file:hover { border-color: var(--ui-line-strong); }
+    .bidder-submit-modal-overlay .sb-file-icon { grid-area: icon; position: relative; width: 40px; height: 40px; border-radius: 12px; }
+    .bidder-submit-modal-overlay .sb-file-icon::after { content: counter(sbfile, decimal-leading-zero); position: absolute; right: -6px; top: -8px; padding: 0 5px; border-radius: 999px; background: var(--ui-ink-2); color: #fff; font-size: 9.5px; font-weight: 700; line-height: 15px; }
+    .bidder-submit-modal-overlay .sb-file-copy { grid-area: copy; gap: 3px; }
+    .bidder-submit-modal-overlay .sb-file-title { font-size: 13.5px; line-height: 1.35; }
+    .bidder-submit-modal-overlay .sb-file-meta { font-size: 11.5px; }
+    .bidder-submit-modal-overlay .sb-file-chosen { display: inline-flex; align-items: center; gap: 6px; width: fit-content; max-width: 100%; margin-top: 4px; padding: 3px 10px; border-radius: 999px; background: var(--sb-soft); color: var(--ui-muted); font-size: 11.5px; }
+    .bidder-submit-modal-overlay .sb-file.has-file .sb-file-chosen { background: #fff; color: var(--ui-success); }
+    .bidder-submit-modal-overlay .sb-file.has-file .sb-file-chosen::before { content: '\f00c'; font-family: 'Font Awesome 6 Free'; font-weight: 900; font-size: 10px; }
+    .bidder-submit-modal-overlay .sb-file-actions { grid-area: actions; justify-content: flex-start; margin-top: 8px; }
+    .bidder-submit-modal-overlay .sb-file-actions .sb-btn { min-height: 34px; padding: 0 14px; border-radius: 9px; font-size: 12.5px; }
+    .bidder-submit-modal-overlay .sb-file-actions [data-upload-change]::before { content: '\f093'; margin-right: 7px; font-family: 'Font Awesome 6 Free'; font-weight: 900; font-size: 11px; }
+    @media (max-width: 900px) { .bidder-submit-modal-overlay .sb-files { grid-template-columns: 1fr; } }
 </style>
 
 <script>
@@ -449,100 +434,6 @@
             const amount = form.querySelector('[data-bid-amount]');
             const pins = form.querySelectorAll('[data-pin]');
             let step = 1;
-            dialog.querySelectorAll('[data-bulk-uploader]').forEach(function (uploader) {
-                const component = uploader.dataset.bulkUploader;
-                const bulkPicker = uploader.querySelector('[data-bulk-file-picker]');
-                const bulkQueue = uploader.querySelector('[data-bulk-queue]');
-                const bulkAssignments = uploader.querySelector('[data-bulk-assignments]');
-                const bulkApply = uploader.querySelector('[data-bulk-apply]');
-                const bulkClear = uploader.querySelector('[data-bulk-clear]');
-                const bulkStatus = uploader.querySelector('[data-bulk-status]');
-                let bulkFiles = [];
-
-                function bulkTargets() {
-                    return Array.from(form.querySelectorAll('[data-upload-input]')).filter(function (input) {
-                        const group = input.closest('[data-sb-files]');
-                        return group && group.dataset.sbFiles === component;
-                    });
-                }
-                function updateBulkApply() {
-                    if (!bulkAssignments || !bulkApply) return;
-                    const selects = Array.from(bulkAssignments.querySelectorAll('select'));
-                    const values = selects.map(function (select) { return select.value; });
-                    const unique = new Set(values.filter(Boolean));
-                    bulkApply.disabled = !selects.length || selects.length !== bulkFiles.length || values.some(function (value) { return !value; }) || unique.size !== values.length;
-                }
-                function refreshBulkOptions() {
-                    if (!bulkAssignments) return;
-                    const selects = Array.from(bulkAssignments.querySelectorAll('select'));
-                    selects.forEach(function (select) {
-                        const current = select.value;
-                        const usedElsewhere = new Set(selects.filter(function (other) { return other !== select; }).map(function (other) { return other.value; }).filter(Boolean));
-                        const placeholder = document.createElement('option');
-                        placeholder.value = '';
-                        placeholder.textContent = 'Assign this file to a requirement';
-                        select.replaceChildren(placeholder);
-                        bulkTargets().forEach(function (input) {
-                            if (input.files && input.files.length > 0) return;
-                            if (usedElsewhere.has(input.id)) return;
-                            const box = input.closest('[data-upload-box]');
-                            if (!box) return;
-                            const option = document.createElement('option');
-                            option.value = input.id;
-                            option.textContent = box.dataset.label;
-                            select.appendChild(option);
-                        });
-                        select.value = current && Array.from(select.options).some(function (option) { return option.value === current; }) ? current : '';
-                    });
-                    updateBulkApply();
-                }
-                function renderBulkQueue(files) {
-                    if (!bulkAssignments || !bulkQueue) return;
-                    bulkFiles = Array.from(files || []);
-                    bulkAssignments.replaceChildren();
-                    bulkFiles.forEach(function (file) {
-                        const row = document.createElement('div');
-                        row.className = 'sb-bulk-assignment';
-                        const name = document.createElement('span');
-                        name.className = 'sb-bulk-assignment-name';
-                        name.textContent = file.name;
-                        const select = document.createElement('select');
-                        select.setAttribute('aria-label', (component === 'financial' ? 'Financial requirement for ' : 'Technical requirement for ') + file.name);
-                        select.addEventListener('change', refreshBulkOptions);
-                        row.appendChild(name);
-                        row.appendChild(select);
-                        bulkAssignments.appendChild(row);
-                    });
-                    bulkQueue.hidden = bulkFiles.length === 0;
-                    refreshBulkOptions();
-                }
-                if (bulkPicker) bulkPicker.addEventListener('change', function () { renderBulkQueue(bulkPicker.files); });
-                if (bulkClear) bulkClear.addEventListener('click', function () {
-                    if (bulkPicker) bulkPicker.value = '';
-                    renderBulkQueue([]);
-                    if (bulkStatus) bulkStatus.textContent = 'Selection cleared.';
-                });
-                if (bulkApply) bulkApply.addEventListener('click', function () {
-                    const selects = bulkAssignments ? Array.from(bulkAssignments.querySelectorAll('select')) : [];
-                    const targets = selects.map(function (select) { return select.value ? form.querySelector('#' + CSS.escape(select.value)) : null; });
-                    if (bulkApply.disabled || targets.some(function (target) { return !target; })) return;
-                    if (typeof DataTransfer === 'undefined') {
-                        if (bulkStatus) bulkStatus.textContent = 'Your browser cannot assign the selected files. Please use a current version of Chrome or Edge.';
-                        return;
-                    }
-                    bulkFiles.forEach(function (file, index) {
-                        const transfer = new DataTransfer();
-                        transfer.items.add(file);
-                        targets[index].files = transfer.files;
-                        targets[index].dispatchEvent(new Event('change', { bubbles: true }));
-                    });
-                    const count = bulkFiles.length;
-                    if (bulkPicker) bulkPicker.value = '';
-                    renderBulkQueue([]);
-                    if (bulkStatus) bulkStatus.textContent = count + ' ' + component + ' file' + (count === 1 ? '' : 's') + ' assigned. Assigned requirements are removed from the list. Remove an attached file first if you need to replace it.';
-                });
-                uploader.addEventListener('bulk:refresh', refreshBulkOptions);
-            });
             function rows(component) {
                 return Array.from(form.querySelectorAll('[data-sb-files="' + component + '"] [data-upload-box]'));
             }
@@ -643,7 +534,7 @@
             form.addEventListener('input', refresh);
             form.addEventListener('change', refresh);
             dialog.querySelectorAll('[data-upload-remove]').forEach(function (button) {
-                button.addEventListener('click', function () { setTimeout(function () { refresh(); dialog.querySelectorAll('[data-bulk-uploader]').forEach(function (uploader) { uploader.dispatchEvent(new Event('bulk:refresh')); }); }, 0); });
+                button.addEventListener('click', function () { setTimeout(function () { refresh(); }, 0); });
             });
             form.addEventListener('bid:incomplete', function () {
                 show(!stepComplete(1) ? 1 : (!stepComplete(2) ? 2 : 3), true);

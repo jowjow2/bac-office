@@ -168,24 +168,6 @@
                             </button>
                         </nav>
                         {{-- Step 1: technical documents --}}
-                        <section class="sb-bulk-upload" data-bulk-uploader="technical" aria-labelledby="sb-bulk-title-{{ $pid }}">
-                            <div class="sb-bulk-copy">
-                                <h3 id="sb-bulk-title-{{ $pid }}">Upload technical documents together</h3>
-                                <p>Select multiple eligibility and technical files in one picker, then assign each to its matching requirement.</p>
-                            </div>
-                            <label class="sb-bulk-picker">
-                                <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx" data-bulk-file-picker aria-label="Choose multiple technical document files">
-                                <i class="fas fa-file-arrow-up" aria-hidden="true"></i>
-                                <span>Choose technical files</span>
-                            </label>
-                            <p class="sb-bulk-status" data-bulk-status role="status" aria-live="polite">No technical files selected yet. Choose multiple files and assign each to its technical requirement.</p>
-                            <div class="sb-bulk-queue" data-bulk-queue hidden>
-                                <p class="sb-bulk-queue-hint">Assign each selected technical file to its requirement. Existing files stay as filed unless replaced.</p>
-                                <div class="sb-bulk-assignments" data-bulk-assignments></div>
-                                <button type="button" class="sb-btn sb-btn--primary sb-bulk-apply" data-bulk-apply disabled>Assign selected files</button>
-                                <button type="button" class="sb-btn sb-btn--ghost sb-bulk-clear" data-bulk-clear>Clear selection</button>
-                            </div>
-                        </section>
                         <section class="sb-panel" id="bsm-step-technical-{{ $pid }}" role="tabpanel" data-sb-panel="1" aria-labelledby="bsm-technical-{{ $pid }}">
                             @if($isModifying)
                                 <div class="sb-alert is-warning" role="note">
@@ -284,24 +266,6 @@
                                 @endif
                             </div>
 
-                            <section class="sb-bulk-upload" data-bulk-uploader="financial" aria-labelledby="sb-bulk-financial-title-{{ $pid }}">
-                                <div class="sb-bulk-copy">
-                                    <h3 id="sb-bulk-financial-title-{{ $pid }}">Upload financial documents together</h3>
-                                    <p>Choose financial files separately. They remain in the sealed financial component.</p>
-                                </div>
-                                <label class="sb-bulk-picker">
-                                    <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx" data-bulk-file-picker aria-label="Choose multiple financial document files">
-                                    <i class="fas fa-file-arrow-up" aria-hidden="true"></i>
-                                    <span>Choose financial files</span>
-                                </label>
-                                <p class="sb-bulk-status" data-bulk-status role="status" aria-live="polite">No financial files selected yet. Choose and assign financial forms here.</p>
-                                <div class="sb-bulk-queue" data-bulk-queue hidden>
-                                    <p class="sb-bulk-queue-hint">Assign each selected financial file to its matching requirement.</p>
-                                    <div class="sb-bulk-assignments" data-bulk-assignments></div>
-                                    <button type="button" class="sb-btn sb-btn--primary sb-bulk-apply" data-bulk-apply disabled>Assign financial files</button>
-                                    <button type="button" class="sb-btn sb-btn--ghost sb-bulk-clear" data-bulk-clear>Clear selection</button>
-                                </div>
-                            </section>
                             <h4 class="sb-group-title">Financial forms</h4>
                             @include('bidder.partials.submit-bid-files', ['items' => $components['financial']['items'], 'component' => 'financial'])
                         </section>
