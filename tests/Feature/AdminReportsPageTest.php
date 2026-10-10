@@ -62,7 +62,7 @@ it('shows the pipeline, what needs action and the next 14 days from the saved sc
 
     // Twelve months ending this month (Oct 31 minus 11 months must not overflow into December).
     $this->travelTo(Carbon::parse('2026-10-31 15:00', 'Asia/Manila'));
-    $months = testCase()->actingAs($this->admin)->get(route('admin.reports'))->viewData('monthlyActivity');
+    $months = testCase()->actingAs($this->admin)->get(route('admin.reports', ['all' => 1]))->viewData('monthlyActivity');
     expect($months)->toHaveCount(12)->and($months[0]['key'])->toBe('2025-11')->and($months[11]['key'])->toBe('2026-10');
 
     $phases = collect($page->viewData('procurementStatusDistribution'))->pluck('value', 'key');
@@ -113,5 +113,17 @@ it('compares the chosen range with the range of the same length just before it',
         ->assertSee('Changes are against')->assertSee('Sep 1, 2026 – Sep 10, 2026')->assertSee('▲ 100.0%');
 
     // Without a range there is nothing to compare with.
-    testCase()->actingAs($admin)->get(route('admin.reports'))->assertOk()->assertDontSee('Changes are against');
+    testCase()->actingAs($admin)->get(route('admin.reports', ['all' => 1]))->assertOk()->assertDontSee('Changes are against');
+});
+
+it('opens on this year so the comparison shows, and offers All time', function () {
+    $admin = \App\Models\User::create(['name' => 'Def Admin', 'email' => 'rep-default@example.com', 'password' => \Illuminate\Support\Facades\Hash::make('password'), 'role' => 'admin', 'status' => 'active']);
+    testCase()->withoutVite();
+
+    $page = testCase()->actingAs($admin)->get(route('admin.reports'))->assertOk()
+        ->assertSee('Changes are against')->assertSee('All time')->assertSee('Budget and savings vs ABC');
+    expect($page->viewData('filters')['date_from'])->toBe(now(config('bac-office.display_timezone'))->startOfYear()->format('Y-m-d'));
+
+    $all = testCase()->actingAs($admin)->get(route('admin.reports', ['all' => 1]))->assertOk();
+    expect($all->viewData('filters')['date_from'])->toBe('');
 });

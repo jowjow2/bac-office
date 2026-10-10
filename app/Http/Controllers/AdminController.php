@@ -3363,6 +3363,13 @@ public function destroyUser(User $user)
 
         $dateFrom = $this->parseReportDate($request->input('date_from'));
         $dateTo = $this->parseReportDate($request->input('date_to'));
+        // Without a chosen range the report opens on this year, so the comparison shows; ?all=1 is every date.
+        $allTime = $request->boolean('all');
+        if (! $allTime && ! $dateFrom && ! $dateTo && ! $request->hasAny(['date_from', 'date_to'])) {
+            $todayStart = now(config('bac-office.display_timezone', 'Asia/Manila'))->startOfDay();
+            $dateFrom = $todayStart->copy()->startOfYear();
+            $dateTo = $todayStart->copy()->endOfYear()->startOfDay();
+        }
         if ($dateFrom && $dateTo && $dateFrom->greaterThan($dateTo)) {
             [$dateFrom, $dateTo] = [$dateTo, $dateFrom];
         }
@@ -3420,6 +3427,11 @@ public function destroyUser(User $user)
             'url' => route('admin.reports', $presetQuery + ['date_from' => $preset[1]->toDateString(), 'date_to' => $preset[2]->toDateString()]),
             'active' => $dateFrom?->toDateString() === $preset[1]->toDateString() && $dateTo?->toDateString() === $preset[2]->toDateString(),
         ])->all();
+        $datePresets['all'] = [
+            'label' => 'All time',
+            'url' => route('admin.reports', $presetQuery + ['all' => 1]),
+            'active' => $allTime && ! $dateFrom && ! $dateTo,
+        ];
         $filters = [
             'date_from' => $dateFrom?->format('Y-m-d') ?: '',
             'date_to' => $dateTo?->format('Y-m-d') ?: '',
@@ -3431,7 +3443,9 @@ public function destroyUser(User $user)
 
         return [
             'filters' => $filters,
+            'allTime' => $allTime && ! $dateFrom && ! $dateTo,
             'filterQuery' => array_filter([
+                'all' => ($allTime && ! $dateFrom && ! $dateTo) ? 1 : '',
                 'date_from' => $filters['date_from'],
                 'date_to' => $filters['date_to'],
                 'status' => $filters['status'],
@@ -3566,6 +3580,7 @@ public function destroyUser(User $user)
 
         return [
             'abcTotal' => (float) $projects->sum('budget'),
+            'abcAwarded' => (float) $projects->filter(fn (Project $project) => $inForce($project)->isNotEmpty())->sum('budget'),
             'contractTotal' => (float) $projects->sum($contractOf),
             'feesTotal' => (float) (clone $fees)->sum('amount'),
             'feesCount' => (clone $fees)->count(),

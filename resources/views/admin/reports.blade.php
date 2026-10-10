@@ -14,7 +14,9 @@
         'status' => $filters['status'] ? $filters['status_label'] : null,
         'procurement_type' => $filters['procurement_type'] ? $filters['procurement_type_label'] : null,
     ]);
-    $withoutFilter = fn (string $key) => route('admin.reports', \Illuminate\Support\Arr::except($filterQuery, $key === 'date' ? ['date_from', 'date_to'] : [$key]));
+    $withoutFilter = fn (string $key) => route('admin.reports', $key === 'date'
+        ? ['all' => 1] + \Illuminate\Support\Arr::except($filterQuery, ['date_from', 'date_to'])
+        : \Illuminate\Support\Arr::except($filterQuery, [$key]));
     // Change against the previous range of the same length, shown under a card.
     $deltaKeys = ['Projects' => 'projects', 'Official bids' => 'bids', 'Awarded' => 'awarded', 'Total ABC' => 'abc', 'Contract value' => 'contract', 'Bidding fees collected' => 'fees', 'Purchase requests waiting' => 'requests'];
     $deltaFor = function (string $label) use ($comparison, $deltaKeys): ?array {
@@ -151,6 +153,32 @@
         .report-analytics-page .ra-delta.is-flat { background: var(--ui-line-soft) !important; color: var(--ui-muted) !important; -webkit-text-fill-color: var(--ui-muted) !important; }
         .report-analytics-page .ra-compare { display: block !important; width: 100% !important; text-align: left !important; margin: 10px 0 0 !important; color: var(--ui-muted) !important; font-size: 12px !important; }
         .report-analytics-page .ra-compare i { color: var(--ui-primary) !important; margin-right: 4px !important; }
+        .report-analytics-page h2.ra-group { margin: 22px 0 10px !important; color: var(--ui-muted) !important; font-size: 11.5px !important; font-weight: 700 !important; letter-spacing: .07em !important; text-transform: uppercase !important; }
+        .report-analytics-page h2.ra-group:first-of-type { margin-top: 4px !important; }
+        .report-analytics-page .ra-kpis.is-three { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+        .report-analytics-page .ra-kpi.is-empty { padding: 12px 16px !important; background: var(--ui-surface-2) !important; box-shadow: none !important; }
+        .report-analytics-page .ra-kpi.is-empty .ra-kpi-top { gap: 8px !important; }
+        .report-analytics-page .ra-kpi.is-empty .ra-kpi-icon { flex-basis: 26px !important; width: 26px !important; height: 26px !important; font-size: 11px !important; opacity: .7 !important; }
+        .report-analytics-page .ra-kpi.is-empty .ra-kpi-dash { margin-left: auto !important; color: var(--ui-subtle) !important; font-weight: 700 !important; }
+        .report-analytics-page .ra-kpi.is-empty .ra-kpi-note { margin-top: 4px !important; }
+        .report-analytics-page .ra-money-grid { display: grid !important; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) !important; gap: 12px !important; }
+        .report-analytics-page .ra-budget { padding: 16px !important; }
+        .report-analytics-page .ra-budget .ra-kpi-icon { background: var(--ui-primary-soft) !important; color: var(--ui-primary) !important; }
+        .report-analytics-page .ra-budget-figs { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 14px !important; margin-top: 14px !important; }
+        .report-analytics-page .ra-budget-figs small { display: block !important; color: var(--ui-muted) !important; font-size: 11.5px !important; font-weight: 600 !important; }
+        .report-analytics-page .ra-budget-figs strong { display: block !important; margin-top: 4px !important; color: var(--ui-ink) !important; font-size: 19px !important; font-weight: 700 !important; font-variant-numeric: tabular-nums !important; overflow-wrap: anywhere !important; }
+        .report-analytics-page .ra-budget-figs strong.is-good { color: var(--ui-success) !important; }
+        .report-analytics-page .ra-budget-pct { display: block !important; margin-top: 3px !important; color: var(--ui-subtle) !important; font-size: 11.5px !important; }
+        .report-analytics-page .ra-budget-bar { height: 10px !important; margin-top: 16px !important; overflow: hidden !important; border-radius: 999px !important; background: var(--ui-line-soft) !important; }
+        .report-analytics-page .ra-budget-bar span { display: block !important; height: 100% !important; border-radius: 999px !important; background: linear-gradient(90deg, #1d4f40, #2f7d63) !important; }
+        .report-analytics-page .ra-budget-cap { margin: 8px 0 0 !important; color: var(--ui-muted) !important; font-size: 12px !important; }
+        @media (max-width: 1100px) {
+            .report-analytics-page .ra-money-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
+            .report-analytics-page .ra-budget { grid-column: 1 / -1 !important; }
+        }
+        @media (max-width: 700px) {
+            .report-analytics-page .ra-kpis.is-three, .report-analytics-page .ra-money-grid, .report-analytics-page .ra-budget-figs { grid-template-columns: minmax(0, 1fr) !important; }
+        }
         .report-analytics-page .ra-money { font-size: 22px !important; overflow-wrap: anywhere !important; }
         .report-analytics-page a.ra-inline-link { color: var(--ui-primary) !important; -webkit-text-fill-color: var(--ui-primary) !important; text-decoration: none !important; font-weight: 600 !important; }
         .report-analytics-page a.ra-inline-link:hover { text-decoration: underline !important; }
@@ -308,44 +336,73 @@
                 @endif
             </form>
 
-            <section class="ra-kpis ra-section" aria-label="Key figures">
-                @foreach($summaryCards as $card)
-                    <article class="ra-card ra-kpi tone-{{ $card['tone'] }} ra-rise" style="--i: {{ $loop->index }}">
-                        <div class="ra-kpi-top">
-                            <span class="ra-kpi-icon"><i class="fas {{ $card['icon'] }}" aria-hidden="true"></i></span>
-                            <span class="ra-kpi-label">{{ $card['label'] }}</span>
-                        </div>
-                        <strong class="ra-kpi-value" @if($card['value'] !== null) data-count="{{ $card['value'] }}" data-format="{{ $card['format'] }}" @endif>{{ $card['display'] }}</strong>
-                        <span class="ra-kpi-note">{{ $card['note'] }}</span>
-                        @if($delta = $deltaFor($card['label']))<span class="ra-delta is-{{ $delta['tone'] }}" title="{{ $delta['title'] }}">{{ $delta['text'] }}</span>@endif
-                    </article>
+            @php
+                $peso = fn ($value) => '₱'.number_format((float) $value, 2);
+                $kpi = collect($summaryCards)->keyBy('label');
+                $savings = max(0, $extras['abcAwarded'] - $extras['contractTotal']);
+                $savingsPct = $extras['abcAwarded'] > 0 ? $savings / $extras['abcAwarded'] * 100 : null;
+                $contractPct = $extras['abcAwarded'] > 0 ? min(100, $extras['contractTotal'] / $extras['abcAwarded'] * 100) : 0;
+            @endphp
+
+            <h2 class="ra-group">Activity</h2>
+            <section class="ra-kpis ra-section" aria-label="Activity">
+                @foreach(['Projects', 'Accepting bids now', 'Official bids', 'Awarded'] as $label)
+                    @include('admin.partials.report-kpi', ['card' => $kpi[$label], 'delta' => $deltaFor($label), 'index' => $loop->index])
                 @endforeach
             </section>
 
-            @php $peso = fn ($value) => '₱'.number_format((float) $value, 2); @endphp
-            <section class="ra-kpis ra-section" aria-label="Budget and collections">
-                <article class="ra-card ra-kpi tone-blue ra-rise" style="--i: 0">
-                    <div class="ra-kpi-top"><span class="ra-kpi-icon"><i class="fas fa-wallet" aria-hidden="true"></i></span><span class="ra-kpi-label">Total ABC</span></div>
-                    <strong class="ra-kpi-value ra-money">{{ $peso($extras['abcTotal']) }}</strong>
-                    <span class="ra-kpi-note">Approved budget of the projects in range</span>@if($delta = $deltaFor('Total ABC'))<span class="ra-delta is-{{ $delta['tone'] }}" title="{{ $delta['title'] }}">{{ $delta['text'] }}</span>@endif
-                </article>
-                <article class="ra-card ra-kpi tone-green ra-rise" style="--i: 1">
-                    <div class="ra-kpi-top"><span class="ra-kpi-icon"><i class="fas fa-file-signature" aria-hidden="true"></i></span><span class="ra-kpi-label">Contract value</span></div>
-                    <strong class="ra-kpi-value ra-money">{{ $peso($extras['contractTotal']) }}</strong>
-                    <span class="ra-kpi-note">Awards in force, cancelled ones left out</span>@if($delta = $deltaFor('Contract value'))<span class="ra-delta is-{{ $delta['tone'] }}" title="{{ $delta['title'] }}">{{ $delta['text'] }}</span>@endif
-                </article>
-                <article class="ra-card ra-kpi tone-gold ra-rise" style="--i: 2">
-                    <div class="ra-kpi-top"><span class="ra-kpi-icon"><i class="fas fa-receipt" aria-hidden="true"></i></span><span class="ra-kpi-label">Bidding fees collected</span></div>
-                    <strong class="ra-kpi-value ra-money">{{ $peso($extras['feesTotal']) }}</strong>
-                    <span class="ra-kpi-note"><a class="ra-inline-link" href="{{ route('admin.payments') }}">{{ number_format($extras['feesCount']) }} Official {{ \Illuminate\Support\Str::plural('Receipt', $extras['feesCount']) }}</a></span>@if($delta = $deltaFor('Bidding fees collected'))<span class="ra-delta is-{{ $delta['tone'] }}" title="{{ $delta['title'] }}">{{ $delta['text'] }}</span>@endif
-                </article>
-                <article class="ra-card ra-kpi tone-violet ra-rise" style="--i: 3">
-                    <div class="ra-kpi-top"><span class="ra-kpi-icon"><i class="fas fa-file-pen" aria-hidden="true"></i></span><span class="ra-kpi-label">Purchase requests waiting</span></div>
-                    <strong class="ra-kpi-value">{{ number_format($extras['requestsWaiting']) }}</strong>
-                    <span class="ra-kpi-note"><a class="ra-inline-link" href="{{ route('admin.requests') }}">{{ number_format($extras['requestsTotal']) }} received in range</a></span>@if($delta = $deltaFor('Purchase requests waiting'))<span class="ra-delta is-{{ $delta['tone'] }}" title="{{ $delta['title'] }}">{{ $delta['text'] }}</span>@endif
-                </article>
+            <h2 class="ra-group">Performance</h2>
+            <section class="ra-kpis is-three ra-section" aria-label="Performance">
+                @foreach(['Bidders per project', 'Failed bidding rate', 'Days to award'] as $label)
+                    @include('admin.partials.report-kpi', ['card' => $kpi[$label], 'delta' => null, 'index' => $loop->index])
+                @endforeach
             </section>
 
+            <h2 class="ra-group">Budget &amp; collections</h2>
+            <section class="ra-money-grid ra-section" aria-label="Budget and collections">
+                <article class="ra-card ra-budget ra-rise" style="--i: 0">
+                    <div class="ra-kpi-top"><span class="ra-kpi-icon tone-blue"><i class="fas fa-wallet" aria-hidden="true"></i></span><span class="ra-kpi-label">Budget and savings vs ABC</span></div>
+                    <div class="ra-budget-figs">
+                        <div>
+                            <small>Total ABC</small>
+                            <strong>{{ $peso($extras['abcTotal']) }}</strong>
+                            @if($d = $deltaFor('Total ABC'))<span class="ra-delta is-{{ $d['tone'] }}" title="{{ $d['title'] }}">{{ $d['text'] }}</span>@endif
+                        </div>
+                        <div>
+                            <small>Contract value</small>
+                            <strong>{{ $peso($extras['contractTotal']) }}</strong>
+                            @if($d = $deltaFor('Contract value'))<span class="ra-delta is-{{ $d['tone'] }}" title="{{ $d['title'] }}">{{ $d['text'] }}</span>@endif
+                        </div>
+                        <div>
+                            <small>Savings vs ABC</small>
+                            <strong class="{{ $savings > 0 ? 'is-good' : '' }}">{{ $extras['abcAwarded'] > 0 ? $peso($savings) : '—' }}</strong>
+                            @if($savingsPct !== null)<span class="ra-budget-pct">{{ number_format($savingsPct, 1) }}% below the ABC of awarded projects</span>@endif
+                        </div>
+                    </div>
+                    @if($extras['abcAwarded'] > 0)
+                        <div class="ra-budget-bar" role="img" aria-label="Contracted {{ number_format($contractPct, 1) }} percent of the approved budget of awarded projects">
+                            <span style="width: {{ $contractPct }}%"></span>
+                        </div>
+                        <p class="ra-budget-cap">Contracted {{ $peso($extras['contractTotal']) }} of {{ $peso($extras['abcAwarded']) }} approved for awarded projects.</p>
+                    @else
+                        <p class="ra-budget-cap">No awards in this range yet, so there are no savings to show.</p>
+                    @endif
+                </article>
+
+                <article class="ra-card ra-kpi tone-gold ra-rise" style="--i: 1">
+                    <div class="ra-kpi-top"><span class="ra-kpi-icon"><i class="fas fa-receipt" aria-hidden="true"></i></span><span class="ra-kpi-label">Bidding fees collected</span></div>
+                    <strong class="ra-kpi-value ra-money">{{ $peso($extras['feesTotal']) }}</strong>
+                    <span class="ra-kpi-note"><a class="ra-inline-link" href="{{ route('admin.payments') }}">{{ number_format($extras['feesCount']) }} Official {{ \Illuminate\Support\Str::plural('Receipt', $extras['feesCount']) }}</a></span>
+                    @if($d = $deltaFor('Bidding fees collected'))<span class="ra-delta is-{{ $d['tone'] }}" title="{{ $d['title'] }}">{{ $d['text'] }}</span>@endif
+                </article>
+
+                <article class="ra-card ra-kpi tone-violet ra-rise" style="--i: 2">
+                    <div class="ra-kpi-top"><span class="ra-kpi-icon"><i class="fas fa-file-pen" aria-hidden="true"></i></span><span class="ra-kpi-label">Purchase requests waiting</span></div>
+                    <strong class="ra-kpi-value">{{ number_format($extras['requestsWaiting']) }}</strong>
+                    <span class="ra-kpi-note"><a class="ra-inline-link" href="{{ route('admin.requests') }}">{{ number_format($extras['requestsTotal']) }} received in range</a></span>
+                    @if($d = $deltaFor('Purchase requests waiting'))<span class="ra-delta is-{{ $d['tone'] }}" title="{{ $d['title'] }}">{{ $d['text'] }}</span>@endif
+                </article>
+            </section>
             <section class="ra-card ra-pipeline ra-section ra-anim" aria-label="Procurement pipeline">
                 <div class="ra-head">
                     <div>
