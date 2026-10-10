@@ -331,11 +331,67 @@
             });
         };
 
+        // The unit follows what is being bought. The BAC can overwrite it: once someone types in the
+        // Unit box it is left alone, until they clear it again.
+        const unitRules = [
+            [/\b(rental|subscription|janitorial|security (guard )?services?|internet|monthly)\b/, 'month'],
+            [/\b(services?|repair|rehabilitation|construction|renovation|maintenance|installation|consult\w*|training|catering|printing|works|project)\b/, 'lot'],
+            [/\b(bond paper|copy paper|xerox|photocopy paper|a4|short paper|long paper|ream)\b/, 'ream'],
+            [/\b(cement)\b/, 'bag'],
+            [/\b(rice)\b/, 'sack'],
+            [/\b(gasoline|diesel|kerosene|lubricant|engine oil|liquid)\b/, 'liter'],
+            [/\b(paint|thinner|varnish|primer|epoxy)\b/, 'gallon'],
+            [/\b(alcohol|sanitizer|disinfectant|ink|vitamins?|syrup|shampoo|bleach|dishwashing)\b/, 'bottle'],
+            [/\b(safety shoes|boots|shoes|slippers)\b/, 'pair'],
+            [/\b(sand|gravel|aggregate|base course|filling material)\b/, 'cu.m'],
+            [/\b(plywood|gi sheet|roofing sheet|marine board|acrylic sheet)\b/, 'sheet'],
+            [/\b(lumber|coco lumber)\b/, 'bd.ft'],
+            [/\b(fabric|cloth|curtain|canvas)\b/, 'meter'],
+            [/\b(pvc pipe|gi pipe|hdpe pipe|pipe|conduit)\b/, 'length'],
+            [/\b(sugar|coffee|salt|flour|nails|common nails|tie wire)\b/, 'kg'],
+            [/\b(tape|carpet|thermal paper|electrical wire|cable|film)\b/, 'roll'],
+            [/\b(ballpen|ball pen|pens?|folders?|envelopes?|staple wire|staples|paper clips?|markers?|gloves?|face masks?|masks?|syringes?|tablets? \d+\s?mg|capsules?|medicines?|tissue|diapers?)\b/, 'box'],
+            [/\b(batter(y|ies)|napkins?|packs?)\b/, 'pack'],
+            [/\b(first aid kit|kit|ppe|set of|set)\b/, 'set'],
+            [/\b(monitor|oximeter|thermometer|laptops?|computers?|desktops?|printers?|scanner|aircon|air conditioner|television|tv|camera|cellphone|smartphone|projector|generator|vehicle|motorcycle|ambulance|truck|equipment|machine|apparatus|ups|router|server|nebulizer|stethoscope|wheelchair)\b/, 'unit'],
+        ];
+        const guessUnit = (description) => {
+            const text = description.toLowerCase();
+            for (const [pattern, unit] of unitRules) {
+                if (pattern.test(text)) return unit;
+            }
+            return text.replace(/[^a-z]/g, '').length >= 4 ? 'piece' : '';
+        };
+        const unitTimers = new WeakMap();
+        const suggestUnit = (row) => {
+            const unit = row.querySelector('[data-item-field="unit"]');
+            const description = row.querySelector('[data-item-field="description"]');
+            if (!unit || !description || (unit.value !== '' && unit.dataset.auto !== '1')) return;
+            const guess = guessUnit(description.value.trim());
+            if (guess === '') { if (unit.dataset.auto === '1') { unit.value = ''; delete unit.dataset.auto; } return; }
+            unit.value = guess;
+            unit.dataset.auto = '1';
+            unit.removeAttribute('aria-invalid');
+            recalc();
+        };
+
         box.addEventListener('input', (event) => {
             if (event.target.matches('[data-item-field]')) {
                 recalc();
                 if (error && !error.hidden) error.hidden = true;
             }
+            const row = event.target.closest('[data-item-row]');
+            if (event.target.matches('[data-item-field="unit"]')) {
+                // Typing here takes the unit over; clearing it hands it back.
+                if (event.isTrusted) delete event.target.dataset.auto;
+            } else if (row && event.target.matches('[data-item-field="description"]')) {
+                window.clearTimeout(unitTimers.get(row));
+                unitTimers.set(row, window.setTimeout(() => suggestUnit(row), 450));
+            }
+        });
+        box.addEventListener('change', (event) => {
+            // Picking a unit from the list also counts as the person's own choice.
+            if (event.target.matches('[data-item-field="unit"]') && event.isTrusted) delete event.target.dataset.auto;
         });
         box.addEventListener('focusout', (event) => {
             const input = event.target;
@@ -350,6 +406,7 @@
                 const row = rows.firstElementChild.cloneNode(true);
                 row.querySelectorAll('[data-item-field]').forEach((input) => {
                     input.value = '';
+                    delete input.dataset.auto;
                     input.removeAttribute('aria-invalid');
                 });
                 rows.appendChild(row);
