@@ -246,3 +246,37 @@ it('opens the first queue that has something waiting, and shows a one-line all-c
     testCase()->actingAs($this->admin)->get(route('admin.requests', ['tab' => 'review']))->assertOk()
         ->assertSee('Nothing waiting for your review.')->assertSee('1 ready for procurement');
 });
+
+it('lets the admin correct a recorded request until a project is made from it', function () {
+    testCase()->actingAs($this->admin)->post(route('admin.requests.store'), $this->details + ['end_user_office' => 'Municipal Engineering Office'])->assertSessionHasNoErrors();
+    $request = ProcurementRequest::firstOrFail();
+
+    // The queue offers Edit, and the form opens filled in.
+    testCase()->actingAs($this->admin)->get(route('admin.requests', ['tab' => 'bac']))->assertOk()->assertSee(route('admin.requests.edit', $request), false);
+    testCase()->actingAs($this->admin)->get(route('admin.requests.edit', $request))->assertOk()
+        ->assertSee('Edit purchase request')->assertSee('Save changes')
+        ->assertSee('value="Supply of survey equipment"', false)
+        ->assertSee(route('admin.requests.update', $request), false);
+    testCase()->actingAs($this->staff)->get(route('admin.requests.edit', $request))->assertForbidden();
+
+    // A wrong amount is fixed, and the request keeps its number and its ready state.
+    testCase()->actingAs($this->admin)->put(route('admin.requests.update', $request), array_merge($this->details, [
+        'end_user_office' => 'Municipal Health Office', 'title' => 'Supply of survey equipment (corrected)', 'estimated_cost' => '480,000.00',
+    ]))->assertSessionHasNoErrors()->assertRedirect();
+
+    $fresh = $request->fresh();
+    expect($fresh->title)->toBe('Supply of survey equipment (corrected)')
+        ->and($fresh->end_user_office)->toBe('Municipal Health Office')
+        ->and($fresh->estimated_cost)->toBe('480000.00')
+        ->and($fresh->reference_no)->toBe($request->reference_no)
+        ->and($fresh->status)->toBe(ProcurementRequest::STATUS_FORWARDED);
+
+    // The same checks apply as when recording.
+    testCase()->actingAs($this->admin)->put(route('admin.requests.update', $request), array_merge($this->details, ['end_user_office' => 'Nowhere Office']))->assertSessionHasErrors('end_user_office');
+
+    // Once a project exists, the request is locked.
+    $project = \App\Models\Project::create(['title' => 'From the PR', 'description' => 'x', 'budget' => 480000, 'deadline' => now()->addDays(10), 'status' => 'draft', 'category' => 'goods', 'procurement_request_id' => $request->id]);
+    testCase()->actingAs($this->admin)->get(route('admin.requests.edit', $request))->assertRedirect(route('admin.requests', ['tab' => 'all']));
+    testCase()->actingAs($this->admin)->put(route('admin.requests.update', $request), $this->details + ['end_user_office' => 'Municipal Health Office'])->assertRedirect(route('admin.requests', ['tab' => 'all']));
+    expect($request->fresh()->title)->toBe('Supply of survey equipment (corrected)');
+});

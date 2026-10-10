@@ -127,6 +127,9 @@
                                         <button type="button" class="ui-btn {{ $item->awaitsReview() ? 'ui-btn--primary' : 'ui-btn--secondary' }} ui-btn--sm" data-dialog-open="request-{{ $item->id }}">
                                             {{ $item->awaitsReview() ? 'Review' : 'View' }}<span class="sr-only"> {{ $item->reference_no }}</span>
                                         </button>
+                                        @if($routePrefix === 'admin' && ! $item->project && $item->status !== \App\Models\ProcurementRequest::STATUS_IN_PROCUREMENT)
+                                            <a class="ui-btn ui-btn--secondary ui-btn--sm" href="{{ route('admin.requests.edit', $item) }}"><i class="fas fa-pen" aria-hidden="true"></i> Edit<span class="sr-only"> {{ $item->reference_no }}</span></a>
+                                        @endif
                                         @if($item->awaitsBac() && $routePrefix === 'admin')
                                             <a class="ui-btn ui-btn--success ui-btn--sm" href="{{ route('admin.projects.create', ['request' => $item->id]) }}">Prepare procurement</a>
                                         @endif
@@ -296,8 +299,8 @@
             <div class="eu-modal__card">
                 <header class="eu-modal__head">
                     <div>
-                        <h2 id="eu-modal-title">Record purchase request</h2>
-                        <p>Record the signed hard copy an end-user office handed to the BAC. It is ready for procurement as soon as it is recorded.</p>
+                        <h2 id="eu-modal-title">{{ $procurementRequest->exists ? 'Edit purchase request' : 'Record purchase request' }}</h2>
+                        <p>{{ $procurementRequest->exists ? 'Correct what was recorded for '.$procurementRequest->reference_no.'. It stays ready for procurement.' : 'Record the signed hard copy an end-user office handed to the BAC. It is ready for procurement as soon as it is recorded.' }}</p>
                     </div>
                     <a href="{{ route('admin.requests') }}" class="eu-modal__close" data-eu-modal-close aria-label="Close"><i class="fas fa-xmark" aria-hidden="true"></i></a>
                 </header>

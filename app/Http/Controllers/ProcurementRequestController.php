@@ -105,6 +105,77 @@ class ProcurementRequestController extends Controller
             ->with('success', 'Recorded '.$procurementRequest->reference_no.' for '.$procurementRequest->end_user_office.'. It is ready: use Prepare procurement to turn it into a project.');
     }
 
+    /** A recorded request can be corrected until a project has been made from it. */
+    private function editable(ProcurementRequest $procurementRequest): bool
+    {
+        return $procurementRequest->status !== ProcurementRequest::STATUS_IN_PROCUREMENT && ! $procurementRequest->project()->exists();
+    }
+
+    public function adminEdit(Request $request, ProcurementRequest $procurementRequest)
+    {
+        if (! $this->editable($procurementRequest)) {
+            return redirect()->route('admin.requests', ['tab' => 'all'])
+                ->with('error', $procurementRequest->reference_no.' already has a procurement project, so it can no longer be edited here. Edit the project instead.');
+        }
+
+        $procurementRequest->load('documents');
+
+        return $this->queue($request)->with([
+            'recordForm' => true,
+            'procurementRequest' => $procurementRequest,
+            'adminMode' => true,
+            'offices' => User::assignableEndUserOffices(),
+        ]);
+    }
+
+    public function adminUpdate(Request $request, ProcurementRequest $procurementRequest)
+    {
+        if (! $this->editable($procurementRequest)) {
+            return redirect()->route('admin.requests', ['tab' => 'all'])
+                ->with('error', $procurementRequest->reference_no.' already has a procurement project, so it can no longer be edited here.');
+        }
+
+        $request->merge(['action' => 'submit']);
+        $validated = $this->validateRequest($request);
+        $request->validate([
+            'end_user_office' => ['required', 'string', Rule::in(User::assignableEndUserOffices())],
+            'remove_documents' => ['nullable', 'array'],
+            'remove_documents.*' => ['integer'],
+        ], [
+            'end_user_office.required' => 'Choose the end-user office that filed the request.',
+            'end_user_office.in' => 'Choose an office from the list.',
+        ]);
+
+        $fields = ['title', 'category', 'specifications', 'quantity', 'unit', 'estimated_cost', 'fund_source', 'delivery_period', 'justification', 'end_user_office', 'items'];
+        $before = $procurementRequest->only($fields);
+        $removed = $procurementRequest->documents()->whereIn('id', array_map('intval', (array) $request->input('remove_documents', [])))->get();
+        $removedPaths = $removed->pluck('file_path')->filter()->all();
+
+        try {
+            DB::transaction(function () use ($procurementRequest, $validated, $request, $removed) {
+                $procurementRequest->update($this->attributes($validated) + ['end_user_office' => (string) $request->input('end_user_office')]);
+                $removed->each->delete();
+                $this->storeDocuments($procurementRequest, $request);
+            });
+        } catch (\RuntimeException $exception) {
+            return $this->uploadFailed($request, $exception);
+        }
+
+        // Files go only after the records changed, so a failed save keeps them.
+        foreach ($removedPaths as $path) {
+            try {
+                Uploads::delete($path);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
+
+        AuditLog::log('procurement_request_updated', $procurementRequest, $before, $procurementRequest->fresh()->only($fields) + ['edited_by' => Auth::id(), 'removed_documents' => $removed->pluck('original_name')->all()]);
+
+        return redirect()->route('admin.requests', ['tab' => $procurementRequest->awaitsBac() ? 'bac' : 'all', 'q' => $procurementRequest->reference_no])
+            ->with('success', 'Saved the changes to '.$procurementRequest->reference_no.'.');
+    }
+
     /* ---------------------------------------------------------------------
      | PPMP/APP and budget review (staff and admin)
      * ------------------------------------------------------------------- */

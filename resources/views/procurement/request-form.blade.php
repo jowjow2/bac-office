@@ -1,7 +1,7 @@
 {{-- The Record purchase request form, shown as a dialog over the queue (ProcurementRequestController::adminCreate). --}}
 @php
     /** @var \App\Models\ProcurementRequest $procurementRequest */
-    $editing = false;
+    $editing = $procurementRequest->exists;
     // The admin records a request an end-user office handed in as a hard copy (ProcurementRequestController::adminCreate).
     $adminMode = true;
     $categories = [
@@ -29,8 +29,9 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('admin.requests.store') }}" enctype="multipart/form-data" class="ui-card" data-stepped data-validate>
+    <form method="POST" action="{{ $editing ? route('admin.requests.update', $procurementRequest) : route('admin.requests.store') }}" enctype="multipart/form-data" class="ui-card" data-stepped data-validate>
         @csrf
+        @if($editing) @method('PUT') @endif
 
         <div class="ui-card__head">
             <ol class="ui-steps" aria-label="Steps">
@@ -53,7 +54,7 @@
                         <select id="end_user_office" name="end_user_office" class="ui-input" required aria-invalid="{{ $invalid('end_user_office') }}">
                             <option value="">Select the office that filed the request</option>
                             @foreach($offices as $office)
-                                <option value="{{ $office }}" @selected(old('end_user_office') === $office)>{{ $office }}</option>
+                                <option value="{{ $office }}" @selected(old('end_user_office', $procurementRequest->end_user_office) === $office)>{{ $office }}</option>
                             @endforeach
                         </select>
                         <span class="ui-hint">The office named on the signed hard copy.</span>
@@ -224,7 +225,7 @@
                             <li>
                                 <i class="fas fa-file-lines" aria-hidden="true"></i>
                                 <a class="ui-link" href="{{ route('procurement.files.request', $document) }}" target="_blank" rel="noopener">{{ $document->typeLabel() }}: {{ $document->original_name }}</a>
-                                <button type="submit" form="remove-document-{{ $document->id }}" class="ui-btn ui-btn--danger ui-btn--sm ui-push-end" formnovalidate>Remove<span class="sr-only"> {{ $document->original_name }}</span></button>
+                                <label class="ui-check ui-push-end"><input type="checkbox" name="remove_documents[]" value="{{ $document->id }}" @checked(in_array((string) $document->id, array_map('strval', (array) old('remove_documents', []))))> Remove<span class="sr-only"> {{ $document->original_name }}</span></label>
                             </li>
                         @endforeach
                     </ul>
@@ -267,7 +268,7 @@
                     <button type="button" class="ui-btn ui-btn--secondary" data-step-prev><i class="fas fa-arrow-left" aria-hidden="true"></i> Back</button>
                     <span class="ui-actions">
                         <a href="{{ route('admin.requests') }}" class="ui-btn ui-btn--ghost">Cancel</a>
-                        <button type="submit" name="action" value="submit" class="ui-btn ui-btn--primary"><i class="fas fa-paper-plane" aria-hidden="true"></i> Record request</button>
+                        <button type="submit" name="action" value="submit" class="ui-btn ui-btn--primary"><i class="fas {{ $editing ? 'fa-floppy-disk' : 'fa-paper-plane' }}" aria-hidden="true"></i> {{ $editing ? 'Save changes' : 'Record request' }}</button>
                     </span>
                 </div>
             </section>
