@@ -181,7 +181,27 @@
                     </div>
                     <div class="ui-field ui-field--wide">
                         <label class="ui-label" for="delivery_period">Proposed delivery period or contract duration <span class="ui-required" aria-hidden="true">*</span></label>
-                        <input id="delivery_period" name="delivery_period" class="ui-input" required maxlength="255" value="{{ $value('delivery_period') }}" aria-invalid="{{ $invalid('delivery_period') }}" aria-describedby="delivery_period-error" placeholder="e.g. 30 calendar days from receipt of the Notice to Proceed" data-review-label="Delivery / duration">
+                        @php
+                            $deliveryChoices = [
+                                'Calendar days from receipt of the Notice to Proceed' => array_map(fn ($days) => $days.' calendar days from receipt of the Notice to Proceed', [15, 30, 45, 60, 90, 120, 180]),
+                                'Longer terms' => ['One (1) year from receipt of the Notice to Proceed', 'Until the end of the current fiscal year'],
+                            ];
+                            $deliveryValue = trim((string) $value('delivery_period'));
+                            $deliveryPreset = collect($deliveryChoices)->flatten()->contains($deliveryValue);
+                            $deliveryOther = $deliveryValue !== '' && ! $deliveryPreset;
+                        @endphp
+                        <select id="delivery_period_choice" class="ui-input" required aria-describedby="delivery_period-error" aria-invalid="{{ $invalid('delivery_period') }}" data-delivery-choice>
+                            <option value="" @selected($deliveryValue === '')>Select the delivery period or duration</option>
+                            @foreach($deliveryChoices as $group => $options)
+                                <optgroup label="{{ $group }}">
+                                    @foreach($options as $option)
+                                        <option value="{{ $option }}" @selected($deliveryValue === $option)>{{ $option }}</option>
+                                    @endforeach
+                                </optgroup>
+                            @endforeach
+                            <option value="__other" @selected($deliveryOther)>Other (type it in)…</option>
+                        </select>
+                        <input id="delivery_period" name="delivery_period" class="ui-input" maxlength="255" value="{{ $deliveryValue }}" aria-invalid="{{ $invalid('delivery_period') }}" aria-describedby="delivery_period-error" placeholder="e.g. 45 calendar days, delivered in two batches" data-review-label="Delivery / duration" data-delivery-text style="margin-top: 8px" @unless($deliveryOther) hidden @endunless @if($deliveryOther) required @endif>
                         <span class="ui-error" id="delivery_period-error" data-client @unless($errors->has('delivery_period')) hidden @endunless>{{ $errors->first('delivery_period') }}</span>
                     </div>
                 </div>
@@ -362,6 +382,23 @@
             }
             return text.replace(/[^a-z]/g, '').length >= 4 ? 'piece' : '';
         };
+        // Delivery period: a list of the usual terms; "Other" opens the box for a typed one.
+        const deliveryChoice = document.querySelector('[data-delivery-choice]');
+        const deliveryText = document.querySelector('[data-delivery-text]');
+        if (deliveryChoice && deliveryText) {
+            deliveryChoice.addEventListener('change', () => {
+                const other = deliveryChoice.value === '__other';
+                deliveryText.hidden = ! other;
+                deliveryText.required = other;
+                deliveryText.value = other ? '' : deliveryChoice.value;
+                deliveryChoice.removeAttribute('aria-invalid');
+                deliveryText.removeAttribute('aria-invalid');
+                const message = document.getElementById('delivery_period-error');
+                if (message && message.dataset.client !== undefined) { message.textContent = ''; message.hidden = true; }
+                if (other) deliveryText.focus();
+            });
+        }
+
         const unitTimers = new WeakMap();
         const suggestUnit = (row) => {
             const unit = row.querySelector('[data-item-field="unit"]');
