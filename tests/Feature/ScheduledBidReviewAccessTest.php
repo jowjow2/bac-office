@@ -72,7 +72,8 @@ it('opens technical access at the scheduled Manila time and records automatic op
     testCase()->actingAs($this->admin)->get(route('admin.bid.component-file', [$bid, $technical]))->assertForbidden();
     $closedModal = testCase()->actingAs($this->admin)->withHeader('X-Requested-With', 'XMLHttpRequest')
         ->get(route('admin.bid.view', $bid))->assertOk()->getContent();
-    expect($closedModal)->toContain('data-technical-open="0"')->not->toContain('Technical-');
+    // The open modal knows when the files open, so it can swap itself in at that moment.
+    expect($closedModal)->toContain('data-technical-open="0"')->toContain('data-opening-at="'.($opensAt->getTimestamp() * 1000).'"')->not->toContain('Technical-');
 
     $this->travelTo($opensAt->copy()->addSecond());
     testCase()->artisan('bids:open-scheduled-technical')->assertExitCode(0);
@@ -88,7 +89,7 @@ it('opens technical access at the scheduled Manila time and records automatic op
     testCase()->actingAs($this->admin)->get(route('admin.bid.document.pdf', [$bid, 'proposal']))->assertForbidden();
     $openModal = testCase()->actingAs($this->admin)->withHeader('X-Requested-With', 'XMLHttpRequest')
         ->get(route('admin.bid.view', $bid))->assertOk()->getContent();
-    expect($openModal)->toContain('data-technical-open="1"')->toContain($technical->original_name)
+    expect($openModal)->toContain('data-technical-open="1"')->not->toContain('data-opening-at')->toContain($technical->original_name)
         ->not->toContain('Financial-')->not->toContain('987,654.32');
 });
 

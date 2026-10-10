@@ -133,7 +133,7 @@
     $documentCount = $bid->documents->count() + ($bid->proposal_file ? 1 : 0) + ($bid->user?->philgepsCertificate ? 1 : 0);
 @endphp
 
-<div class="br" data-bid-review-modal data-bid-id="{{ $bid->id }}" data-technical-open="{{ $technicalAvailable ? '1' : '0' }}">
+<div class="br" data-bid-review-modal data-bid-id="{{ $bid->id }}" data-technical-open="{{ $technicalAvailable ? '1' : '0' }}" @if(! $technicalAvailable && $openingAt) data-opening-at="{{ $openingAt->getTimestamp() * 1000 }}" @endif>
     <header class="br-head">
         <div class="br-head__main">
             <p class="br-eyebrow">

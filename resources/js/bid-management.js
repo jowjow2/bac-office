@@ -404,20 +404,34 @@ if (root && root.dataset.bidManagementReady !== '1') {
             clearInterval(reviewRefreshTimer);
             const openedReview = body.querySelector('[data-bid-review-modal]');
             if (openedReview && openedReview.dataset.technicalOpen === '0') {
+                // The files open by themselves at the scheduled time: when it arrives, look every
+                // couple of seconds until the server has opened them, then swap the review in place.
+                const openingAt = Number(openedReview.dataset.openingAt || 0);
+                let ticks = 0;
+                let checking = false;
                 reviewRefreshTimer = setInterval(async () => {
                     if (!modal.classList.contains('show')) { clearInterval(reviewRefreshTimer); return; }
+                    ticks += 1;
+                    const due = openingAt > 0 && Date.now() >= openingAt - 500;
+                    if (checking || !(due ? ticks % 2 === 0 : ticks % 15 === 0)) return;
+                    checking = true;
                     try {
                         const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                         if (!response.ok) return;
                         const refreshed = document.createElement('div');
                         refreshed.innerHTML = await response.text();
                         const latest = refreshed.querySelector('[data-bid-review-modal]');
-                        if (latest?.dataset.technicalOpen === '1') {
-                            body.innerHTML = refreshed.innerHTML;
+                        if (latest?.dataset.technicalOpen === '1' && modal.classList.contains('show')) {
                             clearInterval(reviewRefreshTimer);
+                            const activeTab = body.querySelector('[data-br-tab][aria-selected="true"]')?.dataset.brTab;
+                            body.innerHTML = refreshed.innerHTML;
+                            if (activeTab) selectReviewTab(activeTab);
                         }
-                    } catch (_) {}
-                }, 10000);
+                    } catch (_) {
+                    } finally {
+                        checking = false;
+                    }
+                }, 1000);
             }
             if (section) {
                 const target = body.querySelector('[data-review-target="' + section + '"]');
