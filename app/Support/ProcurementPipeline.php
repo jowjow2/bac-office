@@ -470,7 +470,6 @@ class ProcurementPipeline
 
         return match (true) {
             $bucket === 'preparation' && in_array($project->status, ['draft', 'approved_for_bidding'], true) => ['label' => $project->status === 'draft' ? 'Draft' : 'Approved for posting', 'tone' => 'neutral'],
-            $awaitingPosting => ['label' => 'External PhilGEPS posting not recorded', 'tone' => 'warning'],
             $bucket === 'posted' && $deadline !== null && $deadline->isFuture() => (function () use ($deadline, $today, $noun) {
                 $days = (int) $today->diffInDays($deadline->copy()->startOfDay());
 

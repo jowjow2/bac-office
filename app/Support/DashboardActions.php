@@ -70,8 +70,6 @@ class DashboardActions
             route($isAdmin ? 'admin.awards.index' : 'staff.assign-projects'), 'action', 'fa-truck-ramp-box');
 
         // Compliance flags from the register.
-        $add('posting', (int) ($kpis['awaiting_posting']['count'] ?? 0),
-            'PhilGEPS posting not recorded', 'Record the ITB or RFQ posting date.', route($dashboard, ['flag' => 'posting']), 'warning', 'fa-bullhorn');
         $add('late', (int) ($kpis['past_period']['count'] ?? 0),
             'Past the IRR award period', 'Bid opening to award is over the limit. Needs BAC action.', route($dashboard, ['flag' => 'late']), 'danger', 'fa-triangle-exclamation');
         $add('week', (int) ($kpis['openings_week']['count'] ?? 0),
