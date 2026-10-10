@@ -55,7 +55,7 @@
     $uploadedOn = fn ($document) => optional($document->uploaded_at ?? $document->created_at)->format('M d, Y');
 @endphp
 
-@section('title', 'Company profile')
+@section('title', 'Company profile & documents')
 @section('subtitle', 'Your registration status, company details and documents on file.')
 
 @section('actions')

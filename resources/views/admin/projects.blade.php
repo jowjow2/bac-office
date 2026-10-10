@@ -335,7 +335,7 @@
         <h2 id="quickAssignTitle">Assign staff</h2>
         <p data-quick-assign-title>{{ old('project_id') ? optional(\App\Models\Project::find(old('project_id')))->title : '' }}</p>
         @if($assignableStaff->isEmpty())
-            <p class="projects-assign__empty">No active staff accounts yet. Approve a staff registration in Suppliers &amp; users first.</p>
+            <p class="projects-assign__empty">No active staff accounts yet. Approve a staff registration in Manage users first.</p>
             <div class="portal-signout__actions">
                 <button type="button" class="portal-signout__button" data-dialog-close>Close</button>
                 <a href="{{ route('admin.users') }}" class="portal-signout__button is-primary" style="display:grid;place-items:center;text-decoration:none">Suppliers &amp; users</a>

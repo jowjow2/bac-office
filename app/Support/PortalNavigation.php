@@ -55,15 +55,15 @@ class PortalNavigation
             ]],
             ['title' => 'Procurement', 'items' => [
                 self::item('Purchase requests', 'admin.requests', 'fa-file-signature', ['admin.requests*']),
-                self::item('Projects', 'admin.projects', 'fa-folder-open', ['admin.projects*', 'admin.project.*', 'admin.procurement.*']),
-                self::item('Bids & quotations', 'admin.bids', 'fa-envelope-open-text', ['admin.bids', 'admin.bid.*']),
+                self::item('Projects & biddings', 'admin.projects', 'fa-folder-open', ['admin.projects*', 'admin.project.*', 'admin.procurement.*']),
+                self::item('Bid management', 'admin.bids', 'fa-envelope-open-text', ['admin.bids', 'admin.bid.*']),
                 self::item('Bidding fee payments', 'admin.payments', 'fa-receipt', ['admin.payments*']),
                 self::item('Awards & contracts', 'admin.awards.index', 'fa-award', ['admin.awards*', 'admin.award.*']),
             ]],
             ['title' => 'Registry', 'items' => [
-                self::item('Suppliers & users', 'admin.users', 'fa-users', ['admin.users*']),
+                self::item('Manage users', 'admin.users', 'fa-users', ['admin.users*']),
                 self::item('Staff assignments', 'admin.assignments', 'fa-people-arrows', ['admin.assignments*']),
-                self::item('Reports', 'admin.reports', 'fa-chart-column', ['admin.reports*']),
+                self::item('Report analytics', 'admin.reports', 'fa-chart-column', ['admin.reports*']),
                 self::item('Audit logs', 'admin.audit-logs', 'fa-clipboard-list', ['admin.audit-logs*']),
                 self::item('About page', 'admin.settings.about', 'fa-address-card', ['admin.settings.about*']),
             ]],
@@ -97,7 +97,7 @@ class PortalNavigation
                 self::item('Dashboard', 'bidder.dashboard', 'fa-gauge-high', ['bidder.dashboard']),
             ]],
             ['title' => 'Bidding', 'items' => $approved ? [
-                self::item('Available bids', 'bidder.available-projects', 'fa-bullhorn', ['bidder.available-projects', 'bidder.opportunities.*', 'bidder.project.document.*']),
+                self::item('Available projects', 'bidder.available-projects', 'fa-bullhorn', ['bidder.available-projects', 'bidder.opportunities.*', 'bidder.project.document.*']),
                 self::item('My submission bids', 'bidder.my-bids', 'fa-envelope-circle-check', ['bidder.my-bids']),
                 self::item('Submission status', 'bidder.bidding-track', 'fa-route', ['bidder.bidding-track*'], badgeAttr: 'data-bidding-track-badge'),
                 self::item('Awarded contracts', 'bidder.awarded-contracts', 'fa-award', ['bidder.awarded-contracts']),

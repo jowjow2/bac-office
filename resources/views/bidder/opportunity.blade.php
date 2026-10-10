@@ -28,7 +28,7 @@
 
 @section('title', $project->title)
 @section('crumbs')
-    <a href="{{ route('bidder.available-projects') }}">Available bids</a>
+    <a href="{{ route('bidder.available-projects') }}">Available projects</a>
     <span aria-hidden="true">/</span>
     <span class="ui-mono">{{ $project->reference_no ?: 'Project #'.$project->id }}</span>
 @endsection

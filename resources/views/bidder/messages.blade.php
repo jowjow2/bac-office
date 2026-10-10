@@ -7,7 +7,7 @@
     @include('partials.bidder-sidebar')
 
     <div class="main-area">
-        <x-page-header title="Messages" subtitle="Chat with the SJBAC team about your account and bids." />
+        <x-page-header title="BAC messages" subtitle="Chat with the SJBAC team about your account and bids." />
 
         <main class="dashboard-content dashboard-home-content">
             @php
