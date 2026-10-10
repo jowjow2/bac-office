@@ -378,3 +378,21 @@ it('exports the payment records as CSV with the page filters', function () {
 
     testCase()->actingAs($this->bidder)->get(route('admin.payments.export'))->assertForbidden();
 });
+
+it('prints a collection report for a period, per project and per receipt', function () {
+    BiddingFeePayment::create(['project_id' => $this->project->id, 'user_id' => $this->bidder->id, 'amount' => 5000, 'or_number' => 'OR-1001', 'paid_at' => now()->toDateString(), 'recorded_by' => $this->staff->id]);
+    $other = ($this->makeProject)(['reference_no' => 'SJOM-2026-G-099', 'title' => 'Laptops for the RHU']);
+    BiddingFeePayment::create(['project_id' => $other->id, 'user_id' => $this->otherBidder->id, 'amount' => 1000, 'or_number' => 'OR-2002', 'paid_at' => now()->subYear()->toDateString(), 'recorded_by' => $this->admin->id]);
+
+    testCase()->actingAs($this->admin)->get(route('admin.payments'))->assertOk()->assertSee(route('admin.payments.report'), false)->assertSee('Record payment');
+
+    // This month by default: only the recent receipt.
+    testCase()->actingAs($this->admin)->get(route('admin.payments.report'))->assertOk()
+        ->assertSee('Bidding documents fee collection report')->assertSee('OR-1001')->assertSee('₱5,000.00')->assertDontSee('OR-2002');
+
+    // All time includes the older one and the combined total.
+    testCase()->actingAs($this->staff)->get(route('staff.payments.report', ['all' => 1]))->assertOk()
+        ->assertSee('OR-1001')->assertSee('OR-2002')->assertSee('₱6,000.00')->assertSee('Laptops for the RHU');
+
+    testCase()->actingAs($this->bidder)->get(route('admin.payments.report'))->assertForbidden();
+});

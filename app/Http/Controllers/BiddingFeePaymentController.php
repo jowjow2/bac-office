@@ -110,6 +110,61 @@ class BiddingFeePaymentController extends Controller
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8', 'Cache-Control' => 'no-store']);
     }
 
+    /** Printable collection report for a period: totals, by project, by day and every Official Receipt. */
+    public function report(Request $request)
+    {
+        $role = $this->role($request);
+        $zone = config('bac-office.display_timezone', 'Asia/Manila');
+        $all = $request->boolean('all');
+        $parse = function (?string $value, Carbon $fallback) use ($zone): Carbon {
+            try {
+                return $value ? Carbon::parse($value, $zone)->startOfDay() : $fallback;
+            } catch (\Throwable) {
+                return $fallback;
+            }
+        };
+        $today = now($zone)->startOfDay();
+        $from = $parse($request->query('from'), $today->copy()->startOfMonth());
+        $to = $parse($request->query('to'), $today);
+        if ($from->greaterThan($to)) {
+            [$from, $to] = [$to, $from];
+        }
+
+        $payments = BiddingFeePayment::query()
+            ->with(['project', 'bidder', 'recorder'])
+            ->when(! $all, fn ($query) => $query->whereDate('paid_at', '>=', $from->toDateString())->whereDate('paid_at', '<=', $to->toDateString()))
+            ->orderBy('paid_at')
+            ->orderBy('id')
+            ->get();
+
+        $byProject = $payments->groupBy('project_id')->map(fn ($rows) => [
+            'title' => $rows->first()->project?->title ?? 'Deleted project',
+            'reference' => $rows->first()->project?->reference_no,
+            'fee' => $rows->first()->project?->bidding_documents_fee,
+            'count' => $rows->count(),
+            'amount' => (float) $rows->sum('amount'),
+        ])->sortByDesc('amount')->values();
+
+        $byDay = $payments->groupBy(fn ($payment) => $payment->paid_at->toDateString())->map(fn ($rows, $date) => [
+            'date' => Carbon::parse($date),
+            'count' => $rows->count(),
+            'amount' => (float) $rows->sum('amount'),
+        ])->values();
+
+        return view('payments.report', [
+            'routePrefix' => $role,
+            'zone' => $zone,
+            'all' => $all,
+            'from' => $from,
+            'to' => $to,
+            'payments' => $payments,
+            'total' => (float) $payments->sum('amount'),
+            'byProject' => $byProject,
+            'byDay' => $byDay,
+            'user' => Auth::user(),
+        ]);
+    }
+
     private function filteredPayments(string $search, ?int $projectFilter)
     {
         return BiddingFeePayment::query()

@@ -146,7 +146,28 @@
     .fee-dialog-close:hover { background: var(--fee-soft); color: var(--fee-ink); }
     .fee-dialog-context { display: grid; gap: 2px; padding: 10px 12px; margin-bottom: 14px; border-radius: var(--ui-radius-lg); background: var(--fee-soft); font-size: 12.5px; }
 
+    /* Redesign: one summary strip, the record form in a dialog, open projects as a card row. */
+    .fee-board .fee-stats { gap: 0; overflow: hidden; border: 1px solid var(--fee-line); border-radius: 14px; background: #fff; }
+    .fee-board .fee-stat { padding: 14px 20px; border: 0; border-right: 1px solid var(--fee-line); border-radius: 0; background: transparent; }
+    .fee-board .fee-stat:last-child { border-right: 0; }
+    .fee-board .fee-stat-icon { flex-basis: 34px; height: 34px; border-radius: 9px; font-size: 13px; }
+    .fee-board .fee-stat-value { font-size: 18px; }
+    .fee-grid { grid-template-columns: minmax(0, 1fr); }
+    .fee-board .fee-projects { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+    .fee-record-dialog { width: min(580px, calc(100vw - 24px)); border-radius: 16px; }
+    .fee-record-dialog[open] { animation: fee-rise .26s cubic-bezier(.2, .8, .2, 1) both; }
+    .fee-record-dialog::backdrop { background: rgba(15, 25, 21, .55); backdrop-filter: blur(2px); }
+    .fee-record-dialog .fee-card-head { align-items: flex-start; border-bottom: 0; padding-bottom: 6px; }
+    .fee-record-dialog .fee-card-head h2 { font-size: 18px; letter-spacing: -.01em; }
+    @keyframes fee-rise { from { opacity: 0; transform: translate(-50%, calc(-50% + 12px)); } to { opacity: 1; transform: translate(-50%, -50%); } }
+    body .admin-dashboard .main-area button.pay-record { display: inline-flex !important; align-items: center !important; gap: 8px !important; height: 38px !important; padding: 0 16px !important; border: 0 !important; border-radius: 9px !important; background: var(--ui-primary) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; font: 600 13.5px/1 var(--ui-font, inherit) !important; cursor: pointer !important; }
+    body .admin-dashboard .main-area button.pay-record:hover { background: var(--ui-primary-hover) !important; }
+    body .admin-dashboard .main-area a.hd-export { display: inline-flex !important; align-items: center !important; gap: 8px !important; height: 38px !important; padding: 0 16px !important; border: 1px solid var(--ui-line-strong, #d5ddd8) !important; border-radius: 9px !important; background: #fff !important; color: var(--ui-ink-2, #2d3a34) !important; -webkit-text-fill-color: var(--ui-ink-2, #2d3a34) !important; font: 600 13.5px/1 var(--ui-font, inherit) !important; text-decoration: none !important; }
+    body .admin-dashboard .main-area a.hd-export:hover { border-color: var(--ui-primary) !important; background: var(--ui-primary-soft) !important; }
+    body .admin-dashboard .main-area :is(button.pay-record, a.hd-export) i { color: inherit !important; -webkit-text-fill-color: currentColor !important; font-size: 12px !important; }
+
     @media (max-width: 1180px) {
+        .fee-board .fee-stat { border-bottom: 1px solid var(--fee-line); }
         .fee-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .fee-grid { grid-template-columns: minmax(0, 1fr); }
     }
@@ -204,12 +225,13 @@
     </section>
 
     <div class="fee-grid">
-        <section class="fee-card" aria-labelledby="fee-record-title">
+        <dialog class="fee-dialog fee-record-dialog" id="fee-record-dialog" aria-labelledby="fee-record-title">
             <div class="fee-card-head">
                 <div>
                     <h2 id="fee-record-title">Record a payment</h2>
                     <p>Fill this in while the bidder is at the counter, using the details on the Official Receipt.</p>
                 </div>
+                <button type="button" class="fee-dialog-close" data-fee-record-close aria-label="Close"><i class="fas fa-xmark" aria-hidden="true"></i></button>
             </div>
             <div class="fee-card-body">
                 @if($payableProjects->isEmpty())
@@ -303,7 +325,7 @@
                     </form>
                 @endif
             </div>
-        </section>
+        </dialog>
 
         <section class="fee-card" aria-labelledby="fee-open-title">
             <div class="fee-card-head">
@@ -571,6 +593,24 @@
                 const button = recordForm.querySelector('button[type="submit"]');
                 if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
             });
+        }
+
+        // Record dialog: opened from the page header, reopened after a failed save.
+        const recordDialog = document.getElementById('fee-record-dialog');
+        if (recordDialog) {
+            const openRecord = function () {
+                if (typeof recordDialog.showModal === 'function') recordDialog.showModal(); else recordDialog.setAttribute('open', '');
+            };
+            document.querySelectorAll('[data-fee-open-record]').forEach(function (button) { button.addEventListener('click', openRecord); });
+            recordDialog.querySelectorAll('[data-fee-record-close]').forEach(function (button) {
+                button.addEventListener('click', function () { recordDialog.close ? recordDialog.close() : recordDialog.removeAttribute('open'); });
+            });
+            recordDialog.addEventListener('click', function (event) {
+                if (event.target === recordDialog && recordDialog.close) recordDialog.close();
+            });
+            @if($recordFormActive)
+                openRecord();
+            @endif
         }
 
         // Edit dialog, filled from the row's data attributes.
