@@ -36,7 +36,7 @@ class ProcurementRequest extends Model
         self::STATUS_SUBMITTED => 'For PPMP/APP review',
         self::STATUS_RETURNED => 'Returned for correction',
         self::STATUS_REJECTED => 'Not approved',
-        self::STATUS_FORWARDED => 'Forwarded to BAC',
+        self::STATUS_FORWARDED => 'Ready for procurement',
         self::STATUS_IN_PROCUREMENT => 'In procurement',
     ];
 

@@ -102,12 +102,14 @@ it('takes a request from the end-user office through PPMP/APP review to a BAC pr
 
     $request = ProcurementRequest::with('documents')->firstOrFail();
     expect($request->reference_no)->toBe('PR-'.now()->format('Y').'-0001')
-        ->and($request->status)->toBe(ProcurementRequest::STATUS_SUBMITTED)
+        ->and($request->status)->toBe(ProcurementRequest::STATUS_FORWARDED)   // recorded by the admin: ready at once
         ->and($request->end_user_office)->toBe('Municipal Engineering Office')
         ->and($request->requested_by)->toBeNull()
         ->and($request->documents)->toHaveCount(1)
-        ->and($request->documents->first()->document_type)->toBe('tor')
-        ->and(UserNotification::where('user_id', $this->staff->id)->where('type', 'procurement_request')->exists())->toBeTrue();
+        ->and($request->documents->first()->document_type)->toBe('tor');
+
+    // The older review path still works for requests that wait for it.
+    $request->forceFill(['status' => ProcurementRequest::STATUS_SUBMITTED, 'forwarded_at' => null, 'reviewed_at' => null, 'reviewed_by' => null])->save();
 
     // Staff return it with remarks; forwarding needs the PPMP/APP references and the budget.
     testCase()->actingAs($this->staff)->get(route('staff.requests'))->assertOk()->assertSee($request->reference_no)->assertSee('Municipal Engineering Office');

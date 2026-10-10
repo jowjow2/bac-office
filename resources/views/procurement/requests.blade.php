@@ -1,17 +1,23 @@
 @extends('layouts.portal')
 
 @section('title', 'Purchase requests')
-@section('subtitle', 'Check each request against the PPMP/APP and the available funds, then forward it to the BAC or return it with remarks to the BAC admin, who asks the office for a corrected copy.')
+@section('subtitle', 'Record the signed hard copy an office hands to the BAC. A recorded request is ready for procurement: prepare the project from it.')
 
 @php
     $tz = config('bac-office.display_timezone');
     $tabs = [
         'review' => ['For PPMP/APP review', $counts['review']],
-        'bac' => ['Forwarded to BAC', $counts['bac']],
+        'bac' => ['Ready for procurement', $counts['bac']],
         'returned' => ['Returned / not approved', $counts['returned']],
         'procurement' => ['In procurement', $counts['procurement']],
         'all' => ['All', null],
     ];
+    // Recorded requests are ready at once; these two only hold older requests, so they show while they have any.
+    foreach (['review', 'returned'] as $legacy) {
+        if (($tabs[$legacy][1] ?? 0) === 0 && ($tab ?? null) !== $legacy) {
+            unset($tabs[$legacy]);
+        }
+    }
     $reviewErrors = old('_review_id') ? (int) old('_review_id') : null;
 @endphp
 
@@ -59,7 +65,7 @@
                 {{-- Nothing to review: say where the requests went, in one line. --}}
                 <p class="pr-allclear"><i class="fas fa-circle-check" aria-hidden="true"></i>
                     <strong>Nothing waiting for your review.</strong>
-                    <a class="ui-link" href="{{ route($routePrefix.'.requests', ['tab' => 'bac']) }}">{{ $counts['bac'] }} forwarded to the BAC</a>
+                    <a class="ui-link" href="{{ route($routePrefix.'.requests', ['tab' => 'bac']) }}">{{ $counts['bac'] }} ready for procurement</a>
                     &middot;
                     <a class="ui-link" href="{{ route($routePrefix.'.requests', ['tab' => 'procurement']) }}">{{ $counts['procurement'] }} in procurement</a>
                 </p>
@@ -71,7 +77,7 @@
                     @if($search === '' && $tab === 'review' && ($counts['bac'] + $counts['procurement']) > 0)
                         {{-- Say where the requests went, so an empty review queue does not look like missing data. --}}
                         All submitted requests have been checked:
-                        <a class="ui-link" href="{{ route($routePrefix.'.requests', ['tab' => 'bac']) }}">{{ $counts['bac'] }} forwarded to the BAC</a>
+                        <a class="ui-link" href="{{ route($routePrefix.'.requests', ['tab' => 'bac']) }}">{{ $counts['bac'] }} ready for procurement</a>
                         &middot;
                         <a class="ui-link" href="{{ route($routePrefix.'.requests', ['tab' => 'procurement']) }}">{{ $counts['procurement'] }} in procurement</a>.
                     @elseif($search !== '')
@@ -84,7 +90,7 @@
                         @endif
                         <a class="ui-link" href="{{ route($routePrefix.'.requests', ['tab' => $tab]) }}">Clear search</a>
                     @elseif($tab === 'review')
-                        Record the signed hard copies that end-user offices hand to the BAC, and they appear here for the PPMP/APP and funds review.
+                        Record the signed hard copies that end-user offices hand to the BAC, and they appear here ready to become projects.
                         @if($drafts > 0) {{ $drafts }} {{ \Illuminate\Support\Str::plural('draft', $drafts) }} {{ $drafts === 1 ? 'is' : 'are' }} still being prepared by the offices. @endif
                     @else
                         Try another queue.
@@ -291,7 +297,7 @@
                 <header class="eu-modal__head">
                     <div>
                         <h2 id="eu-modal-title">Record purchase request</h2>
-                        <p>Record the signed hard copy an end-user office handed to the BAC. It goes straight to the PPMP/APP and funds review.</p>
+                        <p>Record the signed hard copy an end-user office handed to the BAC. It is ready for procurement as soon as it is recorded.</p>
                     </div>
                     <a href="{{ route('admin.requests') }}" class="eu-modal__close" data-eu-modal-close aria-label="Close"><i class="fas fa-xmark" aria-hidden="true"></i></a>
                 </header>

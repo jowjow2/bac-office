@@ -37,7 +37,7 @@ it('shows the linked purchase request and every field of the five steps', functi
     $response->assertSee('Linked purchase request')
         ->assertSee('PR-2026-0042')
         ->assertSee('Municipal Agriculture Office')
-        ->assertSee('Forwarded to BAC')
+        ->assertSee('Ready for procurement')
         ->assertSee('From PR')
         ->assertSee('value="'.$this->request->id.'"', false)
         ->assertSee('value="Supply of vegetable seeds"', false)

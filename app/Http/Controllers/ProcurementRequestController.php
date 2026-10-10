@@ -90,10 +90,19 @@ class ProcurementRequestController extends Controller
         }
 
         AuditLog::log('procurement_request_recorded', $procurementRequest, null, ['reference_no' => $procurementRequest->reference_no, 'office' => $procurementRequest->end_user_office, 'recorded_by' => Auth::id()]);
-        $this->markSubmitted($procurementRequest);
+        // The BAC admin records it, so there is no one to forward it to: it is ready to become a project.
+        $procurementRequest->update([
+            'status' => ProcurementRequest::STATUS_FORWARDED,
+            'submitted_at' => now(),
+            'reviewed_by' => Auth::id(),
+            'reviewed_at' => now(),
+            'forwarded_at' => now(),
+            'review_remarks' => null,
+        ]);
+        AuditLog::log('procurement_request_forwarded', $procurementRequest, null, ['status' => ProcurementRequest::STATUS_FORWARDED, 'recorded_by' => Auth::id()]);
 
-        return redirect()->route('admin.requests', ['tab' => 'review'])
-            ->with('success', 'Recorded '.$procurementRequest->reference_no.' for '.$procurementRequest->end_user_office.'. It is now for the PPMP/APP and funds review.');
+        return redirect()->route('admin.requests', ['tab' => 'bac'])
+            ->with('success', 'Recorded '.$procurementRequest->reference_no.' for '.$procurementRequest->end_user_office.'. It is ready: use Prepare procurement to turn it into a project.');
     }
 
     /* ---------------------------------------------------------------------

@@ -41,7 +41,7 @@ it('has no end-user portal: nothing to file, edit or track from an office accoun
     }
 });
 
-it('records a request for an office and sends it to the PPMP/APP review', function () {
+it('records a request for an office, ready for procurement at once', function () {
     testCase()->actingAs($this->admin)->get(route('admin.requests'))->assertOk()->assertSee('Record purchase request');
     testCase()->actingAs($this->admin)->get(route('admin.requests.create'))->assertOk()
         ->assertSee('Record purchase request')->assertSee('End-user office')->assertSee('Estimated total cost');
@@ -57,27 +57,27 @@ it('records a request for an office and sends it to the PPMP/APP review', functi
 
     testCase()->actingAs($this->admin)->post(route('admin.requests.store'), $this->details + ['end_user_office' => 'Municipal Engineering Office'])
         ->assertSessionHasNoErrors()
-        ->assertRedirect(route('admin.requests', ['tab' => 'review']));
+        ->assertRedirect(route('admin.requests', ['tab' => 'bac']));
 
     $request = ProcurementRequest::firstOrFail();
-    expect($request->status)->toBe(ProcurementRequest::STATUS_SUBMITTED)
+    expect($request->status)->toBe(ProcurementRequest::STATUS_FORWARDED)
         ->and($request->end_user_office)->toBe('Municipal Engineering Office')
         ->and($request->requested_by)->toBeNull()
-        ->and($request->submitted_at)->not->toBeNull();
+        ->and($request->submitted_at)->not->toBeNull()
+        ->and($request->forwarded_at)->not->toBeNull()
+        ->and($request->reviewed_by)->toBe($this->admin->id);
 
-    // It is in the "For PPMP/APP review" queue of both the BAC Secretariat and the admin.
+    // It is in the "Ready for procurement" queue of both the BAC Secretariat and the admin.
     foreach ([[$this->staff, 'staff.requests'], [$this->admin, 'admin.requests']] as [$reviewer, $queue]) {
         testCase()->actingAs($reviewer)->get(route($queue))
             ->assertOk()
-            ->assertSee('For PPMP/APP review')
+            ->assertSee('Ready for procurement')
             ->assertSee($request->reference_no)
             ->assertSee('Supply of survey equipment')
             ->assertSee('Municipal Engineering Office')
             ->assertSee('650,000.00')
             ->assertSee('Total station, 1 unit')
             ->assertSee('General Fund');
-
-        expect(UserNotification::where('user_id', $reviewer->id)->where('type', 'procurement_request')->exists())->toBeTrue();
     }
 
     // The PR form can be printed for the signatures.
@@ -86,18 +86,13 @@ it('records a request for an office and sends it to the PPMP/APP review', functi
             ->assertSee('Purchase Request')->assertSee($request->reference_no)->assertSee('650,000.00')->assertSee('Approved by');
     }
 
-    // The Secretariat forwards it to the BAC, and the admin is told.
-    testCase()->actingAs($this->staff)->post(route('staff.requests.review', $request), [
-        'decision' => 'forward', 'ppmp_reference' => 'PPMP-MEO-2026-04', 'app_reference' => 'APP-2026-112', 'budget_available' => '1',
-    ])->assertSessionHasNoErrors();
-
-    expect($request->fresh()->status)->toBe(ProcurementRequest::STATUS_FORWARDED);
+    // The admin can prepare the project straight away.
     testCase()->actingAs($this->admin)->get(route('admin.requests', ['tab' => 'bac']))->assertOk()->assertSee($request->reference_no)->assertSee('Prepare procurement');
 });
 
 it('tells the admin when the Secretariat returns a request, so the office can hand in a corrected copy', function () {
-    testCase()->actingAs($this->admin)->post(route('admin.requests.store'), $this->details + ['end_user_office' => 'Municipal Engineering Office'])->assertSessionHasNoErrors();
-    $request = ProcurementRequest::firstOrFail();
+    // An older request still waiting for the PPMP/APP review.
+    $request = ProcurementRequest::create(array_merge($this->details, ['reference_no' => 'PR-2026-0050', 'end_user_office' => 'Municipal Engineering Office', 'requested_by' => null, 'status' => ProcurementRequest::STATUS_SUBMITTED, 'submitted_at' => now()]));
     UserNotification::query()->delete();
 
     testCase()->actingAs($this->staff)->post(route('staff.requests.review', $request), ['decision' => 'return', 'review_remarks' => 'Attach the canvass.'])->assertSessionHasNoErrors();
@@ -142,7 +137,7 @@ it('records a request with a private Blob attachment and serves it to the BAC th
 
     $request = ProcurementRequest::firstOrFail();
     $document = $request->documents()->firstOrFail();
-    expect($request->status)->toBe(ProcurementRequest::STATUS_SUBMITTED)
+    expect($request->status)->toBe(ProcurementRequest::STATUS_FORWARDED)
         ->and($document->file_path)->toStartWith('https://sjfnuhhmsluwvehs.private.blob.vercel-storage.com/procurement-requests/');
 
     Http::assertSent(fn ($request) => $request->method() === 'PUT'
@@ -153,24 +148,24 @@ it('records a request with a private Blob attachment and serves it to the BAC th
         ->assertOk()->assertDownload('TOR.pdf');
 });
 
-it('keeps a recorded request when the review notification store is unavailable', function () {
+it('keeps a recorded request even when the notification store is unavailable', function () {
     Schema::drop('user_notifications');
 
     testCase()->actingAs($this->admin)->post(route('admin.requests.store'), $this->details + ['end_user_office' => 'Municipal Engineering Office'])
         ->assertRedirect()->assertSessionHasNoErrors();
 
-    expect(ProcurementRequest::firstOrFail()->status)->toBe(ProcurementRequest::STATUS_SUBMITTED);
+    expect(ProcurementRequest::firstOrFail()->status)->toBe(ProcurementRequest::STATUS_FORWARDED);
 });
 
 it('points a search in the wrong queue to the queue that holds the request', function () {
     testCase()->actingAs($this->admin)->post(route('admin.requests.store'), array_merge($this->details, ['end_user_office' => 'Municipal Engineering Office']))->assertSessionHasNoErrors();
     $reference = ProcurementRequest::firstOrFail()->reference_no;
 
-    testCase()->actingAs($this->admin)->get(route('admin.requests', ['tab' => 'bac', 'q' => $reference]))
+    testCase()->actingAs($this->admin)->get(route('admin.requests', ['tab' => 'procurement', 'q' => $reference]))
         ->assertOk()
-        ->assertSee('No requests in Forwarded to BAC match')
-        ->assertSee('For PPMP/APP review (1)')
-        ->assertSee(route('admin.requests', ['tab' => 'review', 'q' => $reference]))
+        ->assertSee('No requests in In procurement match')
+        ->assertSee('Ready for procurement (1)')
+        ->assertSee(route('admin.requests', ['tab' => 'bac', 'q' => $reference]))
         ->assertSee('Clear search');
 });
 
@@ -189,7 +184,7 @@ it('records an itemized request, derives the totals, and shows the items to the 
 
     testCase()->actingAs($this->admin)->post(route('admin.requests.store'), $base + ['items' => $items])->assertSessionHasNoErrors();
     $request = ProcurementRequest::firstOrFail();
-    expect($request->status)->toBe(ProcurementRequest::STATUS_SUBMITTED)
+    expect($request->status)->toBe(ProcurementRequest::STATUS_FORWARDED)
         ->and($request->items)->toHaveCount(2)
         ->and($request->estimated_cost)->toBe('21875.00')   // 50 × 245.50 + 3 × 3,200
         ->and($request->quantity)->toBe('1.00')
@@ -249,5 +244,5 @@ it('opens the first queue that has something waiting, and shows a one-line all-c
     // Opening the empty review queue by hand explains in one line where the requests went.
     ProcurementRequest::where('reference_no', 'PR-2026-0701')->delete();
     testCase()->actingAs($this->admin)->get(route('admin.requests', ['tab' => 'review']))->assertOk()
-        ->assertSee('Nothing waiting for your review.')->assertSee('1 forwarded to the BAC');
+        ->assertSee('Nothing waiting for your review.')->assertSee('1 ready for procurement');
 });
