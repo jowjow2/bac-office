@@ -62,6 +62,8 @@ if (root && root.dataset.bidManagementReady !== '1') {
     }
 
     const exportStatuses = () => exportStatusOrder;
+    // Only statuses that have something in them are offered as filters.
+    const activeStatuses = () => exportStatusOrder.filter(status => exportRows.some(row => row.status === status));
     const exportStatusLabel = status => serverStatusLabels[status] || ({
         awarded: 'Awarded',
         approved: 'Approved',
@@ -90,7 +92,10 @@ if (root && root.dataset.bidManagementReady !== '1') {
             exportPreviewBody.append(tr);
         });
 
-        exportTotal.textContent = 'Exporting from all ' + exportRows.length + ' ' + exportItemLabelPlural(exportRows.length) + ' currently in this list.';
+        exportModal.classList.toggle('is-empty', exportRows.length === 0);
+        exportTotal.textContent = exportRows.length === 0
+            ? 'No ' + exportItemLabelPlural(2) + ' to export yet.'
+            : 'Exporting from ' + exportRows.length + ' ' + exportItemLabelPlural(exportRows.length) + ' currently in this list.';
         exportSummary.textContent = rows.length + ' ' + exportItemLabelPlural(rows.length) + ' will be exported.';
         exportPreviewCount.textContent = rows.length + ' ' + exportItemLabelPlural(rows.length);
         exportPreviewTable.hidden = rows.length === 0;
@@ -113,7 +118,7 @@ if (root && root.dataset.bidManagementReady !== '1') {
             return result;
         }, {});
         exportChips.replaceChildren();
-        const statuses = exportStatuses();
+        const statuses = activeStatuses();
         exportFilterHelp.textContent = selectedExportStatuses.size === statuses.length ? 'All selected' : `${selectedExportStatuses.size} selected`;
         statuses.forEach(status => {
             const chip = document.createElement('button');
@@ -141,7 +146,7 @@ if (root && root.dataset.bidManagementReady !== '1') {
 
     const openExportModal = trigger => {
         exportReturnFocus = trigger;
-        selectedExportStatuses = new Set(exportStatuses());
+        selectedExportStatuses = new Set(activeStatuses());
         renderExportChips();
         renderExportPreview();
         exportModal.hidden = false;
@@ -223,7 +228,7 @@ if (root && root.dataset.bidManagementReady !== '1') {
     };
 
     exportModal.querySelector('[data-export-all]')?.addEventListener('click', () => {
-        selectedExportStatuses = new Set(exportStatuses());
+        selectedExportStatuses = new Set(activeStatuses());
         renderExportChips();
         renderExportPreview();
     });

@@ -209,14 +209,12 @@
         <x-page-header title="Report analytics" subtitle="Procurement performance and what needs the BAC's attention, from live records">
             <x-slot:actions>
                 <div class="ra-export-wrap">
-                    <button type="button" id="reportExportToggle" class="ra-button" aria-expanded="false" aria-controls="reportExportMenu">
-                        <i class="fas fa-download" aria-hidden="true"></i> Export <i class="fas fa-chevron-down" aria-hidden="true"></i>
-                    </button>
-                    <div id="reportExportMenu" class="ra-export-menu" hidden>
-                        <a href="{{ route('admin.reports.print', $filterQuery) }}"><i class="fas fa-file-pdf" aria-hidden="true"></i>PDF report</a>
-                        <a href="{{ route('admin.reports.export.csv', $filterQuery) }}"><i class="fas fa-file-excel" aria-hidden="true"></i>Excel (CSV)</a>
-                    </div>
+@php $exportFormats = [['label' => 'PDF report', 'hint' => 'Opens a print-ready report', 'url' => route('admin.reports.print', $filterQuery), 'icon' => 'fa-file-pdf', 'open' => true], ['label' => 'Excel (CSV)', 'hint' => 'Opens in Excel or any spreadsheet', 'url' => route('admin.reports.export.csv', $filterQuery), 'icon' => 'fa-file-excel']]; @endphp
+                    <a href="{{ route('admin.reports.export.csv', $filterQuery) }}" id="reportExportToggle" class="ra-button" style="text-decoration:none" data-export-dialog data-export-title="Export report" data-export-note="Uses the period and filters currently shown on this page." data-export-formats='@json($exportFormats)'>
+                        <i class="fas fa-file-export" aria-hidden="true"></i> Export
+                    </a>
                 </div>
+                @include('partials.export-dialog')
             </x-slot:actions>
         </x-page-header>
 

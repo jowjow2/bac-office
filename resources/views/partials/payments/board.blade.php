@@ -344,9 +344,10 @@
                 <p>Every Official Receipt recorded. A payment already used for a submitted bid can be corrected but not removed.</p>
             </div>
             @unless($payments->isEmpty())
-                <a href="{{ route($routePrefix . '.payments.export', array_filter(['q' => $search, 'project' => $projectFilter])) }}" class="fee-btn fee-btn-ghost" download>
-                    <i class="fas fa-file-csv" aria-hidden="true"></i> {{ $hasFilters ? 'Export filtered (CSV)' : 'Export CSV' }}
+                <a href="{{ route($routePrefix . '.payments.export', array_filter(['q' => $search, 'project' => $projectFilter])) }}" class="fee-btn fee-btn-ghost" data-export-dialog data-export-title="Export payment records" data-export-noun="payment" data-export-count="{{ method_exists($payments, 'total') ? $payments->total() : $payments->count() }}" data-export-note="{{ $hasFilters ? 'Only the payments that match your current search or project filter.' : 'Every Official Receipt recorded.' }}">
+                    <i class="fas fa-file-export" aria-hidden="true"></i> {{ $hasFilters ? 'Export filtered' : 'Export' }}
                 </a>
+                @include('partials.export-dialog')
             @endunless
         </div>
         <div class="fee-card-body" style="padding-bottom: 14px;">

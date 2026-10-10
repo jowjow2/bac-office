@@ -131,11 +131,13 @@
                     {{ number_format($logs->total()) }} {{ $hasFilters ? 'matching' : '' }} {{ \Illuminate\Support\Str::plural('entry', $logs->total()) }}{{ $hasFilters ? ' of '.number_format($total) : '' }}
                 </span>
             </div>
-            <a href="{{ route('admin.audit-logs.export', request()->only(['q', 'type', 'actor', 'from', 'to'])) }}" class="alog-btn" @if($logs->total() === 0) aria-disabled="true" @endif>
+            <a href="{{ route('admin.audit-logs.export', request()->only(['q', 'type', 'actor', 'from', 'to'])) }}" class="alog-btn" data-export-dialog data-export-title="Export audit logs" data-export-noun="entry" data-export-count="{{ $logs->total() }}" data-export-note="{{ $hasFilters ? 'Only the entries that match your current filters.' : 'Every audit log entry, newest first.' }}" @if($logs->total() === 0) aria-disabled="true" @endif>
                 <i class="fas fa-file-csv" aria-hidden="true"></i> Export CSV
             </a>
         </div>
     </form>
+
+    @include('partials.export-dialog')
 
     <section class="alog-card" aria-label="Audit log entries">
         @if($logs->isEmpty())

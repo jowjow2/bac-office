@@ -9,8 +9,9 @@
 
 @section('actions')
     @if($totalAssignedProjects > 0)
-        <a href="{{ route('staff.reports.export.csv') }}" class="ui-btn ui-btn--secondary"><i class="fas fa-file-csv" aria-hidden="true"></i> Export CSV</a>
-        <a href="{{ route('staff.reports.print') }}" class="ui-btn ui-btn--primary"><i class="fas fa-file-pdf" aria-hidden="true"></i> Download PDF</a>
+@php $exportFormats = [['label' => 'PDF report', 'hint' => 'Opens a print-ready report', 'url' => route('staff.reports.print'), 'icon' => 'fa-file-pdf', 'open' => true], ['label' => 'Excel (CSV)', 'hint' => 'Opens in Excel or any spreadsheet', 'url' => route('staff.reports.export.csv'), 'icon' => 'fa-file-excel']]; @endphp
+        <a href="{{ route('staff.reports.export.csv') }}" class="ui-btn ui-btn--secondary" data-export-dialog data-export-title="Export report" data-export-note="Covers the projects assigned to you." data-export-formats='@json($exportFormats)'><i class="fas fa-file-export" aria-hidden="true"></i> Export</a>
+        @include('partials.export-dialog')
     @endif
 @endsection
 
