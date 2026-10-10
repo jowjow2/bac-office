@@ -2,7 +2,9 @@
 
 @php
     /** @var \App\Models\ProcurementRequest $procurementRequest */
-    $editing = $procurementRequest->exists;
+    $editing = false;
+    // The admin records a request an end-user office handed in as a hard copy (ProcurementRequestController::adminCreate).
+    $adminMode = true;
     $categories = [
         'goods' => ['Goods', 'Supplies, equipment, materials'],
         'services' => ['General support services', 'Janitorial, security, repairs'],
@@ -14,40 +16,15 @@
     $steps = ['What to procure', 'Quantity, cost & schedule', 'Planning documents', 'Review & submit'];
 @endphp
 
-@section('title', $editing ? 'Edit purchase request' : 'My purchase requests')
-@if($editing)
+@section('title', 'Record purchase request')
 @section('crumbs')
-    <a href="{{ route('end-user.requests.index') }}">My purchase requests</a>
+    <a href="{{ route('admin.requests') }}">Purchase requests</a>
     <span aria-hidden="true">/</span>
-    <span class="ui-mono">{{ $procurementRequest->reference_no }}</span>
+    <span>New</span>
 @endsection
-@endif
-@section('subtitle', $editing
-    ? auth()->user()->office.' · After you submit, the Budget / Procurement Office checks the request against the PPMP/APP and available funds before it goes to the BAC.'
-    : 'The purchase requests you filed for '.auth()->user()->office.'.')
+@section('subtitle', 'Record the signed hard copy an end-user office handed to the BAC. It goes straight to the PPMP/APP and funds review.');
 
 @section('content')
-    @unless($editing)
-        {{-- A new request is a dialog over the list; closing it goes back to the list. --}}
-        @include('end-user.requests._list')
-        <div class="eu-modal" role="dialog" aria-modal="true" aria-labelledby="eu-modal-title" data-eu-modal data-close-url="{{ route('end-user.requests.index') }}">
-            <div class="eu-modal__card">
-                <header class="eu-modal__head">
-                    <div>
-                        <h2 id="eu-modal-title">New purchase request</h2>
-                        <p>{{ auth()->user()->office }} · After you submit, the Budget / Procurement Office checks it against the PPMP/APP and available funds before it goes to the BAC.</p>
-                    </div>
-                    <a href="{{ route('end-user.requests.index') }}" class="eu-modal__close" data-eu-modal-close aria-label="Close"><i class="fas fa-xmark" aria-hidden="true"></i></a>
-                </header>
-                <div class="eu-modal__body">
-    @endunless
-    @if($editing && $procurementRequest->status === 'returned' && $procurementRequest->review_remarks)
-        <div class="ui-alert ui-alert--warning" role="alert">
-            <i class="fas fa-rotate-left" aria-hidden="true"></i>
-            <div><strong>Returned for correction.</strong> {{ $procurementRequest->review_remarks }}</div>
-        </div>
-    @endif
-
     @if($errors->any())
         <div class="ui-alert ui-alert--danger" role="alert" id="form-errors" tabindex="-1">
             <i class="fas fa-circle-exclamation" aria-hidden="true"></i>
@@ -62,9 +39,8 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ $editing ? route('end-user.requests.update', $procurementRequest) : route('end-user.requests.store') }}" enctype="multipart/form-data" class="ui-card" data-stepped data-validate>
+    <form method="POST" action="{{ route('admin.requests.store') }}" enctype="multipart/form-data" class="ui-card" data-stepped data-validate>
         @csrf
-        @if($editing) @method('PUT') @endif
 
         <div class="ui-card__head">
             <ol class="ui-steps" aria-label="Steps">
@@ -80,8 +56,20 @@
             {{-- Step 1 --}}
             <fieldset class="ui-fieldset ui-step-panel" data-step>
                 <legend class="ui-fieldset__legend">What to procure</legend>
-                <p class="ui-fieldset__desc">Fields marked <span class="ui-required" aria-hidden="true">*</span><span class="sr-only">with an asterisk</span> are required to submit. You can save a draft with only the title and finish it later.</p>
+                <p class="ui-fieldset__desc">Fields marked <span class="ui-required" aria-hidden="true">*</span><span class="sr-only">with an asterisk</span> are required to submit.</p>
                 <div class="ui-fields">
+                    <div class="ui-field ui-field--wide">
+                        <label class="ui-label" for="end_user_office">End-user office <span class="ui-required" aria-hidden="true">*</span></label>
+                        <select id="end_user_office" name="end_user_office" class="ui-input" required aria-invalid="{{ $invalid('end_user_office') }}">
+                            <option value="">Select the office that filed the request</option>
+                            @foreach($offices as $office)
+                                <option value="{{ $office }}" @selected(old('end_user_office') === $office)>{{ $office }}</option>
+                            @endforeach
+                        </select>
+                        <span class="ui-hint">The office on the signed hard copy. Its accounts can follow the request.</span>
+                        <span class="ui-error" id="end_user_office-error" data-client @unless($errors->has('end_user_office')) hidden @endunless>{{ $errors->first('end_user_office') }}</span>
+                    </div>
+
                     <div class="ui-field ui-field--wide">
                         <label class="ui-label" for="title">Title <span class="ui-required" aria-hidden="true">*</span></label>
                         <input id="title" name="title" class="ui-input" maxlength="255" required value="{{ $value('title') }}" aria-invalid="{{ $invalid('title') }}" aria-describedby="title-hint title-error" placeholder="e.g. Supply and delivery of office equipment" data-review-label="Title">
@@ -117,7 +105,6 @@
                     </div>
                 </div>
                 <div class="ui-actions ui-actions--end ui-mt">
-                    <button type="submit" name="action" value="draft" class="ui-btn ui-btn--ghost" formnovalidate>Save draft</button>
                     <button type="button" class="ui-btn ui-btn--primary" data-step-next>Next: quantity and cost <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
                 </div>
             </fieldset>
@@ -211,7 +198,6 @@
                 <div class="ui-actions ui-actions--between ui-mt">
                     <button type="button" class="ui-btn ui-btn--secondary" data-step-prev><i class="fas fa-arrow-left" aria-hidden="true"></i> Back</button>
                     <span class="ui-actions">
-                        <button type="submit" name="action" value="draft" class="ui-btn ui-btn--ghost" formnovalidate>Save draft</button>
                         <button type="button" class="ui-btn ui-btn--primary" data-step-next>Next: planning documents <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
                     </span>
                 </div>
@@ -257,7 +243,6 @@
                 <div class="ui-actions ui-actions--between ui-mt">
                     <button type="button" class="ui-btn ui-btn--secondary" data-step-prev><i class="fas fa-arrow-left" aria-hidden="true"></i> Back</button>
                     <span class="ui-actions">
-                        <button type="submit" name="action" value="draft" class="ui-btn ui-btn--ghost" formnovalidate>Save draft</button>
                         <button type="button" class="ui-btn ui-btn--primary" data-step-next>Review request <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
                     </span>
                 </div>
@@ -266,59 +251,24 @@
             {{-- Step 4 --}}
             <section class="ui-step-panel" data-step data-step-review aria-labelledby="review-title">
                 <h2 class="ui-fieldset__legend" id="review-title">Review and submit</h2>
-                <p class="ui-fieldset__desc">Check the details below. Submitting sends the request to the Budget / Procurement Office for the PPMP/APP and funds check; you can no longer edit it unless it is returned.</p>
+                <p class="ui-fieldset__desc">Check the details below. Recording sends the request to the Budget / Procurement Office for the PPMP/APP and funds check.</p>
                 <dl class="ui-review" data-review></dl>
                 <div class="ui-actions ui-actions--between ui-mt">
                     <button type="button" class="ui-btn ui-btn--secondary" data-step-prev><i class="fas fa-arrow-left" aria-hidden="true"></i> Back</button>
                     <span class="ui-actions">
-                        <a href="{{ $editing ? route('end-user.requests.show', $procurementRequest) : route('end-user.requests.index') }}" class="ui-btn ui-btn--ghost">Cancel</a>
-                        <button type="submit" name="action" value="draft" class="ui-btn ui-btn--secondary" formnovalidate>Save as draft</button>
-                        <button type="submit" name="action" value="submit" class="ui-btn ui-btn--primary"><i class="fas fa-paper-plane" aria-hidden="true"></i> Submit for review</button>
+                        <a href="{{ route('admin.requests') }}" class="ui-btn ui-btn--ghost">Cancel</a>
+                        <button type="submit" name="action" value="submit" class="ui-btn ui-btn--primary"><i class="fas fa-paper-plane" aria-hidden="true"></i> Record request</button>
                     </span>
                 </div>
             </section>
         </div>
     </form>
 
-    @if($editing)
-        @foreach($procurementRequest->documents as $document)
-            <form id="remove-document-{{ $document->id }}" method="POST" action="{{ route('end-user.requests.documents.destroy', [$procurementRequest, $document]) }}" hidden data-confirm-title="Remove this attachment?" data-confirm="{{ $document->original_name ?? 'The file' }} is removed from this request." data-confirm-button="Remove" data-confirm-tone="danger">
-                @csrf
-                @method('DELETE')
-            </form>
-        @endforeach
-    @endif
 
-    @unless($editing)
-                </div>
-            </div>
-        </div>
-    @endunless
 @endsection
 
 @push('head')
 <style>
-    /* New request: a dialog over the request list. */
-    .eu-modal { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 20px; background: rgba(15, 25, 21, .55); backdrop-filter: blur(2px); animation: eu-modal-fade .2s ease both; }
-    .eu-modal__card { display: grid; grid-template-rows: auto minmax(0, 1fr); width: min(960px, 100%); max-height: min(920px, calc(100dvh - 40px)); overflow: hidden; border-radius: 16px; background: var(--ui-surface); box-shadow: 0 24px 70px rgba(0, 0, 0, .32); animation: eu-modal-rise .28s cubic-bezier(.2, .8, .2, 1) both; }
-    .eu-modal__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px 22px 14px; border-bottom: 1px solid var(--ui-line); }
-    .eu-modal__head h2 { margin: 0; color: var(--ui-ink); font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
-    .eu-modal__head p { margin: 3px 0 0; color: var(--ui-muted); font-size: 13px; line-height: 1.45; }
-    .eu-modal__close { display: grid; flex: 0 0 34px; width: 34px; height: 34px; place-items: center; border: 1px solid var(--ui-line); border-radius: 9px; color: var(--ui-muted); text-decoration: none; }
-    .eu-modal__close:hover { background: var(--ui-surface-2); color: var(--ui-ink); }
-    .eu-modal__body { min-height: 0; padding: 0; overflow-y: auto; overscroll-behavior: contain; }
-    .eu-modal__body > .ui-alert { margin: 14px 22px 0; }
-    .eu-modal__body > form.ui-card { border: 0; border-radius: 0; box-shadow: none; }
-    body.eu-modal-open { overflow: hidden; }
-    @keyframes eu-modal-fade { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes eu-modal-rise { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
-    @media (max-width: 760px) {
-        .eu-modal { padding: 0; align-items: end; }
-        .eu-modal__card { width: 100%; max-height: 94dvh; border-radius: 16px 16px 0 0; }
-        .eu-modal__head { padding: 14px 16px 12px; }
-    }
-    @media (prefers-reduced-motion: reduce) { .eu-modal, .eu-modal__card { animation: none; } }
-
     .pr-items { display: grid; gap: 10px; min-width: 0; }
     .pr-items__head,
     .pr-items__row { display: grid; grid-template-columns: minmax(0, 3fr) minmax(76px, 0.8fr) minmax(90px, 0.9fr) minmax(120px, 1.2fr) minmax(110px, 1.1fr) 40px; gap: 8px; align-items: center; }
@@ -465,40 +415,3 @@
 </script>
 @endpush
 
-@unless($editing)
-@push('scripts')
-<script>
-    // New request dialog: Esc, the X and a click on the backdrop go back to the list;
-    // a form with typed-in details asks first.
-    (function () {
-        const modal = document.querySelector('[data-eu-modal]');
-        if (!modal) return;
-        const form = modal.querySelector('form');
-        const closeUrl = modal.dataset.closeUrl;
-        document.body.classList.add('eu-modal-open');
-
-        const dirty = () => Array.from(form.querySelectorAll('input:not([type=hidden]):not([type=file]):not([type=radio]), textarea'))
-            .some((field) => field.value !== field.defaultValue);
-        const leave = async () => {
-            if (dirty() && window.bacConfirm) {
-                const yes = await window.bacConfirm({ title: 'Discard this request?', message: 'What you typed has not been saved. Use "Save as draft" in the last step to keep it.', confirmLabel: 'Discard', tone: 'danger' });
-                if (!yes) return;
-            }
-            window.location.href = closeUrl;
-        };
-
-        modal.addEventListener('click', (event) => {
-            if (event.target === modal || event.target.closest('[data-eu-modal-close]')) { event.preventDefault(); leave(); }
-        });
-        // Esc acts on key-up, and only when the key went down with no confirmation open,
-        // so the confirmation's own Esc (cancel) is not answered by opening it again.
-        let escArmed = false;
-        const confirmOpen = () => Boolean(document.querySelector('.bac-confirm'));
-        document.addEventListener('keydown', (event) => { if (event.key === 'Escape') escArmed = !confirmOpen(); });
-        document.addEventListener('keyup', (event) => { if (event.key === 'Escape' && escArmed) { escArmed = false; leave(); } });
-        const first = form.querySelector('input[name="title"]');
-        if (first && window.matchMedia('(hover: hover) and (pointer: fine)').matches) first.focus({ preventScroll: true });
-    })();
-</script>
-@endpush
-@endunless

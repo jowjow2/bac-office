@@ -181,7 +181,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 
-// End-user offices: procurement requests of their own office.
+// End-user offices: follow the purchase requests recorded for their office (the admin records them).
 Route::middleware(['auth', 'end_user'])->prefix('end-user')->name('end-user.')->group(function () {
     Route::get('/dashboard', [ProcurementRequestController::class, 'dashboard'])->name('dashboard');
     Route::get('/infrastructure-contracts', [\App\Http\Controllers\InfrastructureImplementationController::class, 'endUserIndex'])->name('infrastructure.index');
@@ -193,15 +193,8 @@ Route::middleware(['auth', 'end_user'])->prefix('end-user')->name('end-user.')->
     Route::post('/messages/typing', [MessageController::class, 'endUserTyping'])->name('messages.typing');
     Route::post('/messages', [MessageController::class, 'endUserStore'])->name('messages.store');
     Route::get('/requests', [ProcurementRequestController::class, 'index'])->name('requests.index');
-    Route::get('/requests/create', [ProcurementRequestController::class, 'create'])->name('requests.create');
-    Route::post('/requests', [ProcurementRequestController::class, 'store'])->name('requests.store');
     Route::get('/requests/{procurementRequest}', [ProcurementRequestController::class, 'show'])->name('requests.show');
-    Route::get('/requests/{procurementRequest}/edit', [ProcurementRequestController::class, 'edit'])->name('requests.edit');
-    Route::put('/requests/{procurementRequest}', [ProcurementRequestController::class, 'update'])->name('requests.update');
-    Route::post('/requests/{procurementRequest}/submit', [ProcurementRequestController::class, 'submit'])->name('requests.submit');
-    Route::post('/requests/{procurementRequest}/duplicate', [ProcurementRequestController::class, 'duplicate'])->name('requests.duplicate');
     Route::get('/requests/{procurementRequest}/print', [ProcurementRequestController::class, 'printForm'])->name('requests.print');
-    Route::delete('/requests/{procurementRequest}/documents/{document}', [ProcurementRequestController::class, 'destroyDocument'])->name('requests.documents.destroy');
 });
 
 Route::middleware(['auth', 'admin'])->group(function () {
@@ -222,6 +215,8 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::delete('/admin/projects/{project}', [AdminController::class, 'destroyProject'])->name('admin.project.destroy');
     Route::post('/admin/projects/{project}/publish', [AdminController::class, 'publishProject'])->name('admin.project.publish');
     Route::get('/admin/requests', [ProcurementRequestController::class, 'queue'])->name('admin.requests');
+    Route::get('/admin/requests/create', [ProcurementRequestController::class, 'adminCreate'])->name('admin.requests.create');
+    Route::post('/admin/requests', [ProcurementRequestController::class, 'adminStore'])->name('admin.requests.store');
     Route::post('/admin/requests/{procurementRequest}/review', [ProcurementRequestController::class, 'review'])->name('admin.requests.review');
     Route::delete('/admin/requests/{procurementRequest}', [ProcurementRequestController::class, 'destroy'])->name('admin.requests.destroy');
     Route::get('/admin/settings/about', [\App\Http\Controllers\AboutSettingsController::class, 'edit'])->name('admin.settings.about');

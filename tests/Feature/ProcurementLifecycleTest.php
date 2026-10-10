@@ -91,11 +91,11 @@ it('denies unassigned staff access to procurement lifecycle records', function (
 });
 
 it('takes a request from the end-user office through PPMP/APP review to a BAC project', function () {
-    // The end-user office files and submits the request, with its TOR.
-    testCase()->actingAs($this->engineering)->get(route('end-user.requests.create'))->assertOk()->assertSee('New purchase request');
+    // The admin records the hard copy the end-user office handed in, with its TOR.
+    testCase()->actingAs($this->admin)->get(route('admin.requests.create'))->assertOk()->assertSee('Record purchase request');
 
-    testCase()->actingAs($this->engineering)->post(route('end-user.requests.store'), $this->requestData + [
-        'action' => 'submit',
+    testCase()->actingAs($this->admin)->post(route('admin.requests.store'), $this->requestData + [
+        'end_user_office' => 'Municipal Engineering Office',
         'documents' => [($this->pdf)('TOR.pdf')],
         'document_types' => ['tor'],
     ])->assertSessionHasNoErrors();
@@ -104,7 +104,7 @@ it('takes a request from the end-user office through PPMP/APP review to a BAC pr
     expect($request->reference_no)->toBe('PR-'.now()->format('Y').'-0001')
         ->and($request->status)->toBe(ProcurementRequest::STATUS_SUBMITTED)
         ->and($request->end_user_office)->toBe('Municipal Engineering Office')
-        ->and($request->requested_by)->toBe($this->engineering->id)
+        ->and($request->requested_by)->toBeNull()
         ->and($request->documents)->toHaveCount(1)
         ->and($request->documents->first()->document_type)->toBe('tor')
         ->and(UserNotification::where('user_id', $this->staff->id)->where('type', 'procurement_request')->exists())->toBeTrue();
@@ -125,16 +125,12 @@ it('takes a request from the end-user office through PPMP/APP review to a BAC pr
         ->and($request->fresh()->budget_available)->toBeFalse()
         ->and($request->fresh()->budget_confirmed_by)->toBeNull();
 
-    testCase()->actingAs($this->engineering)->get(route('end-user.dashboard'))->assertOk()
-        ->assertSee('Needs your action')
+    testCase()->actingAs($this->engineering)->get(route('end-user.requests.show', $request))->assertOk()
+        ->assertSee('Returned for correction')
         ->assertSee('Attach the itemized specifications of the printers.');
 
-    // The office corrects and resubmits.
-    testCase()->actingAs($this->engineering)->put(route('end-user.requests.update', $request), array_merge($this->requestData, [
-        'specifications' => $this->requestData['specifications']."\nPrinters: monochrome, 40 ppm, duplex",
-        'action' => 'submit',
-    ]))->assertSessionHasNoErrors();
-    expect($request->fresh()->status)->toBe(ProcurementRequest::STATUS_SUBMITTED);
+    // The corrected hard copy is checked again.
+    $request->fresh()->forceFill(['status' => ProcurementRequest::STATUS_SUBMITTED, 'submitted_at' => now()])->save();
 
     testCase()->actingAs($this->staff)->post(route('staff.requests.review', $request), [
         'decision' => 'forward',
@@ -198,8 +194,11 @@ it('takes a request from the end-user office through PPMP/APP review to a BAC pr
 });
 
 it('keeps each office to its own requests and each role to its own pages', function () {
-    testCase()->actingAs($this->engineering)->post(route('end-user.requests.store'), $this->requestData + ['action' => 'draft'])->assertSessionHasNoErrors();
-    $request = ProcurementRequest::firstOrFail();
+    // A draft left from before: the office follows it, other offices do not see it.
+    $request = ProcurementRequest::create($this->requestData + [
+        'reference_no' => 'PR-'.now()->format('Y').'-0001', 'end_user_office' => 'Municipal Engineering Office',
+        'requested_by' => null, 'status' => ProcurementRequest::STATUS_DRAFT,
+    ]);
 
     expect($request->status)->toBe(ProcurementRequest::STATUS_DRAFT);
 
@@ -216,11 +215,12 @@ it('keeps each office to its own requests and each role to its own pages', funct
         ->assertSessionHasErrors('decision');
 
     // Request files are only for the office and the BAC.
-    testCase()->actingAs($this->engineering)->put(route('end-user.requests.update', $request), $this->requestData + [
+    testCase()->actingAs($this->admin)->post(route('admin.requests.store'), $this->requestData + [
+        'end_user_office' => 'Municipal Engineering Office',
         'documents' => [($this->pdf)('specs.pdf')],
         'document_types' => ['specifications'],
     ])->assertSessionHasNoErrors();
-    $document = $request->documents()->firstOrFail();
+    $document = \App\Models\ProcurementRequestDocument::firstOrFail();
 
     testCase()->actingAs($this->engineering)->get(route('procurement.files.request', $document))->assertOk();
     testCase()->actingAs($this->staff)->get(route('procurement.files.request', $document))->assertOk();
@@ -478,7 +478,7 @@ it('creates consecutive purchase requests alongside nonnumeric test references',
     }
 
     foreach (['0002', '0003'] as $suffix) {
-        $response = testCase()->actingAs($this->engineering)->post('/end-user/requests', $this->requestData + ['action' => 'draft']);
+        $response = testCase()->actingAs($this->admin)->post(route('admin.requests.store'), $this->requestData + ['end_user_office' => 'Municipal Engineering Office']);
         $response->assertSessionHasNoErrors()->assertRedirect();
         testCase()->assertDatabaseHas('procurement_requests', ['reference_no' => $prefix.$suffix]);
     }

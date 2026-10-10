@@ -29,9 +29,6 @@ use Throwable;
  */
 class ProcurementRequestController extends Controller
 {
-    /** Days a draft can sit before its owner is reminded about it. */
-    private const DRAFT_REMINDER_DAYS = 7;
-
     /* ---------------------------------------------------------------------
      | End-user office
      * ------------------------------------------------------------------- */
@@ -41,7 +38,6 @@ class ProcurementRequestController extends Controller
         $office = Auth::user()->office;
         // This account's own requests and procurements, not its office colleagues' (EndUserAccess).
         $requests = EndUserAccess::requests(Auth::user())->latest('updated_at')->get();
-        $this->remindAboutStaleDrafts(Auth::user(), $requests);
         $pipeline = ProcurementPipeline::forEndUser(Auth::user());
         $filters = ProcurementPipeline::filtersFrom($request);
 
@@ -62,39 +58,6 @@ class ProcurementRequestController extends Controller
             // Shown once per sign-in, like the bidder's welcome card.
             'welcome' => (bool) $request->session()->pull('end_user_welcome', false),
         ]);
-    }
-
-    /**
-     * A draft untouched for a week gets one reminder notification ("You still
-     * have a draft"). Done when the owner opens the dashboard, because the
-     * hosting has no scheduler; it is never sent twice for the same draft.
-     */
-    private function remindAboutStaleDrafts(User $user, $requests): void
-    {
-        $stale = $requests->filter(fn (ProcurementRequest $request) => $request->status === ProcurementRequest::STATUS_DRAFT
-            && $request->updated_at !== null
-            && $request->updated_at->lt(now()->subDays(self::DRAFT_REMINDER_DAYS)));
-
-        foreach ($stale as $draft) {
-            $already = UserNotification::query()
-                ->where('user_id', $user->id)
-                ->where('type', 'procurement_request')
-                ->where('title', 'Draft still waiting')
-                ->where('message', 'like', $draft->reference_no.'%')
-                ->exists();
-
-            if ($already) {
-                continue;
-            }
-
-            SystemNotification::createForUser(
-                $user->id,
-                'Draft still waiting',
-                $draft->reference_no.' ('.$draft->title.') has been a draft since '.$draft->updated_at->diffForHumans().'. Complete it and submit it for the PPMP/APP review, or delete what you no longer need.',
-                'procurement_request',
-                ['url' => route('end-user.requests.edit', $draft)],
-            );
-        }
     }
 
     /**
@@ -163,47 +126,6 @@ class ProcurementRequestController extends Controller
         return compact('requests', 'status', 'search', 'years', 'year');
     }
 
-    /** The form opens as a dialog over the request list (the list is rendered behind it). */
-    public function create(Request $request)
-    {
-        return view('end-user.requests.form', ['procurementRequest' => new ProcurementRequest(['unit' => 'lot'])] + $this->listData($request));
-    }
-
-    public function store(Request $request)
-    {
-        $validated = $this->validateRequest($request);
-        $submit = $request->input('action') === 'submit';
-
-        try {
-            $procurementRequest = DB::transaction(function () use ($validated, $request) {
-                $procurementRequest = ProcurementRequest::create($this->attributes($validated) + [
-                    'reference_no' => ProcurementRequest::nextReferenceNo(),
-                    'end_user_office' => Auth::user()->office,
-                    'requested_by' => Auth::id(),
-                    'status' => ProcurementRequest::STATUS_DRAFT,
-                ]);
-
-                $this->storeDocuments($procurementRequest, $request);
-
-                return $procurementRequest;
-            });
-        } catch (\RuntimeException $exception) {
-            return $this->uploadFailed($request, $exception);
-        }
-
-        AuditLog::log('procurement_request_created', $procurementRequest, null, ['reference_no' => $procurementRequest->reference_no]);
-
-        if ($submit) {
-            $this->markSubmitted($procurementRequest);
-
-            return redirect()->route('end-user.requests.show', $procurementRequest)
-                ->with('success', 'Request '.$procurementRequest->reference_no.' submitted for PPMP/APP review.');
-        }
-
-        return redirect()->route('end-user.requests.show', $procurementRequest)
-            ->with('success', 'Draft '.$procurementRequest->reference_no.' saved. Submit it when it is complete.');
-    }
-
     public function show(ProcurementRequest $procurementRequest)
     {
         $this->authorizeRequester($procurementRequest);
@@ -213,92 +135,6 @@ class ProcurementRequestController extends Controller
             'procurementRequest' => $procurementRequest,
             'timeline' => ProcurementTimeline::forRequest($procurementRequest),
         ]);
-    }
-
-    public function edit(ProcurementRequest $procurementRequest)
-    {
-        $this->authorizeRequester($procurementRequest);
-        abort_unless($procurementRequest->isEditable(), 403, 'This request can no longer be changed.');
-
-        return view('end-user.requests.form', ['procurementRequest' => $procurementRequest->load('documents')]);
-    }
-
-    public function update(Request $request, ProcurementRequest $procurementRequest)
-    {
-        $this->authorizeRequester($procurementRequest);
-        abort_unless($procurementRequest->isEditable(), 403, 'This request can no longer be changed.');
-
-        $validated = $this->validateRequest($request);
-        $before = $procurementRequest->only(array_keys($this->attributes($validated)));
-
-        try {
-            DB::transaction(function () use ($procurementRequest, $validated, $request) {
-                $procurementRequest->update($this->attributes($validated));
-                $this->storeDocuments($procurementRequest, $request);
-            });
-        } catch (\RuntimeException $exception) {
-            return $this->uploadFailed($request, $exception);
-        }
-
-        AuditLog::log('procurement_request_updated', $procurementRequest, $before, $procurementRequest->only(array_keys($before)));
-
-        if ($request->input('action') === 'submit') {
-            $this->markSubmitted($procurementRequest);
-
-            return redirect()->route('end-user.requests.show', $procurementRequest)
-                ->with('success', 'Request '.$procurementRequest->reference_no.' submitted for PPMP/APP review.');
-        }
-
-        return redirect()->route('end-user.requests.show', $procurementRequest)->with('success', 'Changes saved.');
-    }
-
-    public function submit(ProcurementRequest $procurementRequest)
-    {
-        $this->authorizeRequester($procurementRequest);
-
-        if (! $procurementRequest->isEditable()) {
-            return back()->withErrors(['request' => 'This request was already submitted.']);
-        }
-
-        // A draft can be incomplete; the review needs every detail.
-        $missing = $procurementRequest->missingForSubmission();
-        if ($missing !== []) {
-            return redirect()->route('end-user.requests.edit', $procurementRequest)->withErrors(
-                collect($missing)->map(fn (string $label) => $label.' is required before submitting.')->all()
-            );
-        }
-
-        $this->markSubmitted($procurementRequest);
-
-        return redirect()->route('end-user.requests.show', $procurementRequest)
-            ->with('success', 'Request '.$procurementRequest->reference_no.' submitted for PPMP/APP review.');
-    }
-
-    /**
-     * A new draft with the same items, specifications and amounts, for an
-     * office that buys the same things again (e.g. supplies every quarter).
-     * Attachments, reviews and dates are not copied.
-     */
-    public function duplicate(ProcurementRequest $procurementRequest)
-    {
-        $this->authorizeRequester($procurementRequest);
-
-        $fields = ['title', 'category', 'specifications', 'quantity', 'unit', 'estimated_cost', 'fund_source', 'delivery_period', 'justification'];
-        if (ProcurementRequest::storesItems()) {
-            $fields[] = 'items';
-        }
-
-        $copy = DB::transaction(fn () => ProcurementRequest::create($procurementRequest->only($fields) + [
-            'reference_no' => ProcurementRequest::nextReferenceNo(),
-            'end_user_office' => Auth::user()->office,
-            'requested_by' => Auth::id(),
-            'status' => ProcurementRequest::STATUS_DRAFT,
-        ]));
-
-        AuditLog::log('procurement_request_duplicated', $copy, null, ['reference_no' => $copy->reference_no, 'copied_from' => $procurementRequest->reference_no]);
-
-        return redirect()->route('end-user.requests.edit', $copy)
-            ->with('success', 'Copied '.$procurementRequest->reference_no.' to the new draft '.$copy->reference_no.'. Check the quantities and the estimated cost, then submit it.');
     }
 
     /** The Purchase Request form to print and sign (the paper copy for the records). */
@@ -312,16 +148,57 @@ class ProcurementRequestController extends Controller
         ]);
     }
 
-    public function destroyDocument(ProcurementRequest $procurementRequest, ProcurementRequestDocument $document)
+    /* ---------------------------------------------------------------------
+     | Recording a purchase request (admin)
+     |
+     | End-user offices hand the BAC a signed hard copy; the admin records it
+     | here for its office. It goes straight to the PPMP/APP review and has
+     | no individual owner, so every account of that office can follow it.
+     * ------------------------------------------------------------------- */
+
+    public function adminCreate()
     {
-        $this->authorizeRequester($procurementRequest);
-        abort_unless($document->procurement_request_id === $procurementRequest->id, 404);
-        abort_unless($procurementRequest->isEditable(), 403, 'This request can no longer be changed.');
+        return view('end-user.requests.form', [
+            'procurementRequest' => new ProcurementRequest(['unit' => 'lot']),
+            'adminMode' => true,
+            'offices' => User::assignableEndUserOffices(),
+        ]);
+    }
 
-        Uploads::delete($document->file_path);
-        $document->delete();
+    public function adminStore(Request $request)
+    {
+        // A recorded request is complete: it is checked like a submitted one.
+        $request->merge(['action' => 'submit']);
+        $validated = $this->validateRequest($request);
+        $request->validate([
+            'end_user_office' => ['required', 'string', Rule::in(User::assignableEndUserOffices())],
+        ], [
+            'end_user_office.required' => 'Choose the end-user office that filed the request.',
+            'end_user_office.in' => 'Choose an office from the list.',
+        ]);
 
-        return back()->with('success', 'Attachment removed.');
+        try {
+            $procurementRequest = DB::transaction(function () use ($validated, $request) {
+                $procurementRequest = ProcurementRequest::create($this->attributes($validated) + [
+                    'reference_no' => ProcurementRequest::nextReferenceNo(),
+                    'end_user_office' => (string) $request->input('end_user_office'),
+                    'requested_by' => null,
+                    'status' => ProcurementRequest::STATUS_DRAFT,
+                ]);
+
+                $this->storeDocuments($procurementRequest, $request);
+
+                return $procurementRequest;
+            });
+        } catch (\RuntimeException $exception) {
+            return $this->uploadFailed($request, $exception);
+        }
+
+        AuditLog::log('procurement_request_recorded', $procurementRequest, null, ['reference_no' => $procurementRequest->reference_no, 'office' => $procurementRequest->end_user_office, 'recorded_by' => Auth::id()]);
+        $this->markSubmitted($procurementRequest);
+
+        return redirect()->route('admin.requests', ['tab' => 'review'])
+            ->with('success', 'Recorded '.$procurementRequest->reference_no.' for '.$procurementRequest->end_user_office.'. It is now for the PPMP/APP and funds review.');
     }
 
     /* ---------------------------------------------------------------------

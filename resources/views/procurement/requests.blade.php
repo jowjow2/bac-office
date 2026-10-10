@@ -17,27 +17,13 @@
 
 @section('actions')
     @if($routePrefix === 'admin')
+        <a href="{{ route('admin.requests.create') }}" class="ui-btn ui-btn--primary"><i class="fas fa-plus" aria-hidden="true"></i> Record purchase request</a>
         <a href="{{ route('admin.users', ['filter' => 'end_user']) }}" class="ui-btn ui-btn--secondary"><i class="fas fa-building" aria-hidden="true"></i> Office accounts · {{ $officeAccounts }}</a>
     @endif
 @endsection
 
 @section('content')
 <div class="ui-page">
-    @if($officeAccounts === 0)
-        <div class="ui-alert ui-alert--warning" role="status">
-            <i class="fas fa-building-circle-exclamation" aria-hidden="true"></i>
-            <div>
-                <strong>No end-user office account exists yet.</strong>
-                Purchase requests are filed by each end-user office through its own account (My purchase requests → New purchase request), then submitted here for the PPMP/APP and funds review.
-                @if($routePrefix === 'admin')
-                    <div class="ui-mt-sm"><a href="{{ route('admin.users', ['create' => 'end_user']) }}" class="ui-btn ui-btn--primary ui-btn--sm"><i class="fas fa-plus" aria-hidden="true"></i> Add an end-user office account</a></div>
-                @else
-                    Ask the BAC administrator to create an account for each requesting office.
-                @endif
-            </div>
-        </div>
-    @endif
-
     @if($errors->any() && ! $reviewErrors)
         <div class="ui-alert ui-alert--danger" role="alert">
             <i class="fas fa-circle-exclamation" aria-hidden="true"></i>
@@ -90,7 +76,7 @@
                         @endif
                         <a class="ui-link" href="{{ route($routePrefix.'.requests', ['tab' => $tab]) }}">Clear search</a>
                     @elseif($tab === 'review')
-                        End-user offices file purchase requests from their own accounts; a request appears here once the office submits it.
+                        Record the signed hard copies that end-user offices hand to the BAC, and they appear here for the PPMP/APP and funds review.
                         @if($drafts > 0) {{ $drafts }} {{ \Illuminate\Support\Str::plural('draft', $drafts) }} {{ $drafts === 1 ? 'is' : 'are' }} still being prepared by the offices. @endif
                     @else
                         Try another queue.

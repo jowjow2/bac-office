@@ -5,7 +5,6 @@
     $tz = config('bac-office.display_timezone');
     $project = $procurementRequest->project;
     $next = $timeline->nextAction();
-    $missing = $procurementRequest->isEditable() ? $procurementRequest->missingForSubmission() : [];
     $isDraft = $procurementRequest->status === \App\Models\ProcurementRequest::STATUS_DRAFT;
     $categories = ['goods' => 'Goods', 'services' => 'General support services', 'infrastructure' => 'Infrastructure', 'consultancy' => 'Consulting services'];
     $calloutTone = match (true) {
@@ -33,18 +32,6 @@
 @endsection
 @section('subtitle', $procurementRequest->end_user_office.($project ? ' · '.$project->mode()->label() : ' · Mode of procurement set by the BAC'))
 
-@section('actions')
-    @if($procurementRequest->isEditable())
-        <a href="{{ route('end-user.requests.edit', $procurementRequest) }}" class="ui-btn ui-btn--secondary"><i class="fas fa-pen" aria-hidden="true"></i> {{ $isDraft ? 'Continue editing' : 'Correct request' }}</a>
-        @if($missing === [])
-            <form method="POST" action="{{ route('end-user.requests.submit', $procurementRequest) }}">
-                @csrf
-                <button type="submit" class="ui-btn ui-btn--primary"><i class="fas fa-paper-plane" aria-hidden="true"></i> Submit for PPMP/APP review</button>
-            </form>
-        @endif
-    @endif
-@endsection
-
 @section('content')
 <div class="ui-page">
     @if($errors->any())
@@ -65,23 +52,10 @@
         <div class="ui-actions pr-toolbar__tools">
             <a href="{{ $askUrl }}" class="ui-btn ui-btn--ghost ui-btn--sm"><i class="fas fa-comments" aria-hidden="true"></i> Ask the BAC</a>
             <a href="{{ route('end-user.requests.print', $procurementRequest) }}" class="ui-btn ui-btn--ghost ui-btn--sm" target="_blank" rel="noopener"><i class="fas fa-print" aria-hidden="true"></i> Print PR form</a>
-            <form method="POST" action="{{ route('end-user.requests.duplicate', $procurementRequest) }}" data-confirm="Make a new draft with the same items, specifications and amounts? Attachments are not copied." data-confirm-title="Duplicate {{ $procurementRequest->reference_no }}?" data-confirm-button="Duplicate">
-                @csrf
-                <button type="submit" class="ui-btn ui-btn--ghost ui-btn--sm"><i class="fas fa-copy" aria-hidden="true"></i> Duplicate</button>
-            </form>
         </div>
     </div>
 
-    @if($missing !== [])
-        <div class="ui-alert ui-alert--warning" role="status">
-            <i class="fas fa-list-check" aria-hidden="true"></i>
-            <div>
-                <strong>This draft is not complete yet.</strong> Add the following before submitting it for the PPMP/APP and funds review:
-                <ul>@foreach($missing as $label)<li>{{ $label }}</li>@endforeach</ul>
-                <div class="ui-mt-sm"><a href="{{ route('end-user.requests.edit', $procurementRequest) }}" class="ui-btn ui-btn--secondary ui-btn--sm">Complete the draft</a></div>
-            </div>
-        </div>
-    @elseif($next)
+    @if($next)
         <section class="ui-callout {{ $calloutTone ? 'ui-callout--'.$calloutTone : '' }}" aria-labelledby="next-title">
             <span class="ui-callout__label">{{ $calloutTone === 'success' ? 'Status' : 'Next step' }} &middot; {{ $next['office'] }}</span>
             <h2 class="ui-callout__title" id="next-title">{{ $next['title'] }}</h2>

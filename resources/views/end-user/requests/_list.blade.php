@@ -34,10 +34,7 @@
             <div class="ui-empty">
                 <i class="fas fa-file-signature" aria-hidden="true"></i>
                 <strong>{{ $search !== '' || $status ? 'No requests match these filters' : 'No requests yet' }}</strong>
-                <span>{{ $search !== '' || $status ? 'Try another status or search.' : 'Start with what your office needs; you can save a draft and submit it later.' }}</span>
-                @unless($search !== '' || $status)
-                    <a href="{{ route('end-user.requests.create') }}" class="ui-btn ui-btn--primary ui-btn--sm ui-mt-sm"><i class="fas fa-plus" aria-hidden="true"></i> New purchase request</a>
-                @endunless
+                <span>{{ $search !== '' || $status ? 'Try another status or search.' : 'Give the BAC a signed hard copy of your purchase request. It appears here once the BAC records it.' }}</span>
             </div>
         @else
             <div class="ui-table-wrap">
@@ -62,11 +59,7 @@
                                 <td data-label="Status"><span class="ui-badge ui-badge--{{ $item->statusTone() }}">{{ $item->statusLabel() }}</span></td>
                                 <td data-label="Updated" class="is-nowrap">{{ $item->updated_at->timezone(config('bac-office.display_timezone'))->format('M d, Y') }}</td>
                                 <td data-label="Actions" class="is-actions">
-                                    @if($item->isEditable())
-                                        <a class="ui-btn ui-btn--secondary ui-btn--sm" href="{{ route('end-user.requests.edit', $item) }}">Edit<span class="sr-only"> {{ $item->reference_no }}</span></a>
-                                    @else
-                                        <a class="ui-btn ui-btn--ghost ui-btn--sm" href="{{ route('end-user.requests.show', $item) }}">Track</a>
-                                    @endif
+                                    <a class="ui-btn ui-btn--ghost ui-btn--sm" href="{{ route('end-user.requests.show', $item) }}">Track<span class="sr-only"> {{ $item->reference_no }}</span></a>
                                 </td>
                             </tr>
                         @endforeach

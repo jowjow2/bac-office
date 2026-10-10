@@ -1,11 +1,7 @@
 @extends('layouts.portal')
 
 @section('title', 'My purchase requests')
-@section('subtitle', 'The purchase requests you filed for '.auth()->user()->office.'.')
-
-@section('actions')
-    <a href="{{ route('end-user.requests.create') }}" class="ui-btn ui-btn--primary"><i class="fas fa-plus" aria-hidden="true"></i> New purchase request</a>
-@endsection
+@section('subtitle', 'Purchase requests recorded by the BAC for '.auth()->user()->office.'. Hand the BAC a signed hard copy to file a new one.')
 
 @section('content')
     @include('end-user.requests._list')

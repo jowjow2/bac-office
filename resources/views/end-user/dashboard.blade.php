@@ -12,7 +12,6 @@
     };
     $peso = fn (float $amount) => '₱'.number_format($amount, $amount >= 1000000 ? 0 : 2);
     $kpis = [
-        ['draft', 'Drafts', $counts['drafts'], 'Not yet submitted', 'fa-pen-to-square', 'neutral'],
         ['returned', 'Returned for correction', $counts['returned'], 'See the reviewer\'s remarks', 'fa-rotate-left', $counts['returned'] > 0 ? 'warning' : 'neutral'],
         ['submitted', 'In review / with the BAC', $counts['review'], 'PPMP/APP and funds check', 'fa-magnifying-glass-chart', 'info'],
         ['in_procurement', 'In procurement', $counts['procurement'], 'Bidding, RFQ, award or delivery', 'fa-gavel', 'success'],
@@ -20,11 +19,7 @@
 @endphp
 
 @section('title', 'Purchase requests overview')
-@section('subtitle', $office.' · File purchase requests and follow each one through the PPMP/APP check, bidding or RFQ, award and acceptance.')
-
-@section('actions')
-    <a href="{{ route('end-user.requests.create') }}" class="ui-btn ui-btn--primary"><i class="fas fa-plus" aria-hidden="true"></i> New purchase request</a>
-@endsection
+@section('subtitle', $office.' · Follow each purchase request the BAC recorded for your office through the PPMP/APP check, bidding or RFQ, award and acceptance.')
 
 @section('content')
     @if($welcome)
@@ -37,9 +32,7 @@
             </div>
             <p class="eu-welcome__summary">
                 @if($counts['returned'] > 0)
-                    <strong>{{ $counts['returned'] }} {{ \Illuminate\Support\Str::plural('request', $counts['returned']) }}</strong> returned for correction.
-                @elseif($counts['drafts'] > 0)
-                    <strong>{{ $counts['drafts'] }} {{ \Illuminate\Support\Str::plural('draft', $counts['drafts']) }}</strong> waiting to be submitted.
+                    <strong>{{ $counts['returned'] }} {{ \Illuminate\Support\Str::plural('request', $counts['returned']) }}</strong> returned by the reviewer. See the remarks.
                 @else
                     {{ $counts['review'] + $counts['procurement'] }} {{ \Illuminate\Support\Str::plural('request', $counts['review'] + $counts['procurement']) }} moving through review and procurement.
                 @endif
@@ -48,7 +41,7 @@
         </section>
     @endif
 
-    <section class="ui-kpis eu-kpis" aria-label="Request summary">
+    <section class="ui-kpis eu-kpis eu-kpis--3" aria-label="Request summary">
         @foreach($kpis as [$status, $label, $value, $foot, $icon, $tone])
             <a class="eu-kpi eu-kpi--{{ $tone }}" href="{{ route('end-user.requests.index', ['status' => $status]) }}">
                 <span class="eu-kpi__icon" aria-hidden="true"><i class="fas {{ $icon }}"></i></span>
@@ -60,36 +53,6 @@
             </a>
         @endforeach
     </section>
-
-    @if($needsAction->isEmpty())
-        <p class="eu-allclear"><i class="fas fa-circle-check" aria-hidden="true"></i> <strong>Nothing needs your action.</strong> <span>Drafts and requests returned by the reviewer will show here.</span></p>
-    @else
-        <section class="ui-card" aria-labelledby="eu-action-title">
-            <header class="ui-card__head">
-                <div>
-                    <h2 class="ui-card__title" id="eu-action-title">Needs your action · {{ $needsAction->count() }}</h2>
-                    <p class="ui-card__desc">Drafts to complete and requests returned by the reviewer.</p>
-                </div>
-            </header>
-            <ul class="ui-feed">
-                @foreach($needsAction as $item)
-                    <li class="ui-feed__item ui-feed__item--{{ $item->status === 'returned' ? 'danger' : 'info' }}">
-                        <span class="ui-feed__dot" aria-hidden="true"></span>
-                        <div class="ui-row">
-                            <div class="ui-row__main">
-                                <p class="ui-feed__title"><a class="ui-link" href="{{ route('end-user.requests.show', $item) }}">{{ $item->title }}</a></p>
-                                <p class="ui-feed__detail"><span class="ui-mono">{{ $item->reference_no }}</span> · <span class="ui-badge ui-badge--{{ $item->statusTone() }}">{{ $item->statusLabel() }}</span></p>
-                                @if($item->status === 'returned' && $item->review_remarks)
-                                    <p class="ui-feed__detail">Reviewer: {{ $item->review_remarks }}</p>
-                                @endif
-                            </div>
-                            <a class="ui-btn ui-btn--secondary ui-btn--sm" href="{{ route('end-user.requests.edit', $item) }}">{{ $item->status === 'returned' ? 'Correct' : 'Continue' }}<span class="sr-only"> {{ $item->reference_no }}</span></a>
-                        </div>
-                    </li>
-                @endforeach
-            </ul>
-        </section>
-    @endif
 
     <div class="ui-grid ui-grid--sidebar">
         @include('partials.portal.register', ['routeName' => 'end-user.dashboard', 'title' => 'My requests and procurements', 'showOffice' => false, 'progress' => true])
@@ -160,6 +123,8 @@
     .eu-welcome__close:hover { background: var(--ui-surface); color: var(--ui-ink); }
 
     /* Stat cards with an icon; each opens the matching requests. */
+    .eu-kpis--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    @media (max-width: 768px) { .eu-kpis--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     .eu-kpi { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 14px 16px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg); background: var(--ui-surface); color: inherit; text-decoration: none; transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
     .eu-kpi:hover { border-color: var(--ui-line-strong); box-shadow: 0 6px 16px rgba(27, 36, 32, .06); transform: translateY(-1px); }
     .eu-kpi__icon { display: grid; flex: 0 0 40px; width: 40px; height: 40px; place-items: center; border-radius: 11px; font-size: 16px; }

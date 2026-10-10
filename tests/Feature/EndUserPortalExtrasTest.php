@@ -87,28 +87,11 @@ it('opens the composer with the request reference from Ask the BAC', function ()
     testCase()->actingAs($this->juan)->get(route('end-user.requests.show', $request))->assertOk()
         ->assertSee('Ask the BAC')
         ->assertSee('Print PR form')
-        ->assertSee('Duplicate');
+        ->assertDontSee('Duplicate')
+        ->assertDontSee('Continue editing');
 
     testCase()->actingAs($this->juan)->get(route('end-user.messages', ['tab' => 'staff', 'user' => $this->staff->id, 'draft' => 'Re: '.$request->reference_no.' – '.$request->title.': ']))->assertOk()
         ->assertSee('Re: '.$request->reference_no, false);
-});
-
-it('duplicates a request into a new draft owned by the same account', function () {
-    $request = ($this->makeRequest)(['review_remarks' => 'Old remark', 'ppmp_reference' => 'PPMP-1']);
-
-    testCase()->actingAs($this->maria)->post(route('end-user.requests.duplicate', $request))->assertNotFound();
-
-    $response = testCase()->actingAs($this->juan)->post(route('end-user.requests.duplicate', $request));
-    $copy = ProcurementRequest::where('id', '!=', $request->id)->firstOrFail();
-    $response->assertRedirect(route('end-user.requests.edit', $copy));
-
-    expect($copy->status)->toBe(ProcurementRequest::STATUS_DRAFT)
-        ->and($copy->requested_by)->toBe($this->juan->id)
-        ->and($copy->reference_no)->not->toBe($request->reference_no)
-        ->and($copy->title)->toBe('Supply of survey equipment')
-        ->and((float) $copy->estimated_cost)->toBe(650000.0)
-        ->and($copy->review_remarks)->toBeNull()
-        ->and($copy->ppmp_reference)->toBeNull();
 });
 
 it('prints the purchase request form for its owner only', function () {
@@ -136,17 +119,6 @@ it('filters My purchase requests by year', function () {
         ->assertDontSee('Request from last year')->assertSee('Request from this year');
 });
 
-it('reminds the owner once about a draft left for a week', function () {
-    $draft = ($this->makeRequest)(['status' => ProcurementRequest::STATUS_DRAFT]);
-    $draft->forceFill(['updated_at' => now()->subDays(9)])->saveQuietly();
-
-    testCase()->actingAs($this->juan)->get(route('end-user.dashboard'))->assertOk();
-    testCase()->actingAs($this->juan)->get(route('end-user.dashboard'))->assertOk();
-
-    expect(UserNotification::where('user_id', $this->juan->id)->where('title', 'Draft still waiting')->count())->toBe(1)
-        ->and(UserNotification::where('user_id', $this->maria->id)->where('title', 'Draft still waiting')->count())->toBe(0);
-});
-
 it('shows the welcome card once after signing in, with the budget summary', function () {
     ($this->makeRequest)();
 
@@ -157,17 +129,13 @@ it('shows the welcome card once after signing in, with the budget summary', func
     testCase()->actingAs($this->juan)->get(route('end-user.dashboard'))->assertOk()->assertDontSee('Welcome back, Juan Reyes!');
 });
 
-it('opens a new purchase request as a dialog over the request list', function () {
-    $request = ($this->makeRequest)(['title' => 'Already filed request']);
+it('has no place for an end-user office to file, edit or duplicate a request', function () {
+    $request = ($this->makeRequest)(['status' => ProcurementRequest::STATUS_DRAFT]);
 
-    testCase()->actingAs($this->juan)->get(route('end-user.requests.create'))->assertOk()
-        ->assertSee('data-eu-modal', false)
-        ->assertSee('New purchase request')
-        ->assertSee('Already filed request')
-        ->assertSee($request->reference_no);
-
-    // Editing keeps its own page, not a dialog.
-    $draft = ($this->makeRequest)(['status' => ProcurementRequest::STATUS_DRAFT]);
-    testCase()->actingAs($this->juan)->get(route('end-user.requests.edit', $draft))->assertOk()
-        ->assertDontSee('data-eu-modal', false);
+    testCase()->actingAs($this->juan)->get(route('end-user.requests.index'))->assertOk()->assertDontSee('New purchase request');
+    testCase()->actingAs($this->juan)->get(route('end-user.dashboard'))->assertOk()->assertDontSee('New purchase request');
+    testCase()->actingAs($this->juan)->get('/end-user/requests/create')->assertNotFound();
+    testCase()->actingAs($this->juan)->get('/end-user/requests/'.$request->id.'/edit')->assertNotFound();
+    testCase()->actingAs($this->juan)->post('/end-user/requests/'.$request->id.'/submit')->assertNotFound();
+    testCase()->actingAs($this->juan)->post('/end-user/requests/'.$request->id.'/duplicate')->assertNotFound();
 });

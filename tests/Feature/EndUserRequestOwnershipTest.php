@@ -49,8 +49,7 @@ it('shows a purchase request only to the account that filed it', function () {
     testCase()->actingAs($this->maria)->get(route('end-user.dashboard'))->assertOk()->assertDontSee($request->reference_no);
     testCase()->actingAs($this->maria)->get(route('end-user.requests.index'))->assertOk()->assertDontSee($request->reference_no);
     testCase()->actingAs($this->maria)->get(route('end-user.requests.show', $request))->assertNotFound();
-    testCase()->actingAs($this->maria)->get(route('end-user.requests.edit', $request))->assertNotFound();
-    testCase()->actingAs($this->maria)->post(route('end-user.requests.submit', $request))->assertNotFound();
+    testCase()->actingAs($this->maria)->get(route('end-user.requests.print', $request))->assertNotFound();
 });
 
 it('tells only the requester when the request is returned', function () {
