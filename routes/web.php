@@ -272,6 +272,8 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::put('/admin/demo-clock', [\App\Http\Controllers\DemoClockController::class, 'update'])->name('admin.demo-clock.update');
     Route::delete('/admin/demo-clock', [\App\Http\Controllers\DemoClockController::class, 'reset'])->name('admin.demo-clock.reset');
     Route::get('/admin/awards', [AdminController::class, 'awards'])->name('admin.awards.index');
+    Route::get('/admin/awards/export', [AdminController::class, 'exportAwards'])->name('admin.awards.export');
+    Route::get('/admin/awards/report', [AdminController::class, 'awardsReport'])->name('admin.awards.report');
     Route::get('/admin/awards/{award}/infrastructure', [\App\Http\Controllers\InfrastructureImplementationController::class, 'showAdmin'])->name('admin.infrastructure.show');
     Route::put('/admin/awards/{award}/infrastructure', [\App\Http\Controllers\InfrastructureImplementationController::class, 'configure'])->name('admin.infrastructure.configure');
     Route::put('/admin/awards/{award}/infrastructure/terms', [\App\Http\Controllers\InfrastructureImplementationController::class, 'correctTerms'])->name('admin.infrastructure.terms.correct');

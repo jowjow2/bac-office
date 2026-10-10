@@ -42,6 +42,10 @@
     .xd-btn--primary:hover { background: #184a38; }
     .xd-btn:disabled { border-color: #dfe6e1; background: #eef1ef; color: #9aa6a0; cursor: not-allowed; }
     body.xd-open { overflow: hidden; }
+    /* Header buttons (Export, Report) beside the page title. */
+    body .main-area a.xd-hbtn { display: inline-flex !important; align-items: center !important; gap: 8px !important; height: 38px !important; padding: 0 16px !important; border: 1px solid var(--ui-line-strong, #d5ddd8) !important; border-radius: 9px !important; background: #fff !important; color: var(--ui-ink-2, #2d3a34) !important; -webkit-text-fill-color: var(--ui-ink-2, #2d3a34) !important; font: 600 13.5px/1 var(--ui-font, inherit) !important; text-decoration: none !important; }
+    body .main-area a.xd-hbtn:hover { border-color: var(--ui-primary, #1f5c45) !important; background: var(--ui-primary-soft, #e8f3ee) !important; color: var(--ui-primary, #1f5c45) !important; -webkit-text-fill-color: var(--ui-primary, #1f5c45) !important; }
+    body .main-area a.xd-hbtn i { color: inherit !important; -webkit-text-fill-color: currentColor !important; font-size: 12px !important; }
     @keyframes xd-fade { from { opacity: 0; } to { opacity: 1; } }
     @keyframes xd-rise { from { opacity: 0; transform: translateY(12px) scale(.985); } to { opacity: 1; transform: none; } }
     @media (max-width: 520px) { .xd-overlay { align-items: end; padding: 0; } .xd-dialog { width: 100%; border-radius: 16px 16px 0 0; } }

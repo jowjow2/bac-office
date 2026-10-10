@@ -2552,6 +2552,119 @@ public function destroyUser(User $user)
         return view('admin.awards', compact('awards', 'readyProjects'));
     }
 
+    /** Every award with its relations, newest first; the register behind the export and the report. */
+    private function awardRegister()
+    {
+        return Award::with(['project', 'bidder', 'bid.user', 'bid.project'])->latest()->get();
+    }
+
+    private function awardStageLabel(Award $award): string
+    {
+        if ($award->isCancelled()) {
+            return 'Award cancelled';
+        }
+        if ($award->bid?->project_completed_at) {
+            return 'Completed';
+        }
+        $status = $award->bid?->progress()->adminStatus();
+
+        return match ($status['key'] ?? null) {
+            'notice_to_proceed' => 'NTP issued',
+            'contract_signed' => 'Contract signed',
+            'notice_of_award' => 'NOA issued',
+            'award_approval' => 'Award approved',
+            default => $status['label'] ?? 'Awarded',
+        };
+    }
+
+    public function exportAwards(Request $request)
+    {
+        $awards = $this->awardRegister();
+        $zone = config('bac-office.display_timezone', 'Asia/Manila');
+        $safe = static fn ($value) => preg_match('/^[\s]*[=+@-]|^[\t\r\n]/u', (string) $value) ? "'".(string) $value : (string) $value;
+
+        return response()->streamDownload(function () use ($awards, $safe) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['Project reference', 'Project', 'Procurement mode', 'Winning bidder', 'Contract amount (PHP)', 'Award (NOA) date', 'Contract date', 'Contract stage', 'Certificate no.', 'Certificate status'], ',', '"', '');
+            foreach ($awards as $award) {
+                fputcsv($out, [
+                    $safe($award->project?->reference_no),
+                    $safe($award->project?->title),
+                    $safe($award->project?->mode()->label()),
+                    $safe($award->bidder?->company ?: ($award->bidder?->name ?? $award->bid?->user?->name)),
+                    number_format((float) $award->contract_amount, 2, '.', ''),
+                    $award->awardDate()?->format('Y-m-d'),
+                    $award->contract_date?->format('Y-m-d'),
+                    $this->awardStageLabel($award),
+                    $safe($award->certificate_number),
+                    $safe($award->certificate_status ?: $award->status),
+                ], ',', '"', '');
+            }
+            fclose($out);
+        }, 'awards-'.now($zone)->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8', 'Cache-Control' => 'no-store']);
+    }
+
+    /** Printable awards and contracts report for a period (by award date). */
+    public function awardsReport(Request $request)
+    {
+        $zone = config('bac-office.display_timezone', 'Asia/Manila');
+        $all = ! $request->hasAny(['from', 'to']) || $request->boolean('all');
+        $today = now($zone)->startOfDay();
+        $parse = function (?string $value, \Carbon\Carbon $fallback) use ($zone): \Carbon\Carbon {
+            try {
+                return $value ? \Carbon\Carbon::parse($value, $zone)->startOfDay() : $fallback;
+            } catch (\Throwable) {
+                return $fallback;
+            }
+        };
+        $from = $parse($request->query('from'), $today->copy()->startOfYear());
+        $to = $parse($request->query('to'), $today);
+        if ($from->greaterThan($to)) {
+            [$from, $to] = [$to, $from];
+        }
+
+        $awards = $this->awardRegister()->filter(function (Award $award) use ($all, $from, $to) {
+            if ($all) {
+                return true;
+            }
+            $date = ($award->awardDate() ?? $award->created_at)?->copy()->startOfDay();
+
+            return $date !== null && $date->betweenIncluded($from, $to);
+        })->values();
+
+        $inForce = $awards->reject(fn (Award $award) => $award->isCancelled())->values();
+        $rows = $awards->map(fn (Award $award) => [
+            'title' => $award->project?->title ?? 'Untitled project',
+            'reference' => $award->project?->reference_no,
+            'bidder' => $award->bidder?->company ?: ($award->bidder?->name ?? $award->bid?->user?->name ?? 'N/A'),
+            'date' => $award->awardDate(),
+            'stage' => $this->awardStageLabel($award),
+            'cancelled' => $award->isCancelled(),
+            'amount' => (float) $award->contract_amount,
+        ]);
+        $byMode = $inForce->groupBy(fn (Award $award) => $award->project?->mode()->label() ?? 'Other')->map(fn ($group, $mode) => [
+            'mode' => $mode,
+            'count' => $group->count(),
+            'amount' => (float) $group->sum('contract_amount'),
+        ])->sortByDesc('amount')->values();
+
+        return view('admin.awards-report', [
+            'embed' => $request->boolean('embed'),
+            'zone' => $zone,
+            'all' => $all,
+            'from' => $from,
+            'to' => $to,
+            'rows' => $rows,
+            'inForce' => $inForce,
+            'byMode' => $byMode,
+            'contractValue' => (float) $inForce->sum('contract_amount'),
+            'signedCount' => $inForce->filter(fn (Award $award) => $award->contract_date !== null || $award->bid?->contract_signed_at !== null)->count(),
+            'ntpCount' => $inForce->filter(fn (Award $award) => $award->hasPublishedNoticeToProceed())->count(),
+            'user' => Auth::user(),
+        ]);
+    }
+
     public function viewAward(Request $request, Award $award)
     {
         $award->load(['project', 'bid.user']);

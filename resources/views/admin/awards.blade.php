@@ -1710,10 +1710,39 @@
         }
     </style>
 
+    <style>
+        /* Redesign: one summary strip, one compact registry header. */
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-summary-grid { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 0 !important; margin: 0 0 16px !important; padding: 0 !important; overflow: hidden !important; border: 1px solid var(--ui-line) !important; border-radius: 14px !important; background: #fff !important; box-shadow: none !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-stat-card { display: flex !important; align-items: center !important; gap: 12px !important; min-height: 0 !important; padding: 14px 20px !important; border: 0 !important; border-right: 1px solid var(--ui-line) !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; transform: none !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-stat-card::before, body .admin-dashboard.admin-role-page.admin-awards-page .awards-stat-card::after { display: none !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-stat-card:last-child { border-right: 0 !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-stat-icon { flex: 0 0 34px !important; width: 34px !important; height: 34px !important; border-radius: 9px !important; font-size: 13px !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-stat-value { font-size: 18px !important; line-height: 1.2 !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-stat-note { font-size: 11.5px !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-toolbar-description { display: none !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-toolbar-card { display: flex !important; flex-wrap: wrap !important; align-items: center !important; gap: 12px 16px !important; padding: 14px 20px !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-toolbar-top { flex: 0 0 auto !important; width: auto !important; margin: 0 !important; padding: 0 !important; background: transparent !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-toolbar-controls { flex: 1 1 260px !important; display: flex !important; align-items: center !important; gap: 10px !important; margin: 0 !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-filter-group { flex: 1 1 auto !important; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-filter-tabs { flex: 0 0 auto !important; margin: 0 !important; }
+        @media (max-width: 900px) {
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-stat-card:nth-child(2) { border-right: 0 !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-stat-card:nth-child(-n+2) { border-bottom: 1px solid var(--ui-line) !important; }
+        }
+    </style>
+
     @include('partials.admin-sidebar')
 
     <div class="main-area">
-        <x-page-header title="Awards & contracts" subtitle="View all awarded projects and contracts" />
+        <x-page-header title="Awards & contracts" subtitle="View all awarded projects and contracts">
+            <x-slot:actions>
+                <a href="{{ route('admin.awards.report') }}" class="xd-hbtn" data-report-dialog="awardsReport"><i class="fas fa-chart-column" aria-hidden="true"></i> Report</a>
+                <a href="{{ route('admin.awards.export') }}" class="xd-hbtn" data-export-dialog data-export-title="Export awards" data-export-noun="award" data-export-count="{{ count($awards ?? []) }}" data-export-note="Every award with its contract amount, stage and certificate."><i class="fas fa-file-export" aria-hidden="true"></i> Export</a>
+            </x-slot:actions>
+        </x-page-header>
+        @include('partials.export-dialog')
+        @include('partials.report-dialog', ['id' => 'awardsReport', 'title' => 'Awards and contracts report', 'url' => route('admin.awards.report', ['embed' => 1])])
 
         <main class="dashboard-content admin-awards-content">
             @if(session('success'))
