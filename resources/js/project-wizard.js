@@ -1065,8 +1065,6 @@ function nextWorkingDay(date, inclusive = true) {
         const openingTime = `${String(Math.floor(openingMinute / 60)).padStart(2, '0')}:${String(openingMinute % 60).padStart(2, '0')}`;
         setSuggestedDate('bid_opening_date', `${datePart(deadline)}T${openingTime}`, changed);
 
-        const anchor = val('bid_opening_date') || val('bid_submission_deadline');
-        if (anchor) setSuggestedDate('evaluation_start_date', nextWorkingDay(datePart(anchor), false), changed);
         changed.forEach((input) => {
             input.dispatchEvent(new Event('input', { bubbles: true }));
             input.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1364,8 +1362,6 @@ function nextWorkingDay(date, inclusive = true) {
             [$('[data-pw-deadline-label]').textContent, dated('bid_submission_deadline'), true],
             [$('[data-pw-opening-label]').textContent, dated('bid_opening_date'), true],
             ...(isCompetitive() ? [['Place of bid opening', val('bid_opening_venue'), true]] : []),
-            ['Evaluation starts', dated('evaluation_start_date')],
-            ['Expected award', dated('expected_award_date')],
         ]);
 
         // Readiness: the same checks as Next, without moving the user.

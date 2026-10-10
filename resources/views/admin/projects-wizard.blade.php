@@ -606,22 +606,6 @@
                                 </div>
                             </div>
                         </li>
-                        <li class="pw-timeline__item">
-                            <div class="ui-field">
-                                <label class="ui-label" for="evaluation_start_date">Evaluation starts <span class="ui-optional">(planned)</span></label>
-                                <input type="date" id="evaluation_start_date" name="evaluation_start_date" class="ui-input" value="{{ old('evaluation_start_date') }}" data-pw-date aria-invalid="{{ $invalid('evaluation_start_date') }}" aria-describedby="evaluation_start_date-error">
-                                <span class="pw-when" data-pw-when="evaluation_start_date"></span>
-                                <span class="ui-error" id="evaluation_start_date-error" data-pw-error @unless($err('evaluation_start_date')) hidden @endunless>{{ $err('evaluation_start_date') }}</span>
-                            </div>
-                        </li>
-                        <li class="pw-timeline__item">
-                            <div class="ui-field">
-                                <label class="ui-label" for="expected_award_date">Expected award <span class="ui-optional">(planned)</span></label>
-                                <input type="date" id="expected_award_date" name="expected_award_date" class="ui-input" value="{{ old('expected_award_date') }}" data-pw-date aria-invalid="{{ $invalid('expected_award_date') }}" aria-describedby="expected_award_date-error">
-                                <span class="pw-when" data-pw-when="expected_award_date"></span>
-                                <span class="ui-error" id="expected_award_date-error" data-pw-error @unless($err('expected_award_date')) hidden @endunless>{{ $err('expected_award_date') }}</span>
-                            </div>
-                        </li>
                     </ol>
                 </section>
 
