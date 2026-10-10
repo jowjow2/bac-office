@@ -129,6 +129,15 @@
         .report-analytics-page .ra-event small { display: block !important; color: var(--ui-muted) !important; font-size: 11.5px !important; }
 
         /* Charts */
+        .report-analytics-page .ra-money { font-size: 22px !important; overflow-wrap: anywhere !important; }
+        .report-analytics-page a.ra-inline-link { color: var(--ui-primary) !important; -webkit-text-fill-color: var(--ui-primary) !important; text-decoration: none !important; font-weight: 600 !important; }
+        .report-analytics-page a.ra-inline-link:hover { text-decoration: underline !important; }
+        .report-analytics-page .ra-table-wrap { overflow-x: auto !important; }
+        .report-analytics-page .ra-table { width: 100% !important; border-collapse: collapse !important; font-size: 12.5px !important; }
+        .report-analytics-page .ra-table th { padding: 8px 10px !important; border-bottom: 1px solid var(--ui-line) !important; color: var(--ui-muted) !important; font-size: 11px !important; font-weight: 700 !important; text-align: left !important; }
+        .report-analytics-page .ra-table td { padding: 9px 10px !important; border-bottom: 1px solid var(--ui-line-soft) !important; color: var(--ui-ink) !important; }
+        .report-analytics-page .ra-table .num { text-align: right !important; font-variant-numeric: tabular-nums !important; white-space: nowrap !important; }
+        .report-analytics-page .ra-table .is-good { color: var(--ui-success) !important; font-weight: 600 !important; }
         .report-analytics-page .ra-chart-grid { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px !important; }
         .report-analytics-page .ra-chart { position: relative !important; padding: 18px !important; }
         .report-analytics-page .ra-chart.is-wide { grid-column: 1 / -1 !important; }
@@ -285,6 +294,30 @@
                         <span class="ra-kpi-note">{{ $card['note'] }}</span>
                     </article>
                 @endforeach
+            </section>
+
+            @php $peso = fn ($value) => '₱'.number_format((float) $value, 2); @endphp
+            <section class="ra-kpis ra-section" aria-label="Budget and collections">
+                <article class="ra-card ra-kpi tone-blue ra-rise" style="--i: 0">
+                    <div class="ra-kpi-top"><span class="ra-kpi-icon"><i class="fas fa-wallet" aria-hidden="true"></i></span><span class="ra-kpi-label">Total ABC</span></div>
+                    <strong class="ra-kpi-value ra-money">{{ $peso($extras['abcTotal']) }}</strong>
+                    <span class="ra-kpi-note">Approved budget of the projects in range</span>
+                </article>
+                <article class="ra-card ra-kpi tone-green ra-rise" style="--i: 1">
+                    <div class="ra-kpi-top"><span class="ra-kpi-icon"><i class="fas fa-file-signature" aria-hidden="true"></i></span><span class="ra-kpi-label">Contract value</span></div>
+                    <strong class="ra-kpi-value ra-money">{{ $peso($extras['contractTotal']) }}</strong>
+                    <span class="ra-kpi-note">Awards in force, cancelled ones left out</span>
+                </article>
+                <article class="ra-card ra-kpi tone-gold ra-rise" style="--i: 2">
+                    <div class="ra-kpi-top"><span class="ra-kpi-icon"><i class="fas fa-receipt" aria-hidden="true"></i></span><span class="ra-kpi-label">Bidding fees collected</span></div>
+                    <strong class="ra-kpi-value ra-money">{{ $peso($extras['feesTotal']) }}</strong>
+                    <span class="ra-kpi-note"><a class="ra-inline-link" href="{{ route('admin.payments') }}">{{ number_format($extras['feesCount']) }} Official {{ \Illuminate\Support\Str::plural('Receipt', $extras['feesCount']) }}</a></span>
+                </article>
+                <article class="ra-card ra-kpi tone-violet ra-rise" style="--i: 3">
+                    <div class="ra-kpi-top"><span class="ra-kpi-icon"><i class="fas fa-file-pen" aria-hidden="true"></i></span><span class="ra-kpi-label">Purchase requests waiting</span></div>
+                    <strong class="ra-kpi-value">{{ number_format($extras['requestsWaiting']) }}</strong>
+                    <span class="ra-kpi-note"><a class="ra-inline-link" href="{{ route('admin.requests') }}">{{ number_format($extras['requestsTotal']) }} received in range</a></span>
+                </article>
             </section>
 
             <section class="ra-card ra-pipeline ra-section ra-anim" aria-label="Procurement pipeline">
@@ -518,6 +551,71 @@
                             <p class="ra-empty">No bidder participation for the selected projects.</p>
                         @endforelse
                     </div>
+                </article>
+            </section>
+
+            <section class="ra-chart-grid ra-section" aria-label="Modes, requests and workload">
+                <article class="ra-card ra-chart is-wide ra-anim">
+                    <div class="ra-head">
+                        <div><h3>By procurement mode</h3><p class="ra-sub">Projects, budget and what was contracted, per mode. Savings count awarded projects only.</p></div>
+                    </div>
+                    @if(count($extras['byMode']) === 0)
+                        <p class="ra-empty">No projects in the selected range.</p>
+                    @else
+                        <div class="ra-table-wrap">
+                            <table class="ra-table">
+                                <thead><tr><th>Mode</th><th class="num">Projects</th><th class="num">ABC</th><th class="num">Awarded</th><th class="num">Contract value</th><th class="num">Savings</th></tr></thead>
+                                <tbody>
+                                    @foreach($extras['byMode'] as $row)
+                                        <tr>
+                                            <td>{{ $row['mode'] }}</td>
+                                            <td class="num">{{ number_format($row['projects']) }}</td>
+                                            <td class="num">{{ $peso($row['abc']) }}</td>
+                                            <td class="num">{{ number_format($row['awarded']) }}</td>
+                                            <td class="num">{{ $row['awarded'] ? $peso($row['contract']) : '—' }}</td>
+                                            <td class="num {{ $row['awarded'] && $row['savings'] > 0 ? 'is-good' : '' }}">{{ $row['awarded'] ? $peso($row['savings']) : '—' }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                </article>
+
+                <article class="ra-card ra-chart ra-anim">
+                    <div class="ra-head">
+                        <div><h3>Purchase requests</h3><p class="ra-sub">Hard copies recorded by the BAC, by where they stand. Follows the date range only.</p></div>
+                    </div>
+                    @php $requestMax = max(1, collect($extras['requests'])->max('value')); @endphp
+                    <div class="ra-rows">
+                        @foreach($extras['requests'] as $row)
+                            <div class="ra-row">
+                                <span class="ra-row-label"><span>{{ $row['label'] }}</span></span>
+                                <span class="ra-track"><span class="ra-fill" style="--bar-width: {{ $row['value'] / $requestMax * 100 }}%; --bar-color: {{ $row['color'] }}; --i: {{ $loop->index }}"></span></span>
+                                <strong class="ra-row-value">{{ $row['value'] }}</strong>
+                            </div>
+                        @endforeach
+                    </div>
+                </article>
+
+                <article class="ra-card ra-chart ra-anim">
+                    <div class="ra-head">
+                        <div><h3>Staff workload</h3><p class="ra-sub">Projects assigned to each BAC staff member, and the bids on them</p></div>
+                    </div>
+                    @if(count($extras['workload']) === 0)
+                        <p class="ra-empty">No staff are assigned to the projects in range.</p>
+                    @else
+                        <div class="ra-table-wrap">
+                            <table class="ra-table">
+                                <thead><tr><th>Staff</th><th class="num">Projects</th><th class="num">Active</th><th class="num">Bids</th></tr></thead>
+                                <tbody>
+                                    @foreach($extras['workload'] as $row)
+                                        <tr><td>{{ $row['name'] }}</td><td class="num">{{ $row['projects'] }}</td><td class="num">{{ $row['open'] }}</td><td class="num">{{ $row['bids'] }}</td></tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
                 </article>
             </section>
         </main>

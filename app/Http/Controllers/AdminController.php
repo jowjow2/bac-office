@@ -2753,6 +2753,27 @@ public function destroyUser(User $user)
             }
             fputcsv($handle, []);
 
+            fputcsv($handle, ['Budget and collections']);
+            fputcsv($handle, ['Total ABC (PHP)', number_format($report['extras']['abcTotal'], 2, '.', '')]);
+            fputcsv($handle, ['Contract value (PHP)', number_format($report['extras']['contractTotal'], 2, '.', '')]);
+            fputcsv($handle, ['Bidding fees collected (PHP)', number_format($report['extras']['feesTotal'], 2, '.', '')]);
+            fputcsv($handle, ['Official Receipts', $report['extras']['feesCount']]);
+            fputcsv($handle, []);
+
+            fputcsv($handle, ['By Procurement Mode']);
+            fputcsv($handle, ['Mode', 'Projects', 'ABC (PHP)', 'Awarded', 'Contract value (PHP)', 'Savings (PHP)']);
+            foreach ($report['extras']['byMode'] as $row) {
+                fputcsv($handle, [$row['mode'], $row['projects'], number_format($row['abc'], 2, '.', ''), $row['awarded'], number_format($row['contract'], 2, '.', ''), number_format($row['savings'], 2, '.', '')]);
+            }
+            fputcsv($handle, []);
+
+            fputcsv($handle, ['Purchase Requests']);
+            fputcsv($handle, ['Stage', 'Requests']);
+            foreach ($report['extras']['requests'] as $row) {
+                fputcsv($handle, [$row['label'], $row['value']]);
+            }
+            fputcsv($handle, []);
+
             fputcsv($handle, ['Monitoring']);
             fputcsv($handle, ['Upcoming Deadlines', $report['monitoring']['upcoming_deadlines']['count']]);
             fputcsv($handle, ['Needs Action', $report['monitoring']['needs_action']['count']]);
@@ -3356,7 +3377,7 @@ public function destroyUser(User $user)
             : null;
 
         $projects = Project::query()
-            ->with(['bids.user', 'awards.bid', 'schedule', 'assignments'])
+            ->with(['bids.user', 'awards.bid', 'schedule', 'assignments.staff'])
             ->when($dateFrom, fn ($query) => $query->where('created_at', '>=', $dateFrom->copy()->startOfDay()))
             ->when($dateTo, fn ($query) => $query->where('created_at', '<=', $dateTo->copy()->endOfDay()))
             ->when($selectedStatus, fn ($query) => $query->where('status', $selectedStatus))
@@ -3424,7 +3445,77 @@ public function destroyUser(User $user)
             'pipeline' => $this->buildReportPipeline($projects),
             'upcomingSchedule' => $this->buildReportUpcomingSchedule($projects),
             'bidderTotals' => ['registered' => $bidderUsers->count(), 'blacklisted' => $blacklistedBidders->count()],
+            'extras' => $this->buildReportExtras($projects, $dateFrom, $dateTo),
         ] + $charts;
+    }
+
+    /**
+     * Money and intake the headline cards do not cover: budget committed, fees
+     * collected, purchase requests received, a per-mode breakdown and the staff
+     * workload. Projects follow the page filters; requests and fees follow the
+     * date range only.
+     *
+     * @return array<string, mixed>
+     */
+    protected function buildReportExtras(Collection $projects, ?\Carbon\Carbon $dateFrom, ?\Carbon\Carbon $dateTo): array
+    {
+        $inForce = fn (Project $project) => $project->awards->reject(fn ($award) => $award->isCancelled());
+        $contractOf = fn (Project $project) => (float) $inForce($project)->sum('contract_amount');
+
+        $byMode = $projects->groupBy(fn (Project $project) => $project->mode()->label())->map(function ($group, $mode) use ($inForce, $contractOf) {
+            $awardedGroup = $group->filter(fn (Project $project) => $inForce($project)->isNotEmpty());
+            $abcAwarded = (float) $awardedGroup->sum('budget');
+            $contract = (float) $awardedGroup->sum($contractOf);
+
+            return [
+                'mode' => $mode,
+                'projects' => $group->count(),
+                'abc' => (float) $group->sum('budget'),
+                'awarded' => $awardedGroup->count(),
+                'contract' => $contract,
+                'savings' => $abcAwarded - $contract,
+            ];
+        })->sortByDesc('abc')->values()->all();
+
+        $requestRows = \App\Models\ProcurementRequest::query()
+            ->when($dateFrom, fn ($query) => $query->where('created_at', '>=', $dateFrom->copy()->startOfDay()))
+            ->when($dateTo, fn ($query) => $query->where('created_at', '<=', $dateTo->copy()->endOfDay()))
+            ->where('status', '!=', \App\Models\ProcurementRequest::STATUS_DRAFT)
+            ->selectRaw('status, count(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+        $requests = collect([
+            ['key' => 'submitted', 'label' => 'For PPMP/APP review', 'value' => (int) ($requestRows[\App\Models\ProcurementRequest::STATUS_SUBMITTED] ?? 0), 'color' => '#eab308'],
+            ['key' => 'forwarded', 'label' => 'Forwarded to the BAC', 'value' => (int) ($requestRows[\App\Models\ProcurementRequest::STATUS_FORWARDED] ?? 0), 'color' => '#0ea5e9'],
+            ['key' => 'in_procurement', 'label' => 'In procurement', 'value' => (int) ($requestRows[\App\Models\ProcurementRequest::STATUS_IN_PROCUREMENT] ?? 0), 'color' => '#10b981'],
+            ['key' => 'returned', 'label' => 'Returned or not approved', 'value' => (int) (($requestRows[\App\Models\ProcurementRequest::STATUS_RETURNED] ?? 0) + ($requestRows[\App\Models\ProcurementRequest::STATUS_REJECTED] ?? 0)), 'color' => '#ef4444'],
+        ]);
+
+        $fees = \App\Models\BiddingFeePayment::query()
+            ->when($dateFrom, fn ($query) => $query->whereDate('paid_at', '>=', $dateFrom->toDateString()))
+            ->when($dateTo, fn ($query) => $query->whereDate('paid_at', '<=', $dateTo->toDateString()));
+
+        $workload = $projects->flatMap(fn (Project $project) => $project->assignments->map(fn ($assignment) => [
+            'staff' => $assignment->staff?->name ?? 'Unassigned',
+            'project' => $project,
+        ]))->groupBy('staff')->map(fn ($rows, $name) => [
+            'name' => $name,
+            'projects' => $rows->count(),
+            'open' => $rows->filter(fn ($row) => in_array($row['project']->status, ['open', 'closed'], true))->count(),
+            'bids' => $rows->sum(fn ($row) => $row['project']->bids->reject(fn (Bid $bid) => $bid->isDraft())->count()),
+        ])->sortByDesc('projects')->take(8)->values()->all();
+
+        return [
+            'abcTotal' => (float) $projects->sum('budget'),
+            'contractTotal' => (float) $projects->sum($contractOf),
+            'feesTotal' => (float) (clone $fees)->sum('amount'),
+            'feesCount' => (clone $fees)->count(),
+            'requestsWaiting' => $requests->whereIn('key', ['submitted', 'forwarded'])->sum('value'),
+            'requestsTotal' => $requests->sum('value'),
+            'requests' => $requests->all(),
+            'byMode' => $byMode,
+            'workload' => $workload,
+        ];
     }
 
     /**

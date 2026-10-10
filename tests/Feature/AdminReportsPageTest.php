@@ -77,3 +77,21 @@ it('exports the same figures to CSV and PDF', function () {
 
     testCase()->actingAs($this->admin)->get(route('admin.reports.print'))->assertOk();
 });
+
+it('shows budget, fees, purchase requests, a per-mode breakdown and staff workload', function () {
+    $admin = \App\Models\User::create(['name' => 'Rep Admin', 'email' => 'rep-extras@example.com', 'password' => \Illuminate\Support\Facades\Hash::make('password'), 'role' => 'admin', 'status' => 'active']);
+    \App\Models\Project::create([
+        'title' => 'Road Works Extra', 'description' => 'x', 'reference_no' => 'SJ-REP-1', 'category' => 'infrastructure',
+        'procurement_mode' => 'public_bidding', 'budget' => 2500000, 'deadline' => now()->addDays(5), 'status' => 'open',
+    ]);
+
+    testCase()->withoutVite();
+    testCase()->actingAs($admin)->get(route('admin.reports'))->assertOk()
+        ->assertSee('Total ABC')->assertSee('₱2,500,000.00')
+        ->assertSee('Bidding fees collected')->assertSee('Purchase requests waiting')
+        ->assertSee('By procurement mode')->assertSee('Public Bidding')
+        ->assertSee('Staff workload');
+
+    testCase()->actingAs($admin)->get(route('admin.reports.export.csv'))->assertOk()
+        ->assertDownload();
+});
