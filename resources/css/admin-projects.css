@@ -760,7 +760,7 @@ body .admin-dashboard.admin-role-page .main-area.projects-page .projects-list-he
 body .admin-dashboard.admin-role-page .main-area.projects-page .projects-table th { background: #f8faf8 !important; }
 body .admin-dashboard.admin-role-page .main-area.projects-page .projects-table td { padding-top: 16px !important; padding-bottom: 16px !important; }
 body .admin-dashboard.admin-role-page .main-area.projects-page .projects-table :is(th, td):nth-child(3) { width: 168px !important; }
-body .admin-dashboard.admin-role-page .main-area.projects-page .projects-table :is(th, td):nth-child(6) { width: 135px !important; }
+body .admin-dashboard.admin-role-page .main-area.projects-page .projects-table :is(th, td):nth-child(6) { width: 184px !important; }
 body .admin-dashboard.admin-role-page .main-area.projects-page .projects-deadline strong { font-variant-numeric: tabular-nums !important; }
 body #viewProjectModal > div { width: min(980px, 100%) !important; }
 body #viewProjectModal .view-project-modal-header { min-height: 0 !important; padding: 20px 68px 18px 26px !important; background: #fff !important; }
