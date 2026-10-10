@@ -281,14 +281,35 @@
 
                         {{-- Final check appears inline; the bidder submits once from the footer. --}}
                         <section class="sb-panel" id="bsm-step-review-{{ $pid }}" role="tabpanel" data-sb-panel="3" aria-labelledby="bsm-review-{{ $pid }}" hidden>
-                            <h3 class="sb-panel-title" id="bsm-review-{{ $pid }}">Final submission check</h3>
-
-                            <div class="sb-review-offer">
-                                <span>Your bid price</span>
-                                <strong data-sb-review-price>&mdash;</strong>
-                                <small data-sb-review-compare></small>
+                            <div class="sb-panel-head">
+                                <div>
+                                    <h3 class="sb-panel-title" id="bsm-review-{{ $pid }}">Final submission check</h3>
+                                    <p class="sb-panel-hint">Look over everything once more. You submit once, from the button below.</p>
+                                </div>
                             </div>
 
+                            <div class="sb-ready" data-sb-ready data-state="pending" role="status" aria-live="polite">
+                                <i class="fas fa-circle-info" aria-hidden="true"></i>
+                                <div>
+                                    <strong data-sb-ready-title>Checking your submission</strong>
+                                    <p data-sb-ready-text></p>
+                                </div>
+                            </div>
+
+                            <div class="sb-review-hero">
+                                <div class="sb-review-offer">
+                                    <span>Your bid price</span>
+                                    <strong data-sb-review-price>&mdash;</strong>
+                                    <small data-sb-review-compare></small>
+                                </div>
+                                <div class="sb-review-tiles">
+                                    <div class="sb-tile" data-sb-tile="technical"><span>Technical files</span><strong>&ndash;</strong><small></small></div>
+                                    <div class="sb-tile" data-sb-tile="financial"><span>Financial files</span><strong>&ndash;</strong><small></small></div>
+                                    @if($electronic)
+                                        <div class="sb-tile" data-sb-tile="pin"><span>Financial PIN</span><strong>&ndash;</strong><small></small></div>
+                                    @endif
+                                </div>
+                            </div>
                             <div class="sb-review-grid">
                                 <div class="sb-review-block">
                                     <div class="sb-review-head"><h4>Technical documents</h4></div>

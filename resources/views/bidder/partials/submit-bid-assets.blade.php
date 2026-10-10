@@ -479,6 +479,44 @@
     .bidder-submit-modal-overlay .sb-pin-warning strong { color: var(--ui-ink); font-size: 13px; }
     .bidder-submit-modal-overlay .sb-pin-warning p { margin: 2px 0 0; color: var(--ui-ink-2); font-size: 12.5px; line-height: 1.5; }
     @media (max-width: 640px) { .bidder-submit-modal-overlay .sb-pin-cells > span { height: 44px; font-size: 19px; } }
+
+    /* ---------- Review & submit ---------- */
+    .bidder-submit-modal-overlay .sb-ready { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border: 1px solid var(--sb-line); border-radius: 12px; background: var(--sb-soft); }
+    .bidder-submit-modal-overlay .sb-ready > i { margin-top: 2px; font-size: 18px; color: var(--ui-muted); }
+    .bidder-submit-modal-overlay .sb-ready strong { color: var(--ui-ink); font-size: 14.5px; }
+    .bidder-submit-modal-overlay .sb-ready p { margin: 2px 0 0; color: var(--ui-ink-2); font-size: 12.5px; line-height: 1.5; }
+    .bidder-submit-modal-overlay .sb-ready[data-state="ready"] { border-color: var(--ui-success-line); background: var(--ui-success-soft); }
+    .bidder-submit-modal-overlay .sb-ready[data-state="ready"] > i { color: var(--ui-success); }
+    .bidder-submit-modal-overlay .sb-ready[data-state="needs"] { border-color: var(--ui-warning-line); background: var(--ui-warning-soft); }
+    .bidder-submit-modal-overlay .sb-ready[data-state="needs"] > i { color: var(--ui-warning); }
+
+    .bidder-submit-modal-overlay .sb-review-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 12px; }
+    .bidder-submit-modal-overlay .sb-review-offer { align-content: center; gap: 4px; padding: 18px 20px; border-radius: 14px; }
+    .bidder-submit-modal-overlay .sb-review-offer span { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .bidder-submit-modal-overlay .sb-review-offer strong { font-size: 30px; font-weight: 800; letter-spacing: -.02em; }
+    .bidder-submit-modal-overlay .sb-review-offer small b { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; }
+    .bidder-submit-modal-overlay .sb-review-offer small b.is-under { background: #fff; color: var(--ui-success); }
+    .bidder-submit-modal-overlay .sb-review-offer small b.is-over { background: #fff; color: var(--ui-danger); }
+    .bidder-submit-modal-overlay .sb-review-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
+    .bidder-submit-modal-overlay .sb-tile { display: grid; align-content: center; gap: 3px; padding: 14px 16px; border: 1px solid var(--sb-line); border-radius: 14px; background: #fff; }
+    .bidder-submit-modal-overlay .sb-tile span { color: var(--ui-muted); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .bidder-submit-modal-overlay .sb-tile strong { color: var(--ui-ink); font-size: 22px; font-variant-numeric: tabular-nums; }
+    .bidder-submit-modal-overlay .sb-tile small { color: var(--ui-muted); font-size: 12px; }
+    .bidder-submit-modal-overlay .sb-tile.is-ok { border-color: var(--ui-success-line); background: var(--ui-success-soft); }
+    .bidder-submit-modal-overlay .sb-tile.is-ok strong { color: var(--ui-success); }
+    .bidder-submit-modal-overlay .sb-tile.is-missing { border-color: var(--ui-danger-line); background: var(--ui-danger-soft, #fdf0ee); }
+    .bidder-submit-modal-overlay .sb-tile.is-missing strong { color: var(--ui-danger); }
+
+    .bidder-submit-modal-overlay .sb-review-block { padding: 0; overflow: hidden; border-radius: 14px; }
+    .bidder-submit-modal-overlay .sb-review-head { margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--sb-line); background: var(--ui-surface-2, #f7faf8); }
+    .bidder-submit-modal-overlay .sb-review-head h4 { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--ui-ink-2); }
+    .bidder-submit-modal-overlay .sb-review-list { gap: 0; }
+    .bidder-submit-modal-overlay .sb-review-list li { padding: 10px 16px; border-top: 1px solid var(--ui-line-soft, #eef2ef); }
+    .bidder-submit-modal-overlay .sb-review-list li:first-child { border-top: 0; }
+    .bidder-submit-modal-overlay .sb-review-list li.is-missing { background: var(--ui-danger-soft, #fdf0ee); }
+    .bidder-submit-modal-overlay .sb-review-pin { margin: 0; padding: 11px 16px; border-top: 1px solid var(--sb-line); }
+    .bidder-submit-modal-overlay .sb-notes { padding: 16px; border-radius: 14px; background: #fff; }
+    @media (max-width: 900px) { .bidder-submit-modal-overlay .sb-review-hero { grid-template-columns: 1fr; } }
 </style>
 
 <script>
@@ -606,6 +644,46 @@
                         return '<li class="' + state + '"><i class="fas ' + icon + '" aria-hidden="true"></i><span>' + escapeHtml(row.label) + '<small>' + escapeHtml(detail) + '</small></span></li>';
                     }).join('');
                 });
+                // Readiness banner and the three summary tiles on the review step.
+                (function () {
+                    const tile = function (name, value, note, state) {
+                        const node = dialog.querySelector('[data-sb-tile="' + name + '"]');
+                        if (!node) return;
+                        node.querySelector('strong').textContent = value;
+                        node.querySelector('small').textContent = note;
+                        node.classList.toggle('is-ok', state === 'ok');
+                        node.classList.toggle('is-missing', state === 'missing');
+                    };
+                    const gaps = [];
+                    ['technical', 'financial'].forEach(function (component) {
+                        const list = rows(component).map(rowState);
+                        const required = list.filter(function (row) { return row.required; });
+                        const ready = required.filter(function (row) { return row.file || row.record; }).length;
+                        const attached = list.filter(function (row) { return row.file || row.record; }).length;
+                        const missing = required.length - ready;
+                        if (electronic && required.length) {
+                            tile(component, ready + ' / ' + required.length, 'required files ready', missing === 0 ? 'ok' : 'missing');
+                            if (missing > 0) gaps.push(missing + ' required ' + component + ' ' + (missing === 1 ? 'file' : 'files'));
+                        } else {
+                            tile(component, String(attached), attached === 1 ? 'file attached' : 'files attached', attached ? 'ok' : '');
+                        }
+                    });
+                    if (!amountOk()) gaps.unshift(amountOf(amount) === null ? 'the bid price' : 'a bid price within the ABC');
+                    if (electronic) {
+                        tile('pin', pinOk() ? 'Set' : 'Not set', pinOk() ? 'Matches in both boxes' : 'Enter and confirm 6 digits', pinOk() ? 'ok' : 'missing');
+                        if (!pinOk()) gaps.push('the 6-digit PIN');
+                    }
+                    const banner = dialog.querySelector('[data-sb-ready]');
+                    if (banner) {
+                        const ready = gaps.length === 0;
+                        banner.dataset.state = ready ? 'ready' : 'needs';
+                        banner.querySelector('i').className = 'fas ' + (ready ? 'fa-circle-check' : 'fa-circle-exclamation');
+                        banner.querySelector('[data-sb-ready-title]').textContent = ready ? 'Ready to submit' : 'Not ready yet';
+                        banner.querySelector('[data-sb-ready-text]').textContent = ready
+                            ? 'Everything the BAC asks for is in place. Check the details below, then submit.'
+                            : 'Still needed: ' + gaps.join(', ') + '.';
+                    }
+                })();
                 const pinLine = dialog.querySelector('[data-sb-review-pin]');
                 if (pinLine) {
                     pinLine.className = 'sb-review-pin ' + (pinOk() ? 'is-ok' : 'is-missing');
