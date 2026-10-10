@@ -31,6 +31,7 @@
     .fee-board > *, .fee-grid > *, .fee-card, .fee-form > * { min-width: 0; }
     .fee-board .fee-input { max-width: 100%; }
     .fee-board select.fee-input { text-overflow: ellipsis; }
+    .fee-select-search { margin-bottom: 6px; }
     .fee-board .fas, .fee-board .far { font-family: "Font Awesome 6 Free" !important; font-weight: 700 !important; }
     .fee-board *, .fee-board *::before, .fee-board *::after { box-sizing: border-box; }
 
@@ -269,7 +270,7 @@
 
                         <div class="fee-field is-wide">
                             <label for="fee-project">Project <span class="fee-req" aria-hidden="true">*</span></label>
-                            <select id="fee-project" name="project_id" class="fee-input @if($recordFormActive && $errors->has('project_id')) is-invalid @endif" required data-fee-project>
+                            <select id="fee-project" name="project_id" class="fee-input @if($recordFormActive && $errors->has('project_id')) is-invalid @endif" required data-fee-project data-fee-searchable="Search by reference or title">
                                 <option value="">Select the project the bidder paid for</option>
                                 @foreach($payableProjects as $project)
                                     <option value="{{ $project->id }}"
@@ -291,7 +292,7 @@
 
                         <div class="fee-field is-wide">
                             <label for="fee-bidder">Bidder <span class="fee-req" aria-hidden="true">*</span></label>
-                            <select id="fee-bidder" name="user_id" class="fee-input @if($recordFormActive && $errors->has('user_id')) is-invalid @endif" required>
+                            <select id="fee-bidder" name="user_id" class="fee-input @if($recordFormActive && $errors->has('user_id')) is-invalid @endif" required data-fee-searchable="Search by company, name or email">
                                 <option value="">Select the approved bidder who paid</option>
                                 @foreach($bidders as $bidder)
                                     <option value="{{ $bidder->id }}" @selected($selectedBidderId === $bidder->id)>
@@ -575,6 +576,42 @@
                 window.setTimeout(function () { alert.remove(); }, 360);
             }, 4500);
         }
+
+        // Long lists (bidders, projects): a search box above the select narrows its options as you type.
+        document.querySelectorAll('select[data-fee-searchable]').forEach(function (select) {
+            const all = Array.from(select.options).map(function (option) { return option.cloneNode(true); });
+            const search = document.createElement('input');
+            search.type = 'search';
+            search.className = 'fee-input fee-select-search';
+            search.placeholder = select.dataset.feeSearchable;
+            search.autocomplete = 'off';
+            search.setAttribute('aria-label', select.dataset.feeSearchable);
+            select.parentNode.insertBefore(search, select);
+
+            search.addEventListener('input', function () {
+                const terms = search.value.toLowerCase().split(/\s+/).filter(Boolean);
+                const keep = select.value;
+                select.innerHTML = '';
+                let shown = 0;
+                all.forEach(function (option, index) {
+                    const text = option.textContent.toLowerCase();
+                    const match = index === 0 || option.value === keep || terms.every(function (term) { return text.indexOf(term) !== -1; });
+                    if (!match) return;
+                    const copy = option.cloneNode(true);
+                    copy.selected = option.value === keep;
+                    select.appendChild(copy);
+                    if (index > 0) shown++;
+                });
+                if (terms.length && shown === 0) {
+                    const none = document.createElement('option');
+                    none.value = '';
+                    none.disabled = true;
+                    none.textContent = 'No match';
+                    select.appendChild(none);
+                }
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        });
 
         // Record form: show the selected project's fee and prefill the amount.
         const recordForm = document.querySelector('[data-fee-record-form]');
