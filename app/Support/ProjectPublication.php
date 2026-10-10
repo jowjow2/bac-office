@@ -72,7 +72,8 @@ final class ProjectPublication
             return $project;
         });
 
-        $this->notifyBidders($published);
+        // A scheduled publication is announced when its time arrives (PublicationNotices::sweep).
+        PublicationNotices::announceIfDue($published);
 
         return $published;
     }
@@ -81,7 +82,7 @@ final class ProjectPublication
      * Tells every approved bidder that a new procurement is open, with a link to
      * it. A failure here never undoes the publication.
      */
-    private function notifyBidders(Project $project): void
+    public function notifyBidders(Project $project): void
     {
         try {
             $mode = $project->mode();

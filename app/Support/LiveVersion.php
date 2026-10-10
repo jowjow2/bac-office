@@ -37,6 +37,20 @@ class LiveVersion
         'bidder.dashboard' => 'bidder-bids',
         'bidder.my-bids' => 'bidder-bids',
         'bidder.awarded-contracts' => 'bidder-bids',
+        // Pages that were not refreshed before: everything with a list or a status on it.
+        'admin.assignments' => 'assignments',
+        'admin.reports' => 'reports',
+        'staff.reports' => 'reports',
+        'admin.audit-logs' => 'audit',
+        'admin.project.view' => 'projects',
+        'admin.bid.view' => 'bids',
+        'staff.bid.view' => 'bids',
+        'staff.review-bids.show' => 'bids',
+        'admin.award.view' => 'awards',
+        'admin.users.review' => 'users',
+        'staff.users.review' => 'users',
+        'bidder.company-profile' => 'bidder-profile',
+        'bidder.opportunities.show' => 'bidder-projects',
     ];
 
     /** Scope => tables (and time checks) it follows. */
@@ -50,6 +64,10 @@ class LiveVersion
         'payments' => ['bidding_fee_payments', 'projects'],
         'bidder-projects' => ['projects', 'project_schedules', 'project_documents', 'bidding_fee_payments', 'own_bids', 'deadlines'],
         'bidder-bids' => ['own_bids', 'awards', 'contract_implementations', 'deadlines'],
+        'assignments' => ['assignments', 'projects', 'users'],
+        'reports' => ['projects', 'project_schedules', 'bids', 'awards', 'bidding_fee_payments', 'procurement_requests', 'users', 'deadlines'],
+        'audit' => ['audit_logs'],
+        'bidder-profile' => ['own_profile'],
     ];
 
     public static function scopeForRoute(?string $routeName): ?string
@@ -68,6 +86,7 @@ class LiveVersion
             $parts[] = match ($source) {
                 'deadlines' => self::deadlines(),
                 'own_bids' => self::table('bids', fn ($query) => $query->where('user_id', $user->id)),
+                'own_profile' => self::table('bidders', fn ($query) => $query->where('user_id', $user->id)).'|'.self::table('users', fn ($query) => $query->where('id', $user->id)),
                 default => self::table($source),
             };
         }

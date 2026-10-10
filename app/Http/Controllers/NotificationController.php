@@ -20,6 +20,7 @@ class NotificationController extends Controller
         // Deadlines that just passed are announced before the feed is read.
         try {
             \App\Support\BiddingClosedNotices::sweep();
+            \App\Support\PublicationNotices::sweep();
         } catch (\Throwable $exception) {
             report($exception);
         }

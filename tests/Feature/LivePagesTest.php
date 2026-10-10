@@ -62,7 +62,23 @@ it('changes the page fingerprint when a record changes or a deadline passes', fu
     testCase()->actingAs($this->admin)->getJson(route('notifications.feed', ['live' => 'bids']))->assertOk()->assertJsonPath('live_version', $version($this->admin, 'bids'));
     testCase()->actingAs($this->admin)->getJson(route('notifications.feed'))->assertOk()->assertJsonPath('live_version', null);
     expect(LiveVersion::scopeForRoute('bidder.available-projects'))->toBe('bidder-projects')
-        ->and(LiveVersion::scopeForRoute('admin.reports'))->toBeNull();
+        ->and(LiveVersion::scopeForRoute('admin.reports'))->toBe('reports')
+        ->and(LiveVersion::scopeForRoute('admin.audit-logs'))->toBe('audit')
+        ->and(LiveVersion::scopeForRoute('admin.assignments'))->toBe('assignments')
+        ->and(LiveVersion::scopeForRoute('bidder.company-profile'))->toBe('bidder-profile')
+        ->and(LiveVersion::scopeForRoute('admin.bid.view'))->toBe('bids')
+        ->and(LiveVersion::scopeForRoute('admin.dashboard.unknown'))->toBeNull();
+
+    // The reports page follows the records it counts, and the profile page only the bidder's own account.
+    $reportsBefore = $version($this->admin, 'reports');
+    $this->project->update(['title' => 'Renamed so the report changes']);
+    expect($version($this->admin, 'reports'))->not->toBe($reportsBefore);
+
+    $profileBefore = $version($this->payer, 'bidder-profile');
+    $this->bidder->update(['name' => 'Someone else changed']);
+    expect($version($this->payer, 'bidder-profile'))->toBe($profileBefore);
+    $this->payer->update(['name' => 'Changed own name']);
+    expect($version($this->payer, 'bidder-profile'))->not->toBe($profileBefore);
 });
 
 it('announces a passed deadline once to the bidders and the BAC', function () {

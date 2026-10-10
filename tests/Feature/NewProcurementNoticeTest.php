@@ -55,3 +55,19 @@ it('tells bidders only once, however many times publish is called', function () 
 
     expect(UserNotification::where('user_id', $this->approved->id)->where('type', 'project_available')->count())->toBe(1);
 });
+
+it('announces a scheduled publication when its time arrives, once', function () {
+    app(ProjectPublication::class)->publish($this->project, $this->admin, now()->addHour());
+
+    // Scheduled for later: nothing is announced yet, so no one is sent to a page they cannot open.
+    expect(UserNotification::where('user_id', $this->approved->id)->where('type', 'project_available')->count())->toBe(0);
+
+    $this->travel(61)->minutes();
+    testCase()->actingAs($this->approved)->getJson(route('notifications.feed'))->assertOk();
+    expect(UserNotification::where('user_id', $this->approved->id)->where('type', 'project_available')->count())->toBe(1);
+
+    // Every later poll leaves it at one.
+    $this->travel(30)->seconds();
+    testCase()->actingAs($this->approved)->getJson(route('notifications.feed'))->assertOk();
+    expect(UserNotification::where('user_id', $this->approved->id)->where('type', 'project_available')->count())->toBe(1);
+});
