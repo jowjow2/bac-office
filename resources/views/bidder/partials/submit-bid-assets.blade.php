@@ -455,18 +455,18 @@
     }
 
     /* ---------- Requirement rows: number, name with its tags, and one action ---------- */
-    .bidder-submit-modal-overlay .sb-files-head { grid-template-columns: 44px minmax(0, 1fr) 150px; padding: 10px 20px; }
+    .bidder-submit-modal-overlay .sb-files-head { grid-template-columns: 42px minmax(0, 1fr) 130px; padding: 8px 16px; }
     .bidder-submit-modal-overlay .sb-files-head span:last-child { text-align: right; }
-    .bidder-submit-modal-overlay .sb-filetable .sb-file { grid-template-columns: 44px minmax(0, 1fr) auto; grid-template-areas: "icon copy actions"; align-items: start; gap: 6px 16px; padding: 18px 20px; }
-    .bidder-submit-modal-overlay .sb-filetable .sb-file-icon { width: 32px; height: 32px; margin-top: 1px; }
-    .bidder-submit-modal-overlay .sb-filetable .sb-file-copy { display: grid; gap: 6px; }
-    .bidder-submit-modal-overlay .sb-filetable .sb-file-title { display: block; font-size: 14px; font-weight: 600; line-height: 1.4; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file { grid-template-columns: 42px minmax(0, 1fr) auto; grid-template-areas: "icon copy actions"; align-items: start; gap: 4px 14px; padding: 11px 16px; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-icon { width: 28px; height: 28px; margin-top: 0; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-copy { display: grid; gap: 3px; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-title { display: block; font-size: 13px; font-weight: 600; line-height: 1.35; }
     .bidder-submit-modal-overlay .sb-file-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
-    .bidder-submit-modal-overlay .sb-file-sub .sb-file-meta { font-size: 12px; line-height: 1.4; }
-    .bidder-submit-modal-overlay .sb-filetable .sb-file-status { display: grid; gap: 2px; margin-top: 2px; }
-    .bidder-submit-modal-overlay .sb-filetable .sb-file-chosen { font-size: 12.5px; }
+    .bidder-submit-modal-overlay .sb-file-sub .sb-file-meta { font-size: 11.5px; line-height: 1.35; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-status { display: grid; gap: 2px; margin-top: 0; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-chosen { font-size: 12px; }
     .bidder-submit-modal-overlay .sb-filetable .sb-file-actions { align-self: center; }
-    .bidder-submit-modal-overlay .sb-filetable .sb-file-actions .sb-btn { min-width: 128px; justify-content: center; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-actions .sb-btn { min-width: 112px; min-height: 30px; justify-content: center; }
     @media (max-width: 760px) {
         .bidder-submit-modal-overlay .sb-filetable .sb-file { grid-template-columns: 34px minmax(0, 1fr); grid-template-areas: "icon copy" "actions actions"; padding: 14px 16px; }
         .bidder-submit-modal-overlay .sb-filetable .sb-file-actions { padding-left: 50px; align-self: start; }
@@ -474,44 +474,66 @@
     }
 
     /* ---------- Technical component as one combined file ---------- */
-    .bidder-submit-modal-overlay .sb-mode { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0 0 14px; }
-    .bidder-submit-modal-overlay .sb-mode-opt { position: relative; display: flex; align-items: flex-start; gap: 11px; padding: 13px 15px; border: 1px solid var(--sb-line); border-radius: 12px; background: #fff; cursor: pointer; transition: border-color .15s ease, background .15s ease, box-shadow .15s ease; }
+    .bidder-submit-modal-overlay .sb-mode { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0 0 10px; }
+    .bidder-submit-modal-overlay .sb-mode-opt { position: relative; display: flex; align-items: flex-start; gap: 9px; padding: 9px 12px; border: 1px solid var(--sb-line); border-radius: 10px; background: #fff; cursor: pointer; transition: border-color .15s ease, background .15s ease, box-shadow .15s ease; }
     .bidder-submit-modal-overlay .sb-mode-opt:hover { border-color: var(--ui-line-strong); }
     .bidder-submit-modal-overlay .sb-mode-opt input { margin: 3px 0 0; accent-color: var(--ui-primary, #1d4f40); }
     .bidder-submit-modal-overlay .sb-mode-opt:has(input:checked) { border-color: var(--ui-primary, #1d4f40); background: var(--ui-success-soft, #eaf6ef); box-shadow: 0 0 0 1px var(--ui-primary, #1d4f40) inset; }
     .bidder-submit-modal-overlay .sb-mode-opt:has(input:focus-visible) { outline: 2px solid var(--ui-primary, #1d4f40); outline-offset: 2px; }
-    .bidder-submit-modal-overlay .sb-mode-copy { display: grid; gap: 2px; }
-    .bidder-submit-modal-overlay .sb-mode-copy strong { color: var(--ui-ink); font-size: 13.5px; }
-    .bidder-submit-modal-overlay .sb-mode-copy small { color: var(--ui-muted); font-size: 12px; line-height: 1.4; }
-    .bidder-submit-modal-overlay .sb-combined { display: grid; gap: 14px; }
+    .bidder-submit-modal-overlay .sb-mode-copy { display: grid; gap: 1px; }
+    .bidder-submit-modal-overlay .sb-mode-copy strong { color: var(--ui-ink); font-size: 13px; }
+    .bidder-submit-modal-overlay .sb-mode-copy small { color: var(--ui-muted); font-size: 11.5px; line-height: 1.35; }
+    .bidder-submit-modal-overlay .sb-combined { display: grid; gap: 10px; }
     .bidder-submit-modal-overlay .sb-combined[hidden], .bidder-submit-modal-overlay [data-sb-separate][hidden] { display: none; }
-    .bidder-submit-modal-overlay .sb-drop { position: relative; display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 22px 22px; border: 2px dashed var(--ui-line-strong, #cfd8d3); border-radius: 14px; background: var(--ui-surface-2, #f7faf8); transition: border-color .15s ease, background .15s ease; }
+    .bidder-submit-modal-overlay .sb-drop { position: relative; display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px; border: 1.5px dashed var(--ui-line-strong, #cfd8d3); border-radius: 10px; background: var(--ui-surface-2, #f7faf8); transition: border-color .15s ease, background .15s ease; }
     .bidder-submit-modal-overlay .sb-drop:hover { border-color: var(--ui-primary, #1d4f40); }
     .bidder-submit-modal-overlay .sb-drop.has-file { border-style: solid; border-color: var(--ui-success-line, #b7dfc8); background: var(--ui-success-soft, #eaf6ef); }
     .bidder-submit-modal-overlay .sb-drop.is-invalid { border-color: var(--ui-danger-line, #f1b9b0); }
-    .bidder-submit-modal-overlay .sb-drop-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px; background: #fff; color: var(--ui-primary, #1d4f40); font-size: 22px; box-shadow: 0 1px 2px rgba(27, 36, 32, .08); }
-    .bidder-submit-modal-overlay .sb-drop-copy { display: grid; gap: 3px; min-width: 0; }
-    .bidder-submit-modal-overlay .sb-drop-copy strong { color: var(--ui-ink); font-size: 14.5px; }
-    .bidder-submit-modal-overlay .sb-drop-copy > span { color: var(--ui-muted); font-size: 12.5px; }
+    .bidder-submit-modal-overlay .sb-drop-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: #fff; color: var(--ui-primary, #1d4f40); font-size: 17px; box-shadow: 0 1px 2px rgba(27, 36, 32, .08); }
+    .bidder-submit-modal-overlay .sb-drop-copy { display: grid; gap: 1px; min-width: 0; }
+    .bidder-submit-modal-overlay .sb-drop-copy strong { color: var(--ui-ink); font-size: 13.5px; }
+    .bidder-submit-modal-overlay .sb-drop-copy > span { color: var(--ui-muted); font-size: 12px; }
     .bidder-submit-modal-overlay .sb-drop-chosen { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .bidder-submit-modal-overlay .sb-drop.has-file .sb-drop-chosen { color: var(--ui-success, #1f7a4d); font-weight: 700; }
     .bidder-submit-modal-overlay .sb-drop-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-    .bidder-submit-modal-overlay .sb-includes { padding: 16px 18px; border: 1px solid var(--sb-line); border-radius: 14px; background: #fff; }
-    .bidder-submit-modal-overlay .sb-includes h4 { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin: 0; color: var(--ui-ink); font-size: 14px; }
-    .bidder-submit-modal-overlay .sb-includes h4 span { color: var(--ui-muted); font-size: 12px; font-weight: 600; }
-    .bidder-submit-modal-overlay .sb-includes > p { margin: 4px 0 0; color: var(--ui-muted); font-size: 12.5px; }
-    .bidder-submit-modal-overlay .sb-includes-list { display: grid; gap: 0; margin: 12px 0 0; padding: 0; list-style: none; }
-    .bidder-submit-modal-overlay .sb-includes-list li { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-top: 1px solid var(--ui-line-soft, #eef2ef); color: var(--ui-ink); font-size: 13.5px; line-height: 1.4; }
+    .bidder-submit-modal-overlay .sb-includes { padding: 11px 14px; border: 1px solid var(--sb-line); border-radius: 10px; background: #fff; }
+    .bidder-submit-modal-overlay .sb-includes h4 { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin: 0; color: var(--ui-ink); font-size: 13px; }
+    .bidder-submit-modal-overlay .sb-includes h4 span { color: var(--ui-muted); font-size: 11.5px; font-weight: 600; }
+    .bidder-submit-modal-overlay .sb-includes > p { margin: 2px 0 0; color: var(--ui-muted); font-size: 12px; }
+    .bidder-submit-modal-overlay .sb-includes-list { display: grid; gap: 0; margin: 8px 0 0; padding: 0; list-style: none; }
+    .bidder-submit-modal-overlay .sb-includes-list li { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-top: 1px solid var(--ui-line-soft, #eef2ef); color: var(--ui-ink); font-size: 12.5px; line-height: 1.35; }
     .bidder-submit-modal-overlay .sb-includes-list li:first-child { border-top: 0; }
-    .bidder-submit-modal-overlay .sb-includes-list small { display: block; margin-top: 2px; color: var(--ui-muted); font-size: 12px; }
-    .bidder-submit-modal-overlay .sb-includes-no { display: grid; flex: 0 0 26px; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--sb-soft); color: var(--ui-ink-2); font-size: 12px; font-weight: 700; }
+    .bidder-submit-modal-overlay .sb-includes-list small { display: block; margin-top: 1px; color: var(--ui-muted); font-size: 11.5px; }
+    .bidder-submit-modal-overlay .sb-includes-no { display: grid; flex: 0 0 22px; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--sb-soft); color: var(--ui-ink-2); font-size: 11px; font-weight: 700; }
     .bidder-submit-modal-overlay .sb-combined.is-filled .sb-includes-no { background: var(--ui-success, #1f7a4d); color: #fff; }
-    .bidder-submit-modal-overlay .sb-includes-extra { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--ui-line-soft, #eef2ef); }
+    .bidder-submit-modal-overlay .sb-includes-extra { margin: 6px 0 0; padding-top: 6px; border-top: 1px solid var(--ui-line-soft, #eef2ef); }
     @media (max-width: 760px) {
         .bidder-submit-modal-overlay .sb-mode { grid-template-columns: 1fr; }
         .bidder-submit-modal-overlay .sb-drop { grid-template-columns: 44px minmax(0, 1fr); padding: 16px; }
         .bidder-submit-modal-overlay .sb-drop-icon { width: 44px; height: 44px; }
         .bidder-submit-modal-overlay .sb-drop-actions { grid-column: 1 / -1; justify-content: flex-start; }
+    }
+
+    /* ---------- Requirement rows in the plain list style of the registration form ---------- */
+    .bidder-submit-modal-overlay .sb-files-head { display: none; }
+    .bidder-submit-modal-overlay .sb-filetable { border-radius: 10px; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file { grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 14px; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-icon { width: 36px; height: 36px; border-radius: 8px; background: var(--sb-soft); color: var(--ui-ink-2); font-size: 14px; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-icon i { display: inline; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-icon::after, .bidder-submit-modal-overlay .sb-filetable .sb-file.has-file .sb-file-icon::after { content: none; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file.has-file .sb-file-icon { background: var(--ui-success, #1f7a4d); color: #fff; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-copy { gap: 1px; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-title { font-size: 13px; }
+    .bidder-submit-modal-overlay .sb-star { color: var(--ui-danger, #b42318); font-weight: 700; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-meta { font-size: 11.5px; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file:not(.has-file) .sb-file-chosen { display: none; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-chosen::before { display: none; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file.has-file .sb-file-chosen { display: block; font-size: 12px; font-weight: 600; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-actions .sb-btn { min-width: 84px; min-height: 30px; padding: 0 12px; font-size: 12.5px; }
+    .bidder-submit-modal-overlay .sb-filetable .sb-file-actions [data-upload-change]::before { content: none; margin: 0; }
+    @media (max-width: 760px) {
+        .bidder-submit-modal-overlay .sb-filetable .sb-file { grid-template-columns: 34px minmax(0, 1fr) auto; padding: 10px 12px; }
+        .bidder-submit-modal-overlay .sb-filetable .sb-file-actions { padding-left: 0; grid-column: auto; }
     }
 
     /* ---------- Financial offer: ABC reference, live budget check, PIN boxes ---------- */

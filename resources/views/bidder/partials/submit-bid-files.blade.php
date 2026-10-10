@@ -1,6 +1,6 @@
 {{-- Upload rows for one bid component; used by submit-bid-modal. --}}
 <div class="sb-filetable">
-<div class="sb-files-head" aria-hidden="true"><span></span><span>Requirement</span><span>File</span></div>
+
 <ul class="sb-files" data-sb-files="{{ $component }}">
     @foreach($items as $item)
         @php
@@ -12,11 +12,8 @@
         <li class="sb-file {{ $onRecord ? 'has-record' : '' }} {{ $fileError ? 'is-invalid' : '' }}" data-upload-box data-label="{{ $item['label'] }}" data-required="{{ $item['required'] ? '1' : '0' }}" data-on-record="{{ $onRecord?->original_name }}">
             <span class="sb-file-icon" aria-hidden="true"><i class="fas {{ $component === 'financial' ? 'fa-file-invoice-dollar' : 'fa-file-shield' }}"></i></span>
             <div class="sb-file-copy">
-                <span class="sb-file-title">{{ $item['label'] }}</span>
-                <span class="sb-file-sub">
-                    <span class="sb-tag {{ $item['required'] ? 'is-required' : '' }}">{{ $item['required'] ? 'Required' : 'If applicable' }}</span>
-                    <span class="sb-file-meta">{{ $item['condition'] ? $item['condition'].' · ' : '' }}PDF, DOC, DOCX, XLS, XLSX</span>
-                </span>
+                <span class="sb-file-title">{{ $item['label'] }}@if($item['required']) <span class="sb-star" aria-label="required">*</span>@endif</span>
+                <span class="sb-file-meta">{{ $item['condition'] ? $item['condition'].' · ' : '' }}{{ $item['required'] ? '' : 'If applicable · ' }}PDF, DOC, DOCX, XLS or XLSX · max {{ (int) round(((int) config('bac-office.registration.max_document_size_kb', 20480)) / 1024) }} MB</span>
                 @if($fileError)
                     <span class="sb-error">{{ $fileError }}</span>
                 @endif
@@ -28,7 +25,7 @@
                 </div>
             </div>
             <div class="sb-file-actions">
-                <button type="button" class="sb-btn sb-btn--secondary sb-btn--sm" data-upload-change>Choose file</button>
+                <button type="button" class="sb-btn sb-btn--secondary sb-btn--sm" data-upload-change>Upload</button>
                 <button type="button" class="sb-btn sb-btn--ghost sb-btn--sm" data-upload-remove hidden>Remove</button>
             </div>
             <input type="file" class="sb-file-input" name="documents[{{ $item['key'] }}]" id="{{ $inputId }}" accept=".pdf,.doc,.docx,.xls,.xlsx" data-upload-input @if($mustUpload) data-required-upload required @endif>
