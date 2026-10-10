@@ -770,3 +770,17 @@
         transition: none;
     }
 }
+
+/* Date and time boxes: the calendar button is always visible, and the whole box opens it (portal.js). */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"] { cursor: pointer; }
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator { display: block; opacity: .75; cursor: pointer; }
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover,
+input[type="month"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }

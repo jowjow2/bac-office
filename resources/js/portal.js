@@ -350,6 +350,23 @@ function setupSteppedForms() {
     });
 }
 
+// Clicking anywhere on a date or time box opens its calendar, not only the small button.
+function setupDatePickers() {
+    document.addEventListener('click', (event) => {
+        const field = event.target;
+        if (!(field instanceof HTMLInputElement) || ! field.matches('input[type="date"], input[type="datetime-local"], input[type="time"], input[type="month"]')) return;
+        if (field.disabled || field.readOnly || typeof field.showPicker !== 'function') return;
+        try {
+            field.showPicker();
+        } catch (error) {
+            // The browser refuses when the box is hidden or already open; typing still works.
+        }
+    });
+}
+
+// Registered at once (not on DOMContentLoaded) so it also covers forms loaded later, like the Edit Project modal.
+setupDatePickers();
+
 // For forms loaded into a page after it starts (e.g. the Edit Project modal).
 window.BacPortal = { setupMoneyInputs };
 
