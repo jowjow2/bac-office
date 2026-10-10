@@ -405,6 +405,26 @@
     .bidder-submit-modal-overlay .sb-file-actions .sb-btn { min-height: 34px; padding: 0 14px; border-radius: 9px; font-size: 12.5px; }
     .bidder-submit-modal-overlay .sb-file-actions [data-upload-change]::before { content: '\f093'; margin-right: 7px; font-family: 'Font Awesome 6 Free'; font-weight: 900; font-size: 11px; }
     @media (max-width: 900px) { .bidder-submit-modal-overlay .sb-files { grid-template-columns: 1fr; } }
+
+    /* ---------- Second pass: slim header, summary scrolls with the form, compact upload rows ---------- */
+    .bidder-submit-modal-overlay .sb-head { padding: 20px 30px 16px; background: #fff; border-bottom: 1px solid var(--sb-line); }
+    .bidder-submit-modal-overlay .sb-title { font-size: 22px; }
+    .bidder-submit-modal-overlay .sb-project { margin-top: 2px; font-size: 14px; }
+    .bidder-submit-modal-overlay .sb-summary { padding: 18px 30px 4px; background: #fff; }
+    .bidder-submit-modal-overlay .sb-summary .sb-seal-note { margin: 0 0 12px; }
+    .bidder-submit-modal-overlay .sb-summary .sb-facts { margin: 0; }
+    .bidder-submit-modal-overlay .sb-context > summary { padding-top: 14px; }
+
+    .bidder-submit-modal-overlay .sb-files { grid-template-columns: 1fr; gap: 8px; }
+    .bidder-submit-modal-overlay .sb-file { grid-template-columns: 44px minmax(0, 1fr) auto; grid-template-areas: "icon copy actions"; align-items: center; gap: 14px; padding: 12px 16px; border-radius: 12px; box-shadow: none; }
+    .bidder-submit-modal-overlay .sb-file-actions { margin: 0; justify-content: flex-end; flex-wrap: nowrap; }
+    .bidder-submit-modal-overlay .sb-file-chosen { margin-top: 2px; }
+    .bidder-submit-modal-overlay .sb-file-title { font-size: 13.5px; }
+    @media (max-width: 640px) {
+        .bidder-submit-modal-overlay .sb-summary { padding: 14px 16px 2px; }
+        .bidder-submit-modal-overlay .sb-file { grid-template-columns: 40px minmax(0, 1fr); grid-template-areas: "icon copy" "actions actions"; }
+        .bidder-submit-modal-overlay .sb-file-actions { justify-content: flex-start; }
+    }
 </style>
 
 <script>

@@ -36,19 +36,6 @@
                 </p>
                 <h2 class="sb-title" id="bid-modal-title-{{ $pid }}">{{ $title }}</h2>
                 <p class="sb-project">{{ $project->title }}</p>
-                <p class="sb-seal-note"><i class="fas fa-shield-halved" aria-hidden="true"></i> Submit both components now. Technical opens at the scheduled bid opening; financial stays sealed until the BAC approves the technical review.</p>
-                <dl class="sb-facts">
-                    <div><dt>Approved budget</dt><dd>&#8369;{{ number_format($abc, 2) }}</dd></div>
-                    <div class="{{ $daysLeftLabel && str_contains($daysLeftLabel, 'today') ? 'is-warn' : '' }}">
-                        <dt>Submission deadline</dt>
-                        <dd>{{ $deadlineLocal ? $deadlineLocal->format('M d, Y · h:i A') : 'Not set' }}@if($daysLeftLabel)<small>{{ ucfirst($daysLeftLabel) }}</small>@endif</dd>
-                    </div>
-                    <div><dt>Bid opening</dt><dd>{{ $openingAt ? $openingAt->format('M d, Y · h:i A') : 'To be announced' }}</dd></div>
-                    <div class="{{ $requiresFee ? ($feePayment ? 'is-ok' : 'is-warn') : '' }}">
-                        <dt>Bidding documents fee</dt>
-                        <dd>@if($requiresFee){{ $feePayment ? 'Paid' : $feeLabel }}<small>{{ $feePayment ? 'OR No. '.$feePayment->or_number : 'Pay at the BAC office' }}</small>@else{{ $project->biddingFeeWaived() ? 'Waived' : 'None' }}@endif</dd>
-                    </div>
-                </dl>
             </div>
             <button type="button" class="sb-close" data-close-modal="bid-modal-{{ $pid }}" aria-label="Close">
                 <i class="fas fa-times" aria-hidden="true"></i>
@@ -56,6 +43,21 @@
         </header>
 
         <div class="sb-body" data-scroll-body>
+            <div class="sb-summary">
+                    <p class="sb-seal-note"><i class="fas fa-shield-halved" aria-hidden="true"></i> Submit both components now. Technical opens at the scheduled bid opening; financial stays sealed until the BAC approves the technical review.</p>
+                    <dl class="sb-facts">
+                        <div><dt>Approved budget</dt><dd>&#8369;{{ number_format($abc, 2) }}</dd></div>
+                        <div class="{{ $daysLeftLabel && str_contains($daysLeftLabel, 'today') ? 'is-warn' : '' }}">
+                            <dt>Submission deadline</dt>
+                            <dd>{{ $deadlineLocal ? $deadlineLocal->format('M d, Y · h:i A') : 'Not set' }}@if($daysLeftLabel)<small>{{ ucfirst($daysLeftLabel) }}</small>@endif</dd>
+                        </div>
+                        <div><dt>Bid opening</dt><dd>{{ $openingAt ? $openingAt->format('M d, Y · h:i A') : 'To be announced' }}</dd></div>
+                        <div class="{{ $requiresFee ? ($feePayment ? 'is-ok' : 'is-warn') : '' }}">
+                            <dt>Bidding documents fee</dt>
+                            <dd>@if($requiresFee){{ $feePayment ? 'Paid' : $feeLabel }}<small>{{ $feePayment ? 'OR No. '.$feePayment->or_number : 'Pay at the BAC office' }}</small>@else{{ $project->biddingFeeWaived() ? 'Waived' : 'None' }}@endif</dd>
+                        </div>
+                    </dl>
+            </div>
             <details class="sb-context" data-sb-notice>
                 <summary>
                     <span class="sb-context-title"><i class="fas fa-circle-info" aria-hidden="true"></i> Project notice &amp; bidding documents</span>
