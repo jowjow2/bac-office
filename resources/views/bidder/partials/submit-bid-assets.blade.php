@@ -453,6 +453,32 @@
         .bidder-submit-modal-overlay .sb-filetable .sb-file { grid-template-columns: 34px minmax(0, 1fr); grid-template-areas: "icon copy" "icon status" "actions actions"; row-gap: 6px; }
         .bidder-submit-modal-overlay .sb-filetable .sb-file-actions { justify-content: flex-start; padding-left: 48px; }
     }
+
+    /* ---------- Financial offer: ABC reference, live budget check, PIN boxes ---------- */
+    .bidder-submit-modal-overlay .sb-abc { display: grid; gap: 2px; margin: 12px 0 0; padding: 10px 12px; border: 1px solid var(--sb-line); border-radius: 10px; background: var(--ui-surface-2, #f7faf8); }
+    .bidder-submit-modal-overlay .sb-abc span { color: var(--ui-muted); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .bidder-submit-modal-overlay .sb-abc strong { color: var(--ui-ink); font-size: 15px; font-variant-numeric: tabular-nums; }
+    .bidder-submit-modal-overlay .sb-compare { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+    .bidder-submit-modal-overlay .sb-compare b { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 999px; font-weight: 700; }
+    .bidder-submit-modal-overlay .sb-compare b.is-under { background: var(--ui-success-soft, #eaf6ef); color: var(--ui-success, #1f7a4d); }
+    .bidder-submit-modal-overlay .sb-compare b.is-over { background: var(--ui-danger-soft, #fdf0ee); color: var(--ui-danger, #b42318); }
+
+    .bidder-submit-modal-overlay .sb-pin-grid { grid-template-columns: 1fr; max-width: 400px; gap: 14px; }
+    .bidder-submit-modal-overlay .sb-pin-control { display: grid; grid-template-columns: minmax(0, 1fr) 36px; align-items: center; gap: 8px; }
+    .bidder-submit-modal-overlay .sb-pin-cells { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; cursor: text; }
+    .bidder-submit-modal-overlay .sb-pin-cells > span { display: grid; place-items: center; height: 50px; border: 1px solid var(--ui-line-strong, #cfd8d3); border-radius: 10px; background: #fff; color: var(--ui-ink); font-size: 22px; font-weight: 700; line-height: 1; transition: border-color .12s ease, box-shadow .12s ease; }
+    .bidder-submit-modal-overlay .sb-pin-cells > span.is-filled { border-color: var(--ui-ink-2); background: var(--ui-surface-2, #f7faf8); }
+    .bidder-submit-modal-overlay .sb-pin-cells > span.is-current { border-color: var(--ui-primary, #1f5c45); box-shadow: 0 0 0 3px rgba(31, 92, 69, .18); }
+    :is(.sb, #sb-x#sb-x) .sb-pin-input.sb-pin-overlay { position: absolute !important; inset: 0 44px 0 0 !important; width: auto !important; min-height: 0 !important; height: 100% !important; padding: 0 !important; border: 0 !important; background: transparent !important; color: transparent !important; -webkit-text-fill-color: transparent !important; caret-color: transparent !important; opacity: .01; cursor: text; }
+    .bidder-submit-modal-overlay .sb-pin-control:has(.sb-pin-input.is-match) .sb-pin-cells > span { border-color: var(--ui-success, #1f7a4d); background: var(--ui-success-soft, #eaf6ef); }
+    .bidder-submit-modal-overlay .sb-pin-control:has(.sb-pin-input.is-mismatch) .sb-pin-cells > span { border-color: var(--ui-danger, #b42318); background: var(--ui-danger-soft, #fdf0ee); }
+    .bidder-submit-modal-overlay .sb-pin-eye { position: static !important; transform: none !important; width: 36px; height: 36px; border: 1px solid var(--sb-line); border-radius: 10px; background: #fff; }
+
+    .bidder-submit-modal-overlay .sb-pin-warning { display: flex; gap: 12px; align-items: flex-start; max-width: 520px; margin-top: 4px; padding: 12px 14px; border: 1px solid var(--ui-warning-line); border-left: 4px solid var(--ui-warning); border-radius: 10px; background: var(--ui-warning-soft); }
+    .bidder-submit-modal-overlay .sb-pin-warning > i { margin-top: 3px; color: var(--ui-warning); }
+    .bidder-submit-modal-overlay .sb-pin-warning strong { color: var(--ui-ink); font-size: 13px; }
+    .bidder-submit-modal-overlay .sb-pin-warning p { margin: 2px 0 0; color: var(--ui-ink-2); font-size: 12.5px; line-height: 1.5; }
+    @media (max-width: 640px) { .bidder-submit-modal-overlay .sb-pin-cells > span { height: 44px; font-size: 19px; } }
 </style>
 
 <script>
@@ -482,6 +508,32 @@
             const amount = form.querySelector('[data-bid-amount]');
             const pins = form.querySelectorAll('[data-pin]');
             let step = 1;
+            // The PIN is typed into one real box (so autofill guards, the eye button and validation keep working);
+            // six boxes show it digit by digit on top.
+            dialog.querySelectorAll('.sb-pin-control').forEach(function (control) {
+                const input = control.querySelector('[data-pin]');
+                if (!input) return;
+                const cells = document.createElement('span');
+                cells.className = 'sb-pin-cells';
+                cells.setAttribute('aria-hidden', 'true');
+                for (let i = 0; i < 6; i += 1) cells.appendChild(document.createElement('span'));
+                control.insertBefore(cells, input);
+                input.classList.add('sb-pin-overlay');
+                const paint = function () {
+                    const value = input.value;
+                    const visible = input.type === 'text';
+                    Array.from(cells.children).forEach(function (cell, index) {
+                        cell.textContent = index < value.length ? (visible ? value[index] : '\u2022') : '';
+                        cell.classList.toggle('is-filled', index < value.length);
+                        cell.classList.toggle('is-current', document.activeElement === input && index === Math.min(value.length, 5));
+                    });
+                };
+                ['input', 'focus', 'blur', 'change'].forEach(function (name) { input.addEventListener(name, paint); });
+                const eye = control.querySelector('[data-pin-toggle]');
+                if (eye) eye.addEventListener('click', function () { window.setTimeout(paint, 0); });
+                cells.addEventListener('click', function () { input.focus(); });
+                paint();
+            });
             function rows(component) {
                 return Array.from(form.querySelectorAll('[data-sb-files="' + component + '"] [data-upload-box]'));
             }
@@ -504,10 +556,9 @@
                 return value !== null && value > 0 && (!abc || value <= abc);
             }
             function compareText(value) {
-                if (value === null || !abc) return '';
-                const diff = (value - abc) / abc * 100;
-                if (Math.abs(diff) < 0.05) return 'Equal to the ABC of ' + peso(abc);
-                return '<b class="' + (diff > 0 ? 'is-over' : 'is-under') + '">' + Math.abs(diff).toFixed(1) + '% ' + (diff > 0 ? 'above' : 'below') + '</b> the ABC of ' + peso(abc);
+                if (value === null || !abc || value <= 0) return '';
+                if (value > abc) return '<b class="is-over"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> Exceeds the ABC by ' + peso(value - abc) + '</b>';
+                return '<b class="is-under"><i class="fas fa-circle-check" aria-hidden="true"></i> Within budget &middot; ' + (value / abc * 100).toFixed(1) + '% of the ABC</b>';
             }
             function stepComplete(n) {
                 if (n === 1) return !rows('technical').some(function (row) { return rowState(row).missing; });

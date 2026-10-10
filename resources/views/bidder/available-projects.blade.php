@@ -2455,7 +2455,8 @@
             });
 
             amount.addEventListener('blur', function () {
-                amount.dataset.touched = 'true';
+                // Leaving an empty box is not a mistake yet; the error waits for typing or a submit attempt.
+                if (amount.value.trim() !== '') amount.dataset.touched = 'true';
                 amount.value = formatBidAmount(amount.value, true);
                 updateBidFormState(form);
             });

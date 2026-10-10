@@ -227,6 +227,7 @@
                                     <div class="sb-offer-label">
                                         <label class="sb-label" for="bid-amount-{{ $pid }}">Bid price <span class="sb-req" aria-hidden="true">*</span></label>
                                         <p class="sb-hint">Exactly as written on your Financial Bid Form.</p>
+                                        <p class="sb-abc"><span>Approved budget (ABC)</span><strong>&#8369;{{ number_format($abc, 2) }}</strong></p>
                                     </div>
                                     <div class="sb-offer-control">
                                         <div class="sb-money">
@@ -262,7 +263,13 @@
                                             </div>
                                             <p class="sb-pin-status" id="pin-status-{{ $pid }}" data-pin-status data-state="idle" role="status" aria-live="polite"><i class="fas fa-circle-info" aria-hidden="true"></i> <span>Type the same 6 digits in both boxes.</span></p>
                                             <span class="sb-error" data-pin-error role="alert">@if(old('project_id') == $pid){{ $errors->first('financial_password') }}@endif</span>
-                                            <p class="sb-pin-note"><i class="fas fa-lock" aria-hidden="true"></i> Keep it safe. Do not write it in your bid documents or send it by email.</p>
+                                            <div class="sb-pin-warning" role="note">
+                                                <i class="fas fa-key" aria-hidden="true"></i>
+                                                <div>
+                                                    <strong>The BAC cannot recover this PIN.</strong>
+                                                    <p>Without it your financial component cannot be opened. Write it down somewhere safe, and do not put it in your bid documents or send it by email.</p>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 @endif
