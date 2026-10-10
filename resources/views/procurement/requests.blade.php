@@ -1,7 +1,7 @@
 @extends('layouts.portal')
 
 @section('title', 'Purchase requests')
-@section('subtitle', 'Check each request against the PPMP/APP and the available funds, then forward it to the BAC or return it to the end-user office with remarks.')
+@section('subtitle', 'Check each request against the PPMP/APP and the available funds, then forward it to the BAC or return it with remarks to the BAC admin, who asks the office for a corrected copy.')
 
 @php
     $tz = config('bac-office.display_timezone');
