@@ -465,7 +465,7 @@
                 <div class="ci-warranty-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ (int) $wProgress }}" aria-label="Warranty elapsed"><span style="width: {{ $wProgress }}%"></span></div>
                 <div class="ci-warranty-foot">
                     <strong>{{ $wState === 'released' ? 'Completed' : ($wLeft >= 0 ? $wLeft.' '.\Illuminate\Support\Str::plural('day', $wLeft).' left' : 'Ended '.abs($wLeft).' '.\Illuminate\Support\Str::plural('day', abs($wLeft)).' ago') }}</strong>
-                    <span>{{ $retention > 0 ? $peso($retention).' retention money is held until the warranty ends.' : ($securityAmount ? $peso($securityAmount).' special bank guarantee covers the warranty.' : '') }}</span>
+                    <span>{{ $wState === 'released' ? ($retention > 0 ? $peso($retention).' retention money was released on '.$implementation->warranty_released_on->format('M d, Y').'.' : 'The warranty security was released on '.$implementation->warranty_released_on->format('M d, Y').'.') : ($retention > 0 ? $peso($retention).' retention money is held until the warranty ends.' : ($securityAmount ? $peso($securityAmount).' special bank guarantee covers the warranty.' : '')) }}</span>
                 </div>
             </div>
         @endif
