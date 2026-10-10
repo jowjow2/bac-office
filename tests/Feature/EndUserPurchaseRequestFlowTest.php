@@ -233,3 +233,21 @@ it('keeps the form and explains a failed attachment upload instead of a server e
     // Tried three times, and nothing was half-saved.
     expect($attempts)->toBe(3)->and(ProcurementRequest::count())->toBe(0);
 });
+
+it('opens the first queue that has something waiting, and shows a one-line all-clear', function () {
+    // Nothing recorded yet: all requests.
+    testCase()->actingAs($this->admin)->get(route('admin.requests'))->assertOk()->assertSee('aria-current="page"', false);
+
+    ProcurementRequest::create(array_merge($this->details, ['reference_no' => 'PR-2026-0700', 'end_user_office' => 'Municipal Engineering Office', 'status' => ProcurementRequest::STATUS_FORWARDED, 'title' => 'Forwarded one']));
+    // Only a forwarded request: that queue opens by itself.
+    testCase()->actingAs($this->admin)->get(route('admin.requests'))->assertOk()->assertSee('Forwarded one');
+
+    // A request waiting for review takes priority over the forwarded one.
+    ProcurementRequest::create(array_merge($this->details, ['reference_no' => 'PR-2026-0701', 'end_user_office' => 'Municipal Engineering Office', 'status' => ProcurementRequest::STATUS_SUBMITTED, 'title' => 'Waiting one']));
+    testCase()->actingAs($this->admin)->get(route('admin.requests'))->assertOk()->assertSee('Waiting one')->assertDontSee('Forwarded one');
+
+    // Opening the empty review queue by hand explains in one line where the requests went.
+    ProcurementRequest::where('reference_no', 'PR-2026-0701')->delete();
+    testCase()->actingAs($this->admin)->get(route('admin.requests', ['tab' => 'review']))->assertOk()
+        ->assertSee('Nothing waiting for your review.')->assertSee('1 forwarded to the BAC');
+});

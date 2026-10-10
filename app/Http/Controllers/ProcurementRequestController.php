@@ -103,8 +103,31 @@ class ProcurementRequestController extends Controller
     public function queue(Request $request)
     {
         $role = $this->role($request);
-        $tab = in_array($request->query('tab'), ['review', 'bac', 'returned', 'procurement', 'all'], true) ? $request->query('tab') : 'review';
         $search = trim((string) $request->query('q', ''));
+
+        // The search also narrows the tab counts, so a search shows which queue holds the request.
+        $matchesSearch = fn ($query) => $query->when($search !== '', fn ($query) => $query->where(fn ($inner) => $inner
+            ->where('title', 'like', '%'.$search.'%')
+            ->orWhere('reference_no', 'like', '%'.$search.'%')
+            ->orWhere('end_user_office', 'like', '%'.$search.'%')));
+
+        $counts = ProcurementRequest::query()
+            ->tap($matchesSearch)
+            ->selectRaw('status, count(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+        $tabCounts = [
+            'review' => (int) ($counts[ProcurementRequest::STATUS_SUBMITTED] ?? 0),
+            'bac' => (int) ($counts[ProcurementRequest::STATUS_FORWARDED] ?? 0),
+            'returned' => (int) (($counts[ProcurementRequest::STATUS_RETURNED] ?? 0) + ($counts[ProcurementRequest::STATUS_REJECTED] ?? 0)),
+            'procurement' => (int) ($counts[ProcurementRequest::STATUS_IN_PROCUREMENT] ?? 0),
+        ];
+
+        // Without a chosen tab, open the first queue that has something waiting.
+        $tab = $request->query('tab');
+        if (! in_array($tab, ['review', 'bac', 'returned', 'procurement', 'all'], true)) {
+            $tab = collect(['review', 'bac', 'returned'])->first(fn ($key) => $tabCounts[$key] > 0) ?? 'all';
+        }
 
         $statuses = match ($tab) {
             'review' => [ProcurementRequest::STATUS_SUBMITTED],
@@ -114,12 +137,6 @@ class ProcurementRequestController extends Controller
             default => array_values(array_diff(array_keys(ProcurementRequest::STATUSES), [ProcurementRequest::STATUS_DRAFT])),
         };
 
-        // The search also narrows the tab counts, so a search shows which queue holds the request.
-        $matchesSearch = fn ($query) => $query->when($search !== '', fn ($query) => $query->where(fn ($inner) => $inner
-            ->where('title', 'like', '%'.$search.'%')
-            ->orWhere('reference_no', 'like', '%'.$search.'%')
-            ->orWhere('end_user_office', 'like', '%'.$search.'%')));
-
         $requests = ProcurementRequest::with(['project', 'requester', 'budgetConfirmer', 'documents'])
             ->whereIn('status', $statuses)
             ->tap($matchesSearch)
@@ -127,25 +144,13 @@ class ProcurementRequestController extends Controller
             ->orderBy('submitted_at')
             ->paginate(15)
             ->withQueryString();
-
-        $counts = ProcurementRequest::query()
-            ->tap($matchesSearch)
-            ->selectRaw('status, count(*) as total')
-            ->groupBy('status')
-            ->pluck('total', 'status');
-
         return view('procurement.requests', [
             'routePrefix' => $role,
             'requests' => $requests,
             'tab' => $tab,
             'search' => $search,
             'drafts' => (int) ProcurementRequest::where('status', ProcurementRequest::STATUS_DRAFT)->count(),
-            'counts' => [
-                'review' => (int) ($counts[ProcurementRequest::STATUS_SUBMITTED] ?? 0),
-                'bac' => (int) ($counts[ProcurementRequest::STATUS_FORWARDED] ?? 0),
-                'returned' => (int) (($counts[ProcurementRequest::STATUS_RETURNED] ?? 0) + ($counts[ProcurementRequest::STATUS_REJECTED] ?? 0)),
-                'procurement' => (int) ($counts[ProcurementRequest::STATUS_IN_PROCUREMENT] ?? 0),
-            ],
+            'counts' => $tabCounts,
         ]);
     }
 

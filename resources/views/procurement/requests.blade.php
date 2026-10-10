@@ -35,7 +35,7 @@
             @foreach($tabs as $key => [$label, $count])
                 <a class="ui-tab" href="{{ route($routePrefix.'.requests', array_filter(['tab' => $key, 'q' => $search])) }}" @if($tab === $key) aria-current="page" @endif>
                     {{ $label }}
-                    @if($count !== null)<span class="ui-tab__count">{{ $count }}</span>@endif
+                    @if($count !== null)<span class="ui-tab__count {{ in_array($key, ['review', 'returned'], true) && $count > 0 ? 'is-alert' : '' }}">{{ $count }}</span>@endif
                 </a>
             @endforeach
         </nav>
@@ -55,6 +55,15 @@
                 // Queues where the search does find something.
                 $elsewhere = $search === '' ? [] : array_filter($tabs, fn ($entry, $key) => $key !== $tab && $entry[1] > 0, ARRAY_FILTER_USE_BOTH);
             @endphp
+            @if($search === '' && $tab === 'review' && ($counts['bac'] + $counts['procurement']) > 0)
+                {{-- Nothing to review: say where the requests went, in one line. --}}
+                <p class="pr-allclear"><i class="fas fa-circle-check" aria-hidden="true"></i>
+                    <strong>Nothing waiting for your review.</strong>
+                    <a class="ui-link" href="{{ route($routePrefix.'.requests', ['tab' => 'bac']) }}">{{ $counts['bac'] }} forwarded to the BAC</a>
+                    &middot;
+                    <a class="ui-link" href="{{ route($routePrefix.'.requests', ['tab' => 'procurement']) }}">{{ $counts['procurement'] }} in procurement</a>
+                </p>
+            @else
             <div class="ui-empty">
                 <i class="fas fa-inbox" aria-hidden="true"></i>
                 <strong>{{ $search !== '' ? 'No requests in '.$tabs[$tab][0].' match "'.$search.'"' : ($tab === 'review' ? 'Nothing waiting for your review' : 'This queue is empty') }}</strong>
@@ -82,6 +91,7 @@
                     @endif
                 </span>
             </div>
+            @endif
         @else
             <div class="ui-table-wrap">
                 <table class="ui-table ui-table--stack">
@@ -293,3 +303,11 @@
     @endif
 @endsection
 
+@push('head')
+<style>
+    .ui-tab__count.is-alert { background: var(--ui-warning-soft); color: var(--ui-warning); }
+    .pr-allclear { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0; padding: 18px 20px; color: var(--ui-muted); font-size: 13.5px; }
+    .pr-allclear > i { color: var(--ui-success); }
+    .pr-allclear strong { color: var(--ui-ink); }
+</style>
+@endpush
