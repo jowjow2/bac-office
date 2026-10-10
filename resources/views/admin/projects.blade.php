@@ -338,7 +338,7 @@
             <p class="projects-assign__empty">No active staff accounts yet. Approve a staff registration in Manage users first.</p>
             <div class="portal-signout__actions">
                 <button type="button" class="portal-signout__button" data-dialog-close>Close</button>
-                <a href="{{ route('admin.users') }}" class="portal-signout__button is-primary" style="display:grid;place-items:center;text-decoration:none">Suppliers &amp; users</a>
+                <a href="{{ route('admin.users') }}" class="portal-signout__button is-primary" style="display:grid;place-items:center;text-decoration:none">Manage users</a>
             </div>
         @else
             <label class="projects-assign__field">
