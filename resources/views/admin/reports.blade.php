@@ -123,6 +123,8 @@
         .report-analytics-page .ra-list li { display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 12px !important; min-width: 0 !important; padding: 9px 0 !important; border-top: 1px solid var(--ui-line-soft) !important; }
         .report-analytics-page .ra-list li:first-child { padding-top: 0 !important; border-top: 0 !important; }
         .report-analytics-page .ra-list strong { overflow: hidden !important; color: var(--ui-ink-2) !important; font-size: 12.5px !important; font-weight: 600 !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
+        .report-analytics-page .ra-list li > a.ra-link { display: block !important; flex: 1 1 auto !important; min-width: 0 !important; overflow: hidden !important; }
+        .report-analytics-page .ra-list li > a.ra-link strong { display: block !important; }
         .report-analytics-page .ra-list span { flex: 0 0 auto !important; color: var(--ui-subtle) !important; font-size: 11.5px !important; }
         .report-analytics-page .ra-reason { padding: 3px 9px !important; border-radius: 999px !important; font-size: 11.5px !important; font-weight: 600 !important; white-space: nowrap !important; }
         .report-analytics-page .ra-reason.is-danger { background: #fef2f2 !important; color: #b91c1c !important; }
