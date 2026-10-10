@@ -152,11 +152,17 @@ it('runs the Goods implementation from signed terms through completion with priv
     testCase()->actingAs($this->supplier)->get(route('contract-implementation.document', $deliveryEvent))->assertOk();
     testCase()->actingAs($this->staff)->get(route('contract-implementation.document', $deliveryEvent))->assertOk();
 
+    // The supplier's open contract view notices what the LGU records, and it does not hold the live reload.
+    $supplierBefore = \App\Support\LiveVersion::for('bidder-bids', $this->supplier);
+    $this->travel(2)->seconds();
+    testCase()->actingAs($this->supplier)->get(route('bidder.awarded-contracts', ['contract' => $award->id]))->assertOk()->assertSee('data-live-reload', false);
+
     ($this->lguAction)($award, 'receive', [
         'actual_received_on' => now()->toDateString(),
         'received_quantities' => [2, 1],
     ])->assertSessionHasNoErrors();
-    expect($implementation->fresh()->status)->toBe(ContractImplementation::FOR_INSPECTION);
+    expect($implementation->fresh()->status)->toBe(ContractImplementation::FOR_INSPECTION)
+        ->and(\App\Support\LiveVersion::for('bidder-bids', $this->supplier))->not->toBe($supplierBefore);
 
     ($this->lguAction)($award, 'inspect', [
         'outcome' => 'accepted',

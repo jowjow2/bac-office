@@ -284,6 +284,10 @@
             function reloadWhenIdle() {
                 if (!liveReloadPending || pageIsBusy()) return;
                 liveReloadPending = false;
+                // A contract that is open on screen changes under the reader: say so after it reloads.
+                if (document.querySelector('dialog[open][data-live-reload]')) {
+                    try { sessionStorage.setItem(LIVE_TOAST_KEY, 'This contract was just updated.'); } catch (error) {}
+                }
                 window.location.reload();
             }
 
