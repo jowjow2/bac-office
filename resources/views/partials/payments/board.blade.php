@@ -166,6 +166,14 @@
     body .admin-dashboard .main-area a.hd-export:hover { border-color: var(--ui-primary) !important; background: var(--ui-primary-soft) !important; }
     body .admin-dashboard .main-area :is(button.pay-record, a.hd-export) i { color: inherit !important; -webkit-text-fill-color: currentColor !important; font-size: 12px !important; }
 
+    .fee-report-dialog { width: min(1040px, calc(100vw - 24px)); height: min(880px, calc(100dvh - 24px)); max-height: none; overflow: hidden; border-radius: 16px; }
+    .fee-report-dialog[open] { display: grid; grid-template-rows: auto minmax(0, 1fr); animation: fee-rise .26s cubic-bezier(.2, .8, .2, 1) both; }
+    .fee-report-dialog::backdrop { background: rgba(15, 25, 21, .55); backdrop-filter: blur(2px); }
+    .fee-report-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--fee-line); }
+    .fee-report-head h2 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+    .fee-report-frame { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+    @media (max-width: 760px) { .fee-report-dialog { width: 100vw; height: 100dvh; max-width: none; border-radius: 0; } }
+
     @media (max-width: 1180px) {
         .fee-board .fee-stat { border-bottom: 1px solid var(--fee-line); }
         .fee-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -482,6 +490,14 @@
         @endif
     </section>
 
+    <dialog class="fee-dialog fee-report-dialog" id="fee-report-dialog" aria-labelledby="fee-report-title">
+        <div class="fee-report-head">
+            <h2 id="fee-report-title">Collection report</h2>
+            <button type="button" class="fee-dialog-close" data-fee-report-close aria-label="Close"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+        </div>
+        <iframe class="fee-report-frame" title="Bidding documents fee collection report" data-fee-report-frame data-src="{{ route($routePrefix . '.payments.report', ['embed' => 1]) }}"></iframe>
+    </dialog>
+
     <dialog class="fee-dialog" id="fee-edit-dialog" aria-labelledby="fee-edit-title">
         <form method="POST" action="#" data-fee-edit-form novalidate>
             @csrf
@@ -611,6 +627,25 @@
             @if($recordFormActive)
                 openRecord();
             @endif
+        }
+
+        // Collection report: shown over the page; the frame loads on first open.
+        const reportDialog = document.getElementById('fee-report-dialog');
+        if (reportDialog) {
+            const frame = reportDialog.querySelector('[data-fee-report-frame]');
+            document.querySelectorAll('[data-fee-open-report]').forEach(function (link) {
+                link.addEventListener('click', function (event) {
+                    event.preventDefault();
+                    if (!frame.getAttribute('src')) frame.setAttribute('src', frame.dataset.src);
+                    if (typeof reportDialog.showModal === 'function') reportDialog.showModal(); else reportDialog.setAttribute('open', '');
+                });
+            });
+            reportDialog.querySelectorAll('[data-fee-report-close]').forEach(function (button) {
+                button.addEventListener('click', function () { reportDialog.close ? reportDialog.close() : reportDialog.removeAttribute('open'); });
+            });
+            reportDialog.addEventListener('click', function (event) {
+                if (event.target === reportDialog && reportDialog.close) reportDialog.close();
+            });
         }
 
         // Edit dialog, filled from the row's data attributes.

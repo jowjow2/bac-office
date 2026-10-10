@@ -16,6 +16,9 @@
         .bar label { color: var(--muted); font-size: 12px; font-weight: 600; }
         .bar input[type=date] { height: 36px; padding: 0 10px; border: 1px solid #cfd8d3; border-radius: 9px; font: inherit; color: var(--ink); }
         .chips a.is-on { border-color: var(--green); background: var(--green-soft); color: var(--green); }
+        body.is-embed { background: #fff; }
+        body.is-embed .bar { padding: 10px 20px; }
+        body.is-embed .sheet { max-width: none; margin: 0; border: 0; border-radius: 0; }
         .sheet { max-width: 980px; margin: 24px auto; padding: 36px 40px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
         .head { display: flex; justify-content: space-between; gap: 16px; padding-bottom: 16px; border-bottom: 2px solid var(--green); }
         .head h1 { margin: 0; font-size: 21px; letter-spacing: -.01em; }
@@ -46,9 +49,11 @@
         }
     </style>
 </head>
-<body>
+<body class="{{ request()->boolean('embed') ? 'is-embed' : '' }}">
 @php
     $peso = fn ($value) => '₱'.number_format((float) $value, 2);
+    $embed = request()->boolean('embed');
+    $keep = $embed ? ['embed' => 1] : [];
     $label = $all ? 'All dates' : ($from->isSameDay($to) ? $from->format('F j, Y') : $from->format('M j, Y').' – '.$to->format('M j, Y'));
     $today = now($zone)->startOfDay();
     $presets = [
@@ -59,14 +64,15 @@
 @endphp
 
 <div class="bar">
-    <a href="{{ route($routePrefix.'.payments') }}">&larr; Back to payments</a>
+    @unless($embed)<a href="{{ route($routePrefix.'.payments') }}">&larr; Back to payments</a>@endunless
     <span class="chips" style="display:inline-flex; gap:8px; flex-wrap:wrap;">
         @foreach($presets as $name => $range)
-            <a href="{{ route($routePrefix.'.payments.report', $range) }}" class="{{ ! $all && $from->toDateString() === $range['from'] && $to->toDateString() === $range['to'] ? 'is-on' : '' }}">{{ $name }}</a>
+            <a href="{{ route($routePrefix.'.payments.report', $range + $keep) }}" class="{{ ! $all && $from->toDateString() === $range['from'] && $to->toDateString() === $range['to'] ? 'is-on' : '' }}">{{ $name }}</a>
         @endforeach
-        <a href="{{ route($routePrefix.'.payments.report', ['all' => 1]) }}" class="{{ $all ? 'is-on' : '' }}">All time</a>
+        <a href="{{ route($routePrefix.'.payments.report', ['all' => 1] + $keep) }}" class="{{ $all ? 'is-on' : '' }}">All time</a>
     </span>
     <form method="GET" action="{{ route($routePrefix.'.payments.report') }}">
+        @if($embed)<input type="hidden" name="embed" value="1">@endif
         <label for="from">From</label><input type="date" id="from" name="from" value="{{ ($from ?? $today)->toDateString() }}">
         <label for="to">To</label><input type="date" id="to" name="to" value="{{ ($to ?? $today)->toDateString() }}">
         <button type="submit">Apply</button>
