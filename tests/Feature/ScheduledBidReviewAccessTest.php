@@ -141,3 +141,17 @@ it('blocks pending and rejected technical reviews and requires the correct bidde
         ->get(route('admin.bid.component-file', [$pending, ($this->doc)($pending, 'financial')]))->assertOk();
     testCase()->actingAs($this->admin)->get(route('admin.bid.document.pdf', [$pending, 'proposal']))->assertOk();
 });
+it('lets the BAC Admin record the opening rules from the financial opening step that asks for them', function () {
+    $project = ($this->project)('RULES-GATE', now('Asia/Manila')->subMinute());
+    $project->forceFill(['award_criterion' => null, 'opening_documents_reference' => null])->save();
+    $bid = ($this->bid)($project, 'Rules Builder', 640000.00);
+    $bid->forceFill(['documents_validated_at' => now(), 'documents_validated_by' => $this->admin->id, 'workflow_step' => Bid::STEP_DOCUMENTS_VALIDATED])->save();
+
+    $modal = testCase()->actingAs($this->admin)->withHeader('X-Requested-With', 'XMLHttpRequest')
+        ->get(route('admin.bid.view', $bid))->assertOk()->getContent();
+
+    expect($modal)->toContain('Open the financial quotation')
+        ->toContain('Award criteria and the bidding-documents reference must be recorded first.')
+        ->toContain('Record opening rules')
+        ->toContain(route('admin.project.bid-opening-rules', $project));
+});
