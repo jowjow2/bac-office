@@ -18,13 +18,13 @@
         @if($isStaff)
             <x-page-header title="Review bids & quotations" subtitle="Submissions for the projects assigned to you. Check each technical document; the BAC Admin records the opening and every review decision.">
                 <x-slot:actions>
-                    <button type="button" class="ui-btn ui-btn--secondary" data-open-export-modal><i class="fas fa-file-export" aria-hidden="true"></i> Export</button>
+                    <button type="button" class="ui-btn ui-btn--secondary hd-export" data-open-export-modal><i class="fas fa-file-export" aria-hidden="true"></i> Export</button>
                 </x-slot:actions>
             </x-page-header>
         @else
             <x-page-header title="Bid management" subtitle="Review and evaluate all submitted bids">
                 <x-slot:actions>
-                    <button type="button" class="ui-btn ui-btn--secondary" data-open-export-modal><i class="fas fa-file-export" aria-hidden="true"></i> Export</button>
+                    <button type="button" class="ui-btn ui-btn--secondary hd-export" data-open-export-modal><i class="fas fa-file-export" aria-hidden="true"></i> Export</button>
                 </x-slot:actions>
             </x-page-header>
         @endif

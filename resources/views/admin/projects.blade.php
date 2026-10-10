@@ -12,7 +12,7 @@
         <x-page-header title="Projects & biddings" subtitle="Create, publish and track procurement projects">
             <x-slot:actions>
                 @if(($projectTotals['all'] ?? 0) > 0 || ($showArchived ?? false) || ($search ?? '') !== '' || ($status ?? '') !== '')
-                    <button type="button" class="ui-btn ui-btn--secondary pj-export" data-open-export-modal><i class="fas fa-file-export" aria-hidden="true"></i> Export</button>
+                    <button type="button" class="ui-btn ui-btn--secondary hd-export" data-open-export-modal><i class="fas fa-file-export" aria-hidden="true"></i> Export</button>
                 @endif
                 <a href="{{ route('admin.projects.create') }}" class="ui-btn ui-btn--primary pj-create"><i class="fas fa-plus" aria-hidden="true"></i> Create project</a>
             </x-slot:actions>

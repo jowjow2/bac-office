@@ -3154,3 +3154,8 @@ body #bidViewModal .br .br-btn--revision:hover { background: var(--ui-warning-so
 /* The note under Evaluation Actions explains the process. */
 #bidViewModal .br-blocked { background: var(--ui-primary-soft); border: 1px solid var(--ui-primary-line); color: var(--ui-primary); }
 #bidViewModal .br-blocked i { color: var(--ui-primary); }
+
+/* Export button in the page header (Projects, Bids). */
+body .admin-dashboard .main-area button.hd-export { display: inline-flex !important; align-items: center !important; gap: 8px !important; height: 38px !important; padding: 0 16px !important; border: 1px solid var(--ui-line-strong, #d5ddd8) !important; border-radius: 9px !important; background: #fff !important; color: var(--ui-ink-2, #2d3a34) !important; -webkit-text-fill-color: var(--ui-ink-2, #2d3a34) !important; font: 600 13.5px/1 var(--ui-font, inherit) !important; cursor: pointer !important; box-shadow: none !important; }
+body .admin-dashboard .main-area button.hd-export:hover { border-color: var(--ui-primary, #1f5c45) !important; background: var(--ui-primary-soft, #e8f3ee) !important; color: var(--ui-primary, #1f5c45) !important; -webkit-text-fill-color: var(--ui-primary, #1f5c45) !important; }
+body .admin-dashboard .main-area button.hd-export i { color: inherit !important; -webkit-text-fill-color: currentColor !important; font-size: 12px !important; }
