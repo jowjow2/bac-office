@@ -536,6 +536,28 @@
         .bidder-submit-modal-overlay .sb-filetable .sb-file-actions { padding-left: 0; grid-column: auto; }
     }
 
+    /* ---------- Compact dialog chrome: smaller header, step tabs, panel head and footer ---------- */
+    @media (min-width: 761px) {
+        .bidder-submit-modal-overlay .sb { width: min(940px, calc(100vw - 32px)); border-radius: 14px; }
+        .bidder-submit-modal-overlay .sb-head { padding: 14px 24px 12px; }
+        .bidder-submit-modal-overlay .sb-title { font-size: 19px; line-height: 1.2; }
+        .bidder-submit-modal-overlay .sb-project { margin-top: 2px; font-size: 13px; }
+        .bidder-submit-modal-overlay .sb-main { padding: 0 24px 18px; }
+        .bidder-submit-modal-overlay .sb-form { gap: 12px; }
+        .bidder-submit-modal-overlay .sb-steps { gap: 8px; margin: 0 -24px 14px; padding: 8px 24px; }
+        .bidder-submit-modal-overlay .sb-step { gap: 9px; min-height: 40px; padding: 5px 11px; border-radius: 9px; }
+        .bidder-submit-modal-overlay .sb-step__number { flex-basis: 22px; width: 22px; height: 22px; font-size: 11px; }
+        .bidder-submit-modal-overlay .sb-step strong { font-size: 12.5px; }
+        .bidder-submit-modal-overlay .sb-step small { margin-top: 0; font-size: 10.5px; }
+        .bidder-submit-modal-overlay .sb-panel { gap: 10px; }
+        .bidder-submit-modal-overlay .sb-panel-head { padding-bottom: 8px; }
+        .bidder-submit-modal-overlay .sb-panel-title { font-size: 15px; }
+        .bidder-submit-modal-overlay .sb-panel-hint { font-size: 12px; line-height: 1.4; }
+        .bidder-submit-modal-overlay .sb-count { padding: 3px 10px; font-size: 11.5px; }
+        .bidder-submit-modal-overlay .sb-foot { padding: 10px 24px; }
+        .bidder-submit-modal-overlay .sb-foot .sb-btn { min-height: 36px; font-size: 13px; }
+    }
+
     /* ---------- Financial offer: ABC reference, live budget check, PIN boxes ---------- */
     .bidder-submit-modal-overlay .sb-abc { display: grid; gap: 2px; margin: 12px 0 0; padding: 10px 12px; border: 1px solid var(--sb-line); border-radius: 10px; background: var(--ui-surface-2, #f7faf8); }
     .bidder-submit-modal-overlay .sb-abc span { color: var(--ui-muted); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
