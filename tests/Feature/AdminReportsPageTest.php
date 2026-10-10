@@ -95,3 +95,23 @@ it('shows budget, fees, purchase requests, a per-mode breakdown and staff worklo
     testCase()->actingAs($admin)->get(route('admin.reports.export.csv'))->assertOk()
         ->assertDownload();
 });
+
+it('compares the chosen range with the range of the same length just before it', function () {
+    $admin = \App\Models\User::create(['name' => 'Cmp Admin', 'email' => 'rep-compare@example.com', 'password' => \Illuminate\Support\Facades\Hash::make('password'), 'role' => 'admin', 'status' => 'active']);
+    $make = fn (string $ref, string $created) => tap(\App\Models\Project::create([
+        'title' => 'Project '.$ref, 'description' => 'x', 'reference_no' => $ref, 'category' => 'goods',
+        'procurement_mode' => 'public_bidding', 'budget' => 100000, 'deadline' => now()->addDays(5), 'status' => 'open',
+    ]), fn ($project) => $project->forceFill(['created_at' => $created])->save());
+
+    // Previous range (Sep 1-10): 1 project. Chosen range (Sep 11-20): 2 projects.
+    $make('PRV-1', '2026-09-05 10:00:00');
+    $make('CUR-1', '2026-09-12 10:00:00');
+    $make('CUR-2', '2026-09-15 10:00:00');
+
+    testCase()->withoutVite();
+    testCase()->actingAs($admin)->get(route('admin.reports', ['date_from' => '2026-09-11', 'date_to' => '2026-09-20']))->assertOk()
+        ->assertSee('Changes are against')->assertSee('Sep 1, 2026 – Sep 10, 2026')->assertSee('▲ 100.0%');
+
+    // Without a range there is nothing to compare with.
+    testCase()->actingAs($admin)->get(route('admin.reports'))->assertOk()->assertDontSee('Changes are against');
+});

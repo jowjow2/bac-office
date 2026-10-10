@@ -3446,7 +3446,66 @@ public function destroyUser(User $user)
             'upcomingSchedule' => $this->buildReportUpcomingSchedule($projects),
             'bidderTotals' => ['registered' => $bidderUsers->count(), 'blacklisted' => $blacklistedBidders->count()],
             'extras' => $this->buildReportExtras($projects, $dateFrom, $dateTo),
+            'comparison' => $this->buildReportComparison($dateFrom, $dateTo, $selectedStatus, $selectedProcurementType),
         ] + $charts;
+    }
+
+    /**
+     * The figures of the chosen range set against the range of the same length
+     * just before it. Only when both dates are set; otherwise there is nothing to
+     * compare with.
+     *
+     * @return ?array{label: string, metrics: array<string, array{current: float, previous: float, change: ?float}>}
+     */
+    protected function buildReportComparison(?\Carbon\Carbon $dateFrom, ?\Carbon\Carbon $dateTo, ?string $status, ?string $type): ?array
+    {
+        if (! $dateFrom || ! $dateTo) {
+            return null;
+        }
+
+        $days = $dateFrom->copy()->startOfDay()->diffInDays($dateTo->copy()->startOfDay()) + 1;
+        $previousTo = $dateFrom->copy()->startOfDay()->subDay();
+        $previousFrom = $previousTo->copy()->subDays($days - 1);
+
+        $snapshot = function (\Carbon\Carbon $from, \Carbon\Carbon $to) use ($status, $type): array {
+            $projects = Project::query()
+                ->with(['bids', 'awards'])
+                ->where('created_at', '>=', $from->copy()->startOfDay())
+                ->where('created_at', '<=', $to->copy()->endOfDay())
+                ->when($status, fn ($query) => $query->where('status', $status))
+                ->when($type, fn ($query) => $query->where('procurement_mode', $type))
+                ->get();
+            $inForce = fn (Project $project) => $project->awards->reject(fn ($award) => $award->isCancelled());
+
+            return [
+                'projects' => (float) $projects->count(),
+                'bids' => (float) $projects->flatMap(fn ($project) => $project->bids)->reject(fn (Bid $bid) => $bid->isDraft())->count(),
+                'awarded' => (float) $projects->filter(fn (Project $project) => $project->awards->isNotEmpty())->count(),
+                'abc' => (float) $projects->sum('budget'),
+                'contract' => (float) $projects->sum(fn (Project $project) => $inForce($project)->sum('contract_amount')),
+                'fees' => (float) \App\Models\BiddingFeePayment::query()
+                    ->whereDate('paid_at', '>=', $from->toDateString())
+                    ->whereDate('paid_at', '<=', $to->toDateString())
+                    ->sum('amount'),
+                'requests' => (float) \App\Models\ProcurementRequest::query()
+                    ->where('status', '!=', \App\Models\ProcurementRequest::STATUS_DRAFT)
+                    ->where('created_at', '>=', $from->copy()->startOfDay())
+                    ->where('created_at', '<=', $to->copy()->endOfDay())
+                    ->count(),
+            ];
+        };
+
+        $current = $snapshot($dateFrom, $dateTo);
+        $previous = $snapshot($previousFrom, $previousTo);
+
+        return [
+            'label' => $previousFrom->format('M j, Y').' – '.$previousTo->format('M j, Y'),
+            'metrics' => collect($current)->map(fn ($value, $key) => [
+                'current' => $value,
+                'previous' => $previous[$key],
+                'change' => $previous[$key] > 0 ? round(($value - $previous[$key]) / $previous[$key] * 100, 1) : null,
+            ])->all(),
+        ];
     }
 
     /**
