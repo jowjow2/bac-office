@@ -105,6 +105,15 @@
 
     .ci-card { min-width: 0; padding: 16px 18px 18px; border: 1px solid var(--ui-line, #e5e0d4); border-radius: var(--ui-radius-lg, 8px); background: var(--ui-surface, #fff); }
     .ci-card-head { margin-bottom: 14px; }
+    .ci-linkbtn { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 0; border: 0; background: none; color: var(--ui-primary, #1d4f40); font-size: var(--ui-text-xs, 11.5px); font-weight: 700; cursor: pointer; }
+    .ci-linkbtn:hover { text-decoration: underline; }
+    .ci-warranty-bar { height: 10px; overflow: hidden; border-radius: 999px; background: var(--ui-line-soft, #eef2ef); }
+    .ci-warranty-bar span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #1d4f40, #2f7d63); }
+    .ci-warranty.is-soon .ci-warranty-bar span { background: linear-gradient(90deg, #b7791f, #d69e2e); }
+    .ci-warranty.is-ended .ci-warranty-bar span { background: var(--ui-info, #1f4f86); }
+    .ci-warranty-foot { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 14px; margin-top: 9px; font-size: var(--ui-text-sm, 12.5px); }
+    .ci-warranty-foot strong { color: var(--ui-ink, #1b2420); font-size: 15px; }
+    .ci-warranty-foot span { color: var(--ui-muted, #5b6761); }
     .ci-card-head h3 { color: var(--ui-ink, #1b2420); font-size: var(--ui-text-lg, 15px); font-weight: 700; line-height: 1.3; }
     .ci-card-head p { margin-top: 3px; color: var(--ui-muted, #5b6761); font-size: var(--ui-text-sm, 12.5px); line-height: 1.5; }
 
@@ -413,7 +422,53 @@
                     @endif
                 </div>
             @endif
+            @if($configured && \App\Models\ContractImplementation::performanceSecurityAvailable())
+                @php
+                    $psRecorded = $implementation->performanceSecurityRecorded();
+                    $psUntil = $implementation->performance_security_valid_until;
+                    $psLeft = $psUntil ? (int) today()->diffInDays($psUntil, false) : null;
+                @endphp
+                <div>
+                    <dt>Performance security</dt>
+                    @if(! $psRecorded)
+                        <dd class="is-pending">Not recorded yet</dd>
+                    @elseif($implementation->performance_security_form === 'not_required')
+                        <dd>Not required <small class="is-ok">For this contract</small></dd>
+                    @else
+                        <dd>
+                            {{ $peso($implementation->performance_security_amount) }} · {{ $implementation->performanceSecurityLabel() }}
+                            <small class="{{ $psLeft < 0 ? 'is-late' : ($psLeft <= 30 ? 'is-soon' : 'is-ok') }}">{{ $psLeft < 0 ? 'Expired '.$psUntil->format('M d, Y') : 'Valid until '.$psUntil->format('M d, Y').' ('.$psLeft.' '.\Illuminate\Support\Str::plural('day', $psLeft).' left)' }}</small>
+                            @if($implementation->performance_security_reference)<small>Ref. {{ $implementation->performance_security_reference }}</small>@endif
+                        </dd>
+                    @endif
+                    @if($isLgu && $status !== CI::COMPLETED)
+                        <button type="button" class="ci-linkbtn" data-ci-step="{{ $step('security') }}"><i class="fas fa-pen" aria-hidden="true"></i> {{ $psRecorded ? 'Update' : 'Record it' }}</button>
+                    @endif
+                </div>
+            @endif
         </dl>
+
+        @if($implementation?->hasWarrantyTerms() && $warrantyEnds)
+            {{-- The warranty is a period that runs from acceptance, alongside payment: shown as a countdown. --}}
+            @php
+                $wLeft = (int) today()->diffInDays($warrantyEnds, false);
+                $wProgress = $implementation->warrantyProgress() ?? 0;
+                $wState = $implementation->warranty_released_on ? 'released' : ($wLeft < 0 ? 'ended' : ($wLeft <= 30 ? 'soon' : 'running'));
+            @endphp
+            <div class="ci-card ci-warranty is-{{ $wState }}">
+                <div class="ci-card-head">
+                    <h3>Warranty
+                        <span class="ci-pill {{ ['released' => 'is-success', 'ended' => 'is-info', 'soon' => 'is-warning', 'running' => 'is-success'][$wState] }}">{{ ['released' => 'Security released', 'ended' => 'Ended', 'soon' => 'Ending soon', 'running' => 'Running'][$wState] }}</span>
+                    </h3>
+                    <p>{{ $implementation->warranty_months }} months from acceptance ({{ $implementation->accepted_on->format('M d, Y') }}) until {{ $warrantyEnds->format('M d, Y') }}. {{ $implementation->supplyTypeLabel() }}.</p>
+                </div>
+                <div class="ci-warranty-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ (int) $wProgress }}" aria-label="Warranty elapsed"><span style="width: {{ $wProgress }}%"></span></div>
+                <div class="ci-warranty-foot">
+                    <strong>{{ $wState === 'released' ? 'Completed' : ($wLeft >= 0 ? $wLeft.' '.\Illuminate\Support\Str::plural('day', $wLeft).' left' : 'Ended '.abs($wLeft).' '.\Illuminate\Support\Str::plural('day', abs($wLeft)).' ago') }}</strong>
+                    <span>{{ $retention > 0 ? $peso($retention).' retention money is held until the warranty ends.' : ($securityAmount ? $peso($securityAmount).' special bank guarantee covers the warranty.' : '') }}</span>
+                </div>
+            </div>
+        @endif
 
         @if($showDamages)
             {{-- Liquidated damages: IRR Sec. 71.1.4 --}}
@@ -779,6 +834,62 @@
             </x-ci-step-dialog>
         @endif
 
+        @if($configured && \App\Models\ContractImplementation::performanceSecurityAvailable() && $status !== CI::COMPLETED)
+            <x-ci-step-dialog :id="$step('security')" eyebrow="Record the performance security" :title="$stepTitle" :meta="$stepMeta" :reopen="$failed('security')"
+                :steps="['Choose the form the supplier posted before signing the contract.', 'Enter its amount, how long it is valid and the bond or check number.', 'Attach a copy if you have one and record it. The supplier is notified.']">
+                @include('partials.contract-implementation-step-error', ['key' => 'security'])
+                <div class="ci-card">
+                <form class="ci-form" method="POST" action="{{ route($actionRoute, $award) }}" enctype="multipart/form-data" data-ci-security-form>
+                    @csrf
+                    <input type="hidden" name="ci_award" value="{{ $award->id }}">
+                    <input type="hidden" name="ci_form" value="security">
+                    <input type="hidden" name="action" value="performance_security">
+                    <p class="ci-hint">The performance security is usually {{ \App\Models\ContractImplementation::PERFORMANCE_SECURITIES['cash']['percent'] }}% of the contract price ({{ $peso($contractPrice * 0.05) }}) in cash, check, bank draft or letter of credit, or {{ \App\Models\ContractImplementation::PERFORMANCE_SECURITIES['surety_bond']['percent'] }}% ({{ $peso($contractPrice * 0.30) }}) as a surety bond. Confirm the rate in the Bidding Documents.</p>
+                    <div class="ci-grid">
+                        <div class="ci-field is-wide">
+                            <label class="ci-label" for="{{ $uid }}-ps-form">Form of security <span class="ci-req" aria-hidden="true">*</span></label>
+                            <select class="ci-input" id="{{ $uid }}-ps-form" name="performance_security_form" required data-ci-ps-form @if($err('performance_security_form')) aria-invalid="true" @endif>
+                                <option value="">Choose the form</option>
+                                @foreach(\App\Models\ContractImplementation::PERFORMANCE_SECURITIES as $key => $option)
+                                    <option value="{{ $key }}" data-percent="{{ $option['percent'] }}" @selected(($old('performance_security_form') ?: $implementation->performance_security_form) === $key)>{{ $option['label'] }}</option>
+                                @endforeach
+                            </select>
+                            @if($err('performance_security_form'))<span class="ci-error">{{ $err('performance_security_form') }}</span>@endif
+                        </div>
+                        <div class="ci-field" data-ci-ps-detail>
+                            <label class="ci-label" for="{{ $uid }}-ps-amount">Amount (₱) <span class="ci-req" aria-hidden="true">*</span></label>
+                            <input class="ci-input" type="number" step="0.01" min="0.01" id="{{ $uid }}-ps-amount" name="performance_security_amount" value="{{ $old('performance_security_amount') ?: $implementation->performance_security_amount }}" data-price="{{ $contractPrice }}" @if($err('performance_security_amount')) aria-invalid="true" @endif>
+                            @if($err('performance_security_amount'))<span class="ci-error">{{ $err('performance_security_amount') }}</span>@endif
+                        </div>
+                        <div class="ci-field" data-ci-ps-detail>
+                            <label class="ci-label" for="{{ $uid }}-ps-until">Valid until <span class="ci-req" aria-hidden="true">*</span></label>
+                            <input class="ci-input" type="date" id="{{ $uid }}-ps-until" name="performance_security_valid_until" value="{{ $old('performance_security_valid_until') ?: $implementation->performance_security_valid_until?->toDateString() }}" min="{{ today()->toDateString() }}" @if($err('performance_security_valid_until')) aria-invalid="true" @endif>
+                            @if($err('performance_security_valid_until'))<span class="ci-error">{{ $err('performance_security_valid_until') }}</span>@endif
+                        </div>
+                        <div class="ci-field is-wide" data-ci-ps-detail>
+                            <label class="ci-label" for="{{ $uid }}-ps-ref">Bond, check or reference no.</label>
+                            <input class="ci-input" id="{{ $uid }}-ps-ref" name="performance_security_reference" maxlength="120" value="{{ $old('performance_security_reference') ?: $implementation->performance_security_reference }}" placeholder="e.g. Surety bond no. SB-2026-0412">
+                        </div>
+                        <div class="ci-field is-wide">
+                            <label class="ci-label" for="{{ $uid }}-ps-remarks">Remarks <span class="ci-req" aria-hidden="true">*</span></label>
+                            <textarea class="ci-input" id="{{ $uid }}-ps-remarks" name="remarks" rows="2" maxlength="2000" required>{{ $old('remarks') }}</textarea>
+                            @if($err('remarks'))<span class="ci-error">{{ $err('remarks') }}</span>@endif
+                        </div>
+                        <div class="ci-field is-wide">
+                            <label class="ci-label" for="{{ $uid }}-ps-file">Copy of the security <span class="ci-hint">(optional)</span></label>
+                            <input class="ci-input" type="file" id="{{ $uid }}-ps-file" name="document" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                            @if($err('document'))<span class="ci-error">{{ $err('document') }}</span>@endif
+                        </div>
+                    </div>
+                    <div class="ci-form-foot">
+                        <p>The supplier is notified. You can correct it until the contract is completed.</p>
+                        <button class="ci-btn is-primary" type="submit"><i class="fas fa-shield-halved" aria-hidden="true"></i> Record performance security</button>
+                    </div>
+                </form>
+                </div>
+            </x-ci-step-dialog>
+        @endif
+
         @if($canExtend)
             @php
                 $original = $implementation->delivery_deadline;
@@ -955,6 +1066,18 @@
         });
 
         // Step modals: open from the "Next step" card, close with the X or a click outside.
+        // Performance security: "not required" hides the amount and dates; a form suggests its usual amount.
+        document.addEventListener('change', function (event) {
+            const select = event.target.closest('[data-ci-ps-form]');
+            if (!select) return;
+            const form = select.closest('form');
+            const none = select.value === 'not_required';
+            form.querySelectorAll('[data-ci-ps-detail]').forEach(function (box) { box.hidden = none; });
+            const amount = form.querySelector('[name="performance_security_amount"]');
+            const percent = Number(select.selectedOptions[0]?.dataset.percent || 0);
+            if (!none && percent && amount && amount.value === '') amount.value = (Number(amount.dataset.price) * percent / 100).toFixed(2);
+        });
+
         document.addEventListener('click', function (event) {
             const opener = event.target.closest('[data-ci-step]');
             if (opener) {

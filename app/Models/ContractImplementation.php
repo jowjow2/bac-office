@@ -39,11 +39,22 @@ class ContractImplementation extends Model
 
     public const DEFAULT_WARRANTY_PERCENT = 1.0;
 
+    /** Forms of the performance security, and the usual share of the contract price (confirm with the Bidding Documents). */
+    public const PERFORMANCE_SECURITIES = [
+        'cash' => ['label' => 'Cash', 'percent' => 5],
+        'check' => ['label' => 'Manager\'s or cashier\'s check', 'percent' => 5],
+        'bank_draft' => ['label' => 'Bank draft or guarantee', 'percent' => 5],
+        'letter_of_credit' => ['label' => 'Irrevocable letter of credit', 'percent' => 5],
+        'surety_bond' => ['label' => 'Surety bond', 'percent' => 30],
+        'not_required' => ['label' => 'Not required for this contract', 'percent' => 0],
+    ];
+
     protected $fillable = [
         'award_id', 'status', 'delivery_deadline', 'revised_deadline', 'extension_keeps_ld', 'delivery_location', 'contract_items',
         'supply_type', 'warranty_months', 'warranty_security', 'warranty_percent', 'accepted_on', 'warranty_released_on',
         'signed_contract_reference', 'signed_contract_file_path', 'signed_contract_file_name',
         'configured_by', 'configured_at',
+        'performance_security_form', 'performance_security_amount', 'performance_security_valid_until', 'performance_security_reference',
     ];
 
     protected $casts = [
@@ -55,6 +66,8 @@ class ContractImplementation extends Model
         'warranty_percent' => 'decimal:2',
         'accepted_on' => 'date',
         'warranty_released_on' => 'date',
+        'performance_security_amount' => 'decimal:2',
+        'performance_security_valid_until' => 'date',
         'configured_at' => 'datetime',
     ];
 
@@ -71,6 +84,36 @@ class ContractImplementation extends Model
     public function damagesDeadline(): ?\Illuminate\Support\Carbon
     {
         return $this->extension_keeps_ld ? $this->delivery_deadline : $this->effectiveDeadline();
+    }
+
+    /** False until the database update that adds the performance security columns has been applied. */
+    public static function performanceSecurityAvailable(): bool
+    {
+        static $available = null;
+
+        return $available ??= \Illuminate\Support\Facades\Schema::hasColumn((new self)->getTable(), 'performance_security_form');
+    }
+
+    public function performanceSecurityRecorded(): bool
+    {
+        return self::performanceSecurityAvailable() && filled($this->performance_security_form);
+    }
+
+    public function performanceSecurityLabel(): ?string
+    {
+        return self::PERFORMANCE_SECURITIES[$this->performance_security_form]['label'] ?? null;
+    }
+
+    /** How much of the warranty has run, 0 to 100, for the countdown bar. */
+    public function warrantyProgress(): ?float
+    {
+        $ends = $this->warrantyEndsOn();
+        if (! $ends || ! $this->accepted_on) {
+            return null;
+        }
+        $total = max(1, $this->accepted_on->diffInDays($ends));
+
+        return round(min(100, max(0, $this->accepted_on->diffInDays(today(), false) / $total * 100)), 1);
     }
 
     public function hasWarrantyTerms(): bool

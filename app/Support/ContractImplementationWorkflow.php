@@ -142,6 +142,46 @@ class ContractImplementationWorkflow
         });
     }
 
+    /** The performance security the supplier posted before the contract was signed; may be corrected until completion. */
+    public function recordPerformanceSecurity(Award $award, User $actor, array $input, ?UploadedFile $document): ContractImplementation
+    {
+        if (! ContractImplementation::performanceSecurityAvailable()) {
+            throw ValidationException::withMessages(['performance_security_form' => 'The database update for the performance security has not been applied yet.']);
+        }
+        $implementation = $this->ensure($award);
+
+        return DB::transaction(function () use ($implementation, $award, $actor, $input, $document) {
+            $record = ContractImplementation::query()->lockForUpdate()->findOrFail($implementation->id);
+            if ($record->status === ContractImplementation::COMPLETED) {
+                throw ValidationException::withMessages(['status' => 'The contract is already completed.']);
+            }
+            $this->assertConfigured($record);
+
+            $form = $input['performance_security_form'];
+            $required = $form !== 'not_required';
+            $record->fill([
+                'performance_security_form' => $form,
+                'performance_security_amount' => $required ? round((float) $input['performance_security_amount'], 2) : null,
+                'performance_security_valid_until' => $required ? Carbon::parse($input['performance_security_valid_until'], 'Asia/Manila')->toDateString() : null,
+                'performance_security_reference' => $required ? trim((string) ($input['performance_security_reference'] ?? '')) ?: null : null,
+            ])->save();
+
+            $file = $this->storeDocument($document);
+            $this->writeEvent($record, $actor, 'performance_security_recorded', $record->status, $record->status, $input['remarks'] ?? null, [
+                'performance_security_form' => $form,
+                'performance_security_amount' => $record->performance_security_amount,
+                'performance_security_valid_until' => $record->performance_security_valid_until?->toDateString(),
+                'performance_security_reference' => $record->performance_security_reference,
+            ], $document ? $file : null);
+
+            $this->notifySupplier($award, 'Performance security recorded', $required
+                ? 'The LGU recorded your performance security ('.$record->performanceSecurityLabel().', valid until '.$record->performance_security_valid_until->format('M d, Y').').'
+                : 'The LGU recorded that a performance security is not required for this contract.');
+
+            return $record->fresh(['events.actor']);
+        });
+    }
+
     public function supplierDelivery(Award $award, User $supplier, array $input, UploadedFile $document, bool $correction = false): ContractImplementation
     {
         $implementation = $this->ensure($award);

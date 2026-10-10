@@ -70,13 +70,30 @@ class ContractImplementationController extends Controller
     {
         $this->authorizeLgu($award);
         $action = $request->input('action');
-        $allowed = ['extend', 'receive', 'inspect', 'payment_processing', 'paid', 'complete'];
+        $allowed = ['extend', 'receive', 'inspect', 'payment_processing', 'paid', 'complete', 'performance_security'];
         abort_unless(in_array($action, $allowed, true), 422);
 
         $common = [
             'remarks' => ['required', 'string', 'max:2000'],
             'document' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:20480'],
         ];
+
+        if ($action === 'performance_security') {
+            $notRequired = $request->input('performance_security_form') === 'not_required';
+            $validated = $request->validate([
+                'performance_security_form' => ['required', Rule::in(array_keys(ContractImplementation::PERFORMANCE_SECURITIES))],
+                'performance_security_amount' => [$notRequired ? 'nullable' : 'required', 'numeric', 'gt:0', 'max:9999999999999'],
+                'performance_security_valid_until' => [$notRequired ? 'nullable' : 'required', 'date', 'after_or_equal:today'],
+                'performance_security_reference' => ['nullable', 'string', 'max:120'],
+                'remarks' => ['required', 'string', 'max:2000'],
+                'document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:20480'],
+            ], [
+                'performance_security_valid_until.after_or_equal' => 'The performance security must still be valid today.',
+            ]);
+            $this->workflow->recordPerformanceSecurity($award, Auth::user(), $validated, $request->file('document'));
+
+            return $this->back($request, $award, 'The performance security was recorded.');
+        }
 
         if ($action === 'extend') {
             $validated = $request->validate($common + [

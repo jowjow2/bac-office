@@ -21,6 +21,7 @@ class NotificationController extends Controller
         try {
             \App\Support\BiddingClosedNotices::sweep();
             \App\Support\PublicationNotices::sweep();
+            \App\Support\WarrantyNotices::sweep();
         } catch (\Throwable $exception) {
             report($exception);
         }

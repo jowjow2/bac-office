@@ -453,3 +453,60 @@ it('fills the contract terms form from the project, its purchase request and the
         ->assertSee('value="Toner cartridge"', false)
         ->assertSee('Filled in from the project and its purchase request.');
 });
+
+it('records the performance security, validates it, and shows it to the supplier', function () {
+    $award = ($this->makeAward)();
+    ($this->configure)($award)->assertSessionHasNoErrors();
+    $record = fn (array $data = []) => ($this->lguAction)($award, 'performance_security', array_merge([
+        'performance_security_form' => 'surety_bond',
+        'performance_security_amount' => 148500,
+        'performance_security_valid_until' => now()->addMonths(6)->toDateString(),
+        'performance_security_reference' => 'SB-2026-0412',
+    ], $data));
+
+    $record(['performance_security_amount' => ''])->assertSessionHasErrors('performance_security_amount');
+    $record(['performance_security_valid_until' => now()->subDay()->toDateString()])->assertSessionHasErrors('performance_security_valid_until');
+    $record(['performance_security_form' => 'gold'])->assertSessionHasErrors('performance_security_form');
+    $record()->assertSessionHasNoErrors();
+
+    $implementation = ContractImplementation::where('award_id', $award->id)->firstOrFail();
+    expect($implementation->performance_security_form)->toBe('surety_bond')
+        ->and((float) $implementation->performance_security_amount)->toBe(148500.0)
+        ->and($implementation->performance_security_reference)->toBe('SB-2026-0412')
+        ->and($implementation->events()->where('action', 'performance_security_recorded')->exists())->toBeTrue();
+
+    // "Not required" needs no amount or date.
+    $record(['performance_security_form' => 'not_required', 'performance_security_amount' => '', 'performance_security_valid_until' => ''])->assertSessionHasNoErrors();
+    expect($implementation->fresh()->performance_security_amount)->toBeNull();
+    $record()->assertSessionHasNoErrors();
+
+    testCase()->actingAs($this->admin)->get(route('admin.awards.index', ['contract' => $award->id]))
+        ->assertOk()->assertSee('Performance security')->assertSee('Surety bond');
+});
+
+it('reminds the BAC and the supplier once before the warranty ends and once after', function () {
+    $award = ($this->makeAward)();
+    ($this->configure)($award)->assertSessionHasNoErrors();
+    $implementation = ContractImplementation::where('award_id', $award->id)->firstOrFail();
+    $implementation->forceFill(['accepted_on' => now()->subMonths(12)->addDays(10)->toDateString(), 'warranty_months' => 12])->save();
+
+    $sweep = function () {
+        \Illuminate\Support\Facades\Cache::forget('live:warranty-sweep');
+        \App\Support\WarrantyNotices::sweep();
+    };
+    $titles = fn (User $user) => \App\Models\UserNotification::where('user_id', $user->id)->pluck('title')->all();
+
+    $sweep();
+    $sweep();
+    expect(array_count_values($titles($this->supplier))['Warranty ending soon'] ?? 0)->toBe(1)
+        ->and(array_count_values($titles($this->admin))['Warranty ending soon'] ?? 0)->toBe(1)
+        ->and(array_count_values($titles($this->staff))['Warranty ending soon'] ?? 0)->toBe(1);
+
+    $implementation->forceFill(['accepted_on' => now()->subMonths(13)->toDateString()])->save();
+    $sweep();
+    $sweep();
+    expect(array_count_values($titles($this->supplier))['Warranty ended'] ?? 0)->toBe(1);
+
+    $implementation->forceFill(['warranty_released_on' => today()->toDateString()])->save();
+    expect(\App\Models\UserNotification::where('title', 'Warranty ended')->count())->toBe(3);
+});
