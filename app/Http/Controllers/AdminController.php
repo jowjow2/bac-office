@@ -147,21 +147,24 @@ class AdminController extends Controller
             $stream = fopen('php://output', 'w');
             $safeText = static fn ($value) => preg_match('/^[\s]*[=+@-]|^[\t\r\n]/u', (string) $value)
                 ? "'".(string) $value : (string) $value;
-            fputcsv($stream, ['Project', 'Budget (PHP)', 'Deadline', 'Staff', 'Bids', 'Status'], ',', '"', '');
+            fputcsv($stream, ['Reference No.', 'Project', 'Procurement Mode', 'Budget (PHP)', 'Submission Deadline', 'Bid Opening', 'Staff', 'Bids', 'Status'], ',', '"', '');
             foreach ($projects as $project) {
                 $staff = $project->assignments->first()?->staff?->name ?? 'Unassigned';
                 $status = $this->projectExportStatus($project);
                 fputcsv($stream, [
+                    $safeText($project->reference_no),
                     $safeText($project->title),
+                    $safeText($project->mode()->label()),
                     number_format((float) $project->budget, 2, '.', ''),
-                    $project->deadline?->format('Y-m-d') ?? '',
+                    $project->deadline?->format('Y-m-d H:i') ?? '',
+                    $project->schedule?->bid_opening_date?->format('Y-m-d H:i') ?? '',
                     $safeText($staff),
                     (int) $project->bids_count,
                     $safeText($status['label']),
                 ], ',', '"', '');
             }
             fclose($stream);
-        }, 'projects-'.now()->format('Y-m-d_H-i-s').'.csv', [
+        }, 'projects-'.now()->format('Y-m-d').'.csv', [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }
@@ -176,7 +179,7 @@ class AdminController extends Controller
     private function filteredProjectsQuery(string $search, string $status, bool $showArchived)
     {
         return Project::withCount('bids')
-            ->with(['assignments.staff', 'documents', 'bids:id,project_id,bid_amount,financial_opened_at,financial_opened_by'])
+            ->with(['assignments.staff', 'schedule', 'documents', 'bids:id,project_id,bid_amount,financial_opened_at,financial_opened_by'])
             ->when($showArchived, function ($query) {
                 $query->whereNotNull('archived_at');
             }, function ($query) {
@@ -812,7 +815,7 @@ class AdminController extends Controller
                 ], ',', '"', '');
             }
             fclose($stream);
-        }, 'selected-bids.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }, 'bids-'.now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     /**

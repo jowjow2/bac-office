@@ -235,7 +235,8 @@ if (root && root.dataset.bidManagementReady !== '1') {
         if (event.target === exportModal) closeExportModal();
     });
     exportConfirm.addEventListener('click', confirmExport);
-    root.querySelector('[data-open-export-modal]').addEventListener('click', event => openExportModal(event.currentTarget));
+    // The trigger may sit in the page header, outside the toolbar root.
+    document.querySelectorAll('[data-open-export-modal]').forEach(button => button.addEventListener('click', event => openExportModal(event.currentTarget)));
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape' && !exportModal.hidden) closeExportModal();
     });

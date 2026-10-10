@@ -158,7 +158,7 @@ it('exports exactly the selection and escapes spreadsheet formulas', function ()
     $response = $this->post(route('admin.bids.bulk'), [
         'action' => 'export', 'ids' => [$selected->id],
     ]);
-    $response->assertDownload('selected-bids.csv');
+    $response->assertDownload('bids-'.now()->format('Y-m-d').'.csv');
     $lines = preg_split('/\r?\n/', trim($response->streamedContent()));
     expect($lines)->toHaveCount(2);
     $row = str_getcsv($lines[1], ',', '"', '');
