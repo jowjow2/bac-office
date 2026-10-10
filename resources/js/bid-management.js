@@ -96,6 +96,7 @@ if (root && root.dataset.bidManagementReady !== '1') {
         exportPreviewTable.hidden = rows.length === 0;
         exportEmpty.hidden = rows.length !== 0;
         exportConfirm.disabled = rows.length === 0;
+        exportConfirm.textContent = rows.length ? 'Export ' + rows.length + ' ' + exportItemLabelPlural(rows.length) : 'Nothing to export';
 
         if (exportKind === 'projects') {
             exportWarning.hidden = true;
@@ -221,6 +222,16 @@ if (root && root.dataset.bidManagementReady !== '1') {
         }
     };
 
+    exportModal.querySelector('[data-export-all]')?.addEventListener('click', () => {
+        selectedExportStatuses = new Set(exportStatuses());
+        renderExportChips();
+        renderExportPreview();
+    });
+    exportModal.querySelector('[data-export-none]')?.addEventListener('click', () => {
+        selectedExportStatuses = new Set();
+        renderExportChips();
+        renderExportPreview();
+    });
     exportChips.addEventListener('click', event => {
         const chip = event.target.closest('[data-status]');
         if (!chip) return;

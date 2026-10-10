@@ -3196,3 +3196,52 @@ body .admin-dashboard.admin-bids-page #bid-management .admin-bids-toolbar-field:
     body .admin-dashboard.admin-bids-page #bid-management .admin-bids-toolbar-field-search.admin-search-field { flex: 1 1 100% !important; height: 40px !important; min-height: 40px !important; max-height: 40px !important; }
     body .admin-dashboard.admin-bids-page #bid-management .admin-bids-toolbar-field:not(.admin-bids-toolbar-field-search) { flex: 1 1 calc(50% - 10px) !important; height: 40px !important; }
 }
+
+/* Bids table: give the Stage column room, and the filters a little more. */
+body #bid-management.admin-bids-v2 .bid-management-table .bid-col-bidder { width: 14% !important; }
+body #bid-management.admin-bids-v2 .bid-management-table .bid-col-submitted { width: 14% !important; }
+body #bid-management.admin-bids-v2 .bid-management-table .bid-col-documents { width: 12% !important; }
+body #bid-management.admin-bids-v2 .bid-management-table .bid-col-stage { width: 16% !important; }
+body .admin-dashboard.admin-bids-page #bid-management .admin-bids-toolbar-field:not(.admin-bids-toolbar-field-search) { flex: 1 1 175px !important; }
+body .admin-dashboard.admin-bids-page #bid-management .admin-bids-select { padding: 0 2px !important; font-size: 12.5px !important; }
+@media (max-width: 768px) {
+    body .admin-dashboard.admin-bids-page section.bid-summary-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; width: 100% !important; overflow: visible !important; }
+    body .admin-dashboard.admin-bids-page section.bid-summary-grid .bid-summary-card { padding: 0 10px !important; min-width: 0 !important; }
+    body .admin-dashboard.admin-bids-page section.bid-summary-grid .bid-summary-card span { overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
+}
+
+/* ---------- Export dialog (Bids, Projects) ---------- */
+body :is(#bidExportModal, #projectExportModal) .bid-export-modal-dialog { width: min(580px, calc(100vw - 24px)) !important; max-height: min(780px, calc(100dvh - 24px)) !important; border: 0 !important; border-radius: 16px !important; background: #fff !important; box-shadow: 0 24px 70px rgba(15, 25, 21, .35) !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-modal-header { display: flex !important; align-items: flex-start !important; justify-content: space-between !important; padding: 20px 24px 6px !important; border: 0 !important; background: transparent !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-eyebrow { display: none !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-modal-header h2 { margin: 0 !important; color: var(--ui-ink) !important; -webkit-text-fill-color: var(--ui-ink) !important; font-size: 18px !important; font-weight: 700 !important; letter-spacing: -.01em !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-close { width: 32px !important; height: 32px !important; border: 1px solid var(--ui-line) !important; border-radius: 9px !important; background: #fff !important; color: var(--ui-muted) !important; -webkit-text-fill-color: var(--ui-muted) !important; font-size: 18px !important; line-height: 1 !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-close:hover { background: var(--ui-surface-2) !important; color: var(--ui-ink) !important; -webkit-text-fill-color: var(--ui-ink) !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-modal-body { padding: 0 24px 16px !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-total { margin: 0 0 14px !important; padding: 0 !important; border: 0 !important; background: none !important; color: var(--ui-muted) !important; -webkit-text-fill-color: var(--ui-muted) !important; font-size: 13px !important; font-weight: 400 !important; }
+body :is(#bidExportModal, #projectExportModal) :is(.bid-export-filter-section, .bid-export-preview-section) { margin: 0 0 14px !important; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-section-label-row { display: flex !important; align-items: center !important; justify-content: space-between !important; margin: 0 0 10px !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-section-label-row h3 { margin: 0 !important; color: var(--ui-muted) !important; -webkit-text-fill-color: var(--ui-muted) !important; font-size: 11.5px !important; font-weight: 700 !important; letter-spacing: .06em !important; text-transform: uppercase !important; }
+.bid-export-filter-tools { display: inline-flex; align-items: center; gap: 12px; color: var(--ui-muted); font-size: 12px; }
+.bid-export-link { padding: 0; border: 0; background: none; color: var(--ui-primary); font: 600 12px/1 var(--ui-font, inherit); cursor: pointer; }
+.bid-export-link:hover { text-decoration: underline; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-status-chips { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; padding: 0 !important; border: 0 !important; background: none !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-status-chip { display: inline-flex !important; align-items: center !important; gap: 8px !important; height: 34px !important; padding: 0 6px 0 13px !important; border: 1px solid var(--ui-line) !important; border-radius: 999px !important; background: #fff !important; color: var(--ui-muted) !important; -webkit-text-fill-color: var(--ui-muted) !important; font: 600 13px/1 var(--ui-font, inherit) !important; box-shadow: none !important; cursor: pointer !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-status-chip strong { display: inline-grid !important; min-width: 22px !important; height: 22px !important; place-items: center !important; padding: 0 6px !important; border-radius: 999px !important; background: var(--ui-line-soft) !important; color: var(--ui-muted) !important; -webkit-text-fill-color: var(--ui-muted) !important; font-size: 11.5px !important; font-weight: 700 !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-status-chip:hover { border-color: var(--ui-primary-line) !important; background: var(--ui-surface-2) !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-status-chip.is-selected { border-color: var(--ui-primary-line) !important; background: var(--ui-primary-soft) !important; color: var(--ui-primary) !important; -webkit-text-fill-color: var(--ui-primary) !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-status-chip.is-selected strong { background: var(--ui-primary) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-status-chip.is-selected:is(.is-disqualified, .is-failed_bidding, .is-not_submitted, .is-not_awarded) { border-color: #f1b8b0 !important; background: #fdf0ee !important; color: #b42318 !important; -webkit-text-fill-color: #b42318 !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-status-chip.is-selected:is(.is-disqualified, .is-failed_bidding, .is-not_submitted, .is-not_awarded) strong { background: #b42318 !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-summary { display: none !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-warning { margin: 0 0 14px !important; padding: 9px 12px !important; border: 1px solid #f5d79a !important; border-radius: 9px !important; background: #fff8e8 !important; color: #8a5a00 !important; -webkit-text-fill-color: #8a5a00 !important; font-size: 12.5px !important; font-weight: 600 !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-preview-frame { max-height: 220px; overflow: auto; border: 1px solid var(--ui-line) !important; border-radius: 10px !important; background: #fff !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-empty { padding: 22px 12px !important; color: var(--ui-muted) !important; font-size: 13px !important; text-align: center !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-modal-footer { display: flex !important; justify-content: flex-end !important; gap: 10px !important; padding: 14px 24px !important; border-top: 1px solid var(--ui-line) !important; border-radius: 0 0 16px 16px !important; background: var(--ui-surface-2) !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-button { height: 38px !important; padding: 0 18px !important; border-radius: 9px !important; font: 600 13.5px/1 var(--ui-font, inherit) !important; cursor: pointer !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-button-secondary { border: 1px solid var(--ui-line-strong) !important; background: #fff !important; color: var(--ui-ink-2) !important; -webkit-text-fill-color: var(--ui-ink-2) !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-button-primary { border: 1px solid var(--ui-primary) !important; background: var(--ui-primary) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-button-primary:disabled { border-color: var(--ui-line) !important; background: var(--ui-line-soft) !important; color: var(--ui-subtle) !important; -webkit-text-fill-color: var(--ui-subtle) !important; cursor: not-allowed !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-preview-table { width: 100% !important; table-layout: auto !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-preview-table td:first-child { max-width: 230px !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
+body :is(#bidExportModal, #projectExportModal) .bid-export-preview-table :is(th, td) { padding-left: 12px !important; padding-right: 12px !important; white-space: nowrap; }

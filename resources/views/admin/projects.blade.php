@@ -440,7 +440,7 @@
             <section class="bid-export-filter-section" aria-labelledby="projectExportFilterTitle">
                 <div class="bid-export-section-label-row">
                     <h3 id="projectExportFilterTitle">Filter by status</h3>
-                    <span class="bid-export-filter-help">All selected</span>
+                    <span class="bid-export-filter-tools"><span class="bid-export-filter-help">All selected</span><button type="button" class="bid-export-link" data-export-all>Select all</button><button type="button" class="bid-export-link" data-export-none>Clear</button></span>
                 </div>
                 <div class="bid-export-status-chips" data-export-status-chips role="group" aria-label="Export status filters"></div>
             </section>
