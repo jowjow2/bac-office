@@ -12,7 +12,7 @@
         <main class="dashboard-content dashboard-home-content">
             @php
                 $activeTab = $activeTab ?? 'admin';
-                $activeThreadSummaries = ['bidders' => $bidderThreadSummaries, 'offices' => $officeThreadSummaries ?? collect()][$activeTab] ?? $adminThreadSummaries;
+                $activeThreadSummaries = ['bidders' => $bidderThreadSummaries][$activeTab] ?? $adminThreadSummaries;
             @endphp
 
             @include('partials.messages.messenger', [
@@ -23,10 +23,9 @@
                 'messageTabs' => [
                     ['key' => 'admin', 'label' => 'Admin', 'icon' => 'fas fa-user-shield', 'url' => route('staff.messages', ['tab' => 'admin'])],
                     ['key' => 'bidders', 'label' => 'Bidders', 'icon' => 'fas fa-building-user', 'url' => route('staff.messages', ['tab' => 'bidders'])],
-                    ['key' => 'offices', 'label' => 'End-user offices', 'icon' => 'fas fa-building', 'url' => route('staff.messages', ['tab' => 'offices'])],
                 ],
                 'messageRouteName' => 'staff.messages',
-                'tabByRole' => ['admin' => 'admin', 'bidder' => 'bidders', 'end_user' => 'offices'],
+                'tabByRole' => ['admin' => 'admin', 'bidder' => 'bidders'],
                 'messageSyncRoute' => route('staff.messages.conversation-sync'),
                 'messageTypingRoute' => route('staff.messages.typing'),
                 'messageStoreRoute' => route('staff.messages.store'),

@@ -21,7 +21,6 @@ class PortalNavigation
             'admin' => self::admin(),
             'staff' => self::staff(),
             'bidder' => self::bidder($user),
-            'end_user' => self::endUser(),
             default => [],
         };
 
@@ -30,14 +29,12 @@ class PortalNavigation
                 'admin' => self::item('Messages', 'admin.messages', 'fa-comments', ['admin.messages*'], badge: $unreadMessages, badgeAttr: 'data-message-badge'),
                 'staff' => self::item('Messages', 'staff.messages', 'fa-comments', ['staff.messages*'], badge: $unreadMessages, badgeAttr: 'data-message-badge'),
                 'bidder' => self::item('BAC messages', 'bidder.messages', 'fa-comments', ['bidder.messages*'], badge: $unreadMessages, badgeAttr: 'data-message-badge'),
-                'end_user' => self::item('Messages', 'end-user.messages', 'fa-comments', ['end-user.messages*'], badge: $unreadMessages, badgeAttr: 'data-message-badge'),
                 default => null,
             },
             self::item('Notifications', match ($user->role) {
                 'admin' => 'admin.notifications',
                 'staff' => 'staff.notifications',
-                'bidder' => 'bidder.notifications',
-                default => 'end-user.notifications',
+                default => 'bidder.notifications',
             }, 'fa-bell', ['*.notifications*'], badge: $unreadNotifications, badgeAttr: 'data-notification-badge'),
         ]));
 
@@ -107,20 +104,6 @@ class PortalNavigation
             ] : []],
             ['title' => 'Account', 'items' => [
                 self::item('Company profile & documents', 'bidder.company-profile', 'fa-building', ['bidder.company-profile', 'bidder.profile.update', 'bidder.documents.store', 'bidder.document.*']),
-            ]],
-        ];
-    }
-
-    private static function endUser(): array
-    {
-        return [
-            ['title' => null, 'items' => [
-                self::item('Dashboard', 'end-user.dashboard', 'fa-gauge-high', ['end-user.dashboard']),
-            ]],
-            ['title' => 'Purchase requests', 'items' => [
-                self::item('Infrastructure tracking', 'end-user.infrastructure.index', 'fa-helmet-safety', ['end-user.infrastructure.*']),
-                // New requests start from the button on the dashboard and on this list.
-                self::item('My purchase requests', 'end-user.requests.index', 'fa-file-signature', ['end-user.requests.*']),
             ]],
         ];
     }

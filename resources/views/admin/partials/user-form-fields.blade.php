@@ -1,6 +1,6 @@
 {{--
     Fields of the create/edit user dialogs (admin/users), by account type:
-      - staff and end-user offices: office, position, office contact number
+      - staff: office, position, office contact number
       - admin: position, contact number
       - bidder: company, registration no., contact number, business address
     then the sign-in details every account has.
@@ -21,18 +21,15 @@
 @endunless
 
 {{-- Staff, end-user offices and admins --}}
-<div id="{{ $prefix }}OfficeSection" class="um-group" data-role-group="admin staff end_user">
+<div id="{{ $prefix }}OfficeSection" class="um-group" data-role-group="admin staff">
     <h3 class="um-section" id="{{ $prefix }}OfficeHeading">Office assignment</h3>
 
-    <div id="{{ $prefix }}OfficeField" class="um-field" data-role-group="staff end_user">
+    <div id="{{ $prefix }}OfficeField" class="um-field" data-role-group="staff">
         <label for="{{ $prefix }}_office" id="{{ $prefix }}OfficeLabel" class="um-label">Office <span class="um-req">*</span></label>
         <select name="office" id="{{ $prefix }}_office" class="form-select">
             <option value="">Select office</option>
             @foreach($staffOffices as $office)
                 <option value="{{ $office }}" data-office-role="staff" @selected($isCreate && old('office') === $office)>{{ $office }}</option>
-            @endforeach
-            @foreach($endUserOffices as $office)
-                <option value="{{ $office }}" data-office-role="end_user" @selected($isCreate && old('office') === $office)>{{ $office }}</option>
             @endforeach
         </select>
         <span class="um-hint" data-office-hint></span>
@@ -45,7 +42,7 @@
         </div>
         <div class="um-field">
             <label for="{{ $prefix }}_contact_number" class="um-label" data-contact-label>Office contact no. <span class="um-opt">(optional)</span></label>
-            <input type="tel" name="contact_number" id="{{ $prefix }}_contact_number" value="{{ $value('contact_number') }}" maxlength="50" class="form-input" placeholder="e.g. (043) 457-1234" autocomplete="off" data-role-input="admin staff end_user">
+            <input type="tel" name="contact_number" id="{{ $prefix }}_contact_number" value="{{ $value('contact_number') }}" maxlength="50" class="form-input" placeholder="e.g. (043) 457-1234" autocomplete="off" data-role-input="admin staff">
         </div>
     </div>
 </div>

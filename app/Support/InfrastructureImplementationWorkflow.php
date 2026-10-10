@@ -137,7 +137,7 @@ class InfrastructureImplementationWorkflow
             $path = $document->store('contract-implementation/private', 'local');
             $to = ! empty($data['request_inspection']) ? ContractImplementation::INFRA_FOR_INSPECTION : $record->status;
             $this->transition($record, $supplier, $correction ? 'infrastructure_correction_submitted' : 'infrastructure_progress_submitted', $to, $data['remarks'], $details, ['path' => $path, 'name' => $document->getClientOriginalName()]);
-            $this->notifyOffice($award, 'Infrastructure progress update received', 'The winning supplier submitted an infrastructure progress update.');
+            $this->notifyBac($award, 'Infrastructure progress update received', 'The winning supplier submitted an infrastructure progress update.');
             return $record->fresh(['events.actor']);
         });
     }
@@ -245,11 +245,15 @@ class InfrastructureImplementationWorkflow
         $this->notify((int) ($award->bid?->user_id ?? $award->bidder_id), $title, $message, route('bidder.awarded-contracts', ['award' => $award->id]), $award);
     }
 
-    private function notifyOffice(Award $award, string $title, string $message): void
+    /** The BAC admins and the staff assigned to the project. */
+    private function notifyBac(Award $award, string $title, string $message): void
     {
-        // The account whose request became this project (the whole office only when nobody filed one).
-        $ids = EndUserAccess::recipientsForProject($award->project);
-        foreach ($ids as $id) $this->notify((int) $id, $title, $message, route('end-user.infrastructure.index'), $award);
+        foreach (User::query()->where('role', 'admin')->pluck('id') as $id) {
+            $this->notify((int) $id, $title, $message, route('admin.infrastructure.show', $award), $award);
+        }
+        foreach (\App\Models\Assignment::query()->where('project_id', $award->project_id)->pluck('staff_id')->unique() as $id) {
+            $this->notify((int) $id, $title, $message, route('staff.infrastructure.show', $award), $award);
+        }
     }
 
     private function notify(int $userId, string $title, string $message, string $url, Award $award): void

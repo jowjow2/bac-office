@@ -16,11 +16,11 @@ beforeEach(function () {
     $this->admin = User::create(['name' => 'BAC Admin', 'email' => 'form-admin@example.com', 'password' => Hash::make('password'), 'role' => 'admin', 'status' => 'active']);
 });
 
-it('creates an end-user office account with its position and office contact number', function () {
-    $office = User::assignableEndUserOffices()[0];
+it('creates a staff account with its position and office contact number', function () {
+    $office = User::staffOfficeOptions()[0];
 
     testCase()->actingAs($this->admin)->post(route('admin.users.store'), [
-        'role' => 'end_user',
+        'role' => 'staff',
         'office' => $office,
         'position' => 'Municipal Engineer',
         'contact_number' => '(043) 457-1234',
@@ -31,7 +31,7 @@ it('creates an end-user office account with its position and office contact numb
     ])->assertRedirect(route('admin.users'))->assertSessionHasNoErrors();
 
     $user = User::where('email', 'mark.reyes@example.com')->firstOrFail();
-    expect($user->role)->toBe('end_user')
+    expect($user->role)->toBe('staff')
         ->and($user->office)->toBe($office)
         ->and($user->position)->toBe('Municipal Engineer')
         ->and($user->contact_number)->toBe('(043) 457-1234');

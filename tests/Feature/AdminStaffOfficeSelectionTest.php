@@ -191,31 +191,22 @@ it('prevents deleting the last remaining admin account', function () {
     ]);
 });
 
-it('lets the admin reset the password of an end-user whose office is no longer on the list', function () {
+it('does not offer or create end-user office accounts any more', function () {
     $admin = createAdminStaffOfficeUser();
-    $office = User::create(['name' => 'TEST Municipal Engineering Office', 'email' => 'old.office@example.com', 'password' => Hash::make('old-secret'), 'role' => 'end_user', 'status' => 'active', 'office' => 'TEST Municipal Engineering Office']);
-    $payload = ['name' => $office->name, 'email' => $office->email, 'role' => 'end_user', 'status' => 'active', 'office' => 'TEST Municipal Engineering Office', 'password' => 'new-secret'];
-
-    testCase()->actingAs($admin)->put(route('admin.users.update', $office), $payload)->assertSessionHasNoErrors();
-    expect(Hash::check('new-secret', $office->fresh()->password))->toBeTrue()
-        ->and($office->fresh()->office)->toBe('TEST Municipal Engineering Office');
-
-    // A new account still has to pick an office from the list.
-    testCase()->actingAs($admin)->post(route('admin.users.store'), array_merge($payload, ['email' => 'new.office@example.com']))
-        ->assertSessionHasErrors('office');
-});
-
-it('offers the end-user office a project already names, so that office can record its inspections', function () {
-    $admin = createAdminStaffOfficeUser();
-    \App\Models\Project::create(['title' => 'Road works', 'description' => 'x', 'reference_no' => 'SJ-OFFICE-1', 'category' => 'infrastructure', 'procurement_mode' => 'public_bidding', 'budget' => 1000000, 'status' => 'awarded', 'end_user_unit' => 'TEST Municipal Engineering Office', 'deadline' => now()->subDay()]);
 
     testCase()->actingAs($admin)->get(route('admin.users'))->assertOk()
-        ->assertSee('<option value="TEST Municipal Engineering Office" data-office-role="end_user"', false)
-        ->assertSee('id="create_role_end_user"', false);
+        ->assertDontSee('id="create_role_end_user"', false)
+        ->assertDontSee('data-office-role="end_user"', false);
 
     testCase()->actingAs($admin)->post(route('admin.users.store'), [
         'name' => 'Engineering inspector', 'email' => 'inspector@example.com', 'password' => 'secret-123',
-        'role' => 'end_user', 'status' => 'active', 'office' => 'TEST Municipal Engineering Office',
-    ])->assertSessionHasNoErrors();
-    expect(User::where('email', 'inspector@example.com')->value('office'))->toBe('TEST Municipal Engineering Office');
+        'role' => 'end_user', 'status' => 'active', 'office' => 'Municipal Engineering Office',
+    ])->assertSessionHasErrors('role');
+});
+
+it('keeps old end-user accounts out of the users list', function () {
+    $admin = createAdminStaffOfficeUser();
+    User::create(['name' => 'Retired Office Account', 'email' => 'retired.office@example.com', 'password' => Hash::make('x-secret-1'), 'role' => 'end_user', 'status' => 'active', 'office' => 'Municipal Engineering Office']);
+
+    testCase()->actingAs($admin)->get(route('admin.users'))->assertOk()->assertDontSee('retired.office@example.com');
 });

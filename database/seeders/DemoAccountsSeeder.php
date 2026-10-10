@@ -32,7 +32,6 @@ class DemoAccountsSeeder extends Seeder
 
     private const REJECTED = 10;
 
-    private const END_USERS = 50;
 
     private const FIRST_NAMES = ['Maria', 'Jose', 'Juan', 'Ana', 'Mark', 'Kristine', 'Paolo', 'Liza', 'Ramon', 'Grace', 'Joel', 'Carmela', 'Rodel', 'Shiela', 'Arnel', 'Jasmine', 'Noel', 'Rowena', 'Dennis', 'Maricel', 'Edwin', 'Joy', 'Ronaldo', 'Lorna', 'Christian', 'Angelica', 'Ferdinand', 'Rhea', 'Gilbert', 'Analyn'];
 
@@ -68,31 +67,19 @@ class DemoAccountsSeeder extends Seeder
 
         mt_srand(2026);
         $password = Hash::make((string) (env('DEMO_ACCOUNT_PASSWORD') ?: Str::random(40)));
-        $offices = User::END_USER_OFFICES;
-        $counts = ['bidders' => 0, 'end_users' => 0];
+        $counts = ['bidders' => 0];
 
-        DB::transaction(function () use ($password, $offices, &$counts) {
+        DB::transaction(function () use ($password, &$counts) {
             $used = [];
             for ($i = 1; $i <= self::BIDDERS; $i++) {
                 $this->seedBidder($i, $this->companyName($used), $password);
                 $counts['bidders']++;
             }
 
-            for ($i = 1; $i <= self::END_USERS; $i++) {
-                [$first, $last] = $this->person();
-                User::query()->updateOrCreate(['email' => sprintf('enduser%02d@%s', $i, self::DOMAIN)], [
-                    'name' => "{$first} {$last}",
-                    'password' => $password,
-                    'role' => 'end_user',
-                    'status' => 'active',
-                    'office' => $offices[($i - 1) % count($offices)],
-                ]);
-                $counts['end_users']++;
-            }
         });
 
-        $this->command?->info(sprintf('Demo accounts ready: %d bidders (%d approved, %d pending, %d rejected) and %d end users, all @%s.',
-            $counts['bidders'], self::BIDDERS - self::PENDING - self::REJECTED, self::PENDING, self::REJECTED, $counts['end_users'], self::DOMAIN));
+        $this->command?->info(sprintf('Demo accounts ready: %d bidders (%d approved, %d pending, %d rejected), all @%s.',
+            $counts['bidders'], self::BIDDERS - self::PENDING - self::REJECTED, self::PENDING, self::REJECTED, self::DOMAIN));
         if (! env('DEMO_ACCOUNT_PASSWORD')) {
             $this->command?->warn('No DEMO_ACCOUNT_PASSWORD was set, so nobody knows these passwords. Set it and run again to sign in as a demo account.');
         }

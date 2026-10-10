@@ -328,8 +328,4 @@ class User extends Authenticatable
         return array_values(array_unique(array_merge(self::END_USER_OFFICES, $projectOffices)));
     }
 
-    public function isEndUser(): bool
-    {
-        return $this->role === 'end_user';
-    }
 }

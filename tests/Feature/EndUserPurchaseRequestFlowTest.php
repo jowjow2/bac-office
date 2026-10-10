@@ -35,39 +35,13 @@ beforeEach(function () {
     ];
 });
 
-it('lets the admin add an office account and the office follows its requests read-only', function () {
-    testCase()->actingAs($this->admin)->post(route('admin.users.store'), [
-        'name' => 'Municipal Engineering Office', 'email' => 'meo-flow@example.com', 'role' => 'end_user', 'status' => 'active',
-        'password' => 'secret123', 'office' => 'Municipal Engineering Office',
-    ])->assertSessionHasNoErrors();
-
-    $office = User::where('email', 'meo-flow@example.com')->firstOrFail();
-    expect($office->role)->toBe('end_user')->and($office->office)->toBe('Municipal Engineering Office');
-
-    // The office signs in with the emailed code, and has no way to file a request itself.
-    auth()->logout();
-    \Illuminate\Support\Facades\Mail::fake();
-    testCase()->postJson('/login', ['email' => 'meo-flow@example.com', 'password' => 'secret123'])->assertOk()->assertJsonPath('requires_verification', true);
-    $loginCode = null;
-    \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\LoginVerificationCodeMail::class, function ($mail) use (&$loginCode) { $loginCode = $mail->code; return true; });
-    testCase()->postJson(route('login.verify-code'), ['code' => $loginCode])
-        ->assertOk()
-        ->assertJsonPath('redirect', route('end-user.dashboard'));
-
-    testCase()->actingAs($office)->get(route('end-user.dashboard'))
-        ->assertOk()
-        ->assertSee('My purchase requests')
-        ->assertDontSee('New purchase request');
-    testCase()->actingAs($office)->get('/end-user/requests/create')->assertNotFound();
-    testCase()->actingAs($office)->get('/end-user/requests/1/edit')->assertNotFound();
-    testCase()->actingAs($office)->post('/end-user/requests', $this->details)->assertStatus(405);
+it('has no end-user portal: nothing to file, edit or track from an office account', function () {
+    foreach (['/end-user/dashboard', '/end-user/requests', '/end-user/messages', '/end-user/requests/create'] as $path) {
+        testCase()->actingAs($this->admin)->get($path)->assertNotFound();
+    }
 });
 
-it('records a request for an office, sends it to the PPMP/APP review and lets the office track it', function () {
-    $office = User::create(['name' => 'MEO Account', 'email' => 'meo@example.com', 'password' => Hash::make('password'), 'role' => 'end_user', 'status' => 'active', 'office' => 'Municipal Engineering Office']);
-    $colleague = User::create(['name' => 'MEO Colleague', 'email' => 'meo2@example.com', 'password' => Hash::make('password'), 'role' => 'end_user', 'status' => 'active', 'office' => 'Municipal Engineering Office']);
-    $otherOffice = User::create(['name' => 'MHO Account', 'email' => 'mho@example.com', 'password' => Hash::make('password'), 'role' => 'end_user', 'status' => 'active', 'office' => 'Municipal Health Office']);
-
+it('records a request for an office and sends it to the PPMP/APP review', function () {
     testCase()->actingAs($this->admin)->get(route('admin.requests'))->assertOk()->assertSee('Record purchase request');
     testCase()->actingAs($this->admin)->get(route('admin.requests.create'))->assertOk()
         ->assertSee('Record purchase request')->assertSee('End-user office')->assertSee('Estimated total cost');
@@ -106,25 +80,31 @@ it('records a request for an office, sends it to the PPMP/APP review and lets th
         expect(UserNotification::where('user_id', $reviewer->id)->where('type', 'procurement_request')->exists())->toBeTrue();
     }
 
-    // Every account of that office follows it; another office does not.
-    foreach ([$office, $colleague] as $account) {
-        testCase()->actingAs($account)->get(route('end-user.requests.index'))->assertOk()->assertSee($request->reference_no);
-        testCase()->actingAs($account)->get(route('end-user.requests.show', $request))->assertOk()->assertSee('Supply of survey equipment');
+    // The PR form can be printed for the signatures.
+    foreach ([$this->admin, $this->staff] as $user) {
+        testCase()->actingAs($user)->get(route($user->role.'.requests.print', $request))->assertOk()
+            ->assertSee('Purchase Request')->assertSee($request->reference_no)->assertSee('650,000.00')->assertSee('Approved by');
     }
-    testCase()->actingAs($otherOffice)->get(route('end-user.requests.index'))->assertOk()->assertDontSee($request->reference_no);
-    testCase()->actingAs($otherOffice)->get(route('end-user.requests.show', $request))->assertNotFound();
 
-    // The Secretariat forwards it to the BAC; the office sees the new status and is told.
+    // The Secretariat forwards it to the BAC, and the admin is told.
     testCase()->actingAs($this->staff)->post(route('staff.requests.review', $request), [
         'decision' => 'forward', 'ppmp_reference' => 'PPMP-MEO-2026-04', 'app_reference' => 'APP-2026-112', 'budget_available' => '1',
     ])->assertSessionHasNoErrors();
 
-    expect($request->fresh()->status)->toBe(ProcurementRequest::STATUS_FORWARDED)
-        ->and(UserNotification::where('user_id', $office->id)->where('type', 'procurement_request')->exists())->toBeTrue()
-        ->and(UserNotification::where('user_id', $colleague->id)->where('type', 'procurement_request')->exists())->toBeTrue()
-        ->and(UserNotification::where('user_id', $otherOffice->id)->where('type', 'procurement_request')->exists())->toBeFalse();
-    testCase()->actingAs($office)->get(route('end-user.requests.show', $request))->assertOk()->assertSee('Forwarded to BAC')->assertSee('PPMP-MEO-2026-04');
+    expect($request->fresh()->status)->toBe(ProcurementRequest::STATUS_FORWARDED);
     testCase()->actingAs($this->admin)->get(route('admin.requests', ['tab' => 'bac']))->assertOk()->assertSee($request->reference_no)->assertSee('Prepare procurement');
+});
+
+it('tells the admin when the Secretariat returns a request, so the office can hand in a corrected copy', function () {
+    testCase()->actingAs($this->admin)->post(route('admin.requests.store'), $this->details + ['end_user_office' => 'Municipal Engineering Office'])->assertSessionHasNoErrors();
+    $request = ProcurementRequest::firstOrFail();
+    UserNotification::query()->delete();
+
+    testCase()->actingAs($this->staff)->post(route('staff.requests.review', $request), ['decision' => 'return', 'review_remarks' => 'Attach the canvass.'])->assertSessionHasNoErrors();
+
+    $notice = UserNotification::where('user_id', $this->admin->id)->where('title', 'Request returned to the office')->firstOrFail();
+    expect($request->fresh()->status)->toBe(ProcurementRequest::STATUS_RETURNED)
+        ->and($notice->message)->toContain('Attach the canvass.')->toContain('corrected hard copy');
 });
 
 it('accepts an estimated total cost typed with thousands separators', function () {
@@ -136,8 +116,7 @@ it('accepts an estimated total cost typed with thousands separators', function (
     $post(['estimated_cost' => '1,2x0'])->assertSessionHasErrors('estimated_cost');
 });
 
-it('records a request with a private Blob attachment and serves it to the office through the authorized file route', function () {
-    $office = User::create(['name' => 'MEO Account', 'email' => 'meo-blob@example.com', 'password' => Hash::make('password'), 'role' => 'end_user', 'status' => 'active', 'office' => 'Municipal Engineering Office']);
+it('records a request with a private Blob attachment and serves it to the BAC through the authorized file route', function () {
     config()->set('services.vercel_blob', [
         'enabled' => true,
         'token' => 'vercel_blob_rw_SjfNUHhmSlUWvEhs_test',
@@ -170,7 +149,7 @@ it('records a request with a private Blob attachment and serves it to the office
         && $request->hasHeader('x-vercel-blob-access', 'private')
         && $request->hasHeader('Authorization', 'Bearer vercel_blob_rw_SjfNUHhmSlUWvEhs_test'));
 
-    testCase()->actingAs($office)->get(route('procurement.files.request', $document))
+    testCase()->actingAs($this->staff)->get(route('procurement.files.request', $document))
         ->assertOk()->assertDownload('TOR.pdf');
 });
 
@@ -195,8 +174,7 @@ it('points a search in the wrong queue to the queue that holds the request', fun
         ->assertSee('Clear search');
 });
 
-it('records an itemized request, derives the totals, and shows the items to the office and the reviewer', function () {
-    $office = User::create(['name' => 'MEO Items', 'email' => 'meo-items@example.com', 'password' => Hash::make('password'), 'role' => 'end_user', 'status' => 'active', 'office' => 'Municipal Engineering Office']);
+it('records an itemized request, derives the totals, and shows the items to the reviewer and on the printed form', function () {
     $base = collect($this->details)->except(['quantity', 'unit', 'estimated_cost'])->all() + ['end_user_office' => 'Municipal Engineering Office'];
     $items = [
         ['description' => 'Bond paper, A4, 80 gsm', 'quantity' => '50', 'unit' => 'ream', 'unit_cost' => '245.50'],
@@ -218,14 +196,13 @@ it('records an itemized request, derives the totals, and shows the items to the 
         ->and($request->unit)->toBe('lot')
         ->and($request->quantityLabel())->toBe('2 items');
 
-    testCase()->actingAs($office)->get(route('end-user.requests.show', $request))->assertOk()
-        ->assertSee('Bond paper, A4, 80 gsm')->assertSee('₱245.50')->assertSee('₱21,875.00');
+    testCase()->actingAs($this->admin)->get(route('admin.requests.print', $request))->assertOk()
+        ->assertSee('Bond paper, A4, 80 gsm')->assertSee('245.50')->assertSee('21,875.00');
     testCase()->actingAs($this->staff)->get(route('staff.requests'))->assertOk()
         ->assertSee('Bond paper, A4, 80 gsm')->assertSee('₱245.50');
 });
 
 it('shows a request saved before items as one item row', function () {
-    $office = User::create(['name' => 'MEO Legacy', 'email' => 'meo-legacy@example.com', 'password' => Hash::make('password'), 'role' => 'end_user', 'status' => 'active', 'office' => 'Municipal Engineering Office']);
     $request = ProcurementRequest::create(array_merge($this->details, [
         'reference_no' => 'PR-2026-0900', 'end_user_office' => 'Municipal Engineering Office', 'requested_by' => null,
         'status' => ProcurementRequest::STATUS_SUBMITTED,
@@ -233,7 +210,7 @@ it('shows a request saved before items as one item row', function () {
 
     expect($request->items)->toBeNull()
         ->and($request->itemRows())->toBe([['description' => 'Supply of survey equipment', 'quantity' => 1.0, 'unit' => 'lot', 'unit_cost' => 650000.0, 'total' => 650000.0]]);
-    testCase()->actingAs($office)->get(route('end-user.requests.show', $request))->assertOk()->assertSee('Supply of survey equipment')->assertSee('₱650,000.00');
+    testCase()->actingAs($this->admin)->get(route('admin.requests.print', $request))->assertOk()->assertSee('Supply of survey equipment')->assertSee('650,000.00');
 });
 
 it('keeps the form and explains a failed attachment upload instead of a server error', function () {

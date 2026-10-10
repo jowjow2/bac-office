@@ -18,7 +18,6 @@
 @section('actions')
     @if($routePrefix === 'admin')
         <a href="{{ route('admin.requests.create') }}" class="ui-btn ui-btn--primary"><i class="fas fa-plus" aria-hidden="true"></i> Record purchase request</a>
-        <a href="{{ route('admin.users', ['filter' => 'end_user']) }}" class="ui-btn ui-btn--secondary"><i class="fas fa-building" aria-hidden="true"></i> Office accounts · {{ $officeAccounts }}</a>
     @endif
 @endsection
 
@@ -115,6 +114,7 @@
                                         @if($item->awaitsBac() && $routePrefix === 'admin')
                                             <a class="ui-btn ui-btn--success ui-btn--sm" href="{{ route('admin.projects.create', ['request' => $item->id]) }}">Prepare procurement</a>
                                         @endif
+                                        <a class="ui-btn ui-btn--ghost ui-btn--sm" href="{{ route($routePrefix.'.requests.print', $item) }}" target="_blank" rel="noopener" title="Print the PR form"><i class="fas fa-print" aria-hidden="true"></i><span class="sr-only">Print {{ $item->reference_no }}</span></a>
                                         @if($item->project)
                                             <a class="ui-btn ui-btn--ghost ui-btn--sm" href="{{ route($routePrefix.'.procurement.show', $item->project) }}">Open procurement</a>
                                         @endif

@@ -125,9 +125,7 @@ it('takes a request from the end-user office through PPMP/APP review to a BAC pr
         ->and($request->fresh()->budget_available)->toBeFalse()
         ->and($request->fresh()->budget_confirmed_by)->toBeNull();
 
-    testCase()->actingAs($this->engineering)->get(route('end-user.requests.show', $request))->assertOk()
-        ->assertSee('Returned for correction')
-        ->assertSee('Attach the itemized specifications of the printers.');
+    expect(UserNotification::where('user_id', $this->admin->id)->where('title', 'Request returned to the office')->exists())->toBeTrue();
 
     // The corrected hard copy is checked again.
     $request->fresh()->forceFill(['status' => ProcurementRequest::STATUS_SUBMITTED, 'submitted_at' => now()])->save();
@@ -182,11 +180,6 @@ it('takes a request from the end-user office through PPMP/APP review to a BAC pr
     // A request can back only one project.
     testCase()->actingAs($this->admin)->get(route('admin.projects.create', ['request' => $request->id]))->assertNotFound();
 
-    // The office follows the project from its request.
-    testCase()->actingAs($this->engineering)->get(route('end-user.requests.show', $request))->assertOk()
-        ->assertSee('Procurement progress')
-        ->assertSee('Bidding documents, ABC &amp; schedule', false)
-        ->assertSee('PPMP-MEO-2026-12');
 
     // Returned once, forwarded once; refused attempts are not decisions.
     expect(AuditLog::where('action', 'procurement_request_reviewed')->count())->toBe(2)
@@ -202,10 +195,7 @@ it('keeps each office to its own requests and each role to its own pages', funct
 
     expect($request->status)->toBe(ProcurementRequest::STATUS_DRAFT);
 
-    testCase()->actingAs($this->health)->get(route('end-user.requests.show', $request))->assertNotFound();
-    testCase()->actingAs($this->health)->get(route('end-user.requests.index'))->assertOk()->assertDontSee($request->title);
 
-    testCase()->actingAs($this->bidder)->get(route('end-user.dashboard'))->assertForbidden();
     testCase()->actingAs($this->engineering)->get(route('admin.requests'))->assertForbidden();
     testCase()->actingAs($this->engineering)->get(route('staff.requests'))->assertForbidden();
 
@@ -222,34 +212,21 @@ it('keeps each office to its own requests and each role to its own pages', funct
     ])->assertSessionHasNoErrors();
     $document = \App\Models\ProcurementRequestDocument::firstOrFail();
 
-    testCase()->actingAs($this->engineering)->get(route('procurement.files.request', $document))->assertOk();
+    testCase()->actingAs($this->admin)->get(route('procurement.files.request', $document))->assertOk();
+    testCase()->actingAs($this->engineering)->get(route('procurement.files.request', $document))->assertForbidden();
     testCase()->actingAs($this->staff)->get(route('procurement.files.request', $document))->assertOk();
     testCase()->actingAs($this->health)->get(route('procurement.files.request', $document))->assertForbidden();
     testCase()->actingAs($this->bidder)->get(route('procurement.files.request', $document))->assertForbidden();
 });
 
-it('logs end-user office accounts into their dashboard and lets the admin create them', function () {
-    // End-user offices confirm the sign-in with the emailed code.
-    \Illuminate\Support\Facades\Mail::fake();
-    testCase()->postJson(route('login'), ['email' => 'lc-meo@example.com', 'password' => 'password'])->assertOk()->assertJsonPath('requires_verification', true);
-    $loginCode = null;
-    \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\LoginVerificationCodeMail::class, function ($mail) use (&$loginCode) { $loginCode = $mail->code; return true; });
-    testCase()->postJson(route('login.verify-code'), ['code' => $loginCode])
-        ->assertOk()
-        ->assertJsonPath('ok', true)
-        ->assertJsonPath('redirect', route('end-user.dashboard'));
-
-    testCase()->actingAs($this->admin)->post(route('admin.users.store'), [
-        'name' => 'MSWDO Account', 'email' => 'mswdo@example.com', 'role' => 'end_user', 'status' => 'active',
-        'password' => 'secret123', 'office' => 'SJBAC',
-    ])->assertSessionHasErrors('office');
+it('does not sign in end-user office accounts, and does not create them', function () {
+    testCase()->postJson(route('login'), ['email' => 'lc-meo@example.com', 'password' => 'password'])->assertStatus(422)->assertJsonPath('ok', false);
 
     testCase()->actingAs($this->admin)->post(route('admin.users.store'), [
         'name' => 'MSWDO Account', 'email' => 'mswdo@example.com', 'role' => 'end_user', 'status' => 'active',
         'password' => 'secret123', 'office' => 'Municipal Social Welfare and Development Office',
-    ])->assertSessionHasNoErrors();
-
-    expect(User::where('email', 'mswdo@example.com')->value('office'))->toBe('Municipal Social Welfare and Development Office');
+    ])->assertSessionHasErrors('role');
+    expect(User::where('email', 'mswdo@example.com')->exists())->toBeFalse();
 });
 
 it('records the PhilGEPS posting and BAC proceedings with date checks and documents', function () {

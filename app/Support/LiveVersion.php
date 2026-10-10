@@ -30,8 +30,6 @@ class LiveVersion
         'staff.assign-projects' => 'awards',
         'admin.requests' => 'requests',
         'staff.requests' => 'requests',
-        'end-user.dashboard' => 'requests',
-        'end-user.requests.index' => 'requests',
         'admin.users' => 'users',
         'admin.payments' => 'payments',
         'staff.payments' => 'payments',

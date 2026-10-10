@@ -181,21 +181,6 @@ Route::middleware(['auth'])->group(function () {
 });
 
 
-// End-user offices: follow the purchase requests recorded for their office (the admin records them).
-Route::middleware(['auth', 'end_user'])->prefix('end-user')->name('end-user.')->group(function () {
-    Route::get('/dashboard', [ProcurementRequestController::class, 'dashboard'])->name('dashboard');
-    Route::get('/infrastructure-contracts', [\App\Http\Controllers\InfrastructureImplementationController::class, 'endUserIndex'])->name('infrastructure.index');
-    Route::post('/infrastructure-contracts/{award}/inspect', [\App\Http\Controllers\InfrastructureImplementationController::class, 'inspect'])->name('infrastructure.inspect');
-    Route::get('/notifications', [ProcurementRequestController::class, 'notifications'])->name('notifications');
-    Route::get('/messages', [MessageController::class, 'endUserIndex'])->name('messages');
-    Route::get('/messages/status-sync', [MessageController::class, 'endUserStatusSync'])->name('messages.status-sync');
-    Route::get('/messages/conversation-sync', [MessageController::class, 'endUserConversationSync'])->name('messages.conversation-sync');
-    Route::post('/messages/typing', [MessageController::class, 'endUserTyping'])->name('messages.typing');
-    Route::post('/messages', [MessageController::class, 'endUserStore'])->name('messages.store');
-    Route::get('/requests', [ProcurementRequestController::class, 'index'])->name('requests.index');
-    Route::get('/requests/{procurementRequest}', [ProcurementRequestController::class, 'show'])->name('requests.show');
-    Route::get('/requests/{procurementRequest}/print', [ProcurementRequestController::class, 'printForm'])->name('requests.print');
-});
 
 Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/dashboard/admin', [AdminController::class, 'dashboard'])->name('admin.dashboard');
@@ -215,6 +200,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::delete('/admin/projects/{project}', [AdminController::class, 'destroyProject'])->name('admin.project.destroy');
     Route::post('/admin/projects/{project}/publish', [AdminController::class, 'publishProject'])->name('admin.project.publish');
     Route::get('/admin/requests', [ProcurementRequestController::class, 'queue'])->name('admin.requests');
+    Route::get('/admin/requests/{procurementRequest}/print', [ProcurementRequestController::class, 'printForm'])->name('admin.requests.print');
     Route::get('/admin/requests/create', [ProcurementRequestController::class, 'adminCreate'])->name('admin.requests.create');
     Route::post('/admin/requests', [ProcurementRequestController::class, 'adminStore'])->name('admin.requests.store');
     Route::post('/admin/requests/{procurementRequest}/review', [ProcurementRequestController::class, 'review'])->name('admin.requests.review');
@@ -288,6 +274,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/awards/{award}/infrastructure', [\App\Http\Controllers\InfrastructureImplementationController::class, 'showAdmin'])->name('admin.infrastructure.show');
     Route::put('/admin/awards/{award}/infrastructure', [\App\Http\Controllers\InfrastructureImplementationController::class, 'configure'])->name('admin.infrastructure.configure');
     Route::put('/admin/awards/{award}/infrastructure/terms', [\App\Http\Controllers\InfrastructureImplementationController::class, 'correctTerms'])->name('admin.infrastructure.terms.correct');
+    Route::post('/admin/awards/{award}/infrastructure/inspect', [\App\Http\Controllers\InfrastructureImplementationController::class, 'inspect'])->name('admin.infrastructure.inspect');
     Route::post('/admin/awards/{award}/infrastructure/action', [\App\Http\Controllers\InfrastructureImplementationController::class, 'action'])->name('admin.infrastructure.action');
     Route::put('/admin/awards/{award}/contract-implementation', [\App\Http\Controllers\ContractImplementationController::class, 'configure'])->name('admin.contract-implementation.configure');
     Route::post('/admin/awards/{award}/contract-implementation/action', [\App\Http\Controllers\ContractImplementationController::class, 'action'])->name('admin.contract-implementation.action');
@@ -316,10 +303,12 @@ Route::middleware(['auth', 'staff'])->group(function () {
     Route::patch('/staff/projects/{project}/status', [StaffController::class, 'updateProjectStatus'])->name('staff.projects.status');
     Route::post('/staff/projects/{project}/open-bids', [StaffController::class, 'openProjectBids'])->name('staff.projects.open-bids');
     Route::get('/staff/requests', [ProcurementRequestController::class, 'queue'])->name('staff.requests');
+    Route::get('/staff/requests/{procurementRequest}/print', [ProcurementRequestController::class, 'printForm'])->name('staff.requests.print');
     Route::post('/staff/requests/{procurementRequest}/review', [ProcurementRequestController::class, 'review'])->name('staff.requests.review');
     Route::get('/staff/procurements/{project}', [ProcurementLifecycleController::class, 'show'])->name('staff.procurement.show');
     Route::get('/staff/awards/{award}/infrastructure', [\App\Http\Controllers\InfrastructureImplementationController::class, 'showStaff'])->name('staff.infrastructure.show');
     Route::put('/staff/awards/{award}/infrastructure', [\App\Http\Controllers\InfrastructureImplementationController::class, 'configure'])->name('staff.infrastructure.configure');
+    Route::post('/staff/awards/{award}/infrastructure/inspect', [\App\Http\Controllers\InfrastructureImplementationController::class, 'inspect'])->name('staff.infrastructure.inspect');
     Route::post('/staff/awards/{award}/infrastructure/action', [\App\Http\Controllers\InfrastructureImplementationController::class, 'action'])->name('staff.infrastructure.action');
     Route::put('/staff/awards/{award}/contract-implementation', [\App\Http\Controllers\ContractImplementationController::class, 'configure'])->name('staff.contract-implementation.configure');
     Route::post('/staff/awards/{award}/contract-implementation/action', [\App\Http\Controllers\ContractImplementationController::class, 'action'])->name('staff.contract-implementation.action');

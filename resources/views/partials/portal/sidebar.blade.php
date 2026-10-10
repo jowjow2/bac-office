@@ -14,13 +14,11 @@
         'admin' => 'BAC · Administrator',
         'staff' => 'BAC Secretariat',
         'bidder' => 'Supplier / Bidder',
-        'end_user' => collect([$portalUser?->position ?? null, $portalUser?->office ?: 'End-user office'])->filter()->implode(' · '),
         default => 'User',
     };
     $portalHome = match ($portalUser?->role) {
         'staff' => route('staff.dashboard'),
         'bidder' => route('bidder.dashboard'),
-        'end_user' => route('end-user.dashboard'),
         default => route('admin.dashboard'),
     };
 @endphp

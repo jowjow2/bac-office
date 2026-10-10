@@ -3,7 +3,6 @@
 namespace App\Support;
 
 use App\Models\ProcurementRequest;
-use App\Models\User;
 use App\Models\Project;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
@@ -61,13 +60,12 @@ class ProcurementPipeline
     private ?Collection $rows = null;
 
     /**
-     * @param  'admin'|'staff'|'end_user'  $role
+     * @param  'admin'|'staff'  $role
      * @param  array<int, int>|null  $projectIds  staff scope
      */
     public function __construct(
         private readonly string $role = 'admin',
         private readonly ?array $projectIds = null,
-        private readonly ?User $endUser = null,
     ) {}
 
     public static function forAdmin(): self
@@ -78,12 +76,6 @@ class ProcurementPipeline
     public static function forStaff(iterable $projectIds): self
     {
         return new self('staff', collect($projectIds)->map(fn ($id) => (int) $id)->values()->all());
-    }
-
-    /** An end-user account's own requests and the projects made from them (EndUserAccess). */
-    public static function forEndUser(User $user): self
-    {
-        return new self('end_user', null, $user);
     }
 
     /**
@@ -100,7 +92,6 @@ class ProcurementPipeline
         $projects = Project::query()
             ->whereNull('archived_at')
             ->when($this->projectIds !== null, fn ($query) => $query->whereIn('id', $this->projectIds))
-            ->when($this->role === 'end_user', fn ($query) => EndUserAccess::scopeProjects($query, $this->endUser))
             ->with(['schedule', 'procurementRequest', 'proceedings', 'bids.user', 'awards.bid.user', 'documents', 'rebidProject'])
             ->get();
 
@@ -108,9 +99,7 @@ class ProcurementPipeline
 
         $requests = ProcurementRequest::query()
             ->whereDoesntHave('project')
-            ->when($this->role === 'end_user',
-                fn ($query) => EndUserAccess::scopeRequests($query, $this->endUser),
-                fn ($query) => $query->whereIn('status', [ProcurementRequest::STATUS_SUBMITTED, ProcurementRequest::STATUS_FORWARDED]))
+            ->whereIn('status', [ProcurementRequest::STATUS_SUBMITTED, ProcurementRequest::STATUS_FORWARDED])
             ->get();
 
         $rows = $rows->concat($requests->map(fn (ProcurementRequest $request) => $this->requestRow($request)));
@@ -450,7 +439,6 @@ class ProcurementPipeline
             'progress' => $request->status === ProcurementRequest::STATUS_FORWARDED ? 12 : ($request->status === ProcurementRequest::STATUS_SUBMITTED ? 6 : 0),
             'updated_at' => $request->updated_at,
             'url' => match ($this->role) {
-                'end_user' => route('end-user.requests.show', $request),
                 'staff' => route('staff.requests', ['q' => $request->reference_no]),
                 default => route('admin.requests', ['q' => $request->reference_no]),
             },
@@ -519,7 +507,6 @@ class ProcurementPipeline
     {
         return match ($this->role) {
             'staff' => route('staff.procurement.show', $project),
-            'end_user' => $project->procurementRequest ? route('end-user.requests.show', $project->procurementRequest) : null,
             default => route('admin.procurement.show', $project),
         };
     }

@@ -103,12 +103,8 @@ class ProcurementTestSeeder extends Seeder
             ], deadline: now()->addDays(7)->setTime(10, 0), opening: now()->addDays(7)->setTime(10, 30));
 
             // 4. Purchase request forwarded to the BAC.
-            $office = User::firstOrCreate(['email' => 'test.office@'.self::EMAIL_DOMAIN], [
-                'name' => 'TEST Municipal Engineering Office', 'password' => Hash::make(Str::random(40)),
-                'role' => 'end_user', 'status' => 'active', 'office' => 'TEST Municipal Engineering Office',
-            ]);
             ProcurementRequest::create([
-                'reference_no' => 'PR-2026-T001', 'end_user_office' => 'TEST Municipal Engineering Office', 'requested_by' => $office->id,
+                'reference_no' => 'PR-2026-T001', 'end_user_office' => 'TEST Municipal Engineering Office', 'requested_by' => null,
                 'title' => '[TEST] Concreting of farm-to-market road, Sitio Malaylay (250 lm)', 'category' => 'infrastructure',
                 'specifications' => "PCCP 0.20 m thick, 4.0 m wide, 250 linear meters\nIncludes base course and shoulder",
                 'quantity' => 1, 'unit' => 'lot', 'estimated_cost' => 3450000, 'fund_source' => '20% Development Fund',

@@ -60,7 +60,7 @@
 <div class="bar">
     <span>Purchase Request {{ $procurementRequest->reference_no }} · print or save as PDF</span>
     <span style="display:flex; gap:8px">
-        <a href="{{ route('end-user.requests.show', $procurementRequest) }}">Back</a>
+        <a href="{{ auth()->user()->role === 'staff' ? route('staff.requests') : route('admin.requests') }}">Back</a>
         <button type="button" onclick="window.print()">Print</button>
     </span>
 </div>

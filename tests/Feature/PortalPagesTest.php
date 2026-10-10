@@ -151,13 +151,8 @@ it('shows bidders the fee, bid security, submission method, deadline and their s
         ->assertSee('RCPT-0042');
 });
 
-it('follows a purchase request on the office dashboard and guides the admin through recording one', function () {
-    ($this->dump)('enduser-dashboard', testCase()->actingAs($this->office)->get(route('end-user.dashboard')))
-        ->assertOk()
-        ->assertSee('PR-2026-0031')
-        ->assertDontSee('New purchase request');
-
-    ($this->dump)('enduser-request-form', testCase()->actingAs($this->admin)->get(route('admin.requests.create')))
+it('guides the admin through recording a purchase request', function () {
+    ($this->dump)('request-form', testCase()->actingAs($this->admin)->get(route('admin.requests.create')))
         ->assertOk()
         ->assertSee('data-stepped', false)
         ->assertSee('Review and submit')

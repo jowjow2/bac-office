@@ -3,7 +3,7 @@
 
     $status = $record->status;
     $isWinner = $mode === 'bidder';
-    $canInspect = $mode === 'end_user' && $status === CI::INFRA_FOR_INSPECTION;
+    $canInspect = in_array($mode, ['admin', 'staff'], true) && $status === CI::INFRA_FOR_INSPECTION;
     $canAct = in_array($mode, ['admin', 'staff'], true) && in_array($status, [CI::INFRA_RECOMMENDED, CI::INFRA_ACCEPTED, CI::INFRA_PAYMENT_PROCESSING, CI::INFRA_PAID], true);
 
     // Who acts next, for viewers who have no form at this stage.
@@ -13,9 +13,9 @@
     if ($record->isConfigured() && ! $canReport && ! $canInspect && ! $canAct) {
         $nextStep = match ($status) {
             CI::INFRA_IN_PROGRESS => ['Waiting for the contractor', 'The contractor submits progress updates and requests a site inspection once the work is finished.'],
-            CI::INFRA_FOR_CORRECTION => ['Waiting for the contractor', 'The end-user office asked for corrections. The contractor submits the corrected work for reinspection.'],
-            CI::INFRA_FOR_INSPECTION => ['Waiting for the site inspection', 'The end-user office'.($office ? ' ('.$office.')' : '').' inspects the site and records the result from its End-user account, under Infrastructure contracts: recommend acceptance, or ask for corrections.'],
-            CI::INFRA_RECOMMENDED => ['Waiting for formal acceptance', 'The end-user office recommended the work for acceptance. The BAC admin or assigned staff formally accepts it.'],
+            CI::INFRA_FOR_CORRECTION => ['Waiting for the contractor', 'Corrections were requested after the site inspection. The contractor submits the corrected work for reinspection.'],
+            CI::INFRA_FOR_INSPECTION => ['Waiting for the site inspection', 'The BAC admin or assigned staff records the site inspection'.($office ? ' for '.$office : '').': recommend acceptance, or ask for corrections.'],
+            CI::INFRA_RECOMMENDED => ['Waiting for formal acceptance', 'The site inspection recommended the work for acceptance. The BAC admin or assigned staff formally accepts it.'],
             CI::INFRA_ACCEPTED => ['Waiting for payment processing', 'The BAC admin or assigned staff records when payment processing starts.'],
             CI::INFRA_PAYMENT_PROCESSING => ['Waiting for payment', 'The BAC admin or assigned staff records the paid status.'],
             CI::INFRA_PAID => ['Waiting for close-out', 'The BAC admin or assigned staff marks the contract implementation completed.'],
@@ -23,9 +23,6 @@
             default => null,
         };
     }
-    // An inspection nobody can record: the office has no End-user account yet.
-    $missingInspector = $status === CI::INFRA_FOR_INSPECTION && in_array($mode, ['admin', 'staff'], true)
-        && ! \App\Models\User::query()->where('role', 'end_user')->where('status', 'active')->where('office', $office)->exists();
     $tz = 'Asia/Manila';
     $supplier = $award->bid?->user?->company ?: $award->bid?->user?->name;
     $ntpOn = $award->ntp_issued_on ?? $award->bid?->notice_to_proceed_at?->timezone($tz);
@@ -232,9 +229,6 @@
             <div class="ui-callout infra-next {{ $allDone ? 'infra-next--done' : '' }}" role="status">
                 <p class="ui-callout__title">@if($allDone)<i class="fas fa-circle-check" aria-hidden="true"></i> {{ $nextStep[0] }}@else<i class="fas fa-hourglass-half" aria-hidden="true"></i> Next step: {{ $nextStep[0] }}@endif</p>
                 <p class="ui-callout__text">{{ $nextStep[1] }}</p>
-                @if($missingInspector)
-                    <p class="ui-callout__text infra-next__warn"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> No active End-user account is set up for {{ $office ?: 'this project\'s end-user office' }} yet. @if($mode === 'admin')Create one in <a href="{{ route('admin.users') }}">Suppliers &amp; users</a> with role End-user and that office, so the inspection can be recorded.@else Ask the BAC admin to create one.@endif</p>
-                @endif
             </div>
         @endif
 
@@ -254,7 +248,7 @@
         @endif
 
         @if($canInspect)
-            <form method="POST" enctype="multipart/form-data" action="{{ route('end-user.infrastructure.inspect', $award) }}" class="infra-panel">
+            <form method="POST" enctype="multipart/form-data" action="{{ route($mode === 'staff' ? 'staff.infrastructure.inspect' : 'admin.infrastructure.inspect', $award) }}" class="infra-panel">
                 @csrf
                 <div class="infra-panel__head"><h3>Record site inspection</h3></div>
                 <div class="ui-fields">

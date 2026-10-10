@@ -8,7 +8,6 @@
     $portalNotificationsUrl = match (auth()->user()?->role) {
         'staff' => route('staff.notifications'),
         'bidder' => route('bidder.notifications'),
-        'end_user' => route('end-user.notifications'),
         default => route('admin.notifications'),
     };
 @endphp

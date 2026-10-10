@@ -855,7 +855,8 @@ class AdminController extends Controller
             })
             ->when($filter === 'admin', fn ($query) => $query->where('role', 'admin'))
             ->when($filter === 'staff', fn ($query) => $query->where('role', 'staff'))
-            ->when($filter === 'end_user', fn ($query) => $query->where('role', 'end_user'))
+            // End-user office accounts were retired; any left in the database stay out of the list.
+            ->where('role', '!=', 'end_user')
             ->when($filter === 'bidder', fn ($query) => $query->where('role', 'bidder'))
             ->when($filter === 'pending' && $bidderApprovalAvailable, fn ($query) => $query->where('role', 'bidder')->whereHas('bidderProfile', fn ($profileQuery) => $profileQuery->where('approval_status', 'pending')))
             ->when($filter === 'pending' && ! $bidderApprovalAvailable, fn ($query) => $query->where('status', 'pending'))
@@ -882,9 +883,8 @@ class AdminController extends Controller
         $roleCounts = [
             'admin' => User::where('role', 'admin')->count(),
             'staff' => User::where('role', 'staff')->count(),
-            'end_user' => User::where('role', 'end_user')->count(),
             'bidder' => User::where('role', 'bidder')->count(),
-            'all' => User::count(),
+            'all' => User::where('role', '!=', 'end_user')->count(),
         ];
 
         $statusCounts = [
@@ -2958,16 +2958,16 @@ public function destroyUser(User $user)
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user?->id)],
             'username' => ['nullable', 'string', 'min:4', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', Rule::unique('users', 'username')->ignore($user?->id)],
-            'role' => ['required', Rule::in(['admin', 'staff', 'end_user', 'bidder'])],
+            'role' => ['required', Rule::in(['admin', 'staff', 'bidder'])],
             'status' => ['required', Rule::in(['active', 'pending', 'rejected'])],
             'office' => [
-                Rule::excludeIf(! in_array($request->input('role'), ['staff', 'end_user'], true)),
+                Rule::excludeIf($request->input('role') !== 'staff'),
                 'required',
                 'string',
                 'max:255',
                 // An account may keep an office that is no longer on the list (older records), e.g. to reset its password.
                 Rule::in(array_merge(
-                    $request->input('role') === 'end_user' ? User::assignableEndUserOffices() : User::staffOfficeOptions(),
+                    User::staffOfficeOptions(),
                     $user && $user->role === $request->input('role') && filled($user->office) ? [$user->office] : [],
                 )),
             ],

@@ -3,7 +3,6 @@
     $roles = [
         'admin' => ['fa-user-shield', 'Admin', 'Full BAC access'],
         'staff' => ['fa-user-tie', 'Staff', 'BAC secretariat work'],
-        'end_user' => ['fa-building', 'End-user office', 'Requests and site inspections'],
         'bidder' => ['fa-briefcase', 'Bidder', 'Supplier or contractor'],
     ];
 @endphp

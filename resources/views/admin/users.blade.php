@@ -3,7 +3,6 @@
 <div class="admin-dashboard admin-role-page">
     @php
         $staffOffices = \App\Models\User::staffOfficeOptions();
-        $endUserOffices = \App\Models\User::assignableEndUserOffices();
     @endphp
     @vite(['resources/css/dashboard.css'])
 
@@ -720,7 +719,6 @@
                     'all' => ['All users', $roleCounts['all'] ?? null],
                     'admin' => ['Admin', $roleCounts['admin'] ?? null],
                     'staff' => ['Staff', $roleCounts['staff'] ?? null],
-                    'end_user' => ['End-user offices', $roleCounts['end_user'] ?? null],
                     'bidder' => ['Bidders', $roleCounts['bidder'] ?? null],
                     'pending' => ['Pending', $statusCounts['pending'] ?? null],
                 ];
@@ -731,7 +729,6 @@
                 $roleMeta = [
                     'admin' => ['Admin', 'admin', 'fa-user-shield'],
                     'staff' => ['Staff', 'staff', 'fa-user-tie'],
-                    'end_user' => ['End-user office', 'office', 'fa-building'],
                     'bidder' => ['Bidder', 'bidder', 'fa-briefcase'],
                 ];
             @endphp
@@ -819,7 +816,7 @@
                                     </td>
                                     <td class="ul-cell-role">
                                         <span class="ul-role ul-role--{{ $roleTone }}"><i class="fas {{ $roleIcon }}" aria-hidden="true"></i> {{ $roleLabel }}</span>
-                                        @if(in_array($user->role, ['staff', 'end_user'], true))
+                                        @if($user->role === 'staff')
                                             <span class="ul-meta">{{ $user->office ?: 'No office assigned' }}@if(filled($user->position ?? null)) <span class="ul-dot">·</span> {{ $user->position }}@endif</span>
                                         @elseif($user->role === 'bidder')
                                             <span class="ul-meta">{{ $user->company ?: 'Company not set' }}@if(filled($user->registration_no)) <span class="ul-dot">·</span> <span class="ul-mono">{{ $user->registration_no }}</span>@endif</span>
@@ -1654,10 +1651,6 @@
             @else
                 openCreateUserModal();
             @endif
-        @elseif(request('create') === 'end_user')
-            // Linked from the purchase request queue: add an end-user office account.
-            setUserRole('create', 'end_user');
-            openCreateUserModal();
         @endif
     });
 
@@ -1696,7 +1689,7 @@
         });
 
         const officeSelect = document.getElementById(prefix + '_office');
-        const needsOffice = role === 'staff' || role === 'end_user';
+        const needsOffice = role === 'staff';
         if (officeSelect) {
             officeSelect.required = needsOffice;
             Array.from(officeSelect.options).forEach(function (option) {
@@ -1714,7 +1707,6 @@
         const copy = {
             admin: { heading: 'Position', office: 'Office', position: 'e.g. BAC Chairperson', contact: 'Contact no.', name: 'Full name', namePlaceholder: 'e.g. Maria Santos', hint: '' },
             staff: { heading: 'Office assignment', office: 'BAC office', position: 'e.g. BAC Secretariat Head', contact: 'Office contact no.', name: 'Full name', namePlaceholder: 'e.g. Jose Reyes', hint: 'The BAC office this staff member works in.' },
-            end_user: { heading: 'Office assignment', office: 'Assigned LGU office', position: 'e.g. Municipal Engineer', contact: 'Office contact no.', name: 'Full name', namePlaceholder: 'e.g. Engr. Mark Anthony Reyes', hint: 'Must match the end-user office of its projects, so it can file requests and record site inspections.' },
             bidder: { heading: '', office: 'Office', position: '', contact: 'Contact no.', name: 'Authorized representative', namePlaceholder: 'Owner or authorized representative', hint: '' },
         }[role] || {};
 

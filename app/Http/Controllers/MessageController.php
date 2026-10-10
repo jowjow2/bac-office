@@ -72,28 +72,22 @@ class MessageController extends Controller
             ->orderBy('name')
             ->get();
 
-        $officeContacts = $this->endUserContacts();
-
         $this->attachOnlineStatuses($bidders);
         $this->attachOnlineStatuses($staffContacts);
-        $this->attachOnlineStatuses($officeContacts);
 
         $requestedUserId = (int) $request->query('user', 0);
         $requestedContact = $requestedUserId > 0
-            ? $bidders->merge($staffContacts)->merge($officeContacts)->firstWhere('id', $requestedUserId)
+            ? $bidders->merge($staffContacts)->firstWhere('id', $requestedUserId)
             : null;
 
-        $activeTab = match (true) {
-            $requestedContact instanceof User => ['staff' => 'staff', 'end_user' => 'offices'][$requestedContact->role] ?? 'bidders',
-            in_array($request->query('tab'), ['staff', 'offices'], true) => $request->query('tab'),
-            default => 'bidders',
-        };
+        $activeTab = $requestedContact instanceof User && $requestedContact->role === 'staff'
+            ? 'staff'
+            : ($request->query('tab') === 'staff' ? 'staff' : 'bidders');
 
-        $activeCounterparts = ['staff' => $staffContacts, 'offices' => $officeContacts][$activeTab] ?? $bidders;
+        $activeCounterparts = $activeTab === 'staff' ? $staffContacts : $bidders;
         $selectedBidder = $this->resolveSelectedConversation($request, $activeCounterparts);
         $bidderThreadSummaries = $this->buildThreadSummaries($admin, $bidders);
         $staffThreadSummaries = $this->buildThreadSummaries($admin, $staffContacts);
-        $officeThreadSummaries = $this->buildThreadSummaries($admin, $officeContacts);
         $conversationMessages = collect();
 
         if ($selectedBidder instanceof User) {
@@ -110,10 +104,9 @@ class MessageController extends Controller
 
         return view('admin.messages', [
             'activeTab' => $activeTab,
-            'threadSummaries' => ['staff' => $staffThreadSummaries, 'offices' => $officeThreadSummaries][$activeTab] ?? $bidderThreadSummaries,
+            'threadSummaries' => $activeTab === 'staff' ? $staffThreadSummaries : $bidderThreadSummaries,
             'bidderThreadSummaries' => $bidderThreadSummaries,
             'staffThreadSummaries' => $staffThreadSummaries,
-            'officeThreadSummaries' => $officeThreadSummaries,
             'selectedBidder' => $selectedBidder,
             'conversationMessages' => $conversationMessages,
             'adminNotificationCount' => $unreadNotificationsCount,
@@ -132,13 +125,13 @@ class MessageController extends Controller
         $validated = $request->validate([
             'recipient_id' => [
                 'required',
-                Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['bidder', 'staff', 'end_user'])),
+                Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['bidder', 'staff'])),
             ],
             'body' => ['nullable', 'string', 'max:2000', 'required_without:attachment'],
             'attachment' => $this->attachmentValidationRules(),
         ], [
-            'recipient_id.required' => 'Choose a staff member, end-user office or bidder to message.',
-            'recipient_id.exists' => 'Choose a valid staff, end-user office or bidder account.',
+            'recipient_id.required' => 'Choose a staff member or bidder to message.',
+            'recipient_id.exists' => 'Choose a valid staff or bidder account.',
             'body.required_without' => 'Type a message or attach a file before sending.',
             'attachment.max' => 'Attachments must be 10MB or smaller.',
             'attachment.mimes' => 'Only JPG, JPEG, PNG, WEBP, PDF, DOC, DOCX, XLS, and XLSX files are allowed.',
@@ -146,7 +139,7 @@ class MessageController extends Controller
 
         $recipient = User::query()
             ->whereKey((int) $validated['recipient_id'])
-            ->whereIn('role', ['bidder', 'staff', 'end_user'])
+            ->whereIn('role', ['bidder', 'staff'])
             ->firstOrFail();
 
         $message = Message::create([
@@ -157,7 +150,7 @@ class MessageController extends Controller
         ]);
 
         return $this->messageStoreResponse($request, $message, 'admin.messages', $recipient->id, [
-            'tab' => ['staff' => 'staff', 'end_user' => 'offices'][$recipient->role] ?? 'bidders',
+            'tab' => $recipient->role === 'staff' ? 'staff' : 'bidders',
         ]);
     }
 
@@ -274,24 +267,19 @@ class MessageController extends Controller
             ->orderByRaw("LOWER(COALESCE(NULLIF(company, ''), name))")
             ->get();
 
-        $officeContacts = $this->endUserContacts();
-
         $this->attachOnlineStatuses($admins);
         $this->attachOnlineStatuses($bidders);
-        $this->attachOnlineStatuses($officeContacts);
 
         $requestedUserId = (int) $request->query('user', 0);
         $requestedContact = $requestedUserId > 0
-            ? $admins->merge($bidders)->merge($officeContacts)->firstWhere('id', $requestedUserId)
+            ? $admins->merge($bidders)->firstWhere('id', $requestedUserId)
             : null;
 
-        $activeTab = match (true) {
-            $requestedContact instanceof User => ['bidder' => 'bidders', 'end_user' => 'offices'][$requestedContact->role] ?? 'admin',
-            in_array($request->query('tab'), ['bidders', 'offices'], true) => $request->query('tab'),
-            default => 'admin',
-        };
+        $activeTab = $requestedContact instanceof User && $requestedContact->role === 'bidder'
+            ? 'bidders'
+            : ($request->query('tab') === 'bidders' ? 'bidders' : 'admin');
 
-        $activeCounterparts = ['bidders' => $bidders, 'offices' => $officeContacts][$activeTab] ?? $admins;
+        $activeCounterparts = $activeTab === 'bidders' ? $bidders : $admins;
         $selectedContact = $this->resolveSelectedConversation($request, $activeCounterparts);
         $conversationMessages = collect();
 
@@ -309,7 +297,6 @@ class MessageController extends Controller
             'activeTab' => $activeTab,
             'adminThreadSummaries' => $this->buildThreadSummaries($staff, $admins),
             'bidderThreadSummaries' => $this->buildThreadSummaries($staff, $bidders),
-            'officeThreadSummaries' => $this->buildThreadSummaries($staff, $officeContacts),
             'selectedContact' => $selectedContact,
             'conversationMessages' => $conversationMessages,
             'staffNotificationCount' => SystemNotification::unreadCount($staff->id),
@@ -327,13 +314,13 @@ class MessageController extends Controller
         $validated = $request->validate([
             'recipient_id' => [
                 'required',
-                Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['admin', 'bidder', 'end_user'])),
+                Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['admin', 'bidder'])),
             ],
             'body' => ['nullable', 'string', 'max:2000', 'required_without:attachment'],
             'attachment' => $this->attachmentValidationRules(),
         ], [
-            'recipient_id.required' => 'Choose an admin, end-user office or bidder to message.',
-            'recipient_id.exists' => 'Choose a valid admin, end-user office or bidder account.',
+            'recipient_id.required' => 'Choose an admin or bidder to message.',
+            'recipient_id.exists' => 'Choose a valid admin or bidder account.',
             'body.required_without' => 'Type a message or attach a file before sending.',
             'attachment.max' => 'Attachments must be 10MB or smaller.',
             'attachment.mimes' => 'Only JPG, JPEG, PNG, WEBP, PDF, DOC, DOCX, XLS, and XLSX files are allowed.',
@@ -341,7 +328,7 @@ class MessageController extends Controller
 
         $recipient = User::query()
             ->whereKey((int) $validated['recipient_id'])
-            ->whereIn('role', ['admin', 'bidder', 'end_user'])
+            ->whereIn('role', ['admin', 'bidder'])
             ->firstOrFail();
 
         $message = Message::create([
@@ -352,7 +339,7 @@ class MessageController extends Controller
         ]);
 
         return $this->messageStoreResponse($request, $message, 'staff.messages', $recipient->id, [
-            'tab' => ['bidder' => 'bidders', 'end_user' => 'offices'][$recipient->role] ?? 'admin',
+            'tab' => $recipient->role === 'bidder' ? 'bidders' : 'admin',
         ]);
     }
 
@@ -389,13 +376,13 @@ class MessageController extends Controller
         abort_unless($admin->role === 'admin', 403);
 
         $counterparts = User::query()
-            ->whereIn('role', ['bidder', 'staff', 'end_user'])
+            ->whereIn('role', ['bidder', 'staff'])
             ->orderByRaw("LOWER(COALESCE(NULLIF(company, ''), name))")
             ->get();
 
         return response()->json([
             'ok' => true,
-            'statuses' => $this->onlineStatusesForRoles(['bidder', 'staff', 'end_user']),
+            'statuses' => $this->onlineStatusesForRoles(['bidder', 'staff']),
             'threads' => $this->threadSyncPayloads($admin, $counterparts),
             'unread_messages_count' => $this->unreadMessagesCountFor($admin->id),
         ]);
@@ -408,7 +395,7 @@ class MessageController extends Controller
 
         abort_unless($admin->role === 'admin', 403);
 
-        $bidder = $this->resolveCounterpartFromRequest($request, ['bidder', 'staff', 'end_user']);
+        $bidder = $this->resolveCounterpartFromRequest($request, ['bidder', 'staff']);
 
         return $this->conversationSyncResponse($request, $admin, $bidder);
     }
@@ -420,7 +407,7 @@ class MessageController extends Controller
 
         abort_unless($admin->role === 'admin', 403);
 
-        $bidder = $this->resolveCounterpartFromRequest($request, ['bidder', 'staff', 'end_user'], 'recipient_id');
+        $bidder = $this->resolveCounterpartFromRequest($request, ['bidder', 'staff'], 'recipient_id');
 
         return $this->typingResponse($request, $admin, $bidder);
     }
@@ -477,13 +464,13 @@ class MessageController extends Controller
         abort_unless($staff->role === 'staff', 403);
 
         $counterparts = User::query()
-            ->whereIn('role', ['admin', 'bidder', 'end_user'])
+            ->whereIn('role', ['admin', 'bidder'])
             ->orderByRaw("LOWER(COALESCE(NULLIF(company, ''), name))")
             ->get();
 
         return response()->json([
             'ok' => true,
-            'statuses' => $this->onlineStatusesForRoles(['admin', 'bidder', 'end_user']),
+            'statuses' => $this->onlineStatusesForRoles(['admin', 'bidder']),
             'threads' => $this->threadSyncPayloads($staff, $counterparts),
             'unread_messages_count' => $this->unreadMessagesCountFor($staff->id),
         ]);
@@ -496,7 +483,7 @@ class MessageController extends Controller
 
         abort_unless($staff->role === 'staff', 403);
 
-        $counterpart = $this->resolveCounterpartFromRequest($request, ['admin', 'bidder', 'end_user']);
+        $counterpart = $this->resolveCounterpartFromRequest($request, ['admin', 'bidder']);
 
         return $this->conversationSyncResponse($request, $staff, $counterpart);
     }
@@ -508,156 +495,18 @@ class MessageController extends Controller
 
         abort_unless($staff->role === 'staff', 403);
 
-        $counterpart = $this->resolveCounterpartFromRequest($request, ['admin', 'bidder', 'end_user'], 'recipient_id');
+        $counterpart = $this->resolveCounterpartFromRequest($request, ['admin', 'bidder'], 'recipient_id');
 
         return $this->typingResponse($request, $staff, $counterpart);
     }
 
-    /*
-     * End-user offices message the BAC admin and the BAC Secretariat (staff)
-     * about their purchase requests. They never message bidders. Each account
-     * has its own conversations, even within one office.
-     */
-    public function endUserIndex(Request $request): View
-    {
-        /** @var User $endUser */
-        $endUser = Auth::user();
-
-        abort_unless($endUser->role === 'end_user', 403);
-
-        $admins = User::query()->where('role', 'admin')->orderBy('name')->get();
-        $staffContacts = User::query()->where('role', 'staff')->orderBy('name')->get();
-
-        $this->attachOnlineStatuses($admins);
-        $this->attachOnlineStatuses($staffContacts);
-
-        $requestedUserId = (int) $request->query('user', 0);
-        $requestedContact = $requestedUserId > 0
-            ? $admins->merge($staffContacts)->firstWhere('id', $requestedUserId)
-            : null;
-
-        $activeTab = $requestedContact instanceof User
-            ? ($requestedContact->role === 'admin' ? 'admin' : 'staff')
-            : ($request->query('tab') === 'admin' ? 'admin' : 'staff');
-
-        $selectedContact = $this->resolveSelectedConversation($request, $activeTab === 'admin' ? $admins : $staffContacts);
-        $conversationMessages = collect();
-
-        if ($selectedContact instanceof User) {
-            $this->markIncomingMessagesAsRead($selectedContact->id, $endUser->id);
-
-            $conversationMessages = Message::query()
-                ->betweenUsers($endUser->id, $selectedContact->id)
-                ->with(['sender:id,name,company,role', 'recipient:id,name,company,role'])
-                ->oldest('created_at')
-                ->get();
-        }
-
-        return view('end-user.messages', [
-            'activeTab' => $activeTab,
-            'adminThreadSummaries' => $this->buildThreadSummaries($endUser, $admins),
-            'staffThreadSummaries' => $this->buildThreadSummaries($endUser, $staffContacts),
-            'selectedContact' => $selectedContact,
-            'conversationMessages' => $conversationMessages,
-            // "Ask the BAC about this request" opens the composer with the reference typed in.
-            'messageDraft' => Str::limit(trim((string) $request->query('draft', '')), 300, ''),
-        ]);
-    }
-
-    public function endUserStore(Request $request): RedirectResponse|JsonResponse
-    {
-        /** @var User $endUser */
-        $endUser = Auth::user();
-
-        abort_unless($endUser->role === 'end_user', 403);
-
-        $validated = $request->validate([
-            'recipient_id' => [
-                'required',
-                Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['admin', 'staff'])),
-            ],
-            'body' => ['nullable', 'string', 'max:2000', 'required_without:attachment'],
-            'attachment' => $this->attachmentValidationRules(),
-        ], [
-            'recipient_id.required' => 'Choose the BAC admin or a Secretariat staff member to message.',
-            'recipient_id.exists' => 'Choose a valid BAC admin or Secretariat account.',
-            'body.required_without' => 'Type a message or attach a file before sending.',
-            'attachment.max' => 'Attachments must be 10MB or smaller.',
-            'attachment.mimes' => 'Only JPG, JPEG, PNG, WEBP, PDF, DOC, DOCX, XLS, and XLSX files are allowed.',
-        ]);
-
-        $recipient = User::query()
-            ->whereKey((int) $validated['recipient_id'])
-            ->whereIn('role', ['admin', 'staff'])
-            ->firstOrFail();
-
-        $message = Message::create([
-            'sender_id' => $endUser->id,
-            'recipient_id' => $recipient->id,
-            'body' => trim((string) ($validated['body'] ?? '')),
-            ...$this->storeMessageAttachment($request->file('attachment'), $endUser->id),
-        ]);
-
-        return $this->messageStoreResponse($request, $message, 'end-user.messages', $recipient->id, [
-            'tab' => $recipient->role === 'admin' ? 'admin' : 'staff',
-        ]);
-    }
-
-    public function endUserStatusSync(): JsonResponse
-    {
-        /** @var User $endUser */
-        $endUser = Auth::user();
-
-        abort_unless($endUser->role === 'end_user', 403);
-
-        $counterparts = User::query()->whereIn('role', ['admin', 'staff'])->orderBy('name')->get();
-
-        return response()->json([
-            'ok' => true,
-            'statuses' => $this->onlineStatusesForRoles(['admin', 'staff']),
-            'threads' => $this->threadSyncPayloads($endUser, $counterparts),
-            'unread_messages_count' => $this->unreadMessagesCountFor($endUser->id),
-        ]);
-    }
-
-    public function endUserConversationSync(Request $request): JsonResponse
-    {
-        /** @var User $endUser */
-        $endUser = Auth::user();
-
-        abort_unless($endUser->role === 'end_user', 403);
-
-        return $this->conversationSyncResponse($request, $endUser, $this->resolveCounterpartFromRequest($request, ['admin', 'staff']));
-    }
-
-    public function endUserTyping(Request $request): JsonResponse
-    {
-        /** @var User $endUser */
-        $endUser = Auth::user();
-
-        abort_unless($endUser->role === 'end_user', 403);
-
-        return $this->typingResponse($request, $endUser, $this->resolveCounterpartFromRequest($request, ['admin', 'staff'], 'recipient_id'));
-    }
-
-    /** End-user office accounts, grouped by office then name, for the BAC side. */
-    protected function endUserContacts(): Collection
-    {
-        return User::query()
-            ->where('role', 'end_user')
-            ->orderByRaw("LOWER(COALESCE(office, ''))")
-            ->orderBy('name')
-            ->get();
-    }
-
-    /** "Admin", "Staff", "Bidder", or an end-user account's office. */
+    /** "Admin", "Staff" or "Bidder". */
     public static function roleLabelFor(User $user): string
     {
         return match ($user->role) {
             'admin' => 'Admin',
             'staff' => 'Staff',
             'bidder' => 'Bidder',
-            'end_user' => $user->office ?: 'End-user office',
             default => ucfirst((string) ($user->role ?? 'User')),
         };
     }

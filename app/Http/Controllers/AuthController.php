@@ -121,14 +121,13 @@ class AuthController extends Controller
     }
 
     /**
-     * Bidders and end-user offices get a welcome card on their dashboard once
-     * per sign-in (BidderController::index, ProcurementRequestController::dashboard).
+     * Bidders get a welcome card on their dashboard once per sign-in
+     * (BidderController::index).
      */
     protected function queueDashboardWelcome(Request $request, User $user): void
     {
-        $key = ['bidder' => 'bidder_welcome', 'end_user' => 'end_user_welcome'][$user->role] ?? null;
-        if ($key !== null) {
-            $request->session()->put($key, true);
+        if ($user->role === 'bidder') {
+            $request->session()->put('bidder_welcome', true);
         }
     }
 
@@ -152,7 +151,6 @@ class AuthController extends Controller
         return match ($user->role) {
             'admin' => 'BAC Admin',
             'staff' => 'BAC Staff',
-            'end_user' => 'End-user office',
             default => ucfirst((string) $user->role),
         };
     }
@@ -557,7 +555,7 @@ class AuthController extends Controller
             ]);
         }
 
-        if ($user->status === 'rejected' || ($user->role === 'bidder' && ! $user->canLoginAsBidder()) || ($user->role !== 'bidder' && $user->status !== 'active')) {
+        if ($user->role === 'end_user' || $user->status === 'rejected' || ($user->role === 'bidder' && ! $user->canLoginAsBidder()) || ($user->role !== 'bidder' && $user->status !== 'active')) {
             return $this->authResponse($request, false, $this->accountUnavailableMessage($user), 'login', 422);
         }
 
@@ -675,25 +673,13 @@ class AuthController extends Controller
             return $fail("No SJBAC account uses {$email}. Register as a bidder with this email first.", 'register');
         }
 
-        if ($user->status === 'rejected' || ($user->role === 'bidder' && ! $user->canLoginAsBidder()) || ($user->role !== 'bidder' && $user->status !== 'active')) {
+        if ($user->role === 'end_user' || $user->status === 'rejected' || ($user->role === 'bidder' && ! $user->canLoginAsBidder()) || ($user->role !== 'bidder' && $user->status !== 'active')) {
             LoginAudit::record($request, $user, 'google', 'failed', 'account_unavailable');
 
             return $fail($this->accountUnavailableMessage($user));
         }
 
         $remember = (bool) $request->session()->pull('google_login_remember', false);
-
-        // Google proves the email, but an end-user office account still confirms each sign-in with the emailed code.
-        if ($user->role === 'end_user') {
-            if (! $this->issueLoginVerificationCode($request, $user, $remember)) {
-                return $fail('We could not send your verification code right now. Please try again in a few minutes, or contact the BAC Secretariat.');
-            }
-
-            return redirect()->route('home')
-                ->with('success', 'Verification code sent to your email. Please enter the code to continue.')
-                ->with('auth_tab', 'verify')
-                ->with('login_verification_prompt', $this->loginVerificationPayload($user));
-        }
 
         Auth::login($user, $remember);
         $request->session()->regenerate();
@@ -1131,7 +1117,6 @@ class AuthController extends Controller
         return match ($user->role) {
             'admin' => route('admin.dashboard'),
             'staff' => route('staff.dashboard'),
-            'end_user' => route('end-user.dashboard'),
             default => route('bidder.dashboard'),
         };
     }
@@ -1146,7 +1131,6 @@ class AuthController extends Controller
     {
         return match ($user->role) {
             'bidder' => ['ttl' => 600, 'cooldown' => 0, 'max_attempts' => null],
-            'end_user' => ['ttl' => 300, 'cooldown' => 60, 'max_attempts' => 5],
             default => null,
         };
     }
@@ -1160,7 +1144,6 @@ class AuthController extends Controller
 
         $available = match ($user?->role) {
             'bidder' => $user->canLoginAsBidder(),
-            'end_user' => $user->status === 'active',
             default => false,
         };
 
@@ -1229,6 +1212,11 @@ class AuthController extends Controller
 
     protected function accountUnavailableMessage(User $user): string
     {
+        // End-user office accounts were retired: the BAC admin records an office's purchase requests.
+        if ($user->role === 'end_user') {
+            return 'End-user office accounts are no longer used. Hand your purchase request to the BAC as a signed hard copy.';
+        }
+
         if ($user->role === 'bidder') {
             $profile = null;
 

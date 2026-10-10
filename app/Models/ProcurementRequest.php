@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Support\EndUserAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -111,11 +110,6 @@ class ProcurementRequest extends Model
         return $this->hasOne(Project::class);
     }
 
-    /** Requests an end-user account may open: its own (App\Support\EndUserAccess). */
-    public function scopeVisibleTo(Builder $query, User $user): Builder
-    {
-        return EndUserAccess::scopeRequests($query, $user);
-    }
 
     public function statusLabel(): string
     {

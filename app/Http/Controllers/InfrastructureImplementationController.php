@@ -8,7 +8,6 @@ use App\Models\ContractImplementation;
 use App\Models\ContractImplementationEvent;
 use App\Models\Project;
 use App\Support\InfrastructureImplementationWorkflow;
-use App\Support\EndUserAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -22,16 +21,6 @@ class InfrastructureImplementationController extends Controller
     public function showStaff(Award $award) { $this->authorizeLgu($award); abort_unless(Auth::user()->role === 'staff', 403); return $this->show($award, 'staff'); }
     public function showBidder(Award $award) { $this->authorizeWinner($award); return $this->show($award, 'bidder'); }
     private function show(Award $award, string $mode) { $record = $this->workflow->ensure($award); $award->load(['project', 'bid.user']); return view('infrastructure-contracts.show', compact('award', 'record', 'mode')); }
-    public function endUserIndex()
-    {
-        $user = Auth::user();
-        $awards = Award::with(['project', 'bid.user', 'contractImplementation.events.actor'])
-            ->whereHas('project', fn ($q) => EndUserAccess::scopeProjects($q->whereRaw('LOWER(category) = ?', ['infrastructure']), $user))
-            ->whereHas('bid', fn ($q) => $q->whereNotNull('contract_signed_at')->whereNotNull('notice_to_proceed_at'))
-            ->get()->filter(fn ($award) => $this->workflow->eligible($award));
-        return view('infrastructure-contracts.index', compact('awards'));
-    }
-
     public function configure(Request $request, Award $award)
     {
         $this->authorizeLgu($award);
@@ -79,11 +68,12 @@ class InfrastructureImplementationController extends Controller
 
     public function inspect(Request $request, Award $award)
     {
-        $this->authorizeEndUser($award);
+        // The BAC admin or the assigned staff records the site inspection (the inspection committee's report is the supporting document).
+        $this->authorizeLgu($award);
         $data = $request->validate(['outcome' => ['required', Rule::in(['recommend_acceptance', 'correction'])], 'findings' => ['required', 'string', 'max:5000'], 'deficiencies' => ['nullable', 'string', 'max:5000'], 'remarks' => ['required', 'string', 'max:2000'], 'document' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:20480']]);
         if ($data['outcome'] === 'recommend_acceptance') $data['outcome'] = 'accepted';
         $this->workflow->inspect($award, Auth::user(), $data, $request->file('document'));
-        return back()->with('success', 'Site inspection findings recorded and supplier notified.');
+        return redirect()->route($request->routeIs('staff.*') ? 'staff.infrastructure.show' : 'admin.infrastructure.show', $award)->with('success', 'Site inspection findings recorded and supplier notified.');
     }
 
     public function action(Request $request, Award $award)
@@ -103,8 +93,7 @@ class InfrastructureImplementationController extends Controller
         $user = Auth::user();
         $winner = $user?->role === 'bidder' && (int) $award->bid?->user_id === (int) $user->id;
         $adminOrAssigned = $user?->role === 'admin' || ($user?->role === 'staff' && Assignment::where('staff_id', $user->id)->where('project_id', $award->project_id)->exists());
-        $office = EndUserAccess::canSeeProject($user, $award->project);
-        abort_unless($this->workflow->eligible($award) && ($winner || $adminOrAssigned || $office), 403);
+        abort_unless($this->workflow->eligible($award) && ($winner || $adminOrAssigned), 403);
         return Storage::disk('local')->download($event->document_path, $event->document_name ?: 'infrastructure-contract-document');
     }
 
@@ -113,11 +102,6 @@ class InfrastructureImplementationController extends Controller
         abort_unless($this->workflow->eligible($award), 404);
         $user = Auth::user();
         abort_unless($user?->role === 'admin' || ($user?->role === 'staff' && Assignment::where('staff_id', $user->id)->where('project_id', $award->project_id)->exists()), 403);
-    }
-    private function authorizeEndUser(Award $award): void
-    {
-        abort_unless($this->workflow->eligible($award), 404);
-        abort_unless(EndUserAccess::canSeeProject(Auth::user(), $award->project), 403);
     }
     private function authorizeWinner(Award $award): void
     {

@@ -84,10 +84,12 @@ it('tracks infrastructure through progress, correction, inspection, acceptance, 
     testCase()->actingAs($this->admin)->put(route('admin.infrastructure.configure', $this->award), $this->terms)->assertRedirect();
     expect(ContractImplementation::where('award_id', $this->award->id)->value('status'))->toBe(ContractImplementation::INFRA_IN_PROGRESS);
     $termsEvent = ContractImplementationEvent::where('action', 'infrastructure_terms_recorded')->firstOrFail();
-    expect($this->office->role)->toBe('end_user')->and($this->office->office)->toBe('Municipal Engineering Office')->and($termsEvent->implementation->award->project->end_user_unit)->toBe('Municipal Engineering Office');
+    expect($termsEvent->implementation->award->project->end_user_unit)->toBe('Municipal Engineering Office');
     testCase()->actingAs($this->otherBidder)->get(route('infrastructure.document', $termsEvent))->assertForbidden();
     testCase()->actingAs($this->supplier)->get(route('infrastructure.document', $termsEvent))->assertOk();
-    testCase()->actingAs($this->office)->get(route('infrastructure.document', $termsEvent))->assertOk();
+    testCase()->actingAs($this->admin)->get(route('infrastructure.document', $termsEvent))->assertOk();
+    // An old end-user account no longer reaches the contract documents.
+    testCase()->actingAs($this->office)->get(route('infrastructure.document', $termsEvent))->assertForbidden();
 
     testCase()->actingAs($this->supplier)->get(route('bidder.infrastructure.show', $this->award))->assertOk()->assertSee('Submit progress update');
     testCase()->actingAs($this->supplier)->post(route('bidder.infrastructure.progress', $this->award), [
@@ -96,7 +98,7 @@ it('tracks infrastructure through progress, correction, inspection, acceptance, 
     ])->assertRedirect();
     expect(ContractImplementation::where('award_id', $this->award->id)->value('status'))->toBe(ContractImplementation::INFRA_FOR_INSPECTION);
 
-    testCase()->actingAs($this->office)->post(route('end-user.infrastructure.inspect', $this->award), [
+    testCase()->actingAs($this->admin)->post(route('admin.infrastructure.inspect', $this->award), [
         'outcome' => 'correction', 'findings' => 'Inspection found two sections needing repair.', 'deficiencies' => 'Repair two pavement sections.',
         'remarks' => 'Please correct and request reinspection.', 'document' => ($this->file)('inspection-correction.pdf'),
     ])->assertRedirect();
@@ -106,7 +108,7 @@ it('tracks infrastructure through progress, correction, inspection, acceptance, 
         'progress_percent' => 100, 'milestone' => 'Repairs completed', 'remarks' => 'Corrections completed; requesting reinspection.',
         'request_inspection' => 1, 'document' => ($this->file)('correction-proof.pdf'),
     ])->assertRedirect();
-    testCase()->actingAs($this->office)->post(route('end-user.infrastructure.inspect', $this->award), [
+    testCase()->actingAs($this->admin)->post(route('admin.infrastructure.inspect', $this->award), [
         'outcome' => 'recommend_acceptance', 'findings' => 'Repairs are complete and conform to the contract.', 'remarks' => 'Recommend acceptance.',
         'document' => ($this->file)('inspection-pass.pdf'),
     ])->assertRedirect();
@@ -123,10 +125,10 @@ it('tracks infrastructure through progress, correction, inspection, acceptance, 
     testCase()->actingAs($this->supplier)->get(route('bidder.infrastructure.show', $this->award))->assertOk()->assertSee('Completed');
 });
 
-it('restricts Infrastructure tracking to the winner, matching end-user office, and assigned LGU staff', function () {
+it('restricts Infrastructure tracking to the winner and the BAC', function () {
     testCase()->actingAs($this->otherBidder)->get(route('bidder.infrastructure.show', $this->award))->assertForbidden();
-    testCase()->actingAs($this->otherOffice)->get(route('end-user.infrastructure.index'))->assertOk()->assertDontSee($this->award->project->title);
-    testCase()->actingAs($this->otherOffice)->post(route('end-user.infrastructure.inspect', $this->award), [])->assertForbidden();
+    testCase()->actingAs($this->otherOffice)->post(route('admin.infrastructure.inspect', $this->award), [])->assertForbidden();
+    testCase()->actingAs($this->supplier)->post(route('admin.infrastructure.inspect', $this->award), [])->assertForbidden();
 });
 
 it('requires an existing signed contract and NTP, and rejects out-of-order actions', function () {
@@ -213,19 +215,15 @@ it('keeps the terms locked for staff, bidders and after formal acceptance', func
     expect(ContractImplementation::where('award_id', $this->award->id)->value('delivery_location'))->toBe($this->terms['delivery_location']);
 });
 
-it('tells everyone without a form who acts next, and warns when no end-user can inspect', function () {
+it('shows the BAC the inspection form and tells everyone else who acts next', function () {
     testCase()->actingAs($this->admin)->put(route('admin.infrastructure.configure', $this->award), $this->terms)->assertRedirect();
     ContractImplementation::where('award_id', $this->award->id)->update(['status' => ContractImplementation::INFRA_FOR_INSPECTION]);
 
     testCase()->actingAs($this->admin)->get(route('admin.infrastructure.show', $this->award))
-        ->assertOk()->assertSee('Next step: Waiting for the site inspection')->assertSee('Municipal Engineering Office')
+        ->assertOk()->assertSee('Record site inspection')->assertSee(route('admin.infrastructure.inspect', $this->award), false)
         ->assertDontSee('No active End-user account');
     testCase()->actingAs($this->supplier)->get(route('bidder.infrastructure.show', $this->award))
-        ->assertOk()->assertSee('Next step: Waiting for the site inspection')->assertDontSee('No active End-user account');
-
-    $this->office->update(['status' => 'inactive']);
-    testCase()->actingAs($this->admin)->get(route('admin.infrastructure.show', $this->award))
-        ->assertSee('No active End-user account is set up for Municipal Engineering Office');
+        ->assertOk()->assertSee('Next step: Waiting for the site inspection')->assertSee('Municipal Engineering Office');
 });
 
 it('shows a completed contract as Completed everywhere, once, with its documents and an audit entry', function () {

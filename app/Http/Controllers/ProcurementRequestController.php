@@ -8,7 +8,6 @@ use App\Models\ProcurementRequestDocument;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\UserNotification;
-use App\Support\EndUserAccess;
 use App\Support\ProcurementPipeline;
 use App\Support\ProcurementTimeline;
 use App\Support\SystemNotification;
@@ -23,7 +22,7 @@ use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * Procurement requests: filed by an end-user office, reviewed against the
+ * Procurement requests: recorded by the BAC admin from an office's signed hard copy, reviewed against the
  * PPMP/APP and budget by authorized staff (or the admin), then forwarded to
  * the BAC, which prepares the bidding project from it.
  */
@@ -33,116 +32,10 @@ class ProcurementRequestController extends Controller
      | End-user office
      * ------------------------------------------------------------------- */
 
-    public function dashboard(Request $request)
-    {
-        $office = Auth::user()->office;
-        // This account's own requests and procurements, not its office colleagues' (EndUserAccess).
-        $requests = EndUserAccess::requests(Auth::user())->latest('updated_at')->get();
-        $pipeline = ProcurementPipeline::forEndUser(Auth::user());
-        $filters = ProcurementPipeline::filtersFrom($request);
-
-        return view('end-user.dashboard', [
-            'office' => $office,
-            'counts' => [
-                'drafts' => $requests->where('status', ProcurementRequest::STATUS_DRAFT)->count(),
-                'returned' => $requests->where('status', ProcurementRequest::STATUS_RETURNED)->count(),
-                'review' => $requests->whereIn('status', [ProcurementRequest::STATUS_SUBMITTED, ProcurementRequest::STATUS_FORWARDED])->count(),
-                'procurement' => $requests->where('status', ProcurementRequest::STATUS_IN_PROCUREMENT)->count(),
-            ],
-            'needsAction' => $requests->whereIn('status', [ProcurementRequest::STATUS_DRAFT, ProcurementRequest::STATUS_RETURNED])->values(),
-            'filters' => $filters,
-            'rows' => $pipeline->paginate($filters, 10),
-            'upcoming' => $pipeline->upcoming(),
-            'budget' => $this->budgetSummary($requests),
-            'activity' => SystemNotification::forUser(Auth::id(), 5),
-            // Shown once per sign-in, like the bidder's welcome card.
-            'welcome' => (bool) $request->session()->pull('end_user_welcome', false),
-        ]);
-    }
-
-    /**
-     * This year's money on the dashboard: what the account requested, what is
-     * in procurement, what was awarded and the savings against the ABC.
-     *
-     * @return array{requested: float, in_procurement: float, awarded: float, savings: float, year: int}
-     */
-    private function budgetSummary($requests): array
-    {
-        $year = (int) now()->year;
-        $thisYear = $requests->filter(fn (ProcurementRequest $request) => (int) $request->created_at?->year === $year);
-        $filed = $thisYear->reject(fn (ProcurementRequest $request) => in_array($request->status, [ProcurementRequest::STATUS_DRAFT, ProcurementRequest::STATUS_REJECTED], true));
-
-        $projects = Project::query()
-            ->whereIn('procurement_request_id', $thisYear->pluck('id'))
-            ->with('awards')
-            ->get();
-        // The award in force: the latest one that was not cancelled.
-        $contract = fn (Project $project) => $project->awards->whereNull('cancelled_at')->sortByDesc('id')->first()?->contract_amount;
-        $awarded = $projects->filter(fn (Project $project) => $contract($project) !== null);
-
-        return [
-            'year' => $year,
-            'requested' => (float) $filed->sum('estimated_cost'),
-            'in_procurement' => (float) $projects->reject(fn (Project $project) => $awarded->contains($project))->sum('budget'),
-            'awarded' => (float) $awarded->sum(fn (Project $project) => (float) $contract($project)),
-            'savings' => (float) $awarded->sum(fn (Project $project) => max(0, (float) $project->budget - (float) $contract($project))),
-        ];
-    }
-
-    public function notifications()
-    {
-        return view('end-user.notifications', [
-            'notifications' => SystemNotification::forUser(Auth::id(), 50),
-        ]);
-    }
-
-    public function index(Request $request)
-    {
-        return view('end-user.requests.index', $this->listData($request));
-    }
-
-    /** The My purchase requests list: its filters, the page of requests and the years to pick from. */
-    private function listData(Request $request): array
-    {
-        $status = $request->query('status');
-        $search = trim((string) $request->query('q', ''));
-
-        // Years the account has requests in, newest first, for the year filter.
-        $years = EndUserAccess::requests(Auth::user())->pluck('created_at')
-            ->map(fn ($date) => (int) $date?->year)->filter()->unique()->sortDesc()->values();
-        $year = (int) $request->query('year', 0);
-        $year = $years->contains($year) ? $year : null;
-
-        $requests = EndUserAccess::requests(Auth::user())
-            ->when($year, fn ($query) => $query->whereBetween('created_at', [now()->setYear($year)->startOfYear(), now()->setYear($year)->endOfYear()]))
-            ->when(array_key_exists((string) $status, ProcurementRequest::STATUSES), fn ($query) => $query->where('status', $status))
-            ->when($search !== '', fn ($query) => $query->where(fn ($inner) => $inner
-                ->where('title', 'like', '%'.$search.'%')
-                ->orWhere('reference_no', 'like', '%'.$search.'%')))
-            ->latest('updated_at')
-            ->paginate(15)
-            ->withQueryString();
-
-        return compact('requests', 'status', 'search', 'years', 'year');
-    }
-
-    public function show(ProcurementRequest $procurementRequest)
-    {
-        $this->authorizeRequester($procurementRequest);
-        $procurementRequest->load(['documents', 'requester', 'reviewer', 'project']);
-
-        return view('end-user.requests.show', [
-            'procurementRequest' => $procurementRequest,
-            'timeline' => ProcurementTimeline::forRequest($procurementRequest),
-        ]);
-    }
-
     /** The Purchase Request form to print and sign (the paper copy for the records). */
     public function printForm(ProcurementRequest $procurementRequest)
     {
-        $this->authorizeRequester($procurementRequest);
-
-        return view('end-user.requests.print', [
+        return view('procurement.request-print', [
             'procurementRequest' => $procurementRequest->load('requester'),
             'rows' => $procurementRequest->itemRows(),
         ]);
@@ -158,7 +51,7 @@ class ProcurementRequestController extends Controller
 
     public function adminCreate()
     {
-        return view('end-user.requests.form', [
+        return view('procurement.request-form', [
             'procurementRequest' => new ProcurementRequest(['unit' => 'lot']),
             'adminMode' => true,
             'offices' => User::assignableEndUserOffices(),
@@ -244,8 +137,6 @@ class ProcurementRequestController extends Controller
             'requests' => $requests,
             'tab' => $tab,
             'search' => $search,
-            // Requests are filed by end-user office accounts; say so when there are none.
-            'officeAccounts' => User::where('role', 'end_user')->where('status', 'active')->count(),
             'drafts' => (int) ProcurementRequest::where('status', ProcurementRequest::STATUS_DRAFT)->count(),
             'counts' => [
                 'review' => (int) ($counts[ProcurementRequest::STATUS_SUBMITTED] ?? 0),
@@ -275,7 +166,6 @@ class ProcurementRequestController extends Controller
 
         $procurementRequest->load('documents');
         $reference = $procurementRequest->reference_no;
-        $requesterId = $procurementRequest->requested_by;
         $snapshot = $procurementRequest->only(['reference_no', 'title', 'end_user_office', 'category', 'estimated_cost', 'status', 'submitted_at', 'requested_by'])
             + ['documents' => $procurementRequest->documents->pluck('original_name')->all()];
         $files = $procurementRequest->documents->pluck('file_path')->filter()->all();
@@ -293,12 +183,6 @@ class ProcurementRequestController extends Controller
             } catch (Throwable $exception) {
                 report($exception);
             }
-        }
-
-        if ($requesterId) {
-            SystemNotification::createForUser((int) $requesterId, 'Purchase request deleted',
-                $reference.' ('.$snapshot['title'].') was deleted by the BAC. Reason: '.trim($validated['reason']),
-                'project_status', ['important' => true, 'url' => route('end-user.requests.index', [], false)]);
         }
 
         return redirect()->route('admin.requests', array_filter(['tab' => $request->input('tab')]))
@@ -355,22 +239,17 @@ class ProcurementRequestController extends Controller
         AuditLog::log('procurement_request_reviewed', $procurementRequest, $before, $procurementRequest->only(array_keys($before)));
 
         $label = $procurementRequest->reference_no.' ('.$procurementRequest->title.')';
-        // The account that filed it (the whole office only for requests nobody filed).
-        $officeUsers = EndUserAccess::recipientsForRequest($procurementRequest);
-        $url = fn () => route('end-user.requests.show', $procurementRequest);
 
+        $adminUrl = route('admin.requests', ['tab' => $validated['decision'] === 'forward' ? 'bac' : 'all', 'q' => $procurementRequest->reference_no]);
         match ($validated['decision']) {
-            'forward' => [
-                SystemNotification::createForUsers($officeUsers, 'Request forwarded to the BAC', $label.' passed the PPMP/APP and budget review and was forwarded to the BAC.', 'procurement_request', ['url' => $url()]),
-                SystemNotification::createForRole('admin', 'Procurement request for the BAC', $label.' from '.$procurementRequest->end_user_office.' is ready for the preparation of bidding documents.', 'procurement_request', ['url' => route('admin.requests', ['tab' => 'bac'])]),
-            ],
-            'return' => SystemNotification::createForUsers($officeUsers, 'Request returned for correction', $label.': '.$validated['review_remarks'], 'procurement_request', ['url' => $url()]),
-            'reject' => SystemNotification::createForUsers($officeUsers, 'Request not approved', $label.': '.$validated['review_remarks'], 'procurement_request', ['url' => $url()]),
+            'forward' => SystemNotification::createForRole('admin', 'Procurement request for the BAC', $label.' from '.$procurementRequest->end_user_office.' is ready for the preparation of bidding documents.', 'procurement_request', ['url' => $adminUrl]),
+            'return' => SystemNotification::createForRole('admin', 'Request returned to the office', $label.' was returned: '.$validated['review_remarks'].' Ask '.$procurementRequest->end_user_office.' for a corrected hard copy.', 'procurement_request', ['url' => $adminUrl]),
+            'reject' => SystemNotification::createForRole('admin', 'Request not approved', $label.' was not approved: '.$validated['review_remarks'], 'procurement_request', ['url' => $adminUrl]),
         };
 
         $message = match ($validated['decision']) {
             'forward' => 'Forwarded '.$procurementRequest->reference_no.' to the BAC.',
-            'return' => 'Returned '.$procurementRequest->reference_no.' to the end-user office.',
+            'return' => 'Returned '.$procurementRequest->reference_no.' with your remarks. The BAC admin is told.',
             'reject' => 'Marked '.$procurementRequest->reference_no.' as not approved.',
         };
 
@@ -573,12 +452,6 @@ class ProcurementRequestController extends Controller
                 'uploaded_by' => Auth::id(),
             ]);
         }
-    }
-
-    /** Only the account that filed the request opens it (EndUserAccess). */
-    private function authorizeRequester(ProcurementRequest $procurementRequest): void
-    {
-        abort_unless(EndUserAccess::canSeeRequest(Auth::user(), $procurementRequest), 404);
     }
 
     private function role(Request $request): string
