@@ -3159,3 +3159,40 @@ body #bidViewModal .br .br-btn--revision:hover { background: var(--ui-warning-so
 body .admin-dashboard .main-area button.hd-export { display: inline-flex !important; align-items: center !important; gap: 8px !important; height: 38px !important; padding: 0 16px !important; border: 1px solid var(--ui-line-strong, #d5ddd8) !important; border-radius: 9px !important; background: #fff !important; color: var(--ui-ink-2, #2d3a34) !important; -webkit-text-fill-color: var(--ui-ink-2, #2d3a34) !important; font: 600 13.5px/1 var(--ui-font, inherit) !important; cursor: pointer !important; box-shadow: none !important; }
 body .admin-dashboard .main-area button.hd-export:hover { border-color: var(--ui-primary, #1f5c45) !important; background: var(--ui-primary-soft, #e8f3ee) !important; color: var(--ui-primary, #1f5c45) !important; -webkit-text-fill-color: var(--ui-primary, #1f5c45) !important; }
 body .admin-dashboard .main-area button.hd-export i { color: inherit !important; -webkit-text-fill-color: currentColor !important; font-size: 12px !important; }
+
+/* ---------- Bids redesign: one summary strip, quiet heading, one-row filters ---------- */
+body .admin-dashboard.admin-bids-page .admin-bids-v2 .bid-summary-grid, body .admin-dashboard.admin-bids-page .bid-summary-grid { display: flex !important; flex-wrap: wrap !important; gap: 4px !important; width: fit-content !important; max-width: 100% !important; margin: 0 0 16px !important; padding: 4px !important; border: 1px solid var(--ui-line) !important; border-radius: 12px !important; background: #fff !important; grid-template-columns: none !important; }
+body .admin-dashboard.admin-bids-page .bid-summary-card { display: inline-flex !important; flex-direction: row !important; align-items: center !important; gap: 8px !important; width: auto !important; min-height: 0 !important; height: 36px !important; padding: 0 14px !important; border: 0 !important; border-radius: 9px !important; background: transparent !important; box-shadow: none !important; }
+body .admin-dashboard.admin-bids-page .bid-summary-card::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ui-line-strong); }
+body .admin-dashboard.admin-bids-page .bid-summary-card.is-sealed::before { background: var(--ui-warning); }
+body .admin-dashboard.admin-bids-page .bid-summary-card.is-ready::before { background: var(--ui-success); }
+body .admin-dashboard.admin-bids-page .bid-summary-card.is-progress::before { background: var(--ui-info); }
+body .admin-dashboard.admin-bids-page .bid-summary-card span { width: auto !important; margin: 0 !important; color: var(--ui-muted) !important; -webkit-text-fill-color: var(--ui-muted) !important; font-size: 13px !important; font-weight: 600 !important; }
+body .admin-dashboard.admin-bids-page .bid-summary-card strong { display: inline-grid !important; width: auto !important; min-width: 22px !important; height: 20px !important; place-items: center !important; margin: 0 !important; padding: 0 6px !important; border-radius: 999px !important; background: var(--ui-line-soft) !important; color: var(--ui-ink-2) !important; -webkit-text-fill-color: var(--ui-ink-2) !important; font-size: 11.5px !important; font-weight: 700 !important; line-height: 1 !important; }
+body .admin-dashboard.admin-bids-page .bid-summary-card small { display: none !important; }
+
+body .admin-dashboard.admin-bids-page #bid-management .bid-register-heading { padding: 14px 20px !important; align-items: center !important; }
+body .admin-dashboard.admin-bids-page #bid-management .bid-register-heading__eyebrow, body .admin-dashboard.admin-bids-page #bid-management .bid-register-heading p { display: none !important; }
+body .admin-dashboard.admin-bids-page #bid-management .bid-register-heading h2 { margin: 0 !important; font-size: 15px !important; }
+
+body .admin-dashboard.admin-bids-page #bid-management .admin-bids-toolbar { padding: 12px 20px !important; border-top: 1px solid var(--ui-line-soft) !important; border-bottom: 1px solid var(--ui-line-soft) !important; }
+body .admin-dashboard.admin-bids-page #bid-management .admin-bids-filter-group { display: flex !important; flex-wrap: wrap !important; align-items: center !important; gap: 10px !important; }
+body .admin-dashboard.admin-bids-page #bid-management .bid-filter-caption { display: none !important; }
+body .admin-dashboard.admin-bids-page #bid-management .admin-bids-toolbar-field-search.admin-search-field { flex: 1 1 260px !important; min-height: 40px !important; height: 40px !important; background: #fff !important; }
+body .admin-dashboard.admin-bids-page #bid-management .admin-bids-toolbar-field:not(.admin-bids-toolbar-field-search) { display: flex !important; flex: 0 1 190px !important; align-items: center !important; height: 40px !important; padding: 0 8px !important; background: #fff !important; }
+body .admin-dashboard.admin-bids-page #bid-management .admin-bids-select { height: 36px !important; min-height: 36px !important; font-size: 13px !important; font-weight: 600 !important; }
+
+@media (max-width: 768px) {
+    body .admin-dashboard.admin-bids-page .bid-summary-grid { width: 100% !important; flex-wrap: nowrap !important; overflow-x: auto !important; scrollbar-width: none !important; }
+    body .admin-dashboard.admin-bids-page .bid-summary-card { flex: 0 0 auto !important; }
+    body .admin-dashboard.admin-bids-page #bid-management .admin-bids-toolbar-field:not(.admin-bids-toolbar-field-search) { flex: 1 1 calc(50% - 10px) !important; }
+}
+body .admin-dashboard.admin-bids-page .bid-summary-grid { flex-direction: row !important; }
+body .admin-dashboard.admin-bids-page #bid-management .admin-bids-filter-group { flex-direction: row !important; flex-wrap: nowrap !important; }
+body .admin-dashboard.admin-bids-page #bid-management .admin-bids-toolbar-field-search.admin-search-field { flex: 1 1 200px !important; width: auto !important; min-width: 160px !important; }
+body .admin-dashboard.admin-bids-page #bid-management .admin-bids-toolbar-field:not(.admin-bids-toolbar-field-search) { flex: 1 1 150px !important; min-width: 0 !important; }
+@media (max-width: 900px) {
+    body .admin-dashboard.admin-bids-page #bid-management .admin-bids-filter-group { flex-wrap: wrap !important; }
+    body .admin-dashboard.admin-bids-page #bid-management .admin-bids-toolbar-field-search.admin-search-field { flex: 1 1 100% !important; height: 40px !important; min-height: 40px !important; max-height: 40px !important; }
+    body .admin-dashboard.admin-bids-page #bid-management .admin-bids-toolbar-field:not(.admin-bids-toolbar-field-search) { flex: 1 1 calc(50% - 10px) !important; height: 40px !important; }
+}
