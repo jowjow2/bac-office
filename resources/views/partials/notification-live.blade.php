@@ -262,6 +262,8 @@
                 if (document.hidden) return true;
                 const openDialog = Array.from(document.querySelectorAll('.bidder-modal-overlay.show, .modal.show, dialog[open], [aria-modal="true"]'))
                     .some(function (element) {
+                        // Dialogs that reopen themselves after a reload (the contract view) do not hold the page.
+                        if (element.closest('[data-live-reload]')) return false;
                         if (element.getClientRects().length === 0) return false;
                         const style = getComputedStyle(element);
                         return style.visibility !== 'hidden' && style.opacity !== '0';

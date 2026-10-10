@@ -136,6 +136,16 @@ it('runs the Goods implementation from signed terms through completion with priv
     ($this->delivery)($award)->assertSessionHasNoErrors();
     expect($implementation->fresh()->status)->toBe(ContractImplementation::DELIVERED);
 
+    // The BAC is told right away: the admin and the staff assigned to the project, nobody else.
+    foreach ([$this->admin, $this->staff] as $bac) {
+        $notice = \App\Models\UserNotification::where('user_id', $bac->id)->where('title', 'Delivery submitted for receipt')->first();
+        expect($notice)->not->toBeNull()->and($notice->message)->toContain('DR-2026-001');
+    }
+    expect(\App\Models\UserNotification::where('user_id', $this->unassignedStaff->id)->where('title', 'Delivery submitted for receipt')->exists())->toBeFalse();
+
+    // The contract view refreshes itself in place: it does not hold the live reload.
+    testCase()->actingAs($this->admin)->get(route('admin.awards.index'))->assertSee('data-live-reload', false);
+
     $deliveryEvent = $implementation->events()->where('action', 'supplier_delivery')->firstOrFail();
     testCase()->actingAs($this->otherBidder)->get(route('contract-implementation.document', $deliveryEvent))->assertForbidden();
     testCase()->actingAs($this->unassignedStaff)->get(route('contract-implementation.document', $deliveryEvent))->assertForbidden();

@@ -10,7 +10,7 @@
     $ciReopen = (string) ((old('ci_award') && old('ci_form') !== 'delivery') ? old('ci_award') : request()->query('contract', ''));
 @endphp
 @foreach($ciAwards as $ciAward)
-    <dialog class="ci-dialog" id="ci-dialog-{{ $ciAward->id }}" aria-labelledby="ci-{{ $ciAward->id }}-title" data-ci-dialog="{{ $ciAward->id }}" @if($ciReopen === (string) $ciAward->id) data-ci-reopen @endif>
+    <dialog class="ci-dialog" data-live-reload id="ci-dialog-{{ $ciAward->id }}" aria-labelledby="ci-{{ $ciAward->id }}-title" data-ci-dialog="{{ $ciAward->id }}" @if($ciReopen === (string) $ciAward->id) data-ci-reopen @endif>
         <button type="button" class="ci-dialog-close" data-ci-close aria-label="Close contract implementation"><i class="fas fa-xmark" aria-hidden="true"></i></button>
         <div class="ci-dialog-scroll">
             @include('partials.contract-implementation', ['award' => $ciAward, 'implementation' => $ciAward->contractImplementation, 'viewerMode' => $viewerMode])
@@ -78,11 +78,25 @@
             });
         });
 
+        // A live refresh reloads the page under an open contract: remember where the reader was.
+        const SCROLL_KEY = 'ci-live-scroll';
+        window.addEventListener('pagehide', function () {
+            const openDialog = document.querySelector('.ci-dialog[data-ci-dialog][open]');
+            if (!openDialog) return;
+            try { sessionStorage.setItem(SCROLL_KEY, JSON.stringify({ id: openDialog.dataset.ciDialog, top: openDialog.scrollTop, at: Date.now() })); } catch (error) {}
+        });
+
         const reopen = document.querySelector('.ci-dialog[data-ci-reopen]');
         if (reopen) {
             open(reopen.dataset.ciDialog);
-            // Show the result of the save (or the first error) inside the modal.
-            (reopen.querySelector('.ci-note.is-danger, [aria-invalid="true"]') || reopen.querySelector('.ci-steps'))?.scrollIntoView({ block: 'center' });
+            let saved = null;
+            try { saved = JSON.parse(sessionStorage.getItem(SCROLL_KEY) || 'null'); sessionStorage.removeItem(SCROLL_KEY); } catch (error) {}
+            if (saved && saved.id === reopen.dataset.ciDialog && Date.now() - saved.at < 15000 && ! reopen.querySelector('.ci-note.is-danger, [aria-invalid="true"]')) {
+                reopen.scrollTop = saved.top;
+            } else {
+                // Show the result of the save (or the first error) inside the modal.
+                (reopen.querySelector('.ci-note.is-danger, [aria-invalid="true"]') || reopen.querySelector('.ci-steps'))?.scrollIntoView({ block: 'center' });
+            }
         }
 
         const reopenDelivery = document.querySelector('[data-ci-reopen-delivery]');

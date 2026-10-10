@@ -165,6 +165,8 @@ class ContractImplementationWorkflow
             ], $file);
 
             $this->notifySupplier($award, 'Delivery submitted', 'Your delivery details and supporting proof were submitted and are awaiting LGU receipt and inspection.');
+            $company = $award->bidder?->company ?: ($award->bidder?->name ?? 'The supplier');
+            $this->notifyBac($award, $correction ? 'Corrected delivery submitted' : 'Delivery submitted for receipt', $company.' submitted '.($correction ? 'a corrected delivery' : 'its delivery').' for '.($award->project?->title ?? 'a contract').' ('.trim((string) ($input['delivery_reference'] ?? '')).'). Record the actual receipt.');
             return $record->fresh(['events.actor']);
         });
     }
@@ -449,6 +451,21 @@ class ContractImplementationWorkflow
             'path' => $document->store('contract-implementation/private', 'local'),
             'name' => $document->getClientOriginalName(),
         ];
+    }
+
+    /** Tells the admin and the staff assigned to the project that the supplier did something that waits for the LGU. */
+    private function notifyBac(Award $award, string $title, string $message): void
+    {
+        $data = ['important' => true, 'award_id' => $award->id, 'kind' => 'contract_implementation'];
+        try {
+            SystemNotification::createForRole('admin', $title, $message, 'system_alert', $data + ['url' => route('admin.awards.index', ['contract' => $award->id])]);
+            $staff = \App\Models\Assignment::query()->where('project_id', $award->project_id)->pluck('staff_id')->unique()->filter()->values();
+            if ($staff->isNotEmpty()) {
+                SystemNotification::createForUsers($staff, $title, $message, 'system_alert', $data + ['url' => route('staff.assign-projects')]);
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
     }
 
     private function notifySupplier(Award $award, string $title, string $message): void
