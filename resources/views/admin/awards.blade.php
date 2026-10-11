@@ -2035,7 +2035,7 @@
                                         </div>
                                     </div>
                                 </td>
-                                <td data-label="Winning bidder">
+                                <td data-label="Awardee">
                                     <div class="award-party-cell">
                                         <span class="award-project-icon" aria-hidden="true"><i class="fas fa-building"></i></span>
                                         <div>
@@ -2043,7 +2043,7 @@
                                         </div>
                                     </div>
                                 </td>
-                                <td data-label="Contract amount">
+                                <td data-label="Contract price">
                                     <span class="award-amount">&#8369;{{ number_format($contractAmount, 2) }}</span>
                                     @if($contractDays)
                                         <span class="award-amount-note">{{ $contractDays }} calendar days @if($contractEnds)&middot; ends {{ $contractEnds->format('M d, Y') }}@endif</span>
@@ -2063,7 +2063,7 @@
                                         <span class="award-scheduled" title="Hidden from the public until then (server time, Asia/Manila)"><i class="fas fa-clock" aria-hidden="true"></i> Scheduled: public on {{ $award->publicationTime()->format('M d, Y g:i A') }}</span>
                                     @endif
                                 </td>
-                                <td data-label="Contract stage">
+                                <td data-label="Progress">
                                     @if($award->isCancelled())
                                         <span class="award-status is-pending">{{ $contractStageLabel }}</span>
                                         @if($contractStageNext)<span class="award-amount-note">{{ $contractStageNext }}</span>@endif
