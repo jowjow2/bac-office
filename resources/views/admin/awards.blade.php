@@ -1824,10 +1824,14 @@
                     $completed = $award->bid?->project_completed_at !== null
                         || in_array($impl?->status, [\App\Models\ContractImplementation::COMPLETED, \App\Models\ContractImplementation::INFRA_COMPLETED], true);
                     $steps = [['NOA', $noa], ['Contract', $contract], ['NTP', $ntp]];
+                    // Goods and Infrastructure are tracked after the NTP. Other categories (e.g. Consulting) end at the NTP.
+                    $endsAtNtp = ! $tracked;
                     if ($tracked) {
                         $steps[] = ['Implementation', $completed];
+                        $steps[] = ['Completed', $completed];
+                    } else {
+                        $completed = $completed || $ntp;
                     }
-                    $steps[] = ['Completed', $completed];
                     $stage = match (true) {
                         $cancelled => 'cancelled',
                         $completed => 'completed',
@@ -1843,7 +1847,7 @@
                         default => null,
                     };
 
-                    return ['steps' => $steps, 'stage' => $stage, 'next' => $next, 'tracked' => $tracked, 'ntp' => $ntp, 'completed' => $completed];
+                    return ['steps' => $steps, 'stage' => $stage, 'next' => $next, 'tracked' => $tracked, 'ntp' => $ntp, 'completed' => $completed, 'endsAtNtp' => $endsAtNtp];
                 };
                 $awardStages = $awardsInForce->map(fn ($award) => $awardProgress($award)['stage']);
                 $stageCount = fn (string $stage) => $awardStages->filter(fn ($value) => $value === $stage)->count();
@@ -2078,14 +2082,12 @@
                                             @endforeach
                                         </ol>
                                         @if($progress['completed'])
-                                            <span class="award-amount-note">{{ $contractStageNext ?: 'Completed' }}</span>
+                                            <span class="award-amount-note">{{ $progress['endsAtNtp'] ? 'Tracked up to the Notice to Proceed for this category.' : ($contractStageNext ?: 'Completed') }}</span>
                                         @elseif($progress['next'] && auth()->user()?->role === 'admin' && $award->bid_id && in_array($contractStage['key'] ?? null, ['contract_signed', 'notice_of_award', 'award_approval'], true))
                                             {{-- The pending step is recorded in the bid's review modal. --}}
                                             <a class="award-next" href="{{ route('admin.bid.view', $award->bid_id) }}"><span>Next</span> {{ $progress['next'] }} <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
                                         @elseif($progress['next'])
                                             <span class="award-next is-plain"><span>Next</span> {{ $progress['next'] }}</span>
-                                        @elseif($progress['ntp'])
-                                            <span class="award-next is-plain is-muted">No further tracking for this category yet.</span>
                                         @endif
                                     @endif
                                     @if($awardStatus !== 'valid' && ! $awaitingNotice && ! $award->isCancelled())
