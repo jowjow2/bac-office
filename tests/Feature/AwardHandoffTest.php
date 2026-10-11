@@ -89,8 +89,9 @@ it('hands the HoPE-approved bid to Awards & Contracts as exactly one award, then
     testCase()->actingAs($this->admin)->get(route('admin.awards.index'))->assertOk()
         ->assertSee('Supply of laboratory reagents')
         ->assertSee('Qualified Supplies Inc.')
-        ->assertSee('Award approved')
-        ->assertSee('Notice of Award pending')
+        // The progress steps and the one next step.
+        ->assertSee('class="award-steps"', false)
+        ->assertSee('Issue the Notice of Award')
         ->assertSee('Lowest calculated bid');
     testCase()->actingAs($winner->user)->get(route('bidder.awarded-contracts'))->assertOk()
         ->assertSee('Supply of laboratory reagents')
@@ -307,6 +308,8 @@ it('links a pending Notice to Proceed on Awards & Contracts to the bid where it 
     ]);
 
     testCase()->actingAs($this->admin)->get(route('admin.awards.index'))->assertOk()
-        ->assertSee('Notice to Proceed pending')
+        ->assertSee('Issue the Notice to Proceed')
+        ->assertSee('data-stage="awaiting"', false)
+        ->assertSee('Awaiting action')
         ->assertSee('href="'.route('admin.bid.view', $bid).'"', false);
 });

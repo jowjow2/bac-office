@@ -302,7 +302,7 @@ it('runs the full LGU procurement flow from posting to Notice to Proceed', funct
 
     // 6. Notice of Award from the Awards page (signed NOA PDF).
     testCase()->actingAs($this->admin)->get(route('admin.awards.index'))
-        ->assertSee('Notice of Award pending');
+        ->assertSee('Issue the Notice of Award');
     testCase()->actingAs($this->admin)->post(route('admin.awards.declare', $project), ['bid_id' => $bidA->id, 'certificate_file' => ($this->pdf)('NOA-signed.pdf')])
         ->assertSessionHasNoErrors();
 

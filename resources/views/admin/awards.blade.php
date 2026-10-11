@@ -1708,6 +1708,25 @@
         @media (max-width: 640px) {
             .infra-tracking-modal { width: 100vw !important; height: 100dvh !important; max-width: 100vw !important; max-height: 100dvh !important; border: 0; border-radius: 0; }
         }
+
+        /* Progress steps, next-step link and the stage filters */
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-steps { display: flex; align-items: flex-start; gap: 0; margin: 2px 0 8px; padding: 0; list-style: none; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-steps li { position: relative; display: grid; flex: 1 1 0; justify-items: center; gap: 4px; min-width: 0; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-steps li + li::before { content: ''; position: absolute; top: 9px; right: 50%; width: 100%; height: 2px; background: var(--ui-line-strong, #d9dfdb); z-index: 0; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-steps li.is-done + li::before, body .admin-dashboard.admin-role-page.admin-awards-page .award-steps li.is-done + li.is-current::before { background: var(--ui-success, #1f7a4d); }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-step-dot { position: relative; z-index: 1; display: grid; place-items: center; width: 20px; height: 20px; border: 2px solid var(--ui-line-strong, #d9dfdb); border-radius: 50%; background: #fff; color: #fff; font-size: 9px; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-steps li.is-done .award-step-dot { border-color: var(--ui-success, #1f7a4d); background: var(--ui-success, #1f7a4d); }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-steps li.is-current .award-step-dot { border-color: var(--ui-primary, #1d4f40); box-shadow: 0 0 0 3px var(--ui-primary-soft, #e4f0ea); }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-step-label { color: var(--ui-muted, #5b6761); font-size: 11px; font-weight: 600; text-align: center; line-height: 1.2; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-steps li.is-done .award-step-label, body .admin-dashboard.admin-role-page.admin-awards-page .award-steps li.is-current .award-step-label { color: var(--ui-ink, #1b2420); }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-next { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; padding: 6px 10px; border: 1px solid var(--ui-primary-line, #b7d3c6); border-radius: 8px; background: var(--ui-primary-soft, #e4f0ea); color: var(--ui-primary, #1d4f40); font-size: 12px; font-weight: 700; text-decoration: none; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-next > span { color: var(--ui-muted, #5b6761); font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-next.is-plain { border-color: var(--ui-line, #e4e0d6); background: var(--sb-soft, #f6f4ee); color: var(--ui-ink-2, #34413b); }
+        body .admin-dashboard.admin-role-page.admin-awards-page .award-next.is-muted { border-style: dashed; background: transparent; color: var(--ui-muted, #5b6761); font-weight: 500; }
+        body .admin-dashboard.admin-role-page.admin-awards-page a.award-next:hover { background: #fff; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-filter-count { margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: rgba(27, 36, 32, .08); font-size: 11px; font-weight: 700; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-cert-filter { margin-left: auto; }
+        body .admin-dashboard.admin-role-page.admin-awards-page .awards-cert-filter select { min-height: 34px; padding: 0 28px 0 10px; border: 1px solid var(--ui-line-strong, #d9dfdb); border-radius: 8px; background: #fff; color: var(--ui-ink-2, #34413b); font: inherit; font-size: 12.5px; }
     </style>
 
     <style>
@@ -1792,39 +1811,75 @@
                 });
                 $awaitingNoticeCount = $awardsInForce->filter(fn ($award) => $award->awaitsNoticeOfAward())->count();
                 $issuedNtpCount = $awardsInForce->filter(fn ($award) => $award->hasPublishedNoticeToProceed())->count();
+
+                // Where an award stands: the steps done so far and what comes next. One place for the cards, filters and rows.
+                $awardProgress = function ($award): array {
+                    $cancelled = $award->isCancelled();
+                    $impl = $award->contractImplementation;
+                    $tracked = app(\App\Support\InfrastructureImplementationWorkflow::class)->eligible($award)
+                        || app(\App\Support\ContractImplementationWorkflow::class)->eligible($award);
+                    $noa = ! $award->awaitsNoticeOfAward();
+                    $contract = $award->contract_date !== null || $award->bid?->contract_signed_at !== null;
+                    $ntp = $award->hasPublishedNoticeToProceed() || $award->bid?->notice_to_proceed_at !== null;
+                    $completed = $award->bid?->project_completed_at !== null
+                        || in_array($impl?->status, [\App\Models\ContractImplementation::COMPLETED, \App\Models\ContractImplementation::INFRA_COMPLETED], true);
+                    $steps = [['NOA', $noa], ['Contract', $contract], ['NTP', $ntp]];
+                    if ($tracked) {
+                        $steps[] = ['Implementation', $completed];
+                    }
+                    $steps[] = ['Completed', $completed];
+                    $stage = match (true) {
+                        $cancelled => 'cancelled',
+                        $completed => 'completed',
+                        $ntp => 'implementing',
+                        default => 'awaiting',
+                    };
+                    $next = match (true) {
+                        $cancelled, $completed => null,
+                        ! $noa => 'Issue the Notice of Award',
+                        ! $contract => 'Record the contract signing',
+                        ! $ntp => 'Issue the Notice to Proceed',
+                        $tracked => 'Continue in the contract tracking',
+                        default => null,
+                    };
+
+                    return ['steps' => $steps, 'stage' => $stage, 'next' => $next, 'tracked' => $tracked, 'ntp' => $ntp, 'completed' => $completed];
+                };
+                $awardStages = $awardsInForce->map(fn ($award) => $awardProgress($award)['stage']);
+                $stageCount = fn (string $stage) => $awardStages->filter(fn ($value) => $value === $stage)->count();
             @endphp
 
             <section class="awards-summary-grid" aria-label="Awards summary">
                 <article class="awards-stat-card">
                     <span class="awards-stat-icon is-dark" aria-hidden="true"><i class="fas fa-award"></i></span>
                     <div>
-                        <span class="awards-stat-label">Total Awards</span>
+                        <span class="awards-stat-label">Total awards</span>
                         <strong class="awards-stat-value">{{ $awardsInForce->count() }}</strong>
-                        <span class="awards-stat-note">{{ $awaitingNoticeCount ? $awaitingNoticeCount.' awaiting Notice of Award' : 'Recorded contracts' }}</span>
+                        <span class="awards-stat-note">&#8369;{{ number_format($contractValue, 2) }} in contracts</span>
                     </div>
                 </article>
                 <article class="awards-stat-card">
-                    <span class="awards-stat-icon is-green" aria-hidden="true"><i class="fas fa-shield-halved"></i></span>
+                    <span class="awards-stat-icon is-blue" aria-hidden="true"><i class="fas fa-hourglass-half"></i></span>
                     <div>
-                        <span class="awards-stat-label">Valid Certificates</span>
-                        <strong class="awards-stat-value">{{ $validAwardCount }}</strong>
-                        <span class="awards-stat-note">Ready to verify</span>
+                        <span class="awards-stat-label">Awaiting action</span>
+                        <strong class="awards-stat-value">{{ $stageCount('awaiting') }}</strong>
+                        <span class="awards-stat-note">NOA, contract or NTP pending</span>
                     </div>
                 </article>
                 <article class="awards-stat-card">
-                    <span class="awards-stat-icon is-green" aria-hidden="true"><i class="fas fa-file-circle-check"></i></span>
+                    <span class="awards-stat-icon is-green" aria-hidden="true"><i class="fas fa-truck-ramp-box"></i></span>
                     <div>
-                        <span class="awards-stat-label">Notices to Proceed</span>
-                        <strong class="awards-stat-value">{{ $issuedNtpCount }}</strong>
-                        <span class="awards-stat-note">Issued and published</span>
+                        <span class="awards-stat-label">In implementation</span>
+                        <strong class="awards-stat-value">{{ $stageCount('implementing') }}</strong>
+                        <span class="awards-stat-note">NTP issued, not yet completed</span>
                     </div>
                 </article>
                 <article class="awards-stat-card">
-                    <span class="awards-stat-icon is-blue" aria-hidden="true"><i class="fas fa-coins"></i></span>
+                    <span class="awards-stat-icon is-green" aria-hidden="true"><i class="fas fa-flag-checkered"></i></span>
                     <div>
-                        <span class="awards-stat-label">Total Contract Value</span>
-                        <strong class="awards-stat-value">&#8369;{{ number_format($contractValue, 2) }}</strong>
-                        <span class="awards-stat-note">Across all awards</span>
+                        <span class="awards-stat-label">Completed</span>
+                        <strong class="awards-stat-value">{{ $stageCount('completed') }}</strong>
+                        <span class="awards-stat-note">Closed out</span>
                     </div>
                 </article>
             </section>
@@ -1907,9 +1962,19 @@
                 </div>
                 <div class="awards-filter-tabs" role="tablist" aria-label="Award status filters">
                     <button type="button" class="awards-filter-tab is-active" data-award-filter="all" role="tab" aria-selected="true">All awards</button>
-                    <button type="button" class="awards-filter-tab" data-award-filter="valid" role="tab" aria-selected="false">Valid</button>
-                    <button type="button" class="awards-filter-tab" data-award-filter="revoked" role="tab" aria-selected="false">Revoked</button>
-                    <button type="button" class="awards-filter-tab" data-award-filter="expired" role="tab" aria-selected="false">Expired</button>
+                    <button type="button" class="awards-filter-tab" data-award-filter="awaiting" role="tab" aria-selected="false">Awaiting action <span class="awards-filter-count">{{ $stageCount('awaiting') }}</span></button>
+                    <button type="button" class="awards-filter-tab" data-award-filter="implementing" role="tab" aria-selected="false">In implementation <span class="awards-filter-count">{{ $stageCount('implementing') }}</span></button>
+                    <button type="button" class="awards-filter-tab" data-award-filter="completed" role="tab" aria-selected="false">Completed <span class="awards-filter-count">{{ $stageCount('completed') }}</span></button>
+                    <button type="button" class="awards-filter-tab" data-award-filter="cancelled" role="tab" aria-selected="false">Cancelled <span class="awards-filter-count">{{ $awardCollection->count() - $awardsInForce->count() }}</span></button>
+                    <label class="awards-cert-filter">
+                        <span class="sr-only">Certificate status</span>
+                        <select id="awardCertFilter" aria-label="Certificate status">
+                            <option value="">Any certificate</option>
+                            <option value="valid">Certificate valid</option>
+                            <option value="revoked">Certificate revoked</option>
+                            <option value="expired">Certificate expired</option>
+                        </select>
+                    </label>
                 </div>
             </section>
 
@@ -1920,10 +1985,10 @@
                     <thead>
                         <tr>
                             <th scope="col">Project</th>
-                            <th scope="col">Winning bidder</th>
-                            <th scope="col">Contract amount</th>
+                            <th scope="col">Awardee</th>
+                            <th scope="col">Contract price</th>
                             <th scope="col">Award (NOA) date</th>
-                            <th scope="col">Contract stage</th>
+                            <th scope="col">Progress</th>
                             <th scope="col">QR / award documents</th>
                             <th scope="col">Action</th>
                         </tr>
@@ -1954,8 +2019,12 @@
                                 // Cancellable by the HoPE until the contract is signed.
                                 $cancellable = ! $award->isCancelled() && $award->contract_date === null && $award->bid?->contract_signed_at === null;
                                 $criterion = $award->project?->award_criterion ? (\App\Models\Project::AWARD_CRITERIA[$award->project->award_criterion] ?? null) : null;
+                                $progress = $awardProgress($award);
+                                // Contract time from the project (e.g. "150 calendar days from receipt of the NTP"): when it ends.
+                                $contractDays = preg_match('/(\d+)\s*(?:calendar\s+)?days?/i', (string) ($award->project?->contract_duration ?? ''), $daysMatch) ? (int) $daysMatch[1] : null;
+                                $contractEnds = $contractDays && $award->ntp_issued_on ? $award->ntp_issued_on->copy()->addDays($contractDays) : null;
                             @endphp
-                            <tr data-award-row data-status="{{ $awardStatus }}" data-search="{{ strtolower($projectTitle . ' ' . $bidderName . ' ' . ($award->certificate_number ?? '')) }}">
+                            <tr data-award-row data-stage="{{ $progress['stage'] }}" data-status="{{ $awardStatus }}" data-search="{{ strtolower($projectTitle . ' ' . $bidderName . ' ' . ($award->certificate_number ?? '')) }}">
                                 <td data-label="Project">
                                     <div class="award-project-cell">
                                         <span class="award-project-icon" aria-hidden="true"><i class="fas fa-folder-open"></i></span>
@@ -1971,13 +2040,14 @@
                                         <span class="award-project-icon" aria-hidden="true"><i class="fas fa-building"></i></span>
                                         <div>
                                             <strong title="{{ $bidderName }}">{{ $bidderName }}</strong>
-                                            <span>Winning bidder</span>
                                         </div>
                                     </div>
                                 </td>
                                 <td data-label="Contract amount">
                                     <span class="award-amount">&#8369;{{ number_format($contractAmount, 2) }}</span>
-                                    <span class="award-amount-note">Approved bid amount</span>
+                                    @if($contractDays)
+                                        <span class="award-amount-note">{{ $contractDays }} calendar days @if($contractEnds)&middot; ends {{ $contractEnds->format('M d, Y') }}@endif</span>
+                                    @endif
                                 </td>
                                 <td data-label="Award (NOA) date">
                                     @if($awaitingNotice)
@@ -1994,13 +2064,29 @@
                                     @endif
                                 </td>
                                 <td data-label="Contract stage">
-                                    <span class="award-status is-{{ $awardStatus === 'valid' ? 'valid' : $statusClass }}">{{ $contractStageLabel }}</span>
-                                    @if($contractStageNext && $award->bid_id && ! $award->isCancelled() && auth()->user()?->role === 'admin'
-                                        && in_array($contractStage['key'] ?? null, ['contract_signed', 'notice_of_award', 'award_approval'], true))
-                                        {{-- The pending step is recorded in the bid's review modal. --}}
-                                        <span class="award-amount-note"><a href="{{ route('admin.bid.view', $award->bid_id) }}">{{ $contractStageNext }} <i class="fas fa-arrow-right" aria-hidden="true"></i></a></span>
-                                    @elseif($contractStageNext)
-                                        <span class="award-amount-note">{{ $contractStageNext }}</span>
+                                    @if($award->isCancelled())
+                                        <span class="award-status is-pending">{{ $contractStageLabel }}</span>
+                                        @if($contractStageNext)<span class="award-amount-note">{{ $contractStageNext }}</span>@endif
+                                    @else
+                                        @php $currentStep = collect($progress['steps'])->search(fn ($step) => ! $step[1]); @endphp
+                                        <ol class="award-steps" aria-label="Contract progress">
+                                            @foreach($progress['steps'] as $stepIndex => [$stepLabel, $stepDone])
+                                                <li class="{{ $stepDone ? 'is-done' : ($stepIndex === $currentStep ? 'is-current' : '') }}">
+                                                    <span class="award-step-dot" aria-hidden="true">@if($stepDone)<i class="fas fa-check"></i>@endif</span>
+                                                    <span class="award-step-label">{{ $stepLabel }}</span>
+                                                </li>
+                                            @endforeach
+                                        </ol>
+                                        @if($progress['completed'])
+                                            <span class="award-amount-note">{{ $contractStageNext ?: 'Completed' }}</span>
+                                        @elseif($progress['next'] && auth()->user()?->role === 'admin' && $award->bid_id && in_array($contractStage['key'] ?? null, ['contract_signed', 'notice_of_award', 'award_approval'], true))
+                                            {{-- The pending step is recorded in the bid's review modal. --}}
+                                            <a class="award-next" href="{{ route('admin.bid.view', $award->bid_id) }}"><span>Next</span> {{ $progress['next'] }} <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+                                        @elseif($progress['next'])
+                                            <span class="award-next is-plain"><span>Next</span> {{ $progress['next'] }}</span>
+                                        @elseif($progress['ntp'])
+                                            <span class="award-next is-plain is-muted">No further tracking for this category yet.</span>
+                                        @endif
                                     @endif
                                     @if($awardStatus !== 'valid' && ! $awaitingNotice && ! $award->isCancelled())
                                         <span class="award-amount-note">Document {{ $awardStatus }}</span>
@@ -2458,10 +2544,12 @@
             const query = (searchInput?.value || '').trim().toLowerCase();
             let visibleCount = 0;
 
+            const certificate = document.getElementById('awardCertFilter')?.value || '';
             rows.forEach((row) => {
-                const matchesStatus = activeFilter === 'all' || row.dataset.status === activeFilter;
+                const matchesStage = activeFilter === 'all' || row.dataset.stage === activeFilter;
+                const matchesCertificate = !certificate || row.dataset.status === certificate;
                 const matchesSearch = !query || (row.dataset.search || '').includes(query);
-                const isVisible = matchesStatus && matchesSearch;
+                const isVisible = matchesStage && matchesCertificate && matchesSearch;
 
                 row.hidden = !isVisible;
                 if (isVisible) visibleCount += 1;
@@ -2493,12 +2581,15 @@
         };
 
         searchInput?.addEventListener('input', applyFilters);
+        document.getElementById('awardCertFilter')?.addEventListener('change', applyFilters);
         statusFilter?.addEventListener('change', (event) => setFilter(event.target.value));
         filterTabs.forEach((tab) => {
             tab.addEventListener('click', () => setFilter(tab.dataset.awardFilter));
         });
         clearButton?.addEventListener('click', () => {
             if (searchInput) searchInput.value = '';
+            const certificateFilter = document.getElementById('awardCertFilter');
+            if (certificateFilter) certificateFilter.value = '';
             setFilter('all');
         });
 
