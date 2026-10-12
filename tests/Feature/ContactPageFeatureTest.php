@@ -14,12 +14,11 @@ it('shows the contact and citizen charter guide content', function () {
     $response->assertOk();
     $response->assertViewIs('pages.contact');
     $response->assertSee('Contact SJBAC');
-    $response->assertSee('For procurement inquiries, bidding concerns, and document assistance');
-    $response->assertSee('SJBAC, Municipal Government of San Jose, Occidental Mindoro');
-    $response->assertSee('bacoffice@sanjose.gov.ph');
-    $response->assertSee('(043) 000-0000');
-    $response->assertSee('Monday to Friday, 8:00 AM - 5:00 PM');
-    $response->assertSee('Send Message');
+    $response->assertSee('Contact the BAC Secretariat');
+    $response->assertSee('Questions about a bidding, your registration or your documents?');
+    $response->assertSee('Municipal Hall, San Jose, Occidental Mindoro');
+    $response->assertSee('Monday to Friday, 8:00 AM to 5:00 PM');
+    $response->assertSee('Send message');
     $response->assertSeeText('Citizen\'s Charter / Help Guide', false);
     $response->assertSee('How to Join Bidding');
     $response->assertSee('How to Register as Bidder');

@@ -120,9 +120,8 @@ Route::get('/profile', function () {
     return view('pages.profile');
 });
 
-Route::get('/contact', function () {
-    return view('pages.contact');
-});
+Route::get('/contact', [\App\Http\Controllers\ContactController::class, 'show'])->name('contact');
+Route::post('/contact', [\App\Http\Controllers\ContactController::class, 'send'])->middleware('throttle:5,60')->name('contact.send');
 
 // Linked from the sign-in form and required by Google for "Continue with Google".
 Route::view('/privacy', 'pages.privacy')->name('privacy');

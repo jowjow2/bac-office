@@ -9,91 +9,109 @@
 
 @section('content')
     <main class="public-shell contact-shell">
-        <section class="public-page-hero contact-hero" data-contact-reveal="up">
-            <div class="contact-hero-copy">
-                <p class="public-page-kicker">Contact SJBAC</p>
-                <h1>Contact SJBAC</h1>
-                <p>
-                    For procurement inquiries, bidding concerns, and document assistance, you may contact the SJBAC
-                    through the details below.
-                </p>
+        <header class="ct-head" data-contact-reveal="up">
+            <p class="public-page-kicker">Contact</p>
+            <h1>Contact the BAC Secretariat</h1>
+            <p>Questions about a bidding, your registration or your documents? Send a message, or visit the office during office hours.</p>
+            <div class="ct-quick">
+                <a href="{{ route('public.procurement') }}">Browse procurement</a>
+                <a href="#charter">Help guide for bidders</a>
+                <a href="{{ route('feedback') }}">Send feedback about the portal</a>
             </div>
+        </header>
 
-            <div class="contact-hero-highlights">
-                <div class="contact-hero-chip">
-                    <span class="contact-chip-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24"><path d="M12 21s7-4.35 7-11a7 7 0 1 0-14 0c0 6.65 7 11 7 11Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
-                    </span>
-                    Municipal Government of San Jose
-                </div>
-                <div class="contact-hero-chip">
-                    <span class="contact-chip-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m4 8 8 6 8-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    </span>
-                    Official BAC support channel
-                </div>
-                <div class="contact-hero-chip">
-                    <span class="contact-chip-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-3-6 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8h6M9 12h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-                    </span>
-                    Citizen guidance for bidders
-                </div>
-            </div>
-        </section>
-
-        <section class="contact-grid" data-contact-reveal="up">
-            <div class="contact-stack">
-                <div class="contact-info-grid">
-                    <article class="contact-info-card">
-                        <div class="contact-info-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24"><path d="M12 21s7-4.35 7-11a7 7 0 1 0-14 0c0 6.65 7 11 7 11Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
-                        </div>
+        <section class="ct-layout" data-contact-reveal="up">
+            <article class="ct-card ct-form-card" id="message">
+                @if(session('contact_sent'))
+                    <div class="ct-thanks" role="status">
+                        <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#1f7a4d"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         <div>
-                            <h2>Office Address</h2>
-                            <p>SJBAC, Municipal Government of San Jose, Occidental Mindoro</p>
+                            <h2>Message sent</h2>
+                            <p>The BAC has received your inquiry and will reply to the email you gave. Replies usually come within the next working days.</p>
+                            <a class="ct-link" href="{{ route('contact') }}">Send another message</a>
                         </div>
-                    </article>
-
-                    <article class="contact-info-card">
-                        <div class="contact-info-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m4 8 8 6 8-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        </div>
-                        <div>
-                            <h2>Official Email</h2>
-                            <p><a href="mailto:bacoffice@sanjose.gov.ph">bacoffice@sanjose.gov.ph</a></p>
-                        </div>
-                    </article>
-
-                    <article class="contact-info-card">
-                        <div class="contact-info-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24"><path d="M6.6 10.8a15.9 15.9 0 0 0 6.6 6.6l2.2-2.2a1.5 1.5 0 0 1 1.5-.36c1 .34 2.05.52 3.15.52A1.5 1.5 0 0 1 21.5 16.9V20A1.5 1.5 0 0 1 20 21.5C10.34 21.5 2.5 13.66 2.5 4A1.5 1.5 0 0 1 4 2.5h3.1A1.5 1.5 0 0 1 8.6 4c0 1.1.18 2.15.52 3.15a1.5 1.5 0 0 1-.36 1.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-                        </div>
-                        <div>
-                            <h2>Contact Number</h2>
-                            <p><a href="tel:+63430000000">(043) 000-0000</a></p>
-                        </div>
-                    </article>
-
-                    <article class="contact-info-card">
-                        <div class="contact-info-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        </div>
-                        <div>
-                            <h2>Office Hours</h2>
-                            <p>Monday to Friday, 8:00 AM - 5:00 PM</p>
-                        </div>
-                    </article>
-                </div>
-
-                <article class="contact-map-card">
-                    <div class="contact-card-heading">
-                        <div>
-                            <p class="contact-card-kicker">Location Map</p>
-                            <h2>Visit the SJBAC</h2>
-                        </div>
-                        <p>Find the SJBAC inside the Municipal Government of San Jose for in-person procurement assistance.</p>
                     </div>
+                @else
+                    <h2>Send a message</h2>
+                    <p class="ct-lead">It goes straight to the BAC Admin. We reply to the email you give here.</p>
 
+                    <form method="POST" action="{{ route('contact.send') }}" class="ct-form" novalidate>
+                        @csrf
+                        {{-- Only bots fill this in. --}}
+                        <div class="ct-trap" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+
+                        <div class="ct-row">
+                            <label class="ct-field">
+                                <span>Your name</span>
+                                <input type="text" name="full_name" value="{{ old('full_name', auth()->user()?->name) }}" maxlength="120" autocomplete="name" required>
+                                @error('full_name')<em class="ct-error">{{ $message }}</em>@enderror
+                            </label>
+                            <label class="ct-field">
+                                <span>Email</span>
+                                <input type="email" name="email" value="{{ old('email', auth()->user()?->email) }}" maxlength="190" autocomplete="email" required>
+                                @error('email')<em class="ct-error">{{ $message }}</em>@enderror
+                            </label>
+                        </div>
+
+                        <label class="ct-field">
+                            <span>What is it about?</span>
+                            <select name="topic" required>
+                                <option value="">Choose one</option>
+                                @foreach($topics as $key => $label)
+                                    <option value="{{ $key }}" @selected(old('topic') === $key)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            @error('topic')<em class="ct-error">{{ $message }}</em>@enderror
+                        </label>
+
+                        <label class="ct-field">
+                            <span>Subject</span>
+                            <input type="text" name="subject" value="{{ old('subject') }}" maxlength="150" placeholder="e.g. Requirements for the road concreting project" required>
+                            @error('subject')<em class="ct-error">{{ $message }}</em>@enderror
+                        </label>
+
+                        <label class="ct-field">
+                            <span>Message</span>
+                            <textarea name="message" rows="6" maxlength="3000" placeholder="Tell us what you need. Please do not include passwords or your financial PIN." required>{{ old('message') }}</textarea>
+                            @error('message')<em class="ct-error">{{ $message }}</em>@enderror
+                        </label>
+
+                        <button type="submit" class="ct-submit">Send message</button>
+                        <p class="ct-note">We use your name and email only to reply. See the <a href="{{ route('privacy') }}">Privacy Policy</a>.</p>
+                    </form>
+                @endif
+            </article>
+
+            <aside class="ct-side">
+                <article class="ct-card ct-info">
+                    <h2>{{ $office['person'] ? 'Reach us' : 'BAC Secretariat' }}</h2>
+                    <dl>
+                        <div>
+                            <dt><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-4.35 7-11a7 7 0 1 0-14 0c0 6.65 7 11 7 11Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>Address</dt>
+                            <dd>{{ $office['address'] ?: 'Municipal Hall, San Jose, Occidental Mindoro' }}</dd>
+                        </div>
+                        <div>
+                            <dt><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m4 8 8 6 8-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Email</dt>
+                            <dd>@if($office['email'])<a href="mailto:{{ $office['email'] }}">{{ $office['email'] }}</a>@else<span class="ct-muted">Use the form</span>@endif</dd>
+                        </div>
+                        <div>
+                            <dt><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.9 15.9 0 0 0 6.6 6.6l2.2-2.2a1.5 1.5 0 0 1 1.5-.36c1 .34 2.05.52 3.15.52A1.5 1.5 0 0 1 21.5 16.9V20A1.5 1.5 0 0 1 20 21.5C10.34 21.5 2.5 13.66 2.5 4A1.5 1.5 0 0 1 4 2.5h3.1a1.5 1.5 0 0 1 1.5 1.5c0 1.1.18 2.15.52 3.15a1.5 1.5 0 0 1-.36 1.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>Phone</dt>
+                            <dd>@if($office['phone'])<a href="tel:{{ preg_replace('/[^0-9+]/', '', $office['phone']) }}">{{ $office['phone'] }}</a>@else<span class="ct-muted">Not listed yet. Please use the form.</span>@endif</dd>
+                        </div>
+                        <div>
+                            <dt><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Office hours</dt>
+                            <dd>{{ $office['hours'] ?: 'Monday to Friday, 8:00 AM to 5:00 PM' }}</dd>
+                        </div>
+                        @if($office['person'])
+                            <div>
+                                <dt><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Contact person</dt>
+                                <dd>{{ $office['person'] }}@if($office['person_position']) <span class="ct-muted">· {{ $office['person_position'] }}</span>@endif</dd>
+                            </div>
+                        @endif
+                    </dl>
+                </article>
+
+                <article class="ct-card ct-map">
                     <div class="contact-map-frame">
                         <iframe
                             title="SJBAC location map"
@@ -104,48 +122,9 @@
                         ></iframe>
                     </div>
                 </article>
-            </div>
-
-            <article class="contact-form-card">
-                <div class="contact-card-heading">
-                    <div>
-                        <p class="contact-card-kicker">Inquiry Form</p>
-                        <h2>Send a Message</h2>
-                    </div>
-                    <p>Complete the form below and we will prepare your inquiry in your default email app.</p>
-                </div>
-
-                <form class="contact-form" data-contact-form>
-                    <label class="contact-field">
-                        <span>Full Name</span>
-                        <input type="text" name="full_name" placeholder="Enter your full name" required>
-                    </label>
-
-                    <label class="contact-field">
-                        <span>Email Address</span>
-                        <input type="email" name="email" placeholder="Enter your email address" required>
-                    </label>
-
-                    <label class="contact-field">
-                        <span>Subject</span>
-                        <input type="text" name="subject" placeholder="Procurement inquiry subject" required>
-                    </label>
-
-                    <label class="contact-field">
-                        <span>Message</span>
-                        <textarea name="message" rows="6" placeholder="Write your inquiry, bidding concern, or request for document assistance." required></textarea>
-                    </label>
-
-                    <button type="submit" class="btn contact-submit-btn">Send Message</button>
-
-                    <p class="contact-form-note">
-                        Sending this form opens your default email app addressed to <strong>bacoffice@sanjose.gov.ph</strong>.
-                    </p>
-                </form>
-            </article>
+            </aside>
         </section>
-
-        <section class="charter-section" data-contact-reveal="up">
+        <section class="charter-section" id="charter" data-contact-reveal="up">
             <div class="charter-header">
                 <div>
                     <p class="public-page-kicker">Citizen's Charter / Help Guide</p>
@@ -263,30 +242,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const contactForm = document.querySelector('[data-contact-form]');
             const contactRevealItems = document.querySelectorAll('[data-contact-reveal]');
-
-            if (contactForm) {
-                contactForm.addEventListener('submit', function (event) {
-                    event.preventDefault();
-
-                    const formData = new FormData(contactForm);
-                    const fullName = String(formData.get('full_name') || '').trim();
-                    const email = String(formData.get('email') || '').trim();
-                    const subject = String(formData.get('subject') || '').trim();
-                    const message = String(formData.get('message') || '').trim();
-
-                    const body = [
-                        `Full Name: ${fullName}`,
-                        `Email Address: ${email}`,
-                        '',
-                        'Message:',
-                        message,
-                    ].join('\n');
-
-                    window.location.href = `mailto:bacoffice@sanjose.gov.ph?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-                });
-            }
 
             if (contactRevealItems.length > 0) {
                 if ('IntersectionObserver' in window) {
