@@ -1,2 +1,12 @@
 User-agent: *
-Disallow:
+Allow: /
+Disallow: /admin
+Disallow: /staff
+Disallow: /bidder
+Disallow: /login
+Disallow: /register
+Disallow: /auth
+Disallow: /storage
+Disallow: /uploads
+
+Sitemap: https://bacsanjoselgu.com/sitemap.xml

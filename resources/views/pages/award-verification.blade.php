@@ -1,6 +1,7 @@
 @extends('layouts.public')
 
 @section('title', 'Award Verification | SJBAC')
+@section('robots', 'noindex,nofollow')
 @section('body_class', 'public-page award-verification-body')
 
 @push('pre_app_styles')

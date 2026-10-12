@@ -1,6 +1,7 @@
 @extends('layouts.public')
 
 @section('title', 'Official Award Certificate')
+@section('robots', 'noindex,nofollow')
 @section('body_class', 'public-page')
 
 @section('content')

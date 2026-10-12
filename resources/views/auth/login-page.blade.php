@@ -1,6 +1,7 @@
 @extends('layouts.public')
 
 @section('title', 'Login')
+@section('robots', 'noindex,nofollow')
 @section('body_class', 'public-page auth-login-page')
 
 @section('content')

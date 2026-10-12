@@ -86,6 +86,19 @@ Route::get('/about', function () {
     return view('pages.about');
 });
 
+// For search engines: the public pages and every project the public can see.
+Route::get('/sitemap.xml', function () {
+    $pages = collect(['/', '/procurement', '/awards', '/about', '/contact', '/privacy'])
+        ->map(fn ($path) => ['loc' => url($path), 'lastmod' => null]);
+    $projects = Schema::hasTable('projects')
+        ? Project::query()->visibleToPublic()->latest('updated_at')->limit(500)->get(['id', 'updated_at'])
+            ->map(fn ($project) => ['loc' => route('public.procurement.show', $project), 'lastmod' => $project->updated_at?->toAtomString()])
+        : collect();
+    $xml = view('pages.sitemap', ['urls' => $pages->concat($projects)])->render();
+
+    return response($xml, 200, ['Content-Type' => 'application/xml; charset=UTF-8']);
+})->name('sitemap');
+
 Route::get('/profile', function () {
     return view('pages.profile');
 });
