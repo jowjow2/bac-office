@@ -47,6 +47,7 @@
     .fee-combo-native { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; opacity: 0; }
     .fee-or-note { display: none; margin-top: 4px; color: var(--ui-danger, #b42318); font-size: 12px; }
     .fee-or-note.is-visible { display: block; }
+    .fee-alert-link { margin-left: 6px; color: inherit; font-weight: 700; text-decoration: underline; white-space: nowrap; }
     .fee-again { display: inline-flex; align-items: center; gap: 7px; color: var(--fee-ink, #1b2420); font-size: 12.5px; cursor: pointer; }
     .fee-again input { accent-color: var(--ui-primary, #1d4f40); }
     .fee-board .fas, .fee-board .far { font-family: "Font Awesome 6 Free" !important; font-weight: 700 !important; }
@@ -220,10 +221,11 @@
 </style>
 
 <div class="fee-board">
-    @if(session('success'))
+    {{-- After "Record another" the dialog reopens over the page, so the confirmation is shown inside it instead. --}}
+    @if(session('success') && ! $reopenRecord)
         <div class="fee-alert fee-alert-success fee-alert-floating" role="status" data-fee-autohide>
             <i class="fas fa-circle-check" aria-hidden="true"></i>
-            <span>{{ session('success') }}</span>
+            <span>{{ session('success') }}@if(session('success_link')) <a class="fee-alert-link" href="{{ session('success_link') }}">View in records</a>@endif</span>
         </div>
     @endif
 
@@ -277,6 +279,13 @@
                     <form method="POST" action="{{ route($routePrefix . '.payments.store') }}" class="fee-form" data-fee-record-form data-fee-check-url="{{ route($routePrefix . '.payments.check-receipt') }}" data-fee-paid='@json($paidByProject ?? [])' novalidate>
                         @csrf
                         <input type="hidden" name="_form" value="record">
+
+                        @if($reopenRecord && session('success'))
+                            <div class="fee-alert fee-alert-success is-wide" role="status" style="grid-column: 1 / -1;">
+                                <i class="fas fa-circle-check" aria-hidden="true"></i>
+                                <span>{{ session('success') }} Ready for the next payment.@if(session('success_link')) <a class="fee-alert-link" href="{{ session('success_link') }}">View in records</a>@endif</span>
+                            </div>
+                        @endif
 
                         @if($recordFormActive && $errors->any())
                             <div class="fee-alert fee-alert-error is-wide" role="alert" style="grid-column: 1 / -1;">
@@ -681,7 +690,12 @@
                 select.dispatchEvent(new Event('change', { bubbles: true }));
             };
 
-            input.addEventListener('focus', function () { input.select(); render(''); });
+            let quietFocus = false; // the cursor is placed for the person: do not cover the next field with the list
+            input.addEventListener('focus', function () {
+                if (quietFocus) { quietFocus = false; return; }
+                input.select();
+                render('');
+            });
             input.addEventListener('click', function () { if (list.hidden) render(''); });
             input.addEventListener('input', function () {
                 if (select.value && input.value !== chosenText()) {
@@ -696,7 +710,11 @@
                     event.preventDefault();
                     if (list.hidden) render(input.value === chosenText() ? '' : input.value);
                     const step = event.key === 'ArrowDown' ? 1 : -1;
-                    if (visible.length) active = (active + step + visible.length) % visible.length;
+                    // Arrow keys skip the options that cannot be picked (already paid).
+                    for (let tries = 0; tries < visible.length; tries++) {
+                        active = (active + step + visible.length) % visible.length;
+                        if (!blocked[visible[active].value]) break;
+                    }
                     paint();
                     list.children[active]?.scrollIntoView({ block: 'nearest' });
                 } else if (event.key === 'Enter' && !list.hidden) {
@@ -723,7 +741,7 @@
                         input.value = '';
                     }
                 },
-                focus: function () { input.focus(); },
+                focus: function () { quietFocus = true; input.focus(); },
             };
             input.value = chosenText();
         });

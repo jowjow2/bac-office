@@ -422,3 +422,13 @@ it('opens the record form again after saving when "record another" is ticked', f
     ($this->record)(['record_another' => '1'])->assertRedirect(route('staff.payments'))->assertSessionHas('reopen_record', true);
     ($this->record)(['user_id' => $this->otherBidder->id, 'or_number' => 'OR-SECOND'])->assertSessionHas('reopen_record', false);
 });
+
+it('keeps the saved message when a background request arrives before the page it belongs to', function () {
+    ($this->record)(['record_another' => '1'])->assertSessionHas('success');
+
+    // A page polling in the background (notifications) must not use up the message.
+    testCase()->actingAs($this->staff)->getJson(route('staff.payments.check-receipt', ['or' => 'x']))->assertOk();
+    testCase()->actingAs($this->staff)->getJson(route('notifications.feed'))->assertOk();
+
+    testCase()->get(route('staff.payments'))->assertOk()->assertSee('Payment recorded: OR No. OR-7654321');
+});

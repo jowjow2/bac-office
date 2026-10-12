@@ -1214,74 +1214,65 @@
         badge.className = 'ul-status ul-status--' + tone;
     }
 
+    // A confirmation at the bottom of the screen: it never covers the dialog's header or its status.
     function showUserActionToast(message, type = 'success', retry = null) {
         let toast = document.getElementById('userActionToast');
 
         if (!toast) {
             toast = document.createElement('div');
             toast.id = 'userActionToast';
-            toast.style.position = 'fixed';
-            toast.style.top = '90px';
-            toast.style.right = '25px';
-            toast.style.zIndex = '11000';
-            toast.style.minWidth = '280px';
-            toast.style.padding = '15px 18px';
-            toast.style.borderRadius = '10px';
-            toast.style.boxShadow = '0 14px 34px rgba(27, 36, 32,0.18)';
-            toast.style.fontSize = '14px';
-            toast.style.fontWeight = '600';
+            toast.setAttribute('role', 'status');
             document.body.appendChild(toast);
         }
 
-        const colors = {
-            error: { background: '#fee2e2', color: '#991b1b' },
-            warning: { background: '#fef3c7', color: '#92400e' },
-            success: { background: '#dcfce7', color: '#166534' },
-        };
-        const palette = colors[type] || colors.success;
-
+        const icons = { error: 'fa-circle-exclamation', warning: 'fa-triangle-exclamation', success: 'fa-circle-check' };
+        const kind = icons[type] ? type : 'success';
+        toast.className = 'uat is-' + kind;
+        toast.setAttribute('role', kind === 'success' ? 'status' : 'alert');
         toast.textContent = '';
-        toast.style.background = palette.background;
-        toast.style.color = palette.color;
-        toast.style.display = 'block';
+        toast.style.display = 'flex';
         toast.style.opacity = '1';
 
+        const icon = document.createElement('i');
+        icon.className = 'fas ' + icons[kind];
+        icon.setAttribute('aria-hidden', 'true');
+        toast.appendChild(icon);
+
+        const body = document.createElement('div');
+        body.className = 'uat-body';
         const messageEl = document.createElement('span');
         messageEl.textContent = message;
-        toast.appendChild(messageEl);
+        body.appendChild(messageEl);
 
         if (retry && retry.url) {
             const retryBtn = document.createElement('button');
             retryBtn.type = 'button';
+            retryBtn.className = 'uat-retry';
             retryBtn.textContent = retry.label || 'Retry';
-            retryBtn.style.display = 'block';
-            retryBtn.style.marginTop = '8px';
-            retryBtn.style.padding = '6px 12px';
-            retryBtn.style.border = '1px solid currentColor';
-            retryBtn.style.borderRadius = '8px';
-            retryBtn.style.background = 'transparent';
-            retryBtn.style.color = 'inherit';
-            retryBtn.style.fontWeight = '700';
-            retryBtn.style.fontSize = '13px';
-            retryBtn.style.cursor = 'pointer';
             retryBtn.addEventListener('click', function () {
                 retryBtn.disabled = true;
                 retryBtn.textContent = 'Retrying...';
                 retry.onClick();
             });
-            toast.appendChild(retryBtn);
+            body.appendChild(retryBtn);
         }
+        toast.appendChild(body);
+
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'uat-close';
+        close.setAttribute('aria-label', 'Dismiss');
+        close.innerHTML = '&times;';
+        close.addEventListener('click', function () { toast.style.display = 'none'; });
+        toast.appendChild(close);
 
         clearTimeout(window.userActionToastTimer);
         window.userActionToastTimer = setTimeout(function () {
             toast.style.transition = 'opacity 0.25s ease';
             toast.style.opacity = '0';
-            setTimeout(function () {
-                toast.style.display = 'none';
-            }, 250);
+            setTimeout(function () { toast.style.display = 'none'; toast.style.transition = ''; }, 250);
         }, retry ? 9000 : 4200);
     }
-
     function retryBidderRequirementsNotification(retryUrl) {
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
@@ -2790,7 +2781,15 @@
     .users-page .ul-add:hover { background: var(--ui-primary-hover) !important; }
     .users-page .ul-add i { font-size: 12px !important; color: inherit !important; -webkit-text-fill-color: currentColor !important; }
 
-    .users-page .ul-toast { position: fixed; top: 84px; right: 24px; z-index: 1000; display: flex; align-items: center; gap: 10px; min-width: 280px; max-width: min(420px, calc(100vw - 32px)); padding: 13px 14px 13px 16px; border: 1px solid var(--ui-success-line); border-radius: 12px; background: #fff; box-shadow: 0 14px 34px rgba(27, 36, 32, .14); color: var(--ui-ink); font-size: 13.5px; }
+    .users-page .ul-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 11000; display: flex; align-items: center; gap: 10px; min-width: 280px; max-width: min(420px, calc(100vw - 32px)); padding: 13px 14px 13px 16px; border: 1px solid var(--ui-success-line); border-radius: 12px; background: #fff; box-shadow: 0 14px 34px rgba(27, 36, 32, .14); color: var(--ui-ink); font-size: 13.5px; }
+    #userActionToast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 11000; display: none; align-items: center; gap: 12px; min-width: 280px; max-width: min(460px, calc(100vw - 32px)); padding: 13px 12px 13px 16px; border: 1px solid #b7dfc8; border-radius: 12px; background: #fff; box-shadow: 0 14px 34px rgba(27, 36, 32, .2); color: #1b2420; font-size: 13.5px; font-weight: 600; }
+    #userActionToast > i { font-size: 18px; color: #1f7a4d; }
+    #userActionToast.is-error { border-color: #f1b9b0; } #userActionToast.is-error > i { color: #b42318; }
+    #userActionToast.is-warning { border-color: #ecd48c; } #userActionToast.is-warning > i { color: #a16207; }
+    #userActionToast .uat-body { display: grid; gap: 8px; flex: 1 1 auto; }
+    #userActionToast .uat-retry { justify-self: start; padding: 5px 12px; border: 1px solid currentColor; border-radius: 8px; background: transparent; color: inherit; font: inherit; font-size: 12.5px; cursor: pointer; }
+    #userActionToast .uat-close { flex: none; border: 0; background: none; color: #5b6761; font-size: 20px; line-height: 1; cursor: pointer; }
+    @media (max-width: 900px) { #userActionToast { bottom: 16px; left: 16px; right: 16px; transform: none; max-width: none; } }
     .users-page .ul-toast > i { color: var(--ui-success); -webkit-text-fill-color: var(--ui-success); font-size: 17px; }
     .users-page .ul-toast button { margin-left: auto; border: 0; background: none; color: var(--ui-muted); font-size: 18px; cursor: pointer; }
 
@@ -2894,6 +2893,6 @@
         body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody td.ul-cell-date .ul-date { display: none !important; }
         body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody td.ul-cell-date .ul-meta { margin-top: 0 !important; }
         body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody tr.ul-empty-row { display: block !important; }
-        .users-page .ul-toast { top: 72px; right: 16px; left: 16px; min-width: 0; }
+        .users-page .ul-toast { bottom: 16px; left: 16px; right: 16px; transform: none; min-width: 0; max-width: none; }
     }
 </style>

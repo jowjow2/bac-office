@@ -289,7 +289,8 @@ class BiddingFeePaymentController extends Controller
         // "Record another": the form opens again, empty, for the next bidder in line.
         return redirect()
             ->route($role.'.payments')
-            ->with('success', 'Payment recorded: OR No. '.$payment->or_number.' for '.($bidder->company ?: $bidder->name).'.')
+            ->with('success', 'Payment recorded: OR No. '.$payment->or_number.' for '.($bidder->company ?: $bidder->name).' (₱'.number_format((float) $payment->amount, 2).').')
+            ->with('success_link', route($role.'.payments', ['q' => $payment->or_number]))
             ->with('reopen_record', $request->boolean('record_another'));
     }
 
