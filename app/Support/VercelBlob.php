@@ -214,6 +214,50 @@ class VercelBlob
         }
     }
 
+    /**
+     * Deletes files under a folder that are older than the given hours. Used for the direct uploads
+     * (registration documents, bid files) a person chose but never finished submitting. Returns how
+     * many were deleted. Never touches anything outside the prefix.
+     */
+    public static function purgeOlderThan(string $prefix, int $hours = 24): int
+    {
+        if (! self::enabled() || trim($prefix, '/') === '') {
+            return 0;
+        }
+
+        $before = now()->subHours($hours);
+        $stale = [];
+        $cursor = null;
+
+        // A bounded number of pages: the next run continues where this one stopped.
+        for ($page = 0; $page < 10; $page++) {
+            $response = Http::withToken(self::token())
+                ->withHeaders(self::apiHeaders())
+                ->timeout(30)
+                ->get(self::API.'/', array_filter(['limit' => 1000, 'prefix' => trim($prefix, '/').'/', 'cursor' => $cursor]));
+            if (! $response->successful()) {
+                break;
+            }
+
+            foreach ((array) $response->json('blobs', []) as $blob) {
+                $uploaded = isset($blob['uploadedAt']) ? \Illuminate\Support\Carbon::parse($blob['uploadedAt']) : null;
+                if ($uploaded !== null && $uploaded->lt($before) && is_string($blob['url'] ?? null)
+                    && str_starts_with(ltrim((string) ($blob['pathname'] ?? ''), '/'), trim($prefix, '/').'/')) {
+                    $stale[] = $blob['url'];
+                }
+            }
+
+            $cursor = $response->json('cursor');
+            if (! $response->json('hasMore') || ! is_string($cursor) || $cursor === '') {
+                break;
+            }
+        }
+
+        self::discardUploads($stale, []);
+
+        return count($stale);
+    }
+
     /** Whether a URL is a file in this store under the given folder. */
     public static function isOwnUrlUnder(string $url, string $folder): bool
     {

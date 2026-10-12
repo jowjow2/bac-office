@@ -26,7 +26,17 @@ Route::get('/cron/procurement-schedule', function (Request $request) {
     $secret = config('services.cron.secret');
     abort_if(filled($secret) && ! hash_equals('Bearer '.$secret, (string) $request->header('Authorization')), 401);
 
-    return response()->json(['opened' => app(\App\Support\BidOpening::class)->openDueTechnicalProjects()]);
+    // Also clears documents people chose on the registration or bid form but never submitted.
+    $purged = 0;
+    try {
+        foreach (['registration-uploads', 'bid-uploads'] as $folder) {
+            $purged += \App\Support\VercelBlob::purgeOlderThan($folder, 24);
+        }
+    } catch (\Throwable $exception) {
+        report($exception);
+    }
+
+    return response()->json(['opened' => app(\App\Support\BidOpening::class)->openDueTechnicalProjects(), 'purged_uploads' => $purged]);
 })->name('cron.procurement-schedule');
 
 Route::get('/', function () {
