@@ -206,3 +206,14 @@ it('does not send a second email when the same requirements request is resubmitt
 
     Mail::assertSent(BidderRequirementsActionMail::class, 1);
 });
+
+it('tells the bidder to reply to the correction email with the corrected files', function () {
+    $mail = new BidderRequirementsActionMail('Maria Cruz', 'Cruz Builders', ['Mayor\'s Permit'], 'The permit is expired.', now(), 'bac.admin@example.com', 'https://example.test/bidder/company-profile');
+    $html = $mail->render();
+
+    expect($mail->envelope()->replyTo[0]->address)->toBe('bac.admin@example.com')
+        ->and($html)->toContain('reply to this email')
+        ->and($html)->toContain('mailto:bac.admin@example.com')
+        ->and($html)->toContain('Reply with the corrected documents')
+        ->and($html)->toContain('The permit is expired.');
+});

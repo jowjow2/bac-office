@@ -239,7 +239,7 @@
                     <form id="brvRequirementsForm" action="{{ route($reviewRoutePrefix . '.users.requirements', $user) }}" method="POST" data-async-review-action="requirements" class="brv-step">
                         @csrf
                         <h4>Request corrections</h4>
-                        <p class="brv-note">Includes every document ticked <strong>Needs correction</strong> in the list (missing required files are ticked for you). The bidder is emailed this message and the account is set to <em>Needs action</em>.</p>
+                        <p class="brv-note">Includes every document ticked <strong>Needs correction</strong> in the list (missing required files are ticked for you). The bidder receives this message in their email inbox and the account is set to <em>Needs action</em>. They send the corrected files by <strong>replying to that email</strong>; the reply comes to <strong>{{ auth()->user()?->email }}</strong>.</p>
                         <label class="brv-label" for="requirementsReason">Message to the bidder</label>
                         <textarea id="requirementsReason" name="reason" rows="3" required placeholder="Explain what the bidder must correct or submit.">@if($profile?->review_status === 'needs_action'){{ $profile->review_message }}@endif</textarea>
                         <button type="submit" class="brv-btn is-block"><i class="fas fa-clipboard-list" aria-hidden="true"></i> Send correction request</button>

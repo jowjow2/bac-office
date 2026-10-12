@@ -14,27 +14,27 @@
                 @foreach($requirements as $requirement)<li>{{ $requirement }}</li>@endforeach
             </ul>
             <div style="margin:0 0 20px;padding:14px 16px;border-left:4px solid #2563eb;background:#f8fafc;font-size:15px;line-height:1.7;"><strong>Message from SJBAC:</strong><br>{{ $reason }}</div>
-            <p style="margin:0 0 20px;font-size:15px;line-height:1.7;">Please review the items above and resubmit the corrected documents as soon as possible so your registration can move forward.</p>
+            @php($replyTo = $adminReplyToEmail ?: config('mail.from.address'))
+            <p style="margin:0 0 16px;font-size:15px;line-height:1.7;"><strong>How to send the corrections:</strong> simply <strong>reply to this email</strong> and attach the corrected documents (PDF, JPG or PNG, up to 10 MB each). Your reply goes straight to the SJBAC.</p>
 
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin:0 0 24px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin:0 0 20px;">
                 <tr>
                     <td>
-                        <a href="{{ $resubmissionUrl }}" style="display:block;padding:13px 18px;border-radius:12px;background:#1d4ed8;color:#ffffff;text-decoration:none;text-align:center;font-size:15px;font-weight:700;">
-                            Review and Resubmit Requirements
+                        <a href="mailto:{{ $replyTo }}?subject={{ rawurlencode('Corrected documents - '.$companyName) }}" style="display:block;padding:13px 18px;border-radius:12px;background:#1d4ed8;color:#ffffff;text-decoration:none;text-align:center;font-size:15px;font-weight:700;">
+                            Reply with the corrected documents
                         </a>
                     </td>
                 </tr>
             </table>
 
-            <p style="margin:0 0 18px;font-size:13px;line-height:1.6;color:#64748b;">If the button above does not work, copy and paste this link into your browser:<br>
+            <p style="margin:0 0 18px;font-size:13px;line-height:1.6;color:#64748b;">Prefer the portal? You can also sign in and upload them yourself:
                 <a href="{{ $resubmissionUrl }}" style="color:#2563eb;word-break:break-all;">{{ $resubmissionUrl }}</a>
             </p>
-
             <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 18px;">
 
             <p style="margin:0;font-size:13px;line-height:1.7;color:#475569;">
                 Questions about this request? Reply to this email or contact the SJBAC at
-                <a href="mailto:{{ config('mail.from.address') }}" style="color:#2563eb;">{{ config('mail.from.address') }}</a>.
+                <a href="mailto:{{ $replyTo }}" style="color:#2563eb;">{{ $replyTo }}</a>.
             </p>
             <p style="margin:16px 0 0;font-size:14px;line-height:1.7;">Thank you,<br>SJBAC</p>
         </div>
