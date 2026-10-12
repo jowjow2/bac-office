@@ -432,3 +432,14 @@ it('keeps the saved message when a background request arrives before the page it
 
     testCase()->get(route('staff.payments'))->assertOk()->assertSee('Payment recorded: OR No. OR-7654321');
 });
+
+it('keeps Notes behind a button, and open when there is a note to show', function () {
+    $page = testCase()->actingAs($this->staff)->get(route('staff.payments'))->assertOk();
+    $page->assertSee('data-fee-notes-toggle', false)->assertSee('Add a note')->assertSee('data-fee-amount-note', false);
+
+    // A save that fails keeps what was typed, notes included, and shows the box.
+    testCase()->actingAs($this->staff)->from(route('staff.payments'))
+        ->post(route('staff.payments.store'), ['_form' => 'record', 'project_id' => $this->project->id, 'user_id' => $this->bidder->id, 'amount' => '5000', 'or_number' => '', 'paid_at' => now()->toDateString(), 'notes' => 'Paid by the owner'])
+        ->assertSessionHasErrors('or_number');
+    testCase()->actingAs($this->staff)->get(route('staff.payments'))->assertSee('Paid by the owner');
+});

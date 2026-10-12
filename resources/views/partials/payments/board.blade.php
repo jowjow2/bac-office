@@ -47,6 +47,11 @@
     .fee-combo-native { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; opacity: 0; }
     .fee-or-note { display: none; margin-top: 4px; color: var(--ui-danger, #b42318); font-size: 12px; }
     .fee-or-note.is-visible { display: block; }
+    .fee-addnote { display: inline-flex; align-items: center; gap: 7px; align-self: flex-end; min-height: 36px; margin-top: 22px; padding: 0 12px; border: 1px dashed var(--ui-line-strong, #d9dfdb); border-radius: 9px; background: transparent; color: var(--ui-primary, #1d4f40); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .fee-addnote:hover { background: var(--ui-primary-soft, #e4f0ea); }
+    .fee-addnote span { color: var(--fee-muted, #5b6761); font-weight: 500; }
+    .fee-amount-note { display: none; margin-top: 4px; color: var(--ui-warning, #8a5a00); font-size: 12px; }
+    .fee-amount-note.is-visible { display: block; }
     .fee-alert-link { margin-left: 6px; color: inherit; font-weight: 700; text-decoration: underline; white-space: nowrap; }
     .fee-again { display: inline-flex; align-items: center; gap: 7px; color: var(--fee-ink, #1b2420); font-size: 12.5px; cursor: pointer; }
     .fee-again input { accent-color: var(--ui-primary, #1d4f40); }
@@ -337,6 +342,7 @@
                             <div class="fee-money">
                                 <input id="fee-amount" type="number" name="amount" min="0.01" step="0.01" inputmode="decimal" class="fee-input @if($recordFormActive && $errors->has('amount')) is-invalid @endif" value="{{ $recordFormActive ? old('amount') : '' }}" placeholder="0.00" required data-fee-amount>
                             </div>
+                            <span class="fee-amount-note" data-fee-amount-note aria-live="polite"></span>
                             @if($recordFormActive) @error('amount') <span class="fee-error">{{ $message }}</span> @enderror @endif
                         </div>
 
@@ -353,9 +359,18 @@
                             @if($recordFormActive) @error('paid_at') <span class="fee-error">{{ $message }}</span> @enderror @endif
                         </div>
 
-                        <div class="fee-field">
-                            <label for="fee-notes">Notes</label>
-                            <textarea id="fee-notes" name="notes" maxlength="1000" class="fee-input" rows="2" placeholder="Optional, e.g. paid by authorized representative">{{ $recordFormActive ? old('notes') : '' }}</textarea>
+                        @php
+                            $oldNotes = $recordFormActive ? (string) old('notes') : '';
+                            $notesOpen = $oldNotes !== '' || ($recordFormActive && $errors->has('notes'));
+                        @endphp
+                        <div class="fee-field" data-fee-notes>
+                            <button type="button" class="fee-addnote" data-fee-notes-toggle aria-expanded="{{ $notesOpen ? 'true' : 'false' }}" aria-controls="fee-notes" @if($notesOpen) hidden @endif>
+                                <i class="fas fa-plus" aria-hidden="true"></i> Add a note <span>(optional)</span>
+                            </button>
+                            <div data-fee-notes-box @unless($notesOpen) hidden @endunless>
+                                <label for="fee-notes">Notes</label>
+                                <textarea id="fee-notes" name="notes" maxlength="1000" class="fee-input" rows="2" placeholder="e.g. paid by authorized representative">{{ $oldNotes }}</textarea>
+                            </div>
                             @if($recordFormActive) @error('notes') <span class="fee-error">{{ $message }}</span> @enderror @endif
                         </div>
 
@@ -773,6 +788,32 @@
                 lastFee = fee;
             };
 
+            // Notes stay out of the way until they are wanted.
+            const notesToggle = recordForm.querySelector('[data-fee-notes-toggle]');
+            const notesBox = recordForm.querySelector('[data-fee-notes-box]');
+            if (notesToggle && notesBox) {
+                notesToggle.addEventListener('click', function () {
+                    notesBox.hidden = false;
+                    notesToggle.hidden = true;
+                    notesToggle.setAttribute('aria-expanded', 'true');
+                    notesBox.querySelector('textarea')?.focus();
+                });
+            }
+
+            // A payment that differs from the project's fee is allowed, but worth a second look.
+            const amountNote = recordForm.querySelector('[data-fee-amount-note]');
+            const checkAmount = function () {
+                if (!amountNote) return;
+                const fee = Number(project.options[project.selectedIndex]?.dataset.fee || 0);
+                const paid = Number(amount.value || 0);
+                const differs = fee > 0 && paid > 0 && Math.abs(fee - paid) > 0.004;
+                amountNote.textContent = differs
+                    ? 'Different from the project fee of ' + project.options[project.selectedIndex].dataset.feeLabel + '. Check the Official Receipt.'
+                    : '';
+                amountNote.classList.toggle('is-visible', differs);
+            };
+            amount.addEventListener('input', checkAmount);
+
             // Bidders who already paid for the chosen project are shown but cannot be picked again.
             const bidder = recordForm.querySelector('select[name="user_id"]');
             let paidMap = {};
@@ -784,9 +825,10 @@
                 bidder.feeCombo.setBlocked(blocked);
             };
 
-            project.addEventListener('change', function () { syncProject(true); markPaid(); });
+            project.addEventListener('change', function () { syncProject(true); markPaid(); checkAmount(); });
             syncProject(amount.value === '');
             markPaid();
+            checkAmount();
 
             // Is this Official Receipt number already recorded? Checked while typing.
             const orInput = recordForm.querySelector('[data-fee-or]');
