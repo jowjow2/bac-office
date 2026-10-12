@@ -253,6 +253,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/payments', [BiddingFeePaymentController::class, 'index'])->name('admin.payments');
     Route::get('/admin/payments/export', [BiddingFeePaymentController::class, 'export'])->name('admin.payments.export');
     Route::get('/admin/payments/report', [BiddingFeePaymentController::class, 'report'])->name('admin.payments.report');
+    Route::get('/admin/payments/check-receipt', [BiddingFeePaymentController::class, 'checkReceipt'])->name('admin.payments.check-receipt');
     Route::post('/admin/payments', [BiddingFeePaymentController::class, 'store'])->name('admin.payments.store');
     Route::put('/admin/payments/{payment}', [BiddingFeePaymentController::class, 'update'])->name('admin.payments.update');
     Route::delete('/admin/payments/{payment}', [BiddingFeePaymentController::class, 'destroy'])->name('admin.payments.destroy');
@@ -360,6 +361,7 @@ Route::middleware(['auth', 'staff'])->group(function () {
     Route::get('/staff/payments', [BiddingFeePaymentController::class, 'index'])->name('staff.payments');
     Route::get('/staff/payments/export', [BiddingFeePaymentController::class, 'export'])->name('staff.payments.export');
     Route::get('/staff/payments/report', [BiddingFeePaymentController::class, 'report'])->name('staff.payments.report');
+    Route::get('/staff/payments/check-receipt', [BiddingFeePaymentController::class, 'checkReceipt'])->name('staff.payments.check-receipt');
     Route::post('/staff/payments', [BiddingFeePaymentController::class, 'store'])->name('staff.payments.store');
     Route::put('/staff/payments/{payment}', [BiddingFeePaymentController::class, 'update'])->name('staff.payments.update');
     Route::delete('/staff/payments/{payment}', [BiddingFeePaymentController::class, 'destroy'])->name('staff.payments.destroy');

@@ -8,6 +8,8 @@
     $today = now()->timezone($tz)->toDateString();
     $peso = fn ($value) => '₱' . number_format((float) $value, 2);
     $recordFormActive = old('_form') === 'record';
+    // After "Record another" the form opens again, empty.
+    $reopenRecord = (bool) session('reopen_record');
     $editFormActive = old('_form') === 'edit';
     $postedDate = fn ($project) => ($project->schedule?->date_posted ?? $project->created_at)?->format('Y-m-d');
     $selectedProjectId = $recordFormActive ? (int) old('project_id') : 0;
@@ -31,7 +33,22 @@
     .fee-board > *, .fee-grid > *, .fee-card, .fee-form > * { min-width: 0; }
     .fee-board .fee-input { max-width: 100%; }
     .fee-board select.fee-input { text-overflow: ellipsis; }
-    .fee-select-search { margin-bottom: 6px; }
+    .fee-combo { position: relative; }
+    .fee-combo-input { padding-right: 34px; }
+    .fee-combo::after { content: '\f107'; position: absolute; top: 50%; right: 13px; transform: translateY(-50%); color: var(--fee-muted, #5b6761); font: 900 13px 'Font Awesome 6 Free'; pointer-events: none; }
+    .fee-combo-list { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px); max-height: 244px; margin: 0; padding: 4px; overflow-y: auto; list-style: none; border: 1px solid var(--ui-line-strong, #d9dfdb); border-radius: 10px; background: #fff; box-shadow: 0 12px 28px rgba(27, 36, 32, .16); }
+    .fee-combo-list[hidden] { display: none; }
+    .fee-combo-option { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 7px; color: var(--fee-ink, #1b2420); font-size: 13px; line-height: 1.35; cursor: pointer; }
+    .fee-combo-option.is-active { background: var(--ui-primary-soft, #e4f0ea); }
+    .fee-combo-option small { display: block; color: var(--fee-muted, #5b6761); font-size: 11.5px; }
+    .fee-combo-option.is-disabled { color: var(--fee-muted, #5b6761); cursor: not-allowed; opacity: .75; }
+    .fee-combo-tag { flex: none; padding: 2px 8px; border-radius: 999px; background: var(--ui-warning-soft, #fbf1da); color: var(--ui-warning, #8a5a00); font-size: 11px; font-weight: 700; }
+    .fee-combo-empty { padding: 10px; color: var(--fee-muted, #5b6761); font-size: 13px; }
+    .fee-combo-native { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; opacity: 0; }
+    .fee-or-note { display: none; margin-top: 4px; color: var(--ui-danger, #b42318); font-size: 12px; }
+    .fee-or-note.is-visible { display: block; }
+    .fee-again { display: inline-flex; align-items: center; gap: 7px; color: var(--fee-ink, #1b2420); font-size: 12.5px; cursor: pointer; }
+    .fee-again input { accent-color: var(--ui-primary, #1d4f40); }
     .fee-board .fas, .fee-board .far { font-family: "Font Awesome 6 Free" !important; font-weight: 700 !important; }
     .fee-board *, .fee-board *::before, .fee-board *::after { box-sizing: border-box; }
 
@@ -257,7 +274,7 @@
                         <span>A project appears here once it is open for bidding and has a bidding documents fee. Set the fee in the project's Online Submission settings.</span>
                     </div>
                 @else
-                    <form method="POST" action="{{ route($routePrefix . '.payments.store') }}" class="fee-form" data-fee-record-form novalidate>
+                    <form method="POST" action="{{ route($routePrefix . '.payments.store') }}" class="fee-form" data-fee-record-form data-fee-check-url="{{ route($routePrefix . '.payments.check-receipt') }}" data-fee-paid='@json($paidByProject ?? [])' novalidate>
                         @csrf
                         <input type="hidden" name="_form" value="record">
 
@@ -270,7 +287,7 @@
 
                         <div class="fee-field is-wide">
                             <label for="fee-project">Project <span class="fee-req" aria-hidden="true">*</span></label>
-                            <select id="fee-project" name="project_id" class="fee-input @if($recordFormActive && $errors->has('project_id')) is-invalid @endif" required data-fee-project data-fee-searchable="Search by reference or title">
+                            <select id="fee-project" name="project_id" class="fee-input @if($recordFormActive && $errors->has('project_id')) is-invalid @endif" required data-fee-project data-fee-combo="Search by reference or title">
                                 <option value="">Select the project the bidder paid for</option>
                                 @foreach($payableProjects as $project)
                                     <option value="{{ $project->id }}"
@@ -292,7 +309,7 @@
 
                         <div class="fee-field is-wide">
                             <label for="fee-bidder">Bidder <span class="fee-req" aria-hidden="true">*</span></label>
-                            <select id="fee-bidder" name="user_id" class="fee-input @if($recordFormActive && $errors->has('user_id')) is-invalid @endif" required data-fee-searchable="Search by company, name or email">
+                            <select id="fee-bidder" name="user_id" class="fee-input @if($recordFormActive && $errors->has('user_id')) is-invalid @endif" required data-fee-combo="Search by company, name or email">
                                 <option value="">Select the approved bidder who paid</option>
                                 @foreach($bidders as $bidder)
                                     <option value="{{ $bidder->id }}" @selected($selectedBidderId === $bidder->id)>
@@ -316,7 +333,8 @@
 
                         <div class="fee-field">
                             <label for="fee-or">Official Receipt No. <span class="fee-req" aria-hidden="true">*</span></label>
-                            <input id="fee-or" type="text" name="or_number" maxlength="60" autocomplete="off" spellcheck="false" class="fee-input fee-or @if($recordFormActive && $errors->has('or_number')) is-invalid @endif" value="{{ $recordFormActive ? old('or_number') : '' }}" placeholder="e.g. 7654321" required>
+                            <input id="fee-or" type="text" name="or_number" maxlength="60" autocomplete="off" spellcheck="false" class="fee-input fee-or @if($recordFormActive && $errors->has('or_number')) is-invalid @endif" value="{{ $recordFormActive ? old('or_number') : '' }}" placeholder="e.g. 7654321" required data-fee-or>
+                            <span class="fee-or-note" data-fee-or-note role="alert"></span>
                             @if($recordFormActive) @error('or_number') <span class="fee-error">{{ $message }}</span> @enderror @endif
                         </div>
 
@@ -334,6 +352,7 @@
 
                         <div class="fee-form-actions">
                             <span class="fee-hint"><i class="fas fa-bell" aria-hidden="true"></i> The bidder is notified right away and can submit online.</span>
+                            <label class="fee-again"><input type="checkbox" name="record_another" value="1"> Record another after saving</label>
                             <button type="submit" class="fee-btn fee-btn-primary" @disabled($bidders->isEmpty())>
                                 <i class="fas fa-check" aria-hidden="true"></i> Record payment
                             </button>
@@ -577,42 +596,137 @@
             }, 4500);
         }
 
-        // Long lists (bidders, projects): a search box above the select narrows its options as you type.
-        document.querySelectorAll('select[data-fee-searchable]').forEach(function (select) {
-            const all = Array.from(select.options).map(function (option) { return option.cloneNode(true); });
-            const search = document.createElement('input');
-            search.type = 'search';
-            search.className = 'fee-input fee-select-search';
-            search.placeholder = select.dataset.feeSearchable;
-            search.autocomplete = 'off';
-            search.setAttribute('aria-label', select.dataset.feeSearchable);
-            select.parentNode.insertBefore(search, select);
+        // Long lists (projects, bidders): one box that filters as you type and picks from a list.
+        // The <select> stays in the form (hidden) so the value is still submitted and validated.
+        document.querySelectorAll('select[data-fee-combo]').forEach(function (select) {
+            const wrap = document.createElement('div');
+            wrap.className = 'fee-combo';
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'fee-input fee-combo-input' + (select.classList.contains('is-invalid') ? ' is-invalid' : '');
+            input.placeholder = select.dataset.feeCombo;
+            input.autocomplete = 'off';
+            input.spellcheck = false;
+            input.setAttribute('role', 'combobox');
+            input.setAttribute('aria-autocomplete', 'list');
+            input.setAttribute('aria-expanded', 'false');
+            const list = document.createElement('ul');
+            list.className = 'fee-combo-list';
+            list.id = select.id + '-list';
+            list.setAttribute('role', 'listbox');
+            list.hidden = true;
+            input.setAttribute('aria-controls', list.id);
+            input.id = select.id + '-input';
+            document.querySelector('label[for="' + select.id + '"]')?.setAttribute('for', input.id);
+            select.parentNode.insertBefore(wrap, select);
+            wrap.append(input, list, select);
+            select.classList.add('fee-combo-native');
+            select.tabIndex = -1;
 
-            search.addEventListener('input', function () {
-                const terms = search.value.toLowerCase().split(/\s+/).filter(Boolean);
-                const keep = select.value;
-                select.innerHTML = '';
-                let shown = 0;
-                all.forEach(function (option, index) {
-                    const text = option.textContent.toLowerCase();
-                    const match = index === 0 || option.value === keep || terms.every(function (term) { return text.indexOf(term) !== -1; });
-                    if (!match) return;
-                    const copy = option.cloneNode(true);
-                    copy.selected = option.value === keep;
-                    select.appendChild(copy);
-                    if (index > 0) shown++;
+            const options = Array.from(select.options).filter(function (option) { return option.value !== ''; })
+                .map(function (option) { return { value: option.value, text: option.textContent.trim().replace(/\s+/g, ' ') }; });
+            let blocked = {};      // value => tag text, for options that cannot be picked right now
+            let visible = [];
+            let active = -1;
+
+            const chosenText = function () {
+                const chosen = options.find(function (item) { return item.value === select.value; });
+                return chosen ? chosen.text : '';
+            };
+            const close = function () { list.hidden = true; input.setAttribute('aria-expanded', 'false'); active = -1; };
+            const paint = function () {
+                Array.from(list.children).forEach(function (node, index) { node.classList.toggle('is-active', index === active); });
+            };
+            const render = function (query) {
+                const terms = (query || '').toLowerCase().split(/\s+/).filter(Boolean);
+                visible = options.filter(function (item) {
+                    const hay = item.text.toLowerCase();
+                    return terms.every(function (term) { return hay.indexOf(term) !== -1; });
                 });
-                if (terms.length && shown === 0) {
-                    const none = document.createElement('option');
-                    none.value = '';
-                    none.disabled = true;
+                list.innerHTML = '';
+                if (!visible.length) {
+                    const none = document.createElement('li');
+                    none.className = 'fee-combo-empty';
                     none.textContent = 'No match';
-                    select.appendChild(none);
+                    list.appendChild(none);
                 }
+                visible.forEach(function (item, index) {
+                    const node = document.createElement('li');
+                    node.className = 'fee-combo-option' + (blocked[item.value] ? ' is-disabled' : '');
+                    node.setAttribute('role', 'option');
+                    node.setAttribute('aria-selected', item.value === select.value ? 'true' : 'false');
+                    if (blocked[item.value]) node.setAttribute('aria-disabled', 'true');
+                    const label = document.createElement('span');
+                    label.textContent = item.text;
+                    node.appendChild(label);
+                    if (blocked[item.value]) {
+                        const tag = document.createElement('span');
+                        tag.className = 'fee-combo-tag';
+                        tag.textContent = blocked[item.value];
+                        node.appendChild(tag);
+                    }
+                    node.addEventListener('mousedown', function (event) { event.preventDefault(); pick(index); });
+                    list.appendChild(node);
+                });
+                list.hidden = false;
+                input.setAttribute('aria-expanded', 'true');
+            };
+            const pick = function (index) {
+                const item = visible[index];
+                if (!item || blocked[item.value]) return;
+                select.value = item.value;
+                input.value = item.text;
+                input.classList.remove('is-invalid');
+                close();
                 select.dispatchEvent(new Event('change', { bubbles: true }));
-            });
-        });
+            };
 
+            input.addEventListener('focus', function () { input.select(); render(''); });
+            input.addEventListener('click', function () { if (list.hidden) render(''); });
+            input.addEventListener('input', function () {
+                if (select.value && input.value !== chosenText()) {
+                    select.value = '';
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                active = -1;
+                render(input.value);
+            });
+            input.addEventListener('keydown', function (event) {
+                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    if (list.hidden) render(input.value === chosenText() ? '' : input.value);
+                    const step = event.key === 'ArrowDown' ? 1 : -1;
+                    if (visible.length) active = (active + step + visible.length) % visible.length;
+                    paint();
+                    list.children[active]?.scrollIntoView({ block: 'nearest' });
+                } else if (event.key === 'Enter' && !list.hidden) {
+                    event.preventDefault();
+                    pick(active >= 0 ? active : (visible.length === 1 ? 0 : -1));
+                } else if (event.key === 'Escape' && !list.hidden) {
+                    event.stopPropagation();
+                    close();
+                }
+            });
+            input.addEventListener('blur', function () {
+                close();
+                // Text that is not a pick does not count: show what is really chosen.
+                input.value = chosenText();
+            });
+            select.addEventListener('change', function () { input.value = chosenText(); });
+
+            // Used by the record form: which options cannot be picked for the chosen project.
+            select.feeCombo = {
+                setBlocked: function (map) {
+                    blocked = map || {};
+                    if (select.value && blocked[select.value]) {
+                        select.value = '';
+                        input.value = '';
+                    }
+                },
+                focus: function () { input.focus(); },
+            };
+            input.value = chosenText();
+        });
         // Record form: show the selected project's fee and prefill the amount.
         const recordForm = document.querySelector('[data-fee-record-form]');
         if (recordForm) {
@@ -641,8 +755,49 @@
                 lastFee = fee;
             };
 
-            project.addEventListener('change', function () { syncProject(true); });
+            // Bidders who already paid for the chosen project are shown but cannot be picked again.
+            const bidder = recordForm.querySelector('select[name="user_id"]');
+            let paidMap = {};
+            try { paidMap = JSON.parse(recordForm.dataset.feePaid || '{}'); } catch (error) { paidMap = {}; }
+            const markPaid = function () {
+                if (!bidder || !bidder.feeCombo) return;
+                const blocked = {};
+                (paidMap[project.value] || []).forEach(function (id) { blocked[String(id)] = 'Already paid'; });
+                bidder.feeCombo.setBlocked(blocked);
+            };
+
+            project.addEventListener('change', function () { syncProject(true); markPaid(); });
             syncProject(amount.value === '');
+            markPaid();
+
+            // Is this Official Receipt number already recorded? Checked while typing.
+            const orInput = recordForm.querySelector('[data-fee-or]');
+            const orNote = recordForm.querySelector('[data-fee-or-note]');
+            let orTimer = null;
+            if (orInput && orNote && recordForm.dataset.feeCheckUrl) {
+                orInput.addEventListener('input', function () {
+                    window.clearTimeout(orTimer);
+                    orNote.classList.remove('is-visible');
+                    const value = orInput.value.trim();
+                    if (!value) return;
+                    orTimer = window.setTimeout(function () {
+                        fetch(recordForm.dataset.feeCheckUrl + '?or=' + encodeURIComponent(value), { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' } })
+                            .then(function (response) { return response.ok ? response.json() : null; })
+                            .then(function (data) {
+                                if (orInput.value.trim() !== value) return;
+                                orNote.textContent = data && data.exists
+                                    ? 'This OR number is already recorded' + (data.bidder ? ' for ' + data.bidder : '') + (data.project ? ' (' + data.project + ')' : '') + '.'
+                                    : '';
+                                orNote.classList.toggle('is-visible', Boolean(data && data.exists));
+                            })
+                            .catch(function () {});
+                    }, 400);
+                });
+            }
+            window.addEventListener('pageshow', function () {
+                const button = recordForm.querySelector('button[type="submit"]');
+                if (button) { button.disabled = false; button.removeAttribute('aria-busy'); }
+            });
 
             recordForm.addEventListener('submit', function (event) {
                 if (!recordForm.checkValidity()) {
@@ -660,6 +815,9 @@
         if (recordDialog) {
             const openRecord = function () {
                 if (typeof recordDialog.showModal === 'function') recordDialog.showModal(); else recordDialog.setAttribute('open', '');
+                // Ready to type: the cursor starts in the first box.
+                const first = recordDialog.querySelector('select[data-fee-project]');
+                window.setTimeout(function () { first?.feeCombo?.focus(); }, 60);
             };
             document.querySelectorAll('[data-fee-open-record]').forEach(function (button) { button.addEventListener('click', openRecord); });
             recordDialog.querySelectorAll('[data-fee-record-close]').forEach(function (button) {
@@ -668,7 +826,7 @@
             recordDialog.addEventListener('click', function (event) {
                 if (event.target === recordDialog && recordDialog.close) recordDialog.close();
             });
-            @if($recordFormActive)
+            @if($recordFormActive || $reopenRecord)
                 openRecord();
             @endif
         }

@@ -396,3 +396,29 @@ it('prints a collection report for a period, per project and per receipt', funct
 
     testCase()->actingAs($this->bidder)->get(route('admin.payments.report'))->assertForbidden();
 });
+
+it('tells the form who already paid for each project, so a second payment cannot be picked', function () {
+    ($this->record)()->assertSessionHasNoErrors();
+
+    $page = testCase()->actingAs($this->staff)->get(route('staff.payments'))->assertOk();
+
+    $page->assertSee('data-fee-combo="Search by reference or title"', false)
+        ->assertSee('data-fee-combo="Search by company, name or email"', false)
+        ->assertSee('"'.$this->project->id.'":['.$this->bidder->id.']', false)
+        ->assertSee('Record another after saving');
+});
+
+it('says whether an Official Receipt number is already recorded, while it is typed', function () {
+    ($this->record)(['or_number' => 'OR-LIVE-CHECK'])->assertSessionHasNoErrors();
+
+    testCase()->actingAs($this->staff)->getJson(route('staff.payments.check-receipt', ['or' => 'OR-LIVE-CHECK']))
+        ->assertOk()->assertJson(['exists' => true, 'bidder' => 'Mindoro Builders']);
+    testCase()->actingAs($this->admin)->getJson(route('admin.payments.check-receipt', ['or' => 'OR-NOT-USED']))
+        ->assertOk()->assertJson(['exists' => false]);
+    testCase()->actingAs($this->admin)->getJson(route('admin.payments.check-receipt'))->assertOk()->assertJson(['exists' => false]);
+});
+
+it('opens the record form again after saving when "record another" is ticked', function () {
+    ($this->record)(['record_another' => '1'])->assertRedirect(route('staff.payments'))->assertSessionHas('reopen_record', true);
+    ($this->record)(['user_id' => $this->otherBidder->id, 'or_number' => 'OR-SECOND'])->assertSessionHas('reopen_record', false);
+});

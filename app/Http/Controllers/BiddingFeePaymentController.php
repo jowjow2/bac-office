@@ -50,6 +50,14 @@ class BiddingFeePaymentController extends Controller
             ->paginate(15)
             ->withQueryString();
 
+        // Who already paid for each open project, so the form can mark them instead of letting a second payment be typed.
+        $paidByProject = BiddingFeePayment::query()
+            ->whereIn('project_id', $payableProjects->pluck('id'))
+            ->get(['project_id', 'user_id'])
+            ->groupBy('project_id')
+            ->map(fn ($rows) => $rows->pluck('user_id')->values()->all())
+            ->all();
+
         $submittedKeys = $this->submittedKeys($payments->getCollection());
 
         $today = now()->toDateString();
@@ -66,6 +74,7 @@ class BiddingFeePaymentController extends Controller
             'payableProjects' => $payableProjects,
             'feeProjects' => $feeProjects,
             'bidders' => $bidders,
+            'paidByProject' => $paidByProject,
             'submittedKeys' => $submittedKeys,
             'stats' => $stats,
             'search' => $search,
@@ -194,6 +203,23 @@ class BiddingFeePaymentController extends Controller
             ->flip();
     }
 
+    /** Live check while the Official Receipt number is typed: is it already recorded, and for whom? */
+    public function checkReceipt(Request $request)
+    {
+        $number = trim((string) $request->query('or', ''));
+        if ($number === '') {
+            return response()->json(['exists' => false]);
+        }
+
+        $payment = BiddingFeePayment::query()->with(['bidder:id,name,company', 'project:id,title,reference_no'])->where('or_number', $number)->first();
+
+        return response()->json([
+            'exists' => $payment !== null,
+            'bidder' => $payment?->bidder?->company ?: $payment?->bidder?->name,
+            'project' => $payment?->project?->reference_no ?: $payment?->project?->title,
+        ]);
+    }
+
     public function store(Request $request)
     {
         $role = $this->role($request);
@@ -260,9 +286,11 @@ class BiddingFeePaymentController extends Controller
             ['project_id' => $project->id, 'url' => route('bidder.available-projects', ['bid_project' => $project->id])]
         );
 
+        // "Record another": the form opens again, empty, for the next bidder in line.
         return redirect()
             ->route($role.'.payments')
-            ->with('success', 'Payment recorded: OR No. '.$payment->or_number.' for '.($bidder->company ?: $bidder->name).'.');
+            ->with('success', 'Payment recorded: OR No. '.$payment->or_number.' for '.($bidder->company ?: $bidder->name).'.')
+            ->with('reopen_record', $request->boolean('record_another'));
     }
 
     public function update(Request $request, BiddingFeePayment $payment)
