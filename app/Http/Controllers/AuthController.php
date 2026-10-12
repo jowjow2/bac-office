@@ -299,7 +299,8 @@ class AuthController extends Controller
                 Rule::excludeIf($request->input('role') !== 'bidder'),
                 'required',
                 'string',
-                'regex:/^[0-9+\-\s()]{7,15}$/',
+                'max:20',
+                new \App\Rules\PhilippineContactNumber,
             ],
             'business_address' => [
                 Rule::excludeIf($request->input('role') !== 'bidder'),
@@ -329,7 +330,7 @@ class AuthController extends Controller
             'company.required' => 'Company is required.',
             'contact_person.required' => 'Contact person is required.',
             'contact_number.required' => 'Contact number is required.',
-            'contact_number.regex' => 'Enter a valid contact number (7-15 digits, e.g. 09171234567).',
+            'contact_number.max' => \App\Rules\PhilippineContactNumber::MESSAGE,
             'business_address.required' => 'Business address is required.',
             'email.required' => 'Email is required.',
             'email.email' => 'Please enter a valid email address.',
