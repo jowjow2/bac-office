@@ -73,7 +73,8 @@ Route::get('/', function () {
                 ->take(3)
                 ->get()
             : collect();
-    } catch (Throwable) {
+    } catch (Throwable $exception) {
+        report($exception);
         $publicProjectsCount = 0;
         $openProjectsCount = 0;
         $awardedContractsCount = 0;

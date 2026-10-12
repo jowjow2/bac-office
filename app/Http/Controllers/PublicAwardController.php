@@ -44,7 +44,8 @@ class PublicAwardController extends Controller
             if (Schema::hasColumn('awards', 'certificate_number')) {
                 $awards->each->ensureCertificateIdentity();
             }
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
+            report($exception);
             $awards = collect();
         }
 
