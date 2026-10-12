@@ -94,7 +94,14 @@ Route::get('/sitemap.xml', function () {
         ? Project::query()->visibleToPublic()->latest('updated_at')->limit(500)->get(['id', 'updated_at'])
             ->map(fn ($project) => ['loc' => route('public.procurement.show', $project), 'lastmod' => $project->updated_at?->toAtomString()])
         : collect();
-    $xml = view('pages.sitemap', ['urls' => $pages->concat($projects)])->render();
+    // Built by hand: a view that starts with the XML declaration breaks on servers that allow PHP short tags.
+    $xml = '<'.'?xml version="1.0" encoding="UTF-8"?'.'>'."
+".'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'."
+"
+        .$pages->concat($projects)->map(fn ($url) => "    <url><loc>".e($url['loc']).'</loc>'.($url['lastmod'] ? '<lastmod>'.e($url['lastmod']).'</lastmod>' : '')."</url>
+")->implode('')
+        .'</urlset>'."
+";
 
     return response($xml, 200, ['Content-Type' => 'application/xml; charset=UTF-8']);
 })->name('sitemap');
