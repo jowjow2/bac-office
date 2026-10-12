@@ -27,3 +27,11 @@ it('points crawlers at the sitemap and away from the private areas', function ()
     expect($robots)->toContain('Sitemap: https://bacsanjoselgu.com/sitemap.xml')
         ->toContain('Disallow: /admin')->toContain('Disallow: /bidder')->toContain('Disallow: /staff');
 });
+
+it('counts visits to the public pages only on the live site', function () {
+    testCase()->get('/')->assertOk()->assertDontSee('/_vercel/insights/script.js', false);
+
+    app()->detectEnvironment(fn () => 'production');
+    testCase()->get('/')->assertOk()->assertSee('/_vercel/insights/script.js', false);
+    testCase()->get('/privacy')->assertOk()->assertSee('Vercel Web Analytics');
+});

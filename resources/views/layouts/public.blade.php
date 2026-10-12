@@ -27,6 +27,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     @stack('pre_app_styles')
+    {{-- Visit counts for the public pages (Vercel Web Analytics): no cookies, no names. Only on the live site. --}}
+    @production
+        <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+        <script defer src="/_vercel/insights/script.js"></script>
+    @endproduction
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="@yield('body_class')">

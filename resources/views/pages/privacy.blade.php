@@ -48,6 +48,10 @@
                 bid, the files you attach can be kept in your own browser so you do not lose them; they are cleared when the
                 bid is submitted or when you sign out.
             </p>
+            <p>
+                The public pages also count visits (how many people viewed which page, from which country and device type) using
+                Vercel Web Analytics. It sets no cookies and does not identify you or keep your IP address.
+            </p>
 
             <h2>How long we keep it</h2>
             <p>
