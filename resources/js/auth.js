@@ -983,13 +983,46 @@ async function maybeStoreLoginCredential(form) {
  * documents exceeds (413). The server issues one token per file, accepts only
  * this browser's folder and runs the usual file checks before saving.
  */
+// Files start uploading the moment they are chosen, so most of the waiting is over before the
+// person presses Submit. One entry per file input; a replaced or removed file drops its entry.
+const registrationPreUploads = new Map();
+
+async function putRegistrationFile(form, key, file, onProgress) {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    // Loaded only here, so the sign-in page stays light.
+    const { upload } = await import('@vercel/blob/client');
+    const extension = (file.name.split('.').pop() || 'pdf').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    return upload(`${form.dataset.directUploadFolder}/${key}.${extension}`, file, {
+        access: 'private',
+        handleUploadUrl: form.dataset.directUploadUrl,
+        headers: { 'X-CSRF-TOKEN': csrfToken || '', Accept: 'application/json' },
+        multipart: file.size > 4 * 1024 * 1024,
+        onUploadProgress: ({ loaded }) => onProgress?.(loaded),
+    });
+}
+
+function startRegistrationPreUpload(form, input) {
+    if (!form?.dataset.directUploadUrl) return;
+    const key = /registration_documents\[([^\]]+)\]/.exec(input.name)?.[1];
+    registrationPreUploads.delete(input.name);
+    const file = input.files && input.files[0];
+    if (!key || !file) return;
+
+    const entry = { file, failed: false };
+    // A failure here is not shown: Submit uploads that file again.
+    entry.promise = putRegistrationFile(form, key, file).catch(() => {
+        entry.failed = true;
+        return null;
+    });
+    registrationPreUploads.set(input.name, entry);
+}
+
 async function uploadRegistrationDocuments(form, formData, csrfToken) {
     const inputs = Array.from(form.querySelectorAll('input[type="file"][name^="registration_documents["]'))
         .filter((input) => input.files && input.files.length);
     if (!inputs.length || formData.get('role') !== 'bidder') return;
 
-    // Loaded only here, so the sign-in page stays light.
-    const { upload } = await import('@vercel/blob/client');
     const total = inputs.reduce((sum, input) => sum + input.files[0].size, 0);
     const loadedByKey = new Map();
     let done = 0;
@@ -1003,17 +1036,15 @@ async function uploadRegistrationDocuments(form, formData, csrfToken) {
         const key = /registration_documents\[([^\]]+)\]/.exec(input.name)?.[1];
         const file = input.files[0];
         if (!key) return;
-        const extension = (file.name.split('.').pop() || 'pdf').toLowerCase().replace(/[^a-z0-9]/g, '');
-        const blob = await upload(`${form.dataset.directUploadFolder}/${key}.${extension}`, file, {
-            access: 'private',
-            handleUploadUrl: form.dataset.directUploadUrl,
-            headers: { 'X-CSRF-TOKEN': csrfToken || '', Accept: 'application/json' },
-            multipart: file.size > 4 * 1024 * 1024,
-            onUploadProgress: ({ loaded }) => {
+        // Already uploaded (or still uploading) since the file was chosen: reuse it.
+        const early = registrationPreUploads.get(input.name);
+        let blob = early && early.file === file ? await early.promise : null;
+        if (!blob) {
+            blob = await putRegistrationFile(form, key, file, (loaded) => {
                 loadedByKey.set(key, loaded);
                 showProgress();
-            },
-        });
+            });
+        }
         loadedByKey.set(key, file.size);
         done += 1;
         showProgress();
@@ -1453,6 +1484,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 input.classList.remove('input-error');
                 updateRegisterUploadCard(input);
                 updateRegisterUploadProgress(registerForm);
+                startRegistrationPreUpload(registerForm, input);
 
                 const key = fieldNameToErrorKey(input.name);
                 const errorBox = registerForm.querySelector(`[data-error-for="${key}"]`);
