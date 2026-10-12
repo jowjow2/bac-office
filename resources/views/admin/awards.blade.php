@@ -1727,6 +1727,32 @@
         body .admin-dashboard.admin-role-page.admin-awards-page .awards-filter-count { margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: rgba(27, 36, 32, .08); font-size: 11px; font-weight: 700; }
         body .admin-dashboard.admin-role-page.admin-awards-page .awards-cert-filter { margin-left: auto; }
         body .admin-dashboard.admin-role-page.admin-awards-page .awards-cert-filter select { min-height: 34px; padding: 0 28px 0 10px; border: 1px solid var(--ui-line-strong, #d9dfdb); border-radius: 8px; background: #fff; color: var(--ui-ink-2, #34413b); font: inherit; font-size: 12.5px; }
+
+        /* Compact award cards on wide screens: tighter spacing, and the details of the progress cell in one wrapping row. */
+        @media (min-width: 1181px) {
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row]:not([hidden]) {
+                grid-template-columns: minmax(0, 1.7fr) minmax(0, 1.1fr) minmax(0, .9fr) 160px !important;
+                margin-bottom: 10px !important;
+                border-radius: 12px !important;
+            }
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td { padding: 11px 16px !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td[data-label]::before { margin-bottom: 5px !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .award-amount { font-size: 17px !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .award-project-cell strong { font-size: 14px !important; line-height: 1.35 !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .award-row-action { min-height: 34px !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td:nth-child(5) {
+                display: flex !important;
+                flex-wrap: wrap !important;
+                align-items: center !important;
+                gap: 4px 18px !important;
+            }
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td:nth-child(5)::before { flex: 0 0 100% !important; margin-bottom: 0 !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td:nth-child(5) .award-steps { flex: 0 0 100% !important; box-sizing: border-box !important; padding-right: max(0px, calc(100% - 560px)) !important; margin: 0 0 4px !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td:nth-child(5) .award-stage-checks { display: flex !important; flex-wrap: wrap !important; gap: 4px 12px !important; max-width: none !important; margin: 0 !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td:nth-child(5) :is(.award-stage-meta, .award-amount-note, .award-next, .award-ntp-record, .ci-open) { margin: 0 !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td:nth-child(5) .award-ntp-record summary { padding: 5px 9px !important; }
+            body .admin-dashboard.admin-role-page.admin-awards-page .awards-contracts-table tbody tr[data-award-row] > td:nth-child(5) .award-ntp-record[open] { flex: 0 0 100% !important; }
+        }
     </style>
 
     <style>
