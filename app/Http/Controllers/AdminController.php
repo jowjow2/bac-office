@@ -906,6 +906,15 @@ class AdminController extends Controller
     {
         abort_unless($user->role === 'bidder', 404);
 
+        // The BAC Admin reviews a bidder in the modal of Manage users. A link to this page (a
+        // notification, the audit log, or the redirect after an action) opens that modal instead.
+        $request = request();
+        if (Auth::user()?->role === 'admin' && ! $request->boolean('modal') && ! $request->ajax()) {
+            $request->session()->reflash();
+
+            return redirect()->route('admin.users', ['review' => $user->id]);
+        }
+
         $user->load([
             'bidderDocuments',
             'loginLogs' => fn ($query) => $query->latest('created_at')->take(10),

@@ -161,7 +161,7 @@ it('renders sanction tabs, badges, and sanction details in manage users', functi
 
     testCase()
         ->actingAs($admin)
-        ->get(route('admin.users.review', $bidder))
+        ->get(route('admin.users.review', [$bidder, 'modal' => 1]))
         ->assertOk()
         ->assertSee('Procurement Sanctions')
         ->assertSee('Final blacklisting order after due process.')

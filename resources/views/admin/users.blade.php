@@ -1637,6 +1637,15 @@
     });
 
     document.addEventListener('DOMContentLoaded', function () {
+        // A link such as /admin/users?review=ID (a notification, or the page after an action) opens that bidder's review.
+        const reviewId = new URLSearchParams(window.location.search).get('review');
+        if (/^[0-9]+$/.test(reviewId || '')) {
+            const clean = new URL(window.location.href);
+            clean.searchParams.delete('review');
+            window.history.replaceState({}, '', clean.pathname + clean.search + clean.hash);
+            openUserReviewModal(null, '/admin/users/' + reviewId + '/review');
+        }
+
         ['create', 'edit'].forEach(function (prefix) {
             document.querySelectorAll('#' + prefix + 'UserForm input[name="role"]').forEach(function (radio) {
                 radio.addEventListener('change', function () { toggleRoleFields(prefix); });

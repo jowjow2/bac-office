@@ -217,3 +217,14 @@ it('tells the bidder to reply to the correction email with the corrected files',
         ->and($html)->toContain('Reply with the corrected documents')
         ->and($html)->toContain('The permit is expired.');
 });
+
+it('opens a bidder review link as the modal of Manage users instead of a separate page', function () {
+    $admin = User::create(['name' => 'BAC Admin', 'email' => 'review-link-admin@example.com', 'password' => Hash::make('password'), 'role' => 'admin', 'status' => 'active']);
+    $bidder = User::create(['name' => 'Maria Cruz', 'email' => 'review-link-bidder@example.com', 'password' => Hash::make('password'), 'role' => 'bidder', 'status' => 'pending', 'company' => 'Cruz Builders']);
+
+    testCase()->actingAs($admin)->get(route('admin.users.review', $bidder))
+        ->assertRedirect(route('admin.users', ['review' => $bidder->id]));
+
+    testCase()->actingAs($admin)->get(route('admin.users.review', [$bidder, 'modal' => 1]))->assertOk();
+    testCase()->actingAs($admin)->get(route('admin.users', ['review' => $bidder->id]))->assertOk()->assertSee('userReviewModal', false);
+});
