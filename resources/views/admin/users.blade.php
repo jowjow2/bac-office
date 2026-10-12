@@ -681,9 +681,11 @@
     <div class="main-area users-page">
         <x-page-header title="Manage users" subtitle="Approve bidder registrations and maintain account access">
             <x-slot:actions>
+                <a href="{{ route('admin.users.export', array_filter(['filter' => $filter !== 'all' ? $filter : null, 'search' => $search])) }}" class="xd-hbtn" data-export-dialog data-export-title="Export users" data-export-noun="user" data-export-count="{{ $users->total() }}" data-export-note="{{ $search !== '' || $filter !== 'all' ? 'Only the users in the current tab and search.' : 'Every account: admin, staff and bidders.' }}"><i class="fas fa-file-export" aria-hidden="true"></i> Export</a>
                 <button type="button" class="ul-add" onclick="openCreateUserModal()"><i class="fas fa-plus" aria-hidden="true"></i> Add user</button>
             </x-slot:actions>
         </x-page-header>
+        @include('partials.export-dialog')
 
         <main class="dashboard-content">
             @if(session('success'))

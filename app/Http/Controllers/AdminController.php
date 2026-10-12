@@ -845,7 +845,77 @@ class AdminController extends Controller
         $bidderApprovalAvailable = Schema::hasTable('bidders');
         $bidderSanctionsAvailable = Schema::hasTable('bidder_sanctions');
 
-        $users = User::query()
+        $users = $this->filteredUsers($search, $filter)
+            ->latest()
+            ->paginate(25)
+            ->withQueryString();
+
+        $roleCounts = [
+            'admin' => User::where('role', 'admin')->count(),
+            'staff' => User::where('role', 'staff')->count(),
+            'bidder' => User::where('role', 'bidder')->count(),
+            'all' => User::where('role', '!=', 'end_user')->count(),
+        ];
+
+        $statusCounts = [
+            'active' => User::where('status', 'active')->count(),
+            'pending' => User::where('status', 'pending')->count(),
+            'rejected' => User::where('status', 'rejected')->count(),
+            'suspended' => $bidderSanctionsAvailable ? BidderSanction::active()->where('type', BidderSanction::TYPE_SUSPENDED)->count() : 0,
+            'blacklisted' => $bidderSanctionsAvailable ? BidderSanction::active()->where('type', BidderSanction::TYPE_BLACKLISTED)->count() : 0,
+        ];
+
+        $contactColumnsReady = User::contactColumnsAvailable();
+
+        return view('admin.users', compact('users', 'search', 'filter', 'roleCounts', 'statusCounts', 'bidderApprovalAvailable', 'bidderSanctionsAvailable', 'contactColumnsReady'));
+    }
+
+    /** The people on the Manage users list (with its current tab and search) as a spreadsheet. */
+    public function exportUsers(Request $request)
+    {
+        $search = $this->requestString($request, 'search');
+        $filter = $this->requestString($request, 'filter', 'all');
+        $zone = config('bac-office.display_timezone', 'Asia/Manila');
+        $contactColumns = User::contactColumnsAvailable();
+        $withProfile = Schema::hasTable('bidders');
+
+        $query = $this->filteredUsers($search, $filter)
+            ->when($withProfile, fn ($builder) => $builder->with('bidderProfile.activeSanction'))
+            ->orderBy('name');
+
+        return response()->streamDownload(function () use ($query, $zone, $contactColumns, $withProfile) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF"); // byte-order mark so Excel reads accents correctly
+            fputcsv($out, ['Name', 'Email', 'Role', 'Company', 'Business registration no.', 'Office / position', 'Contact number', 'Account status', 'Bidder approval', 'Sanction', 'Registered (Asia/Manila)']);
+            $query->chunk(500, function ($users) use ($out, $zone, $contactColumns, $withProfile) {
+                foreach ($users as $user) {
+                    $profile = $withProfile ? $user->bidderProfile : null;
+                    $sanction = $profile?->activeSanction;
+                    fputcsv($out, [
+                        $user->name,
+                        $user->email,
+                        ucfirst((string) $user->role),
+                        $user->company,
+                        $user->registration_no,
+                        $user->role === 'bidder' ? null : trim(($user->office ?: '').($contactColumns && $user->position ? ' · '.$user->position : ''), ' ·'),
+                        $user->role === 'bidder' ? $profile?->contact_number : ($contactColumns ? $user->contact_number : null),
+                        ucfirst((string) $user->status),
+                        $user->role === 'bidder' ? ucfirst((string) ($profile?->approval_status ?? '')) : null,
+                        $sanction ? ucfirst((string) $sanction->type) : null,
+                        $user->created_at?->timezone($zone)->format('Y-m-d H:i'),
+                    ]);
+                }
+            });
+            fclose($out);
+        }, 'users-'.now($zone)->format('Ymd-His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8', 'Cache-Control' => 'no-store']);
+    }
+    /** The users the Manage users list shows for a search and a tab; the export uses the same rows. */
+    private function filteredUsers(string $search, string $filter)
+    {
+        $bidderApprovalAvailable = Schema::hasTable('bidders');
+        $bidderSanctionsAvailable = Schema::hasTable('bidder_sanctions');
+
+        return User::query()
             ->when($bidderApprovalAvailable, function ($query) use ($bidderSanctionsAvailable) {
                 $query->with([
                     'bidderProfile' => function ($profileQuery) use ($bidderSanctionsAvailable) {
@@ -878,28 +948,7 @@ class AdminController extends Controller
                     ->orWhere('registration_no', 'like', "%{$search}%");
                 });
             })
-            ->latest()
-            ->paginate(25)
-            ->withQueryString();
-
-        $roleCounts = [
-            'admin' => User::where('role', 'admin')->count(),
-            'staff' => User::where('role', 'staff')->count(),
-            'bidder' => User::where('role', 'bidder')->count(),
-            'all' => User::where('role', '!=', 'end_user')->count(),
-        ];
-
-        $statusCounts = [
-            'active' => User::where('status', 'active')->count(),
-            'pending' => User::where('status', 'pending')->count(),
-            'rejected' => User::where('status', 'rejected')->count(),
-            'suspended' => $bidderSanctionsAvailable ? BidderSanction::active()->where('type', BidderSanction::TYPE_SUSPENDED)->count() : 0,
-            'blacklisted' => $bidderSanctionsAvailable ? BidderSanction::active()->where('type', BidderSanction::TYPE_BLACKLISTED)->count() : 0,
-        ];
-
-        $contactColumnsReady = User::contactColumnsAvailable();
-
-        return view('admin.users', compact('users', 'search', 'filter', 'roleCounts', 'statusCounts', 'bidderApprovalAvailable', 'bidderSanctionsAvailable', 'contactColumnsReady'));
+            ;
     }
 
     public function reviewUser(User $user)

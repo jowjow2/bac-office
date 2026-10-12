@@ -283,6 +283,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/admin/projects/{project}/open-bids', [AdminController::class, 'openProjectBids'])->name('admin.project.open-bids');
     Route::post('/admin/projects/{project}/sealed-bids', [AdminController::class, 'receiveSealedBid'])->name('admin.project.sealed-bids.store');
     Route::get('/admin/users', [AdminController::class, 'users'])->name('admin.users');
+    Route::get('/admin/users/export', [AdminController::class, 'exportUsers'])->name('admin.users.export');
     Route::get('/admin/users/{user}/review', [AdminController::class, 'reviewUser'])->name('admin.users.review');
     Route::get('/admin/users/{user}/login-activity', [AdminController::class, 'userLoginActivity'])->name('admin.users.login-activity');
     Route::get('/admin/users/{user}/documents/{document}', [AdminController::class, 'previewBidderDocument'])->name('admin.user.document.preview');

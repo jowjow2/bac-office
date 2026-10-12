@@ -94,3 +94,24 @@ it('updates a staff member\'s position and keeps it off bidders', function () {
     expect($staff->fresh()->position)->toBe('BAC Secretariat Head')
         ->and($staff->fresh()->contact_number)->toBe('(043) 491-0000');
 });
+
+it('exports the users of the current tab and search as a spreadsheet', function () {
+    $admin = User::create(['name' => 'Export Admin', 'email' => 'export-admin@example.com', 'password' => Hash::make('password'), 'role' => 'admin', 'status' => 'active']);
+    $staff = User::create(['name' => 'Export Staff', 'email' => 'export-staff@example.com', 'password' => Hash::make('password'), 'role' => 'staff', 'status' => 'active', 'office' => 'Supply Office']);
+    $bidder = User::create(['name' => 'Maria Cruz', 'email' => 'export-bidder@example.com', 'password' => Hash::make('password'), 'role' => 'bidder', 'status' => 'active', 'company' => 'Cruz Builders', 'registration_no' => 'DTI-1234']);
+
+    $page = testCase()->actingAs($admin)->get(route('admin.users'))->assertOk();
+    $page->assertSee('data-export-title="Export users"', false)->assertSee(route('admin.users.export'), false);
+
+    $all = testCase()->actingAs($admin)->get(route('admin.users.export'))->assertOk()->streamedContent();
+    expect($all)->toContain('Name,Email,Role,Company')->toContain('export-admin@example.com')->toContain('Cruz Builders')->toContain('Supply Office')
+        ->not->toContain('password');
+
+    $bidders = testCase()->actingAs($admin)->get(route('admin.users.export', ['filter' => 'bidder']))->assertOk()->streamedContent();
+    expect($bidders)->toContain('export-bidder@example.com')->not->toContain('export-staff@example.com');
+
+    $found = testCase()->actingAs($admin)->get(route('admin.users.export', ['search' => 'Maria']))->assertOk()->streamedContent();
+    expect($found)->toContain('export-bidder@example.com')->not->toContain('export-admin@example.com');
+
+    testCase()->actingAs($staff)->get(route('admin.users.export'))->assertForbidden();
+});
