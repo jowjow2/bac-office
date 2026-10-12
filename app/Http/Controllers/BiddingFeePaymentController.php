@@ -77,9 +77,48 @@ class BiddingFeePaymentController extends Controller
             'paidByProject' => $paidByProject,
             'submittedKeys' => $submittedKeys,
             'stats' => $stats,
+            'exportFormats' => $this->exportFormats($role),
             'search' => $search,
             'projectFilter' => $projectFilter,
         ]);
+    }
+
+    /** Choices for the page's Export dialog: the payment records for a period, plus the printable collection report. */
+    private function exportFormats(string $role): array
+    {
+        $zone = config('bac-office.display_timezone', 'Asia/Manila');
+        $today = now($zone)->startOfDay();
+        $periods = [
+            ['Today', $today, $today],
+            ['This month', $today->copy()->startOfMonth(), $today],
+            ['This year', $today->copy()->startOfYear(), $today],
+            ['All time', null, null],
+        ];
+        $choices = [];
+        foreach ($periods as [$label, $from, $to]) {
+            $query = BiddingFeePayment::query();
+            if ($from) {
+                $query->whereDate('paid_at', '>=', $from->toDateString())->whereDate('paid_at', '<=', $to->toDateString());
+            }
+            $count = (clone $query)->count();
+            $amount = (float) $query->sum('amount');
+            $choices[] = [
+                'label' => $label,
+                'hint' => $count === 0 ? 'No payments recorded' : '₱'.number_format($amount, 2).' collected',
+                'count' => $count,
+                'icon' => 'fa-calendar-days',
+                'url' => route($role.'.payments.export', $from ? ['from' => $from->toDateString(), 'to' => $to->toDateString()] : []),
+            ];
+        }
+        $choices[] = [
+            'label' => 'Collection report (print or PDF)',
+            'hint' => 'Totals by project and day. Pick any dates there',
+            'icon' => 'fa-file-pdf',
+            'open' => true,
+            'url' => route($role.'.payments.report'),
+        ];
+
+        return $choices;
     }
 
     /** The payment records as CSV, with the same search and project filter as the page. */
@@ -88,7 +127,15 @@ class BiddingFeePaymentController extends Controller
         $this->role($request);
         $query = $this->filteredPayments(trim((string) $request->query('q', '')), $request->integer('project') ?: null);
         $zone = config('bac-office.display_timezone', 'Asia/Manila');
-        $filename = 'bidding-fee-payments-'.now($zone)->format('Ymd-His').'.csv';
+        $period = '';
+        foreach (['from', 'to'] as $edge) {
+            $value = (string) $request->query($edge, '');
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+                $query->whereDate('paid_at', $edge === 'from' ? '>=' : '<=', $value);
+                $period .= '-'.$edge.'-'.$value;
+            }
+        }
+        $filename = 'bidding-fee-payments'.$period.'-'.now($zone)->format('Ymd-His').'.csv';
 
         return response()->streamDownload(function () use ($query, $zone) {
             $out = fopen('php://output', 'w');

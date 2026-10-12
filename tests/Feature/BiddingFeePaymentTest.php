@@ -379,6 +379,21 @@ it('exports the payment records as CSV with the page filters', function () {
     testCase()->actingAs($this->bidder)->get(route('admin.payments.export'))->assertForbidden();
 });
 
+it('exports the payments for a period: today, this month, this year or all time', function () {
+    $zone = config('bac-office.display_timezone', 'Asia/Manila');
+    BiddingFeePayment::create(['project_id' => $this->project->id, 'user_id' => $this->bidder->id, 'amount' => 5000, 'or_number' => 'OR-TODAY', 'paid_at' => now($zone)->toDateString(), 'recorded_by' => $this->staff->id]);
+    BiddingFeePayment::create(['project_id' => $this->project->id, 'user_id' => $this->otherBidder->id, 'amount' => 1000, 'or_number' => 'OR-OLD', 'paid_at' => now($zone)->subYears(2)->toDateString(), 'recorded_by' => $this->admin->id]);
+
+    $page = testCase()->actingAs($this->admin)->get(route('admin.payments'))->assertOk();
+    $page->assertSee('Which period')->assertSee('This month')->assertSee('This year')->assertSee('All time')->assertSee('Collection report');
+
+    $today = now($zone)->toDateString();
+    $csv = testCase()->actingAs($this->admin)->get(route('admin.payments.export', ['from' => $today, 'to' => $today]))->assertOk()->streamedContent();
+    expect($csv)->toContain('OR-TODAY')->not->toContain('OR-OLD')->toContain('Total,5000.00');
+
+    $all = testCase()->actingAs($this->admin)->get(route('admin.payments.export'))->streamedContent();
+    expect($all)->toContain('OR-TODAY')->toContain('OR-OLD');
+});
 it('prints a collection report for a period, per project and per receipt', function () {
     BiddingFeePayment::create(['project_id' => $this->project->id, 'user_id' => $this->bidder->id, 'amount' => 5000, 'or_number' => 'OR-1001', 'paid_at' => now()->toDateString(), 'recorded_by' => $this->staff->id]);
     $other = ($this->makeProject)(['reference_no' => 'SJOM-2026-G-099', 'title' => 'Laptops for the RHU']);

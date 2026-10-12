@@ -109,7 +109,7 @@
                 go.disabled = none;
                 summary.classList.toggle('is-empty', none);
                 summary.querySelector('strong').textContent = headlineFor();
-                go.textContent = none ? 'Nothing to export' : (choicesLabel ? 'Download CSV file' : (formats.length > 1 ? 'Export as ' + chosen.label.replace(/\s*\(.*\)$/, '') : 'Download ' + chosen.label.replace(/\s*\(.*\)$/, '')));
+                go.textContent = none ? 'Nothing to export' : (chosen.open ? 'Open report' : choicesLabel ? 'Download CSV file' : (formats.length > 1 ? 'Export as ' + chosen.label.replace(/\s*\(.*\)$/, '') : 'Download ' + chosen.label.replace(/\s*\(.*\)$/, '')));
             };
             const list = overlay.querySelector('.xd-formats');
             if (list) {
