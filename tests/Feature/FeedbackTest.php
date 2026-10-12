@@ -73,3 +73,9 @@ it('lets only the BAC Admin read, filter, mark and export feedback', function ()
     $csv = testCase()->actingAs($this->admin)->get(route('admin.feedback.export'))->assertOk()->streamedContent();
     expect($csv)->toContain('Date,Kind,Rating,Message')->toContain('The upload button does not work on my phone.');
 });
+
+it('explains in the privacy policy what happens to feedback', function () {
+    testCase()->get(route('privacy'))->assertOk()
+        ->assertSee('the rating, kind and message you send through the feedback form')
+        ->assertSee('Feedback is kept only as long as the BAC needs it');
+});

@@ -22,6 +22,7 @@
                 <li><strong>Bidder registration:</strong> company name, business registration number, contact person and number, business address, and the eligibility documents you upload.</li>
                 <li><strong>Bids and payments:</strong> bid documents and amounts, submission times, the financial PIN (stored only in scrambled form), and official receipt details of bidding documents fees recorded by the BAC.</li>
                 <li><strong>Messages and notices</strong> exchanged with the BAC in the portal.</li>
+                <li><strong>Feedback:</strong> the rating, kind and message you send through the feedback form, and the page you sent it from. Your name and email are optional and used only to reply. If you are signed in, the feedback is linked to your account. We do not store your IP address with it.</li>
                 <li><strong>Security records:</strong> sign-in time, method, IP address and browser, and a log of actions taken on procurement records (audit trail).</li>
                 <li><strong>Google sign-in:</strong> if you choose "Continue with Google", we receive only your Google email address and name to match the account already registered with that email. We do not receive your Google password, contacts or files, and we never create an account from Google data.</li>
             </ul>
@@ -30,6 +31,7 @@
             <ul>
                 <li>To register and verify bidders, receive and evaluate bids, and award contracts under Republic Act No. 12009 (New Government Procurement Act), Republic Act No. 9184 and their implementing rules.</li>
                 <li>To send you sign-in codes, schedule updates, results and other procurement notices.</li>
+                <li>To read your feedback, improve the portal and, if you left an email, reply to you.</li>
                 <li>To keep the procurement secure and accountable: sealed bids stay closed until their opening, and actions are recorded for audit.</li>
                 <li>To publish what the law requires to be public, such as notices of procurement and awards (project, winning bidder and contract amount).</li>
             </ul>
@@ -57,7 +59,8 @@
             <p>
                 Procurement records, including bids, evaluations and awards, are kept for as long as government auditing and
                 records-retention rules require. Other information is kept only while your account is active or as needed to
-                answer an audit or a legal claim.
+                answer an audit or a legal claim. Feedback is kept only as long as the BAC needs it to improve the portal; you may
+                ask us to delete yours.
             </p>
 
             <h2>Your rights</h2>
