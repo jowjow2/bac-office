@@ -115,3 +115,16 @@ it('exports the users of the current tab and search as a spreadsheet', function 
 
     testCase()->actingAs($staff)->get(route('admin.users.export'))->assertForbidden();
 });
+
+it('lets the admin choose who to export: all users, bidders only, staff, admin or the current view', function () {
+    $admin = User::create(['name' => 'Choice Admin', 'email' => 'choice-admin@example.com', 'password' => Hash::make('password'), 'role' => 'admin', 'status' => 'active']);
+    User::create(['name' => 'Choice Bidder', 'email' => 'choice-bidder@example.com', 'password' => Hash::make('password'), 'role' => 'bidder', 'status' => 'active', 'company' => 'Choice Builders']);
+
+    $html = testCase()->actingAs($admin)->get(route('admin.users'))->assertOk()->getContent();
+    expect($html)->toContain('data-export-choices-label="Who to include"')
+        ->toContain('Bidders only')->toContain('All users')->toContain('Staff')
+        ->not->toContain('What the list shows now'); // no tab or search is set
+
+    $html = testCase()->actingAs($admin)->get(route('admin.users', ['filter' => 'bidder', 'search' => 'Choice']))->assertOk()->getContent();
+    expect($html)->toContain('What the list shows now');
+});

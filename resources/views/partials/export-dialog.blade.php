@@ -7,6 +7,8 @@
       data-export-noun="payment"              what one record is called (singular)
       data-export-note="Filtered by …"        optional: one line about what is included
       data-export-formats='[{"label":"Excel (CSV)","hint":"…","url":"…","icon":"fa-file-csv","open":false}]'
+      data-export-choices-label="Who to include"   optional: the options are choices of what to export (not file formats); each may carry
+                                                    its own "count" and the button then just says "Download CSV file"
 
     Include this partial once per page.
 --}}
@@ -76,27 +78,39 @@
             try { formats = JSON.parse(data.exportFormats || '[]'); } catch (e) { formats = []; }
             if (!formats.length) formats = [{ label: 'CSV file', hint: 'Opens in Excel, Sheets or any spreadsheet', url: link.href, icon: 'fa-file-csv' }];
             chosen = formats[0];
+            const choicesLabel = data.exportChoicesLabel || '';
 
             overlay?.remove();
             overlay = el('div', 'xd-overlay');
             overlay.setAttribute('role', 'presentation');
-            const empty = count === 0;
-            const headline = hasCount
-                ? (empty ? 'Nothing to export yet' : count.toLocaleString() + ' ' + noun + (count === 1 ? '' : 's') + ' will be exported')
-                : 'The current report will be exported';
+            const countOf = () => (chosen.count !== undefined && chosen.count !== null ? Number(chosen.count) : (hasCount ? count : null));
+            const headlineFor = () => {
+                const total = countOf();
+                if (total === null) return 'The current report will be exported';
+                return total === 0 ? 'Nothing to export yet' : total.toLocaleString() + ' ' + noun + (total === 1 ? '' : 's') + ' will be exported';
+            };
+            const empty = countOf() === 0;
+            const headline = headlineFor();
             overlay.innerHTML =
                 '<div class="xd-dialog" role="dialog" aria-modal="true" aria-labelledby="xdTitle" tabindex="-1">' +
                     '<div class="xd-head"><h2 id="xdTitle">' + esc(title) + '</h2><button type="button" class="xd-close" data-xd-close aria-label="Close">&times;</button></div>' +
                     '<div class="xd-body">' +
                         '<div class="xd-summary' + (empty ? ' is-empty' : '') + '"><div class="xd-summary__icon"><i class="fas fa-file-export" aria-hidden="true"></i></div>' +
                             '<div><strong>' + esc(headline) + '</strong>' + (data.exportNote ? '<span>' + esc(data.exportNote) + '</span>' : '') + '</div></div>' +
-                        (formats.length > 1 ? '<p class="xd-label">Format</p><div class="xd-formats"></div>' : '') +
+                        (formats.length > 1 ? '<p class="xd-label">' + esc(choicesLabel || 'Format') + '</p><div class="xd-formats"></div>' : '') +
                     '</div>' +
                     '<div class="xd-foot"><button type="button" class="xd-btn" data-xd-close>Cancel</button><button type="button" class="xd-btn xd-btn--primary" data-xd-go' + (empty ? ' disabled' : '') + '></button></div>' +
                 '</div>';
 
             const go = overlay.querySelector('[data-xd-go]');
-            const label = () => { go.textContent = empty ? 'Nothing to export' : (formats.length > 1 ? 'Export as ' + chosen.label.replace(/\s*\(.*\)$/, '') : 'Download ' + chosen.label.replace(/\s*\(.*\)$/, '')); };
+            const summary = overlay.querySelector('.xd-summary');
+            const label = () => {
+                const none = countOf() === 0;
+                go.disabled = none;
+                summary.classList.toggle('is-empty', none);
+                summary.querySelector('strong').textContent = headlineFor();
+                go.textContent = none ? 'Nothing to export' : (choicesLabel ? 'Download CSV file' : (formats.length > 1 ? 'Export as ' + chosen.label.replace(/\s*\(.*\)$/, '') : 'Download ' + chosen.label.replace(/\s*\(.*\)$/, '')));
+            };
             const list = overlay.querySelector('.xd-formats');
             if (list) {
                 formats.forEach((format, index) => {

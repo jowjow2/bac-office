@@ -681,7 +681,21 @@
     <div class="main-area users-page">
         <x-page-header title="Manage users" subtitle="Approve bidder registrations and maintain account access">
             <x-slot:actions>
-                <a href="{{ route('admin.users.export', array_filter(['filter' => $filter !== 'all' ? $filter : null, 'search' => $search])) }}" class="xd-hbtn" data-export-dialog data-export-title="Export users" data-export-noun="user" data-export-count="{{ $users->total() }}" data-export-note="{{ $search !== '' || $filter !== 'all' ? 'Only the users in the current tab and search.' : 'Every account: admin, staff and bidders.' }}"><i class="fas fa-file-export" aria-hidden="true"></i> Export</a>
+                @php
+                    // What the export can include. The first choice is what the list shows right now, when a tab or a search is set.
+                    $exportChoices = [];
+                    if ($search !== '' || $filter !== 'all') {
+                        $exportChoices[] = ['label' => 'What the list shows now', 'hint' => 'The current tab and search', 'count' => $users->total(), 'icon' => 'fa-filter', 'url' => route('admin.users.export', array_filter(['filter' => $filter !== 'all' ? $filter : null, 'search' => $search]))];
+                    }
+                    $exportChoices[] = ['label' => 'All users', 'hint' => 'Admin, staff and bidders', 'count' => $roleCounts['all'], 'icon' => 'fa-users', 'url' => route('admin.users.export')];
+                    $exportChoices[] = ['label' => 'Bidders only', 'hint' => 'Every registered supplier', 'count' => $roleCounts['bidder'], 'icon' => 'fa-building-user', 'url' => route('admin.users.export', ['filter' => 'bidder'])];
+                    if ($bidderApprovalAvailable) {
+                        $exportChoices[] = ['label' => 'Bidders waiting for approval', 'hint' => 'Registrations still to review', 'count' => $statusCounts['pending'], 'icon' => 'fa-hourglass-half', 'url' => route('admin.users.export', ['filter' => 'pending'])];
+                    }
+                    $exportChoices[] = ['label' => 'Staff', 'hint' => 'BAC staff accounts', 'count' => $roleCounts['staff'], 'icon' => 'fa-user-tie', 'url' => route('admin.users.export', ['filter' => 'staff'])];
+                    $exportChoices[] = ['label' => 'Admin', 'hint' => 'BAC Admin accounts', 'count' => $roleCounts['admin'], 'icon' => 'fa-user-shield', 'url' => route('admin.users.export', ['filter' => 'admin'])];
+                @endphp
+                <a href="{{ route('admin.users.export') }}" class="xd-hbtn" data-export-dialog data-export-title="Export users" data-export-noun="user" data-export-choices-label="Who to include" data-export-formats="{{ json_encode($exportChoices) }}"><i class="fas fa-file-export" aria-hidden="true"></i> Export</a>
                 <button type="button" class="ul-add" onclick="openCreateUserModal()"><i class="fas fa-plus" aria-hidden="true"></i> Add user</button>
             </x-slot:actions>
         </x-page-header>
