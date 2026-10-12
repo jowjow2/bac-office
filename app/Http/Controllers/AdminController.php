@@ -3128,7 +3128,7 @@ public function destroyUser(User $user)
                 'string',
                 'max:120',
             ],
-            'contact_number' => ['nullable', 'string', 'max:50', 'regex:/^[0-9+()\-.\s\/]+$/'],
+            'contact_number' => ['nullable', 'string', 'max:20', new \App\Rules\PhilippineContactNumber],
             'business_address' => [
                 Rule::excludeIf($request->input('role') !== 'bidder'),
                 'nullable',

@@ -1,5 +1,6 @@
 import './bootstrap';
 import './auth';
+import './phone-input';
 
 document.addEventListener('DOMContentLoaded', () => {
     const slides = [

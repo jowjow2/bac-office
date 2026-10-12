@@ -42,7 +42,7 @@
         </div>
         <div class="um-field">
             <label for="{{ $prefix }}_contact_number" class="um-label" data-contact-label>Office contact no. <span class="um-opt">(optional)</span></label>
-            <input type="tel" name="contact_number" id="{{ $prefix }}_contact_number" value="{{ $value('contact_number') }}" maxlength="50" class="form-input" placeholder="e.g. (043) 457-1234" autocomplete="off" data-role-input="admin staff">
+            <input type="tel" name="contact_number" id="{{ $prefix }}_contact_number" value="{{ $value('contact_number') }}" maxlength="20" data-ph-phone class="form-input" placeholder="e.g. (043) 457-1234" autocomplete="off" data-role-input="admin staff">
         </div>
     </div>
 </div>
@@ -61,7 +61,7 @@
         </div>
         <div class="um-field">
             <label for="{{ $prefix }}_bidder_contact_number" class="um-label">Contact no. <span class="um-opt">(optional)</span></label>
-            <input type="tel" name="contact_number" id="{{ $prefix }}_bidder_contact_number" value="{{ $value('contact_number') }}" maxlength="50" class="form-input" placeholder="09XX XXX XXXX" autocomplete="off" data-role-input="bidder">
+            <input type="tel" name="contact_number" id="{{ $prefix }}_bidder_contact_number" value="{{ $value('contact_number') }}" maxlength="20" data-ph-phone class="form-input" placeholder="09XX XXX XXXX" autocomplete="off" data-role-input="bidder">
         </div>
         <div class="um-field">
             <label for="{{ $prefix }}_business_address" class="um-label">Business address <span class="um-opt">(optional)</span></label>

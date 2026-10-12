@@ -4,6 +4,7 @@
  * Works on the rebuilt portal pages and on older pages that share the
  * portal sidebar.
  */
+import './phone-input';
 
 import { groupDigits } from './money-input';
 

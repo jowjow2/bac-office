@@ -299,7 +299,7 @@
                         </div>
                         <div class="auth-field">
                             <label for="registerContactNumber" class="auth-label">Contact number</label>
-                            <input type="tel" id="registerContactNumber" name="contact_number" value="{{ old('contact_number') }}" class="auth-input" placeholder="09XX XXX XXXX" autocomplete="tel" inputmode="tel" pattern="(\+?63|0)[0-9\s\-\(\)]{9,16}" maxlength="18" title="Enter a valid Philippine number, such as 0917 123 4567 or +63 917 123 4567." data-required-for-bidder="true" {{ $registerRole !== 'staff' ? 'required' : '' }}>
+                            <input type="tel" id="registerContactNumber" name="contact_number" data-ph-phone value="{{ old('contact_number') }}" class="auth-input" placeholder="09XX XXX XXXX" autocomplete="tel" inputmode="tel" pattern="(\+?63|0)[0-9\s\-\(\)]{9,16}" maxlength="18" title="Enter a valid Philippine number, such as 0917 123 4567 or +63 917 123 4567." data-required-for-bidder="true" {{ $registerRole !== 'staff' ? 'required' : '' }}>
                             <div class="field-error" data-error-for="contact_number"></div>
                         </div>
                         <div class="auth-field auth-grid-full">
