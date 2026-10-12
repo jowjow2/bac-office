@@ -39,5 +39,9 @@
             @endforelse
         </div>
         <a href="{{ $portalNotificationsUrl }}" class="portal-bell__foot">All notifications</a>
+        @if(auth()->user()?->role === 'admin' && \App\Models\Feedback::available())
+            @php $newFeedback = \App\Models\Feedback::unreviewed()->count(); @endphp
+            <a href="{{ route('admin.feedback') }}" class="portal-bell__foot">Feedback{{ $newFeedback > 0 ? ' ('.$newFeedback.' new)' : '' }}</a>
+        @endif
     </div>
 </div>

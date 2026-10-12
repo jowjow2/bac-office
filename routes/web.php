@@ -177,6 +177,10 @@ Route::get('/menu', function () {
 
 Route::view('/slider', 'slider')->name('slider');
 
+// Feedback about the portal: anyone can send it; the BAC Admin reads it (admin.feedback).
+Route::get('/feedback', [\App\Http\Controllers\FeedbackController::class, 'create'])->name('feedback');
+Route::post('/feedback', [\App\Http\Controllers\FeedbackController::class, 'store'])->middleware('throttle:5,60')->name('feedback.store');
+
 // Homepage 
 
 
@@ -250,6 +254,9 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/admin/procurements/{project}/proceedings', [ProcurementLifecycleController::class, 'recordProceeding'])->name('admin.procurement.proceedings');
     Route::post('/admin/procurements/{project}/inspection', [ProcurementLifecycleController::class, 'recordInspection'])->name('admin.procurement.inspection');
     Route::post('/admin/procurements/{project}/acceptance', [ProcurementLifecycleController::class, 'recordAcceptance'])->name('admin.procurement.acceptance');
+    Route::get('/admin/feedback', [\App\Http\Controllers\FeedbackController::class, 'index'])->name('admin.feedback');
+    Route::get('/admin/feedback/export', [\App\Http\Controllers\FeedbackController::class, 'export'])->name('admin.feedback.export');
+    Route::post('/admin/feedback/{feedback}/review', [\App\Http\Controllers\FeedbackController::class, 'review'])->name('admin.feedback.review');
     Route::get('/admin/payments', [BiddingFeePaymentController::class, 'index'])->name('admin.payments');
     Route::get('/admin/payments/export', [BiddingFeePaymentController::class, 'export'])->name('admin.payments.export');
     Route::get('/admin/payments/report', [BiddingFeePaymentController::class, 'report'])->name('admin.payments.report');

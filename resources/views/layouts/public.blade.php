@@ -39,5 +39,15 @@
     @include('layouts.navbar')
 
     @yield('content')
+
+    @if(\App\Models\Feedback::available() && ! request()->routeIs('feedback', 'certificate.*', 'public.certificate.*', 'public.awards.document'))
+        <a href="{{ route('feedback') }}" class="feedback-tab" aria-label="Send feedback"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M4 3h16a2 2 0 012 2v11a2 2 0 01-2 2H9l-4.6 3.7A.8.8 0 013 20.1V5a2 2 0 011-1.4A2 2 0 014 3z"/></svg><span>Feedback</span></a>
+        <style>
+            .feedback-tab { position: fixed; right: 16px; bottom: 16px; z-index: 90; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 999px; background: #1b2420; color: #fff; font-size: 13px; font-weight: 600; text-decoration: none; box-shadow: 0 8px 22px rgba(27, 36, 32, .28); }
+            .feedback-tab:hover { background: #1d4f40; }
+            @media (max-width: 640px) { .feedback-tab span { display: none; } .feedback-tab { width: 42px; padding: 0; justify-content: center; } }
+            @media print { .feedback-tab { display: none; } }
+        </style>
+    @endif
 </body>
 </html>
