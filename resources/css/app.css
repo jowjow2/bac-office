@@ -2867,17 +2867,20 @@ body.public-modal-open {
 
 
 @media (max-width: 900px) {
+  /* A slim bar: the logo and the menu button only, so the page starts higher. */
   .public-page {
-    padding-top: 82px;
+    padding-top: 60px;
   }
 
   .navbar {
-    padding: 14px 16px;
+    min-height: 0;
+    padding: 8px 14px;
     flex-direction: column;
     align-items: stretch;
   }
 
   .navbar-inner {
+    min-height: 0;
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -2895,6 +2898,8 @@ body.public-modal-open {
 
   .menu-toggle {
     display: inline-flex;
+    width: 40px;
+    height: 40px;
     margin-left: auto;
   }
 
@@ -2955,9 +2960,13 @@ body.public-modal-open {
     margin-right: 0;
   }
 
+  .logo {
+    font-size: 18px;
+  }
+
   .logo img {
-    height: 40px;
-    max-width: 42px;
+    height: 36px;
+    max-width: 38px;
   }
 
    .public-shell {
