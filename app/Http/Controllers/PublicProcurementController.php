@@ -21,12 +21,9 @@ class PublicProcurementController extends Controller
         $categoryCounts = collect();
 
         try {
+            // Every published project, awarded ones included (marked Awarded): none disappears from the public list.
             $baseQuery = Project::query()
                 ->visibleToPublic()
-                ->where(function ($status) {
-                    $status->where('status', '!=', 'awarded')
-                        ->orWhereHas('bids', fn ($bid) => $bid->whereNotNull('notice_of_award_at')->where('notice_of_award_at', '>', now()));
-                })
                 ->when($query !== '', function ($builder) use ($query) {
                     $builder->where(function ($nested) use ($query) {
                         $nested->where('title', 'like', "%{$query}%")

@@ -35,3 +35,17 @@ it('counts visits to the public pages only on the live site', function () {
     testCase()->get('/')->assertOk()->assertSee('/_vercel/insights/script.js', false);
     testCase()->get('/privacy')->assertOk()->assertSee('Vercel Web Analytics');
 });
+
+it('lists awarded projects on the Procurement page, marked Awarded', function () {
+    foreach ([['PROC-OPEN', 'open'], ['PROC-AWARDED', 'awarded']] as [$ref, $status]) {
+        \App\Models\Project::create([
+            'reference_no' => $ref, 'title' => "Project {$ref}", 'description' => 'Listing test.', 'category' => 'goods',
+            'procurement_mode' => 'public_bidding', 'budget' => 100000, 'status' => $status, 'deadline' => now()->addDays(5),
+            'published_at' => now()->subDay(),
+        ]);
+    }
+
+    testCase()->get('/procurement')->assertOk()
+        ->assertSee('Project PROC-OPEN')->assertSee('Project PROC-AWARDED')
+        ->assertSee('public-status public-status-awarded', false);
+});
