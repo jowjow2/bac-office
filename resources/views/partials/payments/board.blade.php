@@ -178,7 +178,7 @@
     .fee-board .fee-stat-value { font-size: 18px; }
     .fee-grid { grid-template-columns: minmax(0, 1fr); }
     .fee-board .fee-projects { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
-    .fee-record-dialog { width: min(580px, calc(100vw - 24px)); border-radius: 16px; }
+    .fee-record-dialog { width: min(580px, calc(100vw - 24px)); border-radius: 16px; overflow-x: hidden; }
     .fee-record-dialog[open] { animation: fee-rise .26s cubic-bezier(.2, .8, .2, 1) both; }
     .fee-record-dialog::backdrop { background: rgba(15, 25, 21, .55); backdrop-filter: blur(2px); }
     .fee-record-dialog .fee-card-head { align-items: flex-start; border-bottom: 0; padding-bottom: 6px; }

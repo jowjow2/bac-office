@@ -1790,12 +1790,10 @@
     <div class="main-area">
         <x-page-header title="Awards & contracts" subtitle="View all awarded projects and contracts">
             <x-slot:actions>
-                <a href="{{ route('admin.awards.report') }}" class="xd-hbtn" data-report-dialog="awardsReport"><i class="fas fa-chart-column" aria-hidden="true"></i> Report</a>
                 <a href="{{ route('admin.awards.export') }}" class="xd-hbtn" data-export-dialog data-export-title="Export awards" data-export-noun="award" data-export-count="{{ count($awards ?? []) }}" data-export-note="Every award with its contract amount, stage and certificate."><i class="fas fa-file-export" aria-hidden="true"></i> Export</a>
             </x-slot:actions>
         </x-page-header>
         @include('partials.export-dialog')
-        @include('partials.report-dialog', ['id' => 'awardsReport', 'title' => 'Awards and contracts report', 'url' => route('admin.awards.report', ['embed' => 1])])
 
         <main class="dashboard-content admin-awards-content">
             @if(session('success'))

@@ -28,11 +28,11 @@ beforeEach(function () {
     $this->award = Award::create(['project_id' => $project->id, 'bid_id' => $bid->id, 'contract_amount' => 1800000, 'contract_date' => now()->toDateString(), 'status' => 'active']);
 });
 
-it('puts Export and Report in the awards page header', function () {
+it('has Export, and no Report button, in the awards page header', function () {
     testCase()->actingAs($this->admin)->get(route('admin.awards.index'))->assertOk()
         ->assertSee(route('admin.awards.export'), false)
-        ->assertSee(route('admin.awards.report'), false)
-        ->assertSee('data-report-dialog="awardsReport"', false);
+        ->assertDontSee(route('admin.awards.report'), false)
+        ->assertDontSee('data-report-dialog="awardsReport"', false);
 });
 
 it('exports the awards register as CSV', function () {
