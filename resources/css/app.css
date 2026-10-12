@@ -2869,12 +2869,12 @@ body.public-modal-open {
 @media (max-width: 900px) {
   /* A slim bar: the logo and the menu button only, so the page starts higher. */
   .public-page {
-    padding-top: 60px;
+    padding-top: 48px;
   }
 
   .navbar {
     min-height: 0;
-    padding: 8px 14px;
+    padding: 6px 14px;
     flex-direction: column;
     align-items: stretch;
   }
@@ -2898,9 +2898,10 @@ body.public-modal-open {
 
   .menu-toggle {
     display: inline-flex;
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     margin-left: auto;
+    font-size: 20px;
   }
 
   .navbar .nav-links,
@@ -2961,12 +2962,13 @@ body.public-modal-open {
   }
 
   .logo {
-    font-size: 18px;
+    gap: 7px;
+    font-size: 16px;
   }
 
   .logo img {
-    height: 36px;
-    max-width: 38px;
+    height: 28px;
+    max-width: 30px;
   }
 
    .public-shell {
