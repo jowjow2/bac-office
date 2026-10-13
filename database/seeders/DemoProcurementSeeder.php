@@ -109,6 +109,13 @@ class DemoProcurementSeeder extends Seeder
         if (strtolower((string) env('DEMO_PROCUREMENT')) === 'remove') {
             DB::transaction(function () use ($refs) {
                 Project::where('reference_no', 'like', 'SJ-BAC-2026-%-D__')->get()->each(function (Project $project) {
+                    // The awarded demo projects: their award, contract and bids go with them.
+                    $awardIds = DB::table('awards')->where('project_id', $project->id)->pluck('id');
+                    $implementationIds = DB::table('contract_implementations')->whereIn('award_id', $awardIds)->pluck('id');
+                    DB::table('contract_implementation_events')->whereIn('contract_implementation_id', $implementationIds)->delete();
+                    DB::table('contract_implementations')->whereIn('id', $implementationIds)->delete();
+                    DB::table('awards')->whereIn('id', $awardIds)->delete();
+                    DB::table('bids')->where('project_id', $project->id)->delete();
                     ProjectSchedule::where('project_id', $project->id)->delete();
                     ProjectRequirement::where('project_id', $project->id)->delete();
                     $project->delete();
