@@ -14,12 +14,24 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: min(620px, 78vh);
+  /* The photo fills the first screen under the navigation (76px), so no blank band shows before the content. */
+  min-height: max(560px, calc(100vh - 76px));
+  min-height: max(560px, calc(100svh - 76px));
   padding: 64px 24px 56px;
   overflow: hidden;
   /* Front of the BAC Office building, framed on the BAC Office sign. */
   background: #163d31 url("/Images/bac-office-front-clean.webp") 52% 42% / cover no-repeat;
-  border-bottom: 1px solid var(--ui-line);
+}
+
+/* The photo fades into the page colour at its lower edge instead of ending in a hard line. */
+.home-page-hero::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 1;
+  height: 72px;
+  background: linear-gradient(180deg, transparent 0%, var(--ui-page) 100%);
+  pointer-events: none;
 }
 
 .home-hero-copy {
@@ -757,7 +769,8 @@
 @media (min-width: 900px) {
   body.home-page .home-page-hero {
     justify-content: flex-start;
-    min-height: 520px;
+    min-height: max(520px, min(calc(100vh - 76px), 105vw));
+    min-height: max(520px, min(calc(100svh - 76px), 105vw));
     padding: 64px max(32px, calc((100vw - 1200px) / 2)) 56px;
     background-position: 13% 35%;
     background-size: 150% auto;
