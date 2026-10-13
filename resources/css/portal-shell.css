@@ -784,3 +784,63 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover,
 input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
 input[type="time"]::-webkit-calendar-picker-indicator:hover,
 input[type="month"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+
+
+/* ---------- Phone: touch targets of the shell, and the bidder bottom tab bar ----------
+   This file is shared by every portal page, old and new, so both look the same. */
+.portal-tabbar { display: none; }
+
+@media (max-width: 768px) {
+    .portal-tabbar {
+        position: fixed;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 50; /* above the page and its sticky bars, below the menu drawer (55-60) */
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(0, 1fr);
+        gap: 2px;
+        padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+        border-top: 1px solid var(--ui-line, #dfe6e1);
+        background: var(--ui-surface, #fff);
+        box-shadow: 0 -6px 18px rgba(27, 36, 32, .08);
+    }
+    .portal-tabbar__item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        min-height: 52px;
+        padding: 4px 2px;
+        border: 0;
+        border-radius: 12px;
+        background: transparent;
+        color: var(--ui-muted, #6b7a72);
+        font: 600 11.5px/1.1 var(--ui-font, 'Inter', system-ui, sans-serif);
+        text-decoration: none;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .portal-tabbar__item i { font-size: 18px; }
+    .portal-tabbar__item:active { background: var(--ui-surface-2, #f4f7f5); }
+    .portal-tabbar__item[aria-current="page"] { background: var(--ui-primary-soft, #e4f0ea); color: var(--ui-primary, #1f5c45); }
+    .portal-tabbar__item:focus-visible { outline: 2px solid var(--ui-focus-color, #1f5c45); outline-offset: -2px; }
+
+    /* Room for the bar under the page; the sticky form buttons sit above it. */
+    body:has(.portal-tabbar) { padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)); }
+    body:has(.portal-tabbar) .ui-step-panel > .ui-actions--end { bottom: calc(66px + env(safe-area-inset-bottom, 0px)); }
+}
+
+@media (max-width: 640px) {
+    .portal-nav__link { min-height: 44px; }
+    .portal-sidebar__close,
+    .portal-user__logout,
+    .portal-menu-btn,
+    .portal-bell__button { min-width: 44px; min-height: 44px; }
+}
+
+@media (max-width: 640px) {
+    .portal-main .ui-btn { min-height: 44px; }
+}

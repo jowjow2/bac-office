@@ -15203,3 +15203,22 @@ body .admin-dashboard.admin-role-page .main-area.users-page .user-actions-menu-i
         justify-content: center !important;
     }
 }
+
+
+/* ---------- Phone: touch targets and field size on the older admin and bidder pages ----------
+   Bid management, projects, users, payments and reports size their controls in their own stylesheets. */
+@media (max-width: 640px) {
+    html body .main-area.main-area:not(#z):not(#z) :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="range"]) {
+        min-height: 44px !important;
+        font-size: 16px !important;
+    }
+    html body .main-area.main-area:not(#z):not(#z) textarea { min-height: 96px !important; }
+
+    html body .main-area.main-area:not(#z):not(#z) :is(
+        .bid-control, .bid-pagination-control,
+        .projects-action-button, .projects-title-button, .projects-pagination-control, .projects-archive-link, .projects-summary-card,
+        .ul-tab, .ul-add, .ul-pager__btn, .user-actions-trigger,
+        .fee-btn, .ra-btn, .ra-button, .ra-preset, .xd-hbtn
+    ) { min-height: 44px !important; }
+    html body .main-area.main-area:not(#z):not(#z) :is(.user-actions-trigger, .projects-action-button) { min-width: 44px; }
+}

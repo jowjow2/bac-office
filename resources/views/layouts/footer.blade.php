@@ -82,10 +82,10 @@
         .site-footer__nav li::before { display: none; }
         .site-footer__nav a { display: inline-flex; align-items: center; min-height: 30px; padding: 0 12px; border: 1px solid rgba(255, 255, 255, .35); border-radius: 999px; font-size: 13px; }
         .site-footer__time { margin-top: 10px; font-size: 12.5px; line-height: 1.5; }
-        .site-footer__social { display: flex; justify-content: center; margin-top: 10px; }
+        .site-footer__social { display: flex; justify-content: center; margin-top: 10px; min-height: 44px; }
         /* Government links fold away until opened. */
         .site-footer__gov { border-top: 1px solid rgba(255, 255, 255, .22); padding-top: 8px; }
-        .site-footer__gov > summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; pointer-events: auto; min-height: 32px; }
+        .site-footer__gov > summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; pointer-events: auto; min-height: 44px; }
         .site-footer__gov > summary h2 { margin: 0; }
         .site-footer__gov > summary::after { content: ''; width: 8px; height: 8px; margin-right: 4px; border-right: 2px solid #fff; border-bottom: 2px solid #fff; transform: rotate(45deg); transition: transform .15s ease; }
         .site-footer__gov[open] > summary::after { transform: rotate(-135deg); }

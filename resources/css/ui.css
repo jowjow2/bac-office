@@ -1953,3 +1953,48 @@ a.ui-cell-title:hover {
     .ui-dialog .ui-actions--end .ui-btn,
     .ui-step-panel > .ui-actions--end .ui-btn { width: 100%; }
 }
+
+
+/* ---------- Phone: tab strips and the search toolbar ----------
+   A strip with up to four tabs shares the width equally (labels wrap, counts stay visible) instead of being cut
+   off; a longer strip still scrolls sideways. The Search button fills the row under its box. */
+@media (max-width: 640px) {
+    .ui-tabs:not(:has(> :nth-child(5))) {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(0, 1fr);
+        gap: 0;
+        overflow-x: visible;
+    }
+    .ui-tabs:not(:has(> :nth-child(5))) .ui-tab {
+        flex-direction: column;
+        justify-content: center;
+        gap: 4px;
+        padding: 8px 4px;
+        font-size: 13px;
+        line-height: 1.2;
+        text-align: center;
+        white-space: normal;
+    }
+    .ui-toolbar > .ui-btn { width: 100%; }
+}
+
+
+/* ---------- Phone: touch targets in the portal shell and in the page stylesheets ----------
+   Reaches controls that older page stylesheets size on their own (bid management, projects, users, payments,
+   reports). Page-number tiles of a pager are left as they are, so a row of them still fits. */
+@media (max-width: 640px) {
+    .portal-content :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="range"]) {
+        min-height: 44px !important;
+        font-size: 16px !important;
+    }
+    .portal-content textarea { min-height: 96px !important; }
+
+    .portal-content :is(
+        .bid-control, .bid-pagination-control,
+        .projects-action-button, .projects-title-button, .projects-pagination-control,
+        .ul-tab, .ul-add, .ul-pager__btn, .user-actions-trigger,
+        .fee-btn, .ra-btn, .ra-button, .ra-preset, .xd-hbtn
+    ) { min-height: 44px !important; }
+    .portal-content :is(.user-actions-trigger, .projects-action-button) { min-width: 44px; }
+}

@@ -20,7 +20,7 @@
     @vite(['resources/css/ui.css', 'resources/js/portal.js'])
     @stack('head')
 </head>
-<body class="portal">
+<body class="portal{{ auth()->user()?->role === 'bidder' ? ' has-tabbar' : '' }}">
 <a href="#main" class="portal-skip">Skip to content</a>
 
 @include('partials.portal.sidebar')

@@ -97,3 +97,5 @@
         </div>
     </form>
 </dialog>
+
+@include('partials.portal.bottom-nav')

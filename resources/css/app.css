@@ -4034,3 +4034,23 @@ body.public-modal-open {
     padding-top: 60px;
   }
 }
+
+
+/* ---------- Phone: touch targets and field size on the public pages ----------
+   Buttons, menu, tabs and fields are at least 44px, and fields are 16px so a phone does not zoom when one is tapped. */
+@media (max-width: 640px) {
+    .btn,
+    .btn-outline,
+    button.btn { min-height: 44px; }
+    .menu-toggle { min-width: 44px; min-height: 44px; }
+    .navbar .logo { min-height: 44px; display: inline-flex; align-items: center; }
+    .carousel-btn { min-width: 44px; min-height: 44px; }
+    .proc-tab { display: inline-flex; align-items: center; min-height: 44px; }
+    .search-input,
+    .search-form input,
+    main input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]),
+    main select,
+    main textarea { min-height: 44px; font-size: 16px; }
+    main textarea { min-height: 96px; }
+    .search-form button { min-height: 44px; }
+}
