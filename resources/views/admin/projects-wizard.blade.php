@@ -561,15 +561,6 @@
                                 <span class="ui-error" id="date_posted-error" data-pw-error @unless($err('date_posted')) hidden @endunless>{{ $err('date_posted') }}</span>
                             </div>
                         </li>
-                        <li class="pw-timeline__item" data-pw-prebid>
-                            <div class="ui-field">
-                                <label class="ui-label" for="pre_bid_conference_date">Pre-bid conference <span class="ui-required" aria-hidden="true" data-pw-prebid-required hidden>*</span> <span class="ui-optional" data-pw-prebid-optional>(if held)</span></label>
-                                <input type="datetime-local" id="pre_bid_conference_date" name="pre_bid_conference_date" class="ui-input" value="{{ old('pre_bid_conference_date') }}" data-pw-date aria-invalid="{{ $invalid('pre_bid_conference_date') }}" aria-describedby="pre_bid_conference_date-hint pre_bid_conference_date-error">
-                                <span class="ui-hint" id="pre_bid_conference_date-hint" data-pw-prebid-rule></span>
-                                <span class="pw-when" data-pw-when="pre_bid_conference_date"></span>
-                                <span class="ui-error" id="pre_bid_conference_date-error" data-pw-error @unless($err('pre_bid_conference_date')) hidden @endunless>{{ $err('pre_bid_conference_date') }}</span>
-                            </div>
-                        </li>
                         <li class="pw-timeline__item">
                             <div class="ui-field">
                                 <label class="ui-label" for="bid_submission_deadline"><span data-pw-deadline-label>Deadline for submission</span> <span class="ui-required" aria-hidden="true">*</span></label>

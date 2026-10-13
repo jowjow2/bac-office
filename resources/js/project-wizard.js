@@ -270,16 +270,6 @@ if (root && form) {
             ? `At least ${days} calendar days after publication in this system.`
             : 'Must be in the future.';
 
-        const required = prebidRequired();
-        // The pre-bid conference only appears when the law asks for it for this ABC (or when one is already set).
-        const prebidRow = byId('pre_bid_conference_date')?.closest('li');
-        if (prebidRow) prebidRow.hidden = !required && !byId('pre_bid_conference_date').value;
-        $('[data-pw-prebid-required]').hidden = !required;
-        $('[data-pw-prebid-optional]').hidden = required;
-        $('[data-pw-prebid-rule]').textContent = fam === 'competitive'
-            ? `${required ? 'Required for this ABC:' : `Optional below ${peso0(rules.prebidThreshold?.[basis()])}. If held:`} at least ${rules.prebidDaysBeforeDeadline} calendar days before the deadline${basis() === 'ra_12009' ? ` and at least ${rules.prebidDaysAfterPublication} days after publication` : ''}.`
-            : 'Optional, at the BAC\'s discretion. If held, before the deadline.';
-
         const docRule = $('[data-pw-doc-rule]');
         docRule.textContent = fam === 'competitive'
             ? 'To publish competitive bidding, include the Invitation to Bid. Other documents are optional.'
@@ -944,7 +934,6 @@ if (root && form) {
         const today = datePart(now);
         const deadline = val('bid_submission_deadline');
         const opening = val('bid_opening_date');
-        const prebid = val('pre_bid_conference_date');
         const clarification = val('clarification_deadline');
         const evaluation = val('evaluation_start_date');
         const award = val('expected_award_date');
@@ -968,16 +957,6 @@ if (root && form) {
             warnings.bid_opening_date = 'The bid opening should be on the same day as the deadline, right after it.';
         }
 
-        if (prebidRequired() && !prebid) {
-            errors.pre_bid_conference_date = `A pre-bid conference is required for an ABC of ${peso0(rules.prebidThreshold?.[basis()])} or more.`;
-        } else if (prebid && deadline && prebid >= deadline) {
-            errors.pre_bid_conference_date = `The pre-bid conference must be before the ${deadlineName}.`;
-        } else if (prebid && deadline && isCompetitive() && addDaysDateTime(prebid, rules.prebidDaysBeforeDeadline) > deadline) {
-            warnings.pre_bid_conference_date = `It should be at least ${rules.prebidDaysBeforeDeadline} calendar days before the ${deadlineName}.`;
-        } else if (prebid && isCompetitive() && basis() === 'ra_12009' && datePart(prebid) < addDays(today, rules.prebidDaysAfterPublication)) {
-            warnings.pre_bid_conference_date = `Publishing today, it should be on or after ${phLabel(addDays(today, rules.prebidDaysAfterPublication))} (${rules.prebidDaysAfterPublication} days after publication).`;
-        }
-
         if (clarification && deadline && clarification >= deadline) {
             errors.clarification_deadline = `Clarifications must close before the ${deadlineName}.`;
         }
@@ -994,7 +973,7 @@ if (root && form) {
         }
 
         if (show) {
-            ['bid_submission_deadline', 'bid_opening_date', 'pre_bid_conference_date', 'clarification_deadline', 'evaluation_start_date', 'expected_award_date']
+            ['bid_submission_deadline', 'bid_opening_date', 'clarification_deadline', 'evaluation_start_date', 'expected_award_date']
                 .forEach((key) => {
                     setError(key, errors[key] || '');
                     setWarning(key, errors[key] ? '' : (warnings[key] || ''));
@@ -1049,9 +1028,6 @@ function nextWorkingDay(date, inclusive = true) {
             prebidDate = nextWorkingDay(prebidDate);
             const deadlineAfterPrebid = addDays(prebidDate, rules.prebidDaysBeforeDeadline || 12);
             if (deadlineAfterPrebid > earliestDeadline) earliestDeadline = deadlineAfterPrebid;
-            setSuggestedDate('pre_bid_conference_date', `${prebidDate}T10:00`, changed);
-        } else {
-            clearSuggestedDate('pre_bid_conference_date', changed);
         }
 
         let deadlineDate = nextWorkingDay(earliestDeadline);
@@ -1357,7 +1333,6 @@ function nextWorkingDay(date, inclusive = true) {
         };
         fill(4, [
             ['Publication', `On publishing: ${phLabel(rules.today)}`],
-            ...(prebidRequired() || val('pre_bid_conference_date') ? [['Pre-bid conference', dated('pre_bid_conference_date'), prebidRequired()]] : []),
             [$('[data-pw-deadline-label]').textContent, dated('bid_submission_deadline'), true],
             [$('[data-pw-opening-label]').textContent, dated('bid_opening_date'), true],
             ...(isCompetitive() ? [['Place of bid opening', val('bid_opening_venue'), true]] : []),
