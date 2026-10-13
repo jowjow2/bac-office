@@ -24,8 +24,8 @@ it('links to the Facebook page of the BAC by default', function () {
     testCase()->get('/')->assertOk()->assertSee('https://www.facebook.com/bac.san.jose.oksimin', false);
 });
 
-it('has no procurement search box in the navigation on the home page, only on the other public pages', function () {
-    testCase()->get('/')->assertOk()->assertDontSee('Search procurement...');
+it('keeps the search box in the navigation, with a plain Search label on the home page', function () {
+    testCase()->get('/')->assertOk()->assertSee('placeholder="Search..."', false)->assertDontSee('Search procurement...');
     testCase()->get('/procurement')->assertOk()->assertSee('Search procurement...', false);
     testCase()->get('/awards')->assertOk()->assertSee('Search awards or contractors...', false);
 });
