@@ -2946,4 +2946,11 @@
         body .admin-dashboard.admin-role-page .main-area.users-page .ul-table tbody tr.ul-empty-row { display: block !important; }
         .users-page .ul-toast { bottom: 16px; left: 16px; right: 16px; transform: none; min-width: 0; max-width: none; }
     }
+
+    /* Phones: every filter is visible as a tap-sized chip, in rows, instead of a strip that hides the tabs past the edge. */
+    @media (max-width: 640px) {
+        .users-page .ul-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; margin: 0; padding: 0; gap: 6px; }
+        html body .admin-dashboard.admin-role-page .main-area.users-page:not(#z) a.ul-tab { height: 44px !important; justify-content: space-between !important; padding: 0 14px !important; border: 1px solid var(--ui-line) !important; background: var(--ui-surface) !important; }
+        html body .admin-dashboard.admin-role-page .main-area.users-page:not(#z) a.ul-tab.is-active { border-color: var(--ui-primary) !important; background: var(--ui-primary-soft) !important; }
+    }
 </style>
