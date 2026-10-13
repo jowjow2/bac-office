@@ -76,12 +76,12 @@ it('requires MEARB/MARB criteria weights totalling 100%, the MEARB ratio and the
     expect(($this->blockers)($consulting))->toBe([]);
 });
 
-it('requires a pre-procurement conference before publishing above the ABC threshold, recorded while still a draft', function () {
+it('does not hold back publishing for a pre-procurement conference, but it can still be recorded while a draft', function () {
     $small = ($this->draft)(['budget' => 5000000]);
     expect($small->preProcurementConferenceRequired())->toBeFalse();
 
     $large = ($this->draft)(['budget' => 6500000]);
-    expect(($this->blockers)($large))->toHaveKey('pre_procurement_conference');
+    expect(($this->blockers)($large))->not->toHaveKey('pre_procurement_conference');
 
     // Other proceedings wait for publication; the pre-procurement conference does not.
     testCase()->actingAs($this->admin)->post(route('admin.procurement.proceedings', $large), [

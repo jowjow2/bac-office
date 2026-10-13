@@ -539,9 +539,7 @@ class Project extends Model
             if ($this->acceptsElectronicSubmission() && blank($this->electronic_submission_authority)) {
                 $blockers['electronic_submission_authority'] = 'Electronic bids need the certification of the official managing the LGU IT system, submitted to the GPPB-TSO before posting (IRR Sec. 50.3.3). Record it, or accept manual sealed bids.';
             }
-            if ($this->preProcurementConferenceRequired() && ! $this->proceedings()->where('type', ProjectProceeding::TYPE_PRE_PROCUREMENT)->exists()) {
-                $blockers['pre_procurement_conference'] = 'Record the pre-procurement conference before publishing: it is mandatory for this ABC (IRR Sec. 49.1).';
-            }
+            // The pre-procurement conference is no longer a condition to publish; it can still be recorded while a draft.
         }
 
         // Impossible schedules block; the legal periods are only warnings (scheduleWarnings).
