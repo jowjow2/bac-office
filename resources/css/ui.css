@@ -1888,3 +1888,33 @@ a.ui-cell-title:hover {
 @media (prefers-reduced-motion: reduce) {
     .ui-track__step.is-current { animation: none; }
 }
+
+/* ---------- Phone polish ----------
+   One readable type scale and comfortable touch targets on a phone. Desktop is untouched. */
+@media (max-width: 640px) {
+    /* Small print: nothing below 12.5px, helper text 13px. */
+    .ui-hint,
+    .ui-cell-sub,
+    .ui-todo__text small,
+    .ui-table--stack td::before { font-size: 13px; }
+    .ui-track__label { font-size: 12.5px; }
+    .ui-todo__text strong { font-size: 14.5px; }
+
+    /* Touch targets of at least 44px (40px for the compact buttons inside a row). */
+    .ui-btn { min-height: 44px; padding: 9px 16px; font-size: 14px; }
+    .ui-btn--sm { min-height: 40px; padding: 7px 12px; font-size: 13.5px; }
+    .ui-tab { min-height: 44px; padding: 10px 14px; font-size: 14px; }
+    .ui-todo__item { padding: 14px; }
+
+    /* Fields are 16px so a phone does not zoom the page when one is tapped. */
+    .ui-input,
+    select.ui-input,
+    textarea.ui-input { min-height: 44px; padding: 9px 12px; font-size: 16px; }
+    textarea.ui-input { min-height: 96px; }
+
+    /* Tab strips still scroll sideways, without the grey scrollbar. */
+    .ui-tabs,
+    .ui-stage-tabs { scrollbar-width: none; -ms-overflow-style: none; }
+    .ui-tabs::-webkit-scrollbar,
+    .ui-stage-tabs::-webkit-scrollbar { display: none; }
+}

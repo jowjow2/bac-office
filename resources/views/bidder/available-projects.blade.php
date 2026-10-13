@@ -316,6 +316,14 @@
             white-space: nowrap;
         }
 
+        /* On a phone the title wraps to two lines instead of being cut off, and the tab strip has no grey scrollbar. */
+        @media (max-width: 640px) {
+            .bidder-row-title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; font-size: 15px; }
+            .bidder-row-sub { white-space: normal; font-size: 13px; }
+            .bidder-tabs { scrollbar-width: none; }
+            .bidder-tabs::-webkit-scrollbar { display: none; }
+        }
+
         .bidder-cell-budget {
             text-align: right;
         }
