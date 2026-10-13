@@ -104,7 +104,6 @@ class PortalNavigation
             ] : []],
             ['title' => 'Account', 'items' => [
                 self::item('Company profile & documents', 'bidder.company-profile', 'fa-building', ['bidder.company-profile', 'bidder.profile.update', 'bidder.documents.store', 'bidder.document.*']),
-                self::item('Send feedback', 'feedback', 'fa-comment-dots', ['feedback']),
             ]],
         ];
     }
