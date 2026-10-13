@@ -1062,7 +1062,7 @@ async function uploadRegistrationDocuments(form, formData, csrfToken) {
     renderAuthMessage('info', 'Documents uploaded. Submitting your registration…');
 }
 
-async function submitAuthForm(form, fallbackTab) {
+async function submitAuthForm(form, fallbackTab, isRetry = false) {
     if (form.id === 'loginForm' && !validateLoginForm(form)) {
         return;
     }
@@ -1122,6 +1122,15 @@ async function submitAuthForm(form, fallbackTab) {
         }
 
         const data = await response.json();
+
+        // An upload the server no longer has (an earlier attempt removed it): the file is still chosen in the form, so
+        // forget the old copy and upload it again, once, instead of asking the person to attach it again.
+        const goneKeys = Object.keys(data.errors || {}).filter((name) => /^registration_documents\./.test(name)
+            && /was not found/i.test(String((data.errors[name] || [])[0] || '')));
+        if (goneKeys.length && !isRetry && form.id === 'registerForm' && form.dataset.directUploadUrl) {
+            goneKeys.forEach((name) => registrationPreUploads.delete('registration_documents[' + name.replace(/^registration_documents\./, '') + ']'));
+            return submitAuthForm(form, fallbackTab, true);
+        }
 
         switchTab(data.tab || fallbackTab);
         const activeForm = formByTab[data.tab || fallbackTab] || loginForm;

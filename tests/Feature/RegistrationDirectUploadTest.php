@@ -134,3 +134,17 @@ trailer
     expect(User::where('email', 'divine@example.com')->exists())->toBeTrue()
         ->and(count($deleted))->toBe(count(BidderRegistrationRequirements::documents()));
 });
+
+it('lists every uploaded file that is gone, not only the first', function () {
+    Http::fake(function (HttpRequest $request) {
+        return str_contains($request->url(), $this->host) ? Http::response('', 404) : Http::response([], 200);
+    });
+
+    $response = testCase()->withSession(['registration_upload_folder' => $this->folder])
+        ->postJson(route('register'), ($this->form)(($this->references)($this->folder)))
+        ->assertStatus(422);
+
+    $missing = collect($response->json('errors'))->keys()->filter(fn ($key) => str_starts_with($key, 'registration_documents.'));
+    expect($missing->count())->toBe(count(BidderRegistrationRequirements::documents()));
+    expect(User::where('email', 'divine@example.com')->exists())->toBeFalse();
+});

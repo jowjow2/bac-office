@@ -174,11 +174,20 @@ class VercelBlob
                 }
             }, self::PARALLEL);
 
+            // Every file that is gone is reported at once, so the form can mark all of them.
+            $missing = [];
             foreach ($references as $key => $url) {
                 $response = $responses[(string) $key] ?? null;
                 if ($response instanceof \Illuminate\Http\Client\Response && $response->notFound()) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([$field.'.'.$key => 'An uploaded file was not found. Attach it again.']);
+                    $missing[$field.'.'.$key] = 'An uploaded file was not found. Attach it again.';
                 }
+            }
+            if ($missing !== []) {
+                throw \Illuminate\Validation\ValidationException::withMessages($missing);
+            }
+
+            foreach ($references as $key => $url) {
+                $response = $responses[(string) $key] ?? null;
                 if (! $response instanceof \Illuminate\Http\Client\Response || ! $response->successful()) {
                     throw new RuntimeException('Unable to read the private attachment.');
                 }
