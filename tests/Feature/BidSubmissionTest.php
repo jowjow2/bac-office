@@ -505,7 +505,7 @@ it('takes the whole technical component as one combined file recorded against ev
     testCase()->actingAs($this->bidder)->get(route('bidder.available-projects'))->assertOk()
         ->assertSee('One combined file')
         ->assertSee('name="documents[technical_combined]"', false)
-        ->assertSee('Your file must include');
+        ->assertSee('Inside your file, in this order');
 
     $requirements = BidSubmissionRequirements::for($project);
     $financial = $requirements->financial()->where('required', true)->mapWithKeys(fn ($item) => [$item['key'] => ($this->pdf)($item['key'].'.pdf')])->all();
