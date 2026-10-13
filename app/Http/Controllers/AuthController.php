@@ -212,14 +212,20 @@ class AuthController extends Controller
             return $this->authResponse($request, false, collect($exception->errors())->flatten()->first(), 'register', 422, null, $exception->errors());
         }
 
+        $registered = false;
         try {
             if ($uploaded !== []) {
                 $request->files->set('registration_documents', $uploaded + (array) $request->files->get('registration_documents', []));
             }
 
-            return $this->processRegistration($request);
+            $response = $this->processRegistration($request);
+            $registered = $response->getStatusCode() < 400;
+
+            return $response;
         } finally {
-            \App\Support\VercelBlob::discardUploads($urls, $temps);
+            // The form stays open after a refusal (weak password, wrong number, email taken...) and still holds the
+            // references, so the uploads are kept for the retry; the daily cleanup removes any left behind.
+            \App\Support\VercelBlob::discardUploads($registered ? $urls : [], $temps);
         }
     }
 

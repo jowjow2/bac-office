@@ -97,3 +97,40 @@ it('offers direct uploads in the register form only when Blob storage is set up'
     config()->set('services.vercel_blob', ['enabled' => false, 'token' => null]);
     testCase()->get('/')->assertOk()->assertDontSee('data-direct-upload-url', false);
 });
+
+it('keeps the direct uploads when the registration is refused, so fixing the form and sending again still works', function () {
+    $pdf = "%PDF-1.4
+1 0 obj
+<<>>
+endobj
+trailer
+<<>>
+%%EOF";
+    $deleted = new ArrayObject;
+    Http::fake(function (HttpRequest $request) use ($pdf, $deleted) {
+        if ($request->method() === 'GET' && str_contains($request->url(), $this->host)) {
+            return Http::response($pdf, 200, ['Content-Type' => 'application/pdf']);
+        }
+        if ($request->method() === 'POST' && str_ends_with($request->url(), '/api/blob/delete')) {
+            foreach ($request->data()['urls'] as $url) {
+                $deleted[] = $url;
+            }
+        }
+
+        return Http::response([], 200);
+    });
+    $references = ($this->references)($this->folder);
+
+    // A weak password is refused: nothing is created and the uploaded files must stay.
+    testCase()->withSession(['registration_upload_folder' => $this->folder])
+        ->postJson(route('register'), array_merge(($this->form)($references), ['password' => 'weak', 'password_confirmation' => 'weak']))
+        ->assertStatus(422);
+    expect(User::where('email', 'divine@example.com')->exists())->toBeFalse()->and(count($deleted))->toBe(0);
+
+    // The same references still work on the retry, and only then are the uploads removed.
+    testCase()->withSession(['registration_upload_folder' => $this->folder])
+        ->postJson(route('register'), ($this->form)($references))
+        ->assertOk()->assertJson(['ok' => true]);
+    expect(User::where('email', 'divine@example.com')->exists())->toBeTrue()
+        ->and(count($deleted))->toBe(count(BidderRegistrationRequirements::documents()));
+});
