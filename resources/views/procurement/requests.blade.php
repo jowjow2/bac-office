@@ -7,14 +7,9 @@
     $tz = config('bac-office.display_timezone');
     $tabs = [
         'bac' => ['Ready for procurement', $counts['bac']],
-        'returned' => ['Returned / not approved', $counts['returned']],
         'procurement' => ['In procurement', $counts['procurement']],
         'all' => ['All', null],
     ];
-    // A recorded request is ready at once, so Returned only holds older requests: it shows while it has any.
-    if (($tabs['returned'][1] ?? 0) === 0 && ($tab ?? null) !== 'returned') {
-        unset($tabs['returned']);
-    }
 @endphp
 
 @section('actions')
@@ -37,7 +32,7 @@
             @foreach($tabs as $key => [$label, $count])
                 <a class="ui-tab" href="{{ route($routePrefix.'.requests', array_filter(['tab' => $key, 'q' => $search])) }}" @if($tab === $key) aria-current="page" @endif>
                     {{ $label }}
-                    @if($count !== null)<span class="ui-tab__count {{ $key === 'returned' && $count > 0 ? 'is-alert' : '' }}">{{ $count }}</span>@endif
+                    @if($count !== null)<span class="ui-tab__count {{ '' }}">{{ $count }}</span>@endif
                 </a>
             @endforeach
         </nav>

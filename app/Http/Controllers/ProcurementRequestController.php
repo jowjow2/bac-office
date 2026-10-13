@@ -208,19 +208,17 @@ class ProcurementRequestController extends Controller
             ->pluck('total', 'status');
         $tabCounts = [
             'bac' => (int) ($counts[ProcurementRequest::STATUS_FORWARDED] ?? 0),
-            'returned' => (int) (($counts[ProcurementRequest::STATUS_RETURNED] ?? 0) + ($counts[ProcurementRequest::STATUS_REJECTED] ?? 0)),
             'procurement' => (int) ($counts[ProcurementRequest::STATUS_IN_PROCUREMENT] ?? 0),
         ];
 
         // Without a chosen tab, open the first queue that has something waiting.
         $tab = $request->query('tab');
-        if (! in_array($tab, ['bac', 'returned', 'procurement', 'all'], true)) {
-            $tab = collect(['bac', 'returned'])->first(fn ($key) => $tabCounts[$key] > 0) ?? 'all';
+        if (! in_array($tab, ['bac', 'procurement', 'all'], true)) {
+            $tab = ($tabCounts['bac'] > 0 ? 'bac' : 'all');
         }
 
         $statuses = match ($tab) {
             'bac' => [ProcurementRequest::STATUS_FORWARDED],
-            'returned' => [ProcurementRequest::STATUS_RETURNED, ProcurementRequest::STATUS_REJECTED],
             'procurement' => [ProcurementRequest::STATUS_IN_PROCUREMENT],
             default => array_values(array_diff(array_keys(ProcurementRequest::STATUSES), [ProcurementRequest::STATUS_DRAFT])),
         };

@@ -66,7 +66,7 @@ class DemoProcurementSeeder extends Seeder
             ['sb', 'Supply and Delivery of Audio-Visual Equipment for the Session Hall', 'goods', 'Sound system, projector and microphones for the session hall.', [['Sound system', 1, 'lot', 285000], ['Projector and screen', 1, 'set', 96000], ['Conference microphone set', 1, 'set', 142000]], 'General Fund', '30 calendar days', 'forwarded'],
             ['mswdo', 'Construction of Day Care Center, Barangay Caminawit', 'infrastructure', 'Single-storey day care center, 72 sq.m.', [['Building construction', 1, 'lot', 2380000]], '20% Development Fund', '150 calendar days', 'forwarded'],
             ['treas', 'Procurement of Accounting Software and Annual Subscription', 'goods', 'Accounting software and annual subscription for the Treasurer\'s Office.', [['Accounting software license', 1, 'lot', 320000]], 'General Fund', '30 calendar days', 'draft'],
-            ['health', 'Supply and Delivery of Hospital Beds and Medical Equipment', 'goods', 'Hospital beds and medical equipment for the Rural Health Unit.', [['Hospital bed, 3-crank', 10, 'unit', 28500], ['Examination table', 6, 'unit', 17500], ['Vital signs monitor', 4, 'unit', 38000]], 'General Fund', '45 calendar days', 'returned'],
+            ['health', 'Supply and Delivery of Hospital Beds and Medical Equipment', 'goods', 'Hospital beds and medical equipment for the Rural Health Unit.', [['Hospital bed, 3-crank', 10, 'unit', 28500], ['Examination table', 6, 'unit', 17500], ['Vital signs monitor', 4, 'unit', 38000]], 'General Fund', '45 calendar days', 'forwarded'],
         ];
     }
 
