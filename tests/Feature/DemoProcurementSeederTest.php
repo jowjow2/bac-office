@@ -64,3 +64,13 @@ it('adds 30 awarded projects with their bids and awards, posted publicly and lis
     }
     expect(Project::count())->toBe(0)->and(\App\Models\Bid::count())->toBe(0)->and(\App\Models\Award::count())->toBe(0);
 });
+
+it('shows the redesigned View Award modal with the figures, dates and certificate actions', function () {
+    $admin = User::create(['name' => 'BAC Admin', 'email' => 'admin@example.org', 'password' => 'x-not-used-1', 'role' => 'admin', 'status' => 'active']);
+    (new \Database\Seeders\DemoAwardedSeeder)->run();
+    $award = \App\Models\Award::with('project')->first();
+
+    testCase()->actingAs($admin)->get(route('admin.award.view', $award), ['X-Requested-With' => 'XMLHttpRequest'])
+        ->assertOk()->assertSee($award->project->title)->assertSee('Contract amount')->assertSee('Key dates')
+        ->assertSee('Replace certificate')->assertSee('Revoke certificate')->assertSee('Valid');
+});

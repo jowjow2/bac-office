@@ -2256,7 +2256,7 @@
 </dialog>
 
 <div id="awardViewModal" style="display: none; position: fixed; inset: 0; padding: 20px; background: rgba(27, 36, 32, 0.45); z-index: 10000; justify-content: center; align-items: center; box-sizing: border-box;">
-    <div style="background: white; border-radius: 14px; width: min(720px, 100%); overflow: hidden; position: relative; box-shadow: 0 20px 44px rgba(27, 36, 32, 0.16); box-sizing: border-box;">
+    <div style="background: white; border-radius: 14px; width: min(760px, 100%); max-height: calc(100vh - 40px); overflow: hidden; position: relative; box-shadow: 0 20px 44px rgba(27, 36, 32, 0.16); box-sizing: border-box;">
         <button onclick="closeAwardViewModal()" style="position: absolute; top: 16px; right: 16px; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; background: #f1eee6; border: none; border-radius: 9px; font-size: 18px; line-height: 1; cursor: pointer; color: #7c8ba1; z-index: 3;">&times;</button>
         <div id="awardViewModalBody"></div>
     </div>
