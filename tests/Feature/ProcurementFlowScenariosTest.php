@@ -197,6 +197,54 @@ it('awards the next bidder after the first award is cancelled', function () {
     ($this->pagesLoad)('second award');
 });
 
+it('carries one bid from posting to the public Awards page and the Home count', function () {
+    $project = ($this->competitive)();
+    ($this->pay)($project, $this->bidderA);
+    ($this->submit)($project, $this->bidderA, '850,000.00')->assertSessionHasNoErrors();
+    $bid = Bid::where('user_id', $this->bidderA->id)->firstOrFail();
+
+    // Posted and bid on, but nothing is awarded yet: the public pages say so.
+    testCase()->get(route('public.awards'))->assertOk()->assertSee('No awarded contracts have been published yet');
+    testCase()->get('/')->assertOk()->assertViewHas('awardedContractsCount', 0);
+
+    $this->travelTo($project->schedule->bid_opening_date->copy()->addMinute());
+    testCase()->get('/')->assertOk();
+
+    $keys = BidSubmissionRequirements::for($project)->requiredKeys();
+    ($this->decide)($bid, BidWorkflow::PASS_PRELIMINARY, ['verified_requirements' => $keys])->assertSessionHasNoErrors();
+    testCase()->actingAs($this->admin)->post(route('admin.bid.open-financial', $bid), ['opening_password' => '482913'])->assertSessionHasNoErrors();
+    ($this->decide)($bid, BidWorkflow::START_EVALUATION)->assertSessionHasNoErrors();
+    ($this->decide)($bid, BidWorkflow::EVALUATE, ['evaluation_result' => 'responsive', 'evaluation_findings' => 'Responsive against the project criteria.'])->assertSessionHasNoErrors();
+    ($this->decide)($bid, BidWorkflow::START_POST_QUALIFICATION)->assertSessionHasNoErrors();
+    ($this->decide)($bid, BidWorkflow::PASS_POST_QUALIFICATION, ['post_qualification_findings' => 'Documents and qualifications verified.'])->assertSessionHasNoErrors();
+    ($this->decide)($bid, BidWorkflow::RECOMMEND, ['bac_resolution_no' => 'BAC Resolution No. 2026-031', 'bac_resolution_date' => now()->toDateString()])->assertSessionHasNoErrors();
+    ($this->decide)($bid, BidWorkflow::APPROVE_AWARD)->assertSessionHasNoErrors();
+
+    // The HoPE approval hands the bid to Awards & Contracts, but until the Notice of Award is issued it is not public.
+    expect(Award::count())->toBe(1)->and(Award::publiclyPosted()->count())->toBe(0);
+    testCase()->get('/')->assertOk()->assertViewHas('awardedContractsCount', 0);
+    testCase()->get(route('public.awards'))->assertOk()->assertSee('No awarded contracts have been published yet');
+
+    // Notice of Award: the award row exists, is listed for the admin and is now public.
+    testCase()->actingAs($this->admin)->post(route('admin.awards.declare', $project), ['bid_id' => $bid->id, 'certificate_file' => ($this->pdf)('NOA.pdf')])->assertSessionHasNoErrors();
+    $award = Award::where('bid_id', $bid->id)->firstOrFail();
+    expect($project->fresh()->status)->toBe('awarded')->and(Award::publiclyPosted()->count())->toBe(1);
+
+    testCase()->actingAs($this->admin)->get(route('admin.awards.index'))->assertOk()->assertSee($project->title);
+    testCase()->get(route('public.awards'))->assertOk()
+        ->assertDontSee('No awarded contracts have been published yet')
+        ->assertSee($project->title)->assertSee('Mindoro Builders')->assertSee('₱850,000.00');
+    testCase()->get('/')->assertOk()->assertViewHas('awardedContractsCount', 1);
+
+    // Contract signing and the Notice to Proceed keep it on the public page.
+    ($this->decide)($bid, BidWorkflow::CONTRACT_SIGNED, ['performance_security_at' => now()->toDateString(), 'contract_date' => now()->toDateString()])->assertSessionHasNoErrors();
+    ($this->decide)($bid, BidWorkflow::NOTICE_TO_PROCEED, ['ntp_file' => ($this->pdf)('NTP.pdf'), 'ntp_issued_on' => now()->toDateString()])->assertSessionHasNoErrors();
+    testCase()->get(route('public.awards'))->assertOk()->assertSee($project->title)->assertSee('Mindoro Builders');
+    testCase()->get('/')->assertOk()->assertViewHas('awardedContractsCount', 1);
+
+    expect($award->fresh()->cancelled_at)->toBeNull();
+});
+
 it('declares a failed bidding when no bid is received and links the new round', function () {
     $project = ($this->competitive)();
     $this->travelTo($project->schedule->bid_opening_date->copy()->addMinute());
