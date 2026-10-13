@@ -20,7 +20,7 @@
   padding: 64px 24px 56px;
   overflow: hidden;
   /* Front of the BAC Office building, framed on the BAC Office sign. */
-  background: #163d31 url("/Images/bac-office-front-clean.webp") 52% 42% / cover no-repeat;
+  background: #163d31 url("/Images/bac-office-front-wide.webp") 55% 40% / cover no-repeat;
   border-bottom: 1px solid var(--ui-line);
 }
 
@@ -762,8 +762,8 @@
     min-height: max(520px, min(calc(100vh - 76px), 105vw));
     min-height: max(520px, min(calc(100svh - 76px), 105vw));
     padding: 64px max(32px, calc((100vw - 1200px) / 2)) 56px;
-    background-position: 13% 35%;
-    background-size: 150% auto;
+    background-position: 50% 38%;
+    background-size: cover;
   }
 
   body.home-page .home-page-hero::before {
