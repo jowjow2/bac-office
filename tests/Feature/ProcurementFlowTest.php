@@ -92,7 +92,6 @@ it('keeps a project as a draft until the local BAC publication requirements are 
         ->assertRedirect(route('admin.projects').'?status=draft')
         ->assertSessionHas('error', fn (string $message) => ! str_contains($message, 'PhilGEPS reference number')
             && str_contains($message, 'Invitation to Bid')
-            && str_contains($message, 'pre-bid conference')
             // An opening on another day is only a warning.
             && ! str_contains($message, 'same day'));
 
@@ -430,15 +429,7 @@ it('lets the BAC correct a draft schedule in the edit form and then publish it e
     $edit([])->assertOk();
     expect($project->fresh()->status)->toBe('draft');
 
-    // Publish reports the legal blocker at field level; Date Posted is not a blocker.
-    testCase()->actingAs($this->admin)
-        ->postJson(route('admin.project.publish', $project))
-        ->assertStatus(422)
-        ->assertJsonPath('errors.pre_bid_conference_date.0', fn ($message) => str_contains($message, 'pre-bid conference'))
-        ->assertJsonMissingPath('errors.date_posted');
-
-    $edit(['pre_bid_conference_date' => ($this->local)(workdayAt(7, 10, 0))])->assertOk();
-
+    // A pre-bid conference is not required to publish, and Date Posted is not a blocker.
     testCase()->actingAs($this->admin)
         ->postJson(route('admin.project.publish', $project))
         ->assertOk()
@@ -489,7 +480,7 @@ it('uses the RA 12009 pre-bid threshold when publishing a 1.5M draft', function 
     testCase()->actingAs($this->admin)
         ->get(route('admin.project.edit', $project))
         ->assertOk()
-        ->assertSee('Pre-bid conference')
+        ->assertDontSee('Pre-bid conference')
         ->assertDontSee('Required if ABC', false);
 
     testCase()->actingAs($this->admin)

@@ -624,10 +624,9 @@ class Project extends Model
                 $warnings['bid_opening_date'] = 'The bid opening is not on the same day as the submission deadline.';
             }
 
-            if ($deadline !== null && ($mode->requiresPrebid() || $preBid !== null)) {
-                if ($preBid === null) {
-                    $conflicts['pre_bid_conference_date'] = 'Schedule a pre-bid conference: required for an ABC of ₱'.number_format($mode->prebidThreshold(), 0).' or more.';
-                } elseif ($preBid->greaterThanOrEqualTo($deadline)) {
+            // A pre-bid conference is no longer required to publish; when one is set it is still checked.
+            if ($deadline !== null && $preBid !== null) {
+                if ($preBid->greaterThanOrEqualTo($deadline)) {
                     $conflicts['pre_bid_conference_date'] = 'The pre-bid conference must be before the submission deadline.';
                 } elseif ($preBid->copy()->addDays(12)->isAfter($deadline)) {
                     $warnings['pre_bid_conference_date'] = 'The pre-bid conference is less than 12 calendar days before the submission deadline.';

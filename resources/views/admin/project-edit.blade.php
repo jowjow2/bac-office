@@ -162,16 +162,9 @@
             <section class="pe-section" aria-labelledby="pe-schedule-title">
                 <div class="pe-section-head">
                     <h3 id="pe-schedule-title">Schedule</h3>
-                    <p>Philippine time. Any day and time the BAC sets; the posting and pre-bid periods still apply.</p>
+                    <p>Philippine time. Any day and time the BAC sets; the posting period still applies.</p>
                 </div>
                 <div class="pe-grid">
-                    <div class="pe-field">
-                        <label class="pe-label" for="pe_prebid">Pre-bid conference</label>
-                        <input type="datetime-local" id="pe_prebid" name="pre_bid_conference_date" value="{{ old('pre_bid_conference_date', $when($project->schedule?->pre_bid_conference_date)) }}" class="pe-input">
-                        <p class="pe-hint">{{ $mode->prebidRule() }}</p>
-                        <p class="pe-error" data-error-for="pre_bid_conference_date"></p>
-                    </div>
-
                     <div class="pe-field">
                         <label class="pe-label" for="pe_deadline">{{ $mode->deadlineLabel() }} <span class="pe-req" aria-hidden="true">*</span></label>
                         <input type="datetime-local" id="pe_deadline" name="deadline" value="{{ old('deadline', $when($project->deadline)) }}" required class="pe-input">
