@@ -79,3 +79,27 @@ it('explains in the privacy policy what happens to feedback', function () {
         ->assertSee('the rating, kind and message you send through the feedback form')
         ->assertSee('Feedback is kept only as long as the BAC needs it');
 });
+
+it('opens the Feedback button as a pop-up on the public pages, with the same form', function () {
+    $page = testCase()->get('/procurement')->assertOk();
+    $page->assertSee('data-feedback-open', false)->assertSee('id="feedbackModal"', false)->assertSee('data-fbm-form', false)
+        ->assertSee('name="rating"', false)->assertSee('name="website"', false);
+
+    // The Feedback page itself keeps its own form and has no pop-up.
+    testCase()->get(route('feedback'))->assertOk()->assertDontSee('id="feedbackModal"', false);
+});
+
+it('takes the pop-up form in the background: JSON on success, field errors on a mistake', function () {
+    $post = fn (array $data) => testCase()->postJson(route('feedback.store'), $data, ['X-Requested-With' => 'XMLHttpRequest']);
+
+    $post(['category' => 'problem', 'rating' => 2, 'message' => 'The page was slow to load today.', 'page_url' => '/procurement'])
+        ->assertOk()->assertJson(['ok' => true]);
+    expect(Feedback::count())->toBe(1)->and(Feedback::first()->page_url)->toBe('/procurement');
+    expect(UserNotification::where('user_id', $this->admin->id)->where('title', 'New feedback')->count())->toBe(1);
+
+    $post(['rating' => null, 'category' => null, 'message' => ''])->assertStatus(422)->assertJsonValidationErrors(['rating', 'category', 'message']);
+
+    // The bot trap answers like a success and stores nothing.
+    $post(['category' => 'problem', 'rating' => 2, 'message' => 'Spam spam spam spam.', 'website' => 'http://spam.example'])->assertOk()->assertJson(['ok' => true]);
+    expect(Feedback::count())->toBe(1);
+});

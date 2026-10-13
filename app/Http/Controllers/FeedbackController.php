@@ -23,12 +23,16 @@ class FeedbackController extends Controller
     public function store(Request $request)
     {
         if (! Feedback::available()) {
+            if ($request->expectsJson()) {
+                return response()->json(['ok' => false, 'message' => 'Feedback is not available right now. Please try again later.'], 503);
+            }
+
             return back()->withErrors(['message' => 'Feedback is not available right now. Please try again later.'])->withInput();
         }
 
         // A hidden field only bots fill in: pretend it worked.
         if (filled($request->input('website'))) {
-            return redirect()->route('feedback')->with('feedback_sent', true);
+            return $request->expectsJson() ? response()->json(['ok' => true]) : redirect()->route('feedback')->with('feedback_sent', true);
         }
 
         $data = $request->validate([
@@ -67,6 +71,11 @@ class FeedbackController extends Controller
             );
         } catch (\Throwable $exception) {
             report($exception);
+        }
+
+        // The pop-up form posts in the background and shows its own thank-you.
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true]);
         }
 
         return redirect()->route('feedback')->with('feedback_sent', true);
