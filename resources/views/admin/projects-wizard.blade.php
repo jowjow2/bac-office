@@ -549,21 +549,9 @@
                 <section class="pw-step" data-pw-step="4" aria-labelledby="pw-step4-title" hidden>
                     <h3 class="pw-step__title" id="pw-step4-title">Dates</h3>
                     <p class="ui-hint">In the order they happen. All dates and times are Philippine Standard Time. Any day and time the BAC sets is accepted; the posting and pre-bid periods still apply.</p>
-                    <button type="button" class="ui-btn ui-btn--secondary ui-btn--sm" data-pw-suggest-dates><i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i> Suggest dates</button>
                     <p class="ui-hint" data-pw-schedule-suggestion role="status" aria-live="polite" hidden></p>
 
                     <ol class="pw-timeline">
-                        <li class="pw-timeline__item" data-pw-preproc hidden>
-                            <div class="ui-field">
-                                <label class="ui-label" for="pre_procurement_conference_at">Pre-procurement conference held <span class="ui-required" aria-hidden="true" data-pw-preproc-required hidden>*</span> <span class="ui-optional" data-pw-preproc-optional>(if held)</span></label>
-                                <input type="datetime-local" id="pre_procurement_conference_at" name="pre_procurement_conference_at" class="ui-input" value="{{ old('pre_procurement_conference_at') }}" max="{{ $today->format('Y-m-d\TH:i') }}" data-pw-date aria-describedby="pre_procurement_conference_at-hint pre_procurement_conference_at-error">
-                                <label class="ui-label pw-subfield" for="pre_procurement_reference">Minutes / reference <span class="ui-optional">(optional)</span></label>
-                                <input type="text" id="pre_procurement_reference" name="pre_procurement_reference" class="ui-input" value="{{ old('pre_procurement_reference') }}" maxlength="100" placeholder="e.g. Minutes of the Pre-Procurement Conference, 2026-015">
-                                <span class="ui-hint" id="pre_procurement_conference_at-hint" data-pw-preproc-rule>Held before the Invitation to Bid is published (IRR Sec. 49.1). Recorded with the project.</span>
-                                <span class="pw-when" data-pw-when="pre_procurement_conference_at"></span>
-                                <span class="ui-error" id="pre_procurement_conference_at-error" data-pw-error @unless($err('pre_procurement_conference_at')) hidden @endunless>{{ $err('pre_procurement_conference_at') }}</span>
-                            </div>
-                        </li>
                         <li class="pw-timeline__item">
                             <div class="ui-field">
                                 <label class="ui-label" for="date_posted">Publication in this BAC system</label>

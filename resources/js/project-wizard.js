@@ -349,15 +349,6 @@ if (root && form) {
         $('[data-pw-qpr]').hidden = !(weighted() && criterionSelect.value === 'mearb');
         $('[data-pw-opening-venue]').hidden = !isCompetitive();
 
-        // Pre-procurement conference: mandatory above the ABC threshold (IRR Sec. 49.1).
-        const preproc = $('[data-pw-preproc]');
-        preproc.hidden = !isCompetitive();
-        $('[data-pw-preproc-required]').hidden = !preProcRequired();
-        $('[data-pw-preproc-optional]').hidden = preProcRequired();
-        const threshold = preProcThreshold();
-        $('[data-pw-preproc-rule]').textContent = threshold
-            ? `${preProcRequired() ? 'Required for this ABC' : `Optional at ${peso0(threshold)} and below`}; held before the Invitation to Bid is published (IRR Sec. ${basis() === 'ra_12009' ? '49.1' : '20.1'}). Recorded with the project.`
-            : 'Held before the Invitation to Bid is published. Recorded with the project.';
         updateCriteriaTotal();
     }
 
@@ -1204,11 +1195,6 @@ function nextWorkingDay(date, inclusive = true) {
             if (isCompetitive() && !venue.value.trim()) fail(venue, 'Enter the place of the bid opening.');
             else if (show) setError(venue, '');
 
-            const preproc = byId('pre_procurement_conference_at');
-            const held = preproc.value ? new Date(`${preproc.value}:00+08:00`) : null;
-            if (preProcRequired() && !held) fail(preproc, 'Record when the pre-procurement conference was held: it is mandatory for this ABC.');
-            else if (held && held > new Date()) fail(preproc, 'Record the conference only after it has been held.');
-            else if (show) setError(preproc, '');
         }
 
         if (step === 5) {
@@ -1370,7 +1356,6 @@ function nextWorkingDay(date, inclusive = true) {
             return text ? `${text}${text.includes('·') ? ' PST' : ''}` : '';
         };
         fill(4, [
-            ...(isCompetitive() ? [['Pre-procurement conference', dated('pre_procurement_conference_at') ? `${dated('pre_procurement_conference_at')}${val('pre_procurement_reference') ? ` — ${val('pre_procurement_reference')}` : ''}` : (preProcRequired() ? '' : 'Not held (optional at this ABC)'), preProcRequired()]] : []),
             ['Publication', `On publishing: ${phLabel(rules.today)}`],
             ...(prebidRequired() || val('pre_bid_conference_date') ? [['Pre-bid conference', dated('pre_bid_conference_date'), prebidRequired()]] : []),
             [$('[data-pw-deadline-label]').textContent, dated('bid_submission_deadline'), true],
