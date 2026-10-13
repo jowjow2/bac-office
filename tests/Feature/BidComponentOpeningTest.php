@@ -120,3 +120,36 @@ it('MEARB: technical scoring remains recorded separately while one scheduled ope
     expect($eligible->fresh()->isFinancialSealed())->toBeFalse()
         ->and($belowMinimum->fresh()->isFinancialSealed())->toBeFalse();
 });
+
+it('QBE/QCBE: a consulting project with a quality-based criterion records its opening rules and technical scores after the technical opening', function () {
+    $project = ($this->makeProject)('QBE-1');
+    // As the project wizard records it for consulting; the bids are opened before the rules are recorded.
+    $project->update(['category' => 'consultancy', 'award_criterion' => 'quality_based', 'evaluation_procedure' => 'qcbe']);
+    $bid = ($this->makeBid)($project, 'Divine Design Co', 1100000.00);
+
+    testCase()->actingAs($this->admin)->post(route('admin.project.open-bids', $project))->assertSessionHasNoErrors();
+    ($this->passPreliminary)($bid);
+
+    // The financial opening waits for the rules, and the form offers the recorded criterion.
+    ($this->openFinancial)($bid)->assertSessionHasErrors('opening');
+    expect(($this->modal)($bid))->toContain('Quality-based (QBE/QCBE)')->toContain('value="quality_based"');
+
+    // The recorded criterion is kept (a different one cannot replace it), and the reference completes the rules.
+    testCase()->actingAs($this->admin)->post(route('admin.project.bid-opening-rules', $project), [
+        'award_criterion' => 'lowest_calculated_bid', 'opening_documents_reference' => 'Bidding Documents, Section III',
+    ])->assertSessionHasErrors('opening');
+    testCase()->actingAs($this->admin)->post(route('admin.project.bid-opening-rules', $project), [
+        'award_criterion' => 'quality_based', 'opening_documents_reference' => 'Bidding Documents, Section III',
+    ])->assertSessionHasNoErrors();
+    expect($project->fresh()->opening_documents_reference)->toBe('Bidding Documents, Section III');
+
+    // Quality-based ranking is by technical score, so the score is recorded once and then the password opens the price.
+    testCase()->actingAs($this->admin)->post(route('admin.bid.technical-score', $bid), [
+        'technical_score' => 88, 'technical_score_basis' => 'Rated per Section III criteria',
+    ])->assertSessionHasNoErrors();
+    testCase()->actingAs($this->admin)->post(route('admin.bid.technical-score', $bid), [
+        'technical_score' => 99, 'technical_score_basis' => 'Second attempt',
+    ])->assertSessionHasErrors('opening');
+    ($this->openFinancial)($bid)->assertSessionHasNoErrors();
+    expect($bid->fresh()->isFinancialSealed())->toBeFalse();
+});

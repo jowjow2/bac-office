@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 /** Scheduled technical opening and separately authorized financial opening. */
 class BidOpening
 {
-    public const CRITERIA = ['lowest_calculated_bid', 'mearb', 'marb'];
+    public const CRITERIA = ['lowest_calculated_bid', 'mearb', 'marb', 'quality_based'];
 
     private function authorize(User $actor): void
     {
@@ -57,10 +57,10 @@ class BidOpening
             // All score/opening writers lock the project first, including MARB ranking.
             $project = Project::lockForUpdate()->findOrFail($bid->project_id);
             $locked = Bid::lockForUpdate()->findOrFail($bid->id)->setRelation('project', $project);
-            if (! in_array($project->award_criterion, ['mearb', 'marb'], true) || ! $project->opening_documents_reference
+            if (! in_array($project->award_criterion, ['mearb', 'marb', 'quality_based'], true) || ! $project->opening_documents_reference
                 || $locked->isSealed() || ! $locked->documents_validated_at || $locked->progress()->facts()['disqualified']
                 || $locked->technical_scored_at || $locked->financial_opened_at) {
-                throw ValidationException::withMessages(['opening' => 'Record technical examination first. A technical score can be recorded once for an eligible MEARB/MARB bid.']);
+                throw ValidationException::withMessages(['opening' => 'Record technical examination first. A technical score can be recorded once for an eligible MEARB, MARB or quality-based bid.']);
             }
             $at = now('Asia/Manila');
             $locked->forceFill($data + ['technical_scored_at' => $at, 'technical_scored_by' => $actor->id])->save();

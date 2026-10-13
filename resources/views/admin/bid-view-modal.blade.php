@@ -46,11 +46,11 @@
 
     // Component openings are recorded events by the BAC Admin, never a schedule.
     $technicalOpened = (bool) $project?->bidsAreOpened();
-    $criterionLabels = ['lowest_calculated_bid' => 'LCRB', 'mearb' => 'MEARB', 'marb' => 'MARB'];
+    $criterionLabels = ['lowest_calculated_bid' => 'LCRB', 'mearb' => 'MEARB', 'marb' => 'MARB', 'quality_based' => 'Quality-based (QBE/QCBE)'];
     $criterion = in_array($project?->award_criterion, \App\Support\BidOpening::CRITERIA, true) ? $project->award_criterion : null;
     $rulesRecorded = $criterion && filled($project?->opening_documents_reference);
     $rulesLocked = $technicalOpened && filled($project?->opening_documents_reference);
-    $scored = in_array($criterion, ['mearb', 'marb'], true);
+    $scored = in_array($criterion, ['mearb', 'marb', 'quality_based'], true);
     $canScore = $scored && $rulesRecorded && $technicalOpened && ! $bid->isDraft() && $bid->documents_validated_at
         && ! $bid->technical_scored_at && ! $bid->financial_opened_at;
     $financialOpened = $bid->financial_opened_at && $bid->financial_opened_by;
