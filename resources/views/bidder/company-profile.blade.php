@@ -53,8 +53,6 @@
     $onFile = $checklist->filter(fn ($row) => $row['document'])->count();
     $requiredTotal = $checklist->where('required', true)->count();
     $requiredOnFile = $checklist->where('required', true)->filter(fn ($row) => $row['document'])->count();
-    $filePercent = $checklist->count() > 0 ? (int) round($onFile / $checklist->count() * 100) : 0;
-    $lastUpdated = $bidderDocuments->map(fn ($document) => $document->uploaded_at ?? $document->created_at)->filter()->max();
     $documentHistory = $bidderDocumentHistory->where('is_current', false)->sortByDesc('id');
     $uploadedOn = fn ($document) => optional($document->uploaded_at ?? $document->created_at)->format('M d, Y');
 @endphp
@@ -96,15 +94,6 @@
     .cp-progress li.is-current { color: var(--ui-primary); }
     .cp-progress li.is-current .cp-progress-dot { border-color: var(--ui-primary); color: var(--ui-primary); box-shadow: 0 0 0 4px var(--ui-primary-soft); }
 
-    .cp-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-    .cp-tile { display: grid; align-content: start; gap: 6px; padding: 14px 16px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg); background: var(--ui-surface); }
-    .cp-tile-label { color: var(--ui-muted); font-size: var(--ui-text-xs); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
-    .cp-tile strong { color: var(--ui-ink); font-size: 22px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
-    .cp-tile strong small { color: var(--ui-muted); font-size: 13px; font-weight: 600; }
-    .cp-tile strong.is-warn { color: var(--ui-warning); }
-    .cp-tile-note { color: var(--ui-muted); font-size: var(--ui-text-xs); }
-    .cp-meter { display: block; height: 6px; overflow: hidden; border-radius: 999px; background: var(--ui-line-soft); }
-    .cp-meter i { display: block; height: 100%; border-radius: 999px; background: var(--ui-success); }
     .cp-doc-file { display: block; overflow: hidden; color: var(--ui-subtle); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
     .cp-doc-file i { margin-right: 4px; }
     .cp-tabs { display: flex; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--ui-line); }
@@ -182,7 +171,6 @@
         .cp-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 640px) {
-        .cp-summary { grid-template-columns: 1fr; }
         .cp-facts > div { grid-template-columns: 1fr; gap: 2px; }
         .cp-qr { grid-template-columns: 1fr; justify-items: start; }
         .cp-qr-image { width: 140px; }
@@ -236,24 +224,6 @@
             </ol>
         </nav>
     @endif
-
-    <section class="cp-summary" aria-label="At a glance">
-        <article class="cp-tile">
-            <span class="cp-tile-label">Registration documents</span>
-            <strong>{{ $onFile }} <small>of {{ $checklist->count() }} on file</small></strong>
-            <span class="cp-meter" role="img" aria-label="{{ $filePercent }} percent of the documents are on file"><i style="width: {{ $filePercent }}%"></i></span>
-        </article>
-        <article class="cp-tile">
-            <span class="cp-tile-label">Required documents</span>
-            <strong class="{{ $requiredOnFile < $requiredTotal ? 'is-warn' : '' }}">{{ $requiredOnFile }} <small>of {{ $requiredTotal }} complete</small></strong>
-            <span class="cp-tile-note">{{ $requiredOnFile < $requiredTotal ? ($requiredTotal - $requiredOnFile).' still missing' : 'Nothing missing' }}</span>
-        </article>
-        <article class="cp-tile">
-            <span class="cp-tile-label">Last document update</span>
-            <strong>{{ $lastUpdated ? $lastUpdated->format('M d, Y') : 'None yet' }}</strong>
-            <span class="cp-tile-note">{{ $documentHistory->count() }} earlier {{ \Illuminate\Support\Str::plural('version', $documentHistory->count()) }} kept</span>
-        </article>
-    </section>
 
     {{-- Documents the SJBAC asked the bidder to correct. --}}
     @if($showActionRequired)
