@@ -216,8 +216,8 @@
 
             {{-- Step 3 --}}
             <fieldset class="ui-fieldset ui-step-panel" data-step>
-                <legend class="ui-fieldset__legend">Planning documents <span class="ui-optional">(optional)</span></legend>
-                <p class="ui-fieldset__desc">Terms of reference, specifications, or the PPMP extract that covers this request. PDF, Word, Excel or images, up to 20 MB each.</p>
+                <legend class="ui-fieldset__legend">Planning documents</legend>
+                <p class="ui-fieldset__desc">Attach at least one: the terms of reference, specifications, or the PPMP extract that covers this request. PDF, Word, Excel or images, up to 20 MB each.</p>
 
                 @if($editing && $procurementRequest->documents->isNotEmpty())
                     <ul class="ui-files ui-mb">
@@ -243,7 +243,8 @@
                         </div>
                         <div class="ui-field">
                             <label class="ui-label" for="document-file-0">File</label>
-                            <input id="document-file-0" type="file" name="documents[]" class="ui-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" data-review-label="Attachment">
+                            <input id="document-file-0" type="file" name="documents[]" class="ui-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" data-review-label="Attachment" aria-describedby="document-file-0-error" data-attachment-file>
+                            <span class="ui-error" id="document-file-0-error" data-client hidden></span>
                         </div>
                     </div>
                 </div>
@@ -482,6 +483,24 @@
         const add = document.querySelector('[data-add-attachment]');
         if (!rows || !add) return;
 
+        // An empty file box holds the step (Next and Save): the first box only when no document is on file yet,
+        // and every box added with "Add another file" until it gets a file or is removed.
+        const syncAttachments = function () {
+            const kept = document.querySelectorAll('input[name="remove_documents[]"]:not(:checked)').length;
+            rows.querySelectorAll('[data-attachment-file]').forEach(function (input, position) {
+                const empty = !input.files || input.files.length === 0;
+                const needed = position > 0 || kept === 0;
+                input.setCustomValidity(empty && needed
+                    ? (position > 0 ? 'Choose a file for this row, or remove the row.' : 'Attach at least one planning document: the terms of reference, specifications or PPMP extract.')
+                    : '');
+                if (!empty || !needed) {
+                    input.setAttribute('aria-invalid', 'false');
+                    const message = document.getElementById(input.getAttribute('aria-describedby'));
+                    if (message) { message.textContent = ''; message.hidden = true; }
+                }
+            });
+        };
+
         let index = 1;
         add.addEventListener('click', function () {
             if (rows.children.length >= 10) return;
@@ -490,13 +509,38 @@
                 const base = field.id.replace(/-\d+$/, '');
                 const label = row.querySelector('label[for="' + field.id + '"]');
                 field.id = base + '-' + index;
-                if (field.type === 'file') field.value = '';
+                if (field.type === 'file') {
+                    field.value = '';
+                    field.setAttribute('aria-describedby', field.id + '-error');
+                    field.setAttribute('aria-invalid', 'false');
+                }
                 if (label) label.htmlFor = field.id;
             });
+            const message = row.querySelector('.ui-error[data-client]');
+            if (message) { message.id = 'document-file-' + index + '-error'; message.textContent = ''; message.hidden = true; }
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'ui-btn ui-btn--ghost ui-btn--sm';
+            remove.dataset.removeAttachment = '';
+            remove.innerHTML = '<i class="fas fa-xmark" aria-hidden="true"></i> Remove this row';
+            row.querySelector('[data-attachment-file]').closest('.ui-field').appendChild(remove);
             rows.appendChild(row);
             row.querySelector('select').focus();
             index++;
+            syncAttachments();
         });
+
+        rows.addEventListener('click', function (event) {
+            const remove = event.target.closest('[data-remove-attachment]');
+            if (!remove) return;
+            remove.closest('[data-attachment-row]').remove();
+            syncAttachments();
+            add.focus();
+        });
+        document.addEventListener('change', function (event) {
+            if (event.target.matches('[data-attachment-file], input[name="remove_documents[]"]')) syncAttachments();
+        });
+        syncAttachments();
     })();
 </script>
 @endpush
