@@ -69,7 +69,110 @@
                 <p class="bidder-record-empty">No bids awaiting award.</p>
             @endforelse
         </section>
+        @if($bacView)
+            @php
+                $bacBids = $bacView['bids'];
+                $outcome = function ($bid) {
+                    $award = $bid->award;
+                    if ($award && $award->cancelled_at) return ['Award cancelled', 'danger'];
+                    if ($award && in_array($award->contractImplementation?->status, [\App\Models\ContractImplementation::COMPLETED, \App\Models\ContractImplementation::INFRA_COMPLETED], true)) return ['Awarded · completed', 'success'];
+                    if ($award) return ['Awarded', 'success'];
+                    if ($bid->workflow_step === \App\Models\Bid::STEP_DISQUALIFIED) return ['Disqualified', 'danger'];
+                    if ($bid->workflow_step === \App\Models\Bid::STEP_NOT_AWARDED) return ['Not awarded', 'muted'];
+                    if ($bid->status === 'rejected') return ['Rejected', 'danger'];
+                    if ($bid->status === 'approved') return ['Approved, awaiting award', 'info'];
+
+                    return [$bid->workflow_step_label, 'info'];
+                };
+                $counts = ['awarded' => 0, 'lost' => 0, 'disqualified' => 0, 'active' => 0];
+                foreach ($bacBids as $bid) {
+                    [$label] = $outcome($bid);
+                    if (str_starts_with($label, 'Awarded')) $counts['awarded']++;
+                    elseif (in_array($label, ['Disqualified', 'Rejected', 'Award cancelled'], true)) $counts['disqualified']++;
+                    elseif ($label === 'Not awarded') $counts['lost']++;
+                    else $counts['active']++;
+                }
+            @endphp
+            <section class="bidder-record-section bac-view" aria-label="BAC view">
+                <div class="bac-view-head">
+                    <h2><i class="fas fa-user-shield" aria-hidden="true"></i> BAC view</h2>
+                    <p>Only you can see this because you are signed in as {{ $bacView['role'] === 'admin' ? 'BAC Admin' : 'BAC Secretariat' }}. Do not share this page.</p>
+                    @if($bacView['role'] === 'admin')
+                        <a class="bac-view-link" href="{{ route('admin.users', ['review' => $user->id]) }}">Open the bidder account</a>
+                    @endif
+                </div>
+
+                <div class="bidder-record-stats">
+                    <div><span>All bids submitted</span><strong>{{ $bacBids->count() }}</strong></div>
+                    <div><span>Awarded</span><strong>{{ $counts['awarded'] }}</strong></div>
+                    <div><span>Not awarded</span><strong>{{ $counts['lost'] }}</strong></div>
+                    <div><span>Disqualified or rejected</span><strong>{{ $counts['disqualified'] }}</strong></div>
+                </div>
+
+                <h3 class="bac-view-sub">Sanctions</h3>
+                @forelse($bacView['sanctions'] as $sanction)
+                    @php $isActive = $sanction->lifted_at === null && (! $sanction->end_date || $sanction->end_date->endOfDay()->isFuture()); @endphp
+                    <article class="bidder-record-row">
+                        <div>
+                            <span class="public-status {{ $isActive ? 'bac-tone-danger' : 'bac-tone-muted' }}">{{ $sanction->lifted_at ? 'Lifted' : ($isActive ? 'Active' : 'Ended') }}</span>
+                            <h3>{{ ucfirst(str_replace('_', ' ', (string) $sanction->type)) }}</h3>
+                            <p>{{ $sanction->reason }}@if($sanction->reference_number) · Ref. {{ $sanction->reference_number }}@endif</p>
+                        </div>
+                        <div class="bidder-record-amount">
+                            <small>From {{ $sanction->effective_date?->format('M d, Y') }}@if($sanction->end_date) to {{ $sanction->end_date->format('M d, Y') }}@endif</small>
+                            @if($sanction->lifted_at)<small>Lifted {{ $sanction->lifted_at->timezone($tz)->format('M d, Y') }}</small>@endif
+                        </div>
+                    </article>
+                @empty
+                    <p class="bidder-record-empty">No sanctions on record.</p>
+                @endforelse
+
+                <h3 class="bac-view-sub">Every bid</h3>
+                @forelse($bacBids as $bid)
+                    @php
+                        [$outcomeLabel, $outcomeTone] = $outcome($bid);
+                        $viewUrl = $bacView['role'] === 'admin'
+                            ? route('admin.bid.view', $bid)
+                            : route('staff.review-bids', ['project' => $bid->project_id, 'view_bid' => $bid->id]);
+                    @endphp
+                    <article class="bidder-record-row">
+                        <div>
+                            <span class="public-status bac-tone-{{ $outcomeTone }}">{{ $outcomeLabel }}</span>
+                            <h3>{{ $bid->project->title ?? 'Deleted project' }}</h3>
+                            <p>
+                                @if($bid->project?->reference_no){{ $bid->project->reference_no }} · @endif
+                                Submitted {{ $bid->submitted_at?->timezone($tz)->format('M d, Y') ?? $bid->created_at?->timezone($tz)->format('M d, Y') }}
+                                @if($bid->workflow_step_label && $bid->workflow_step_label !== $outcomeLabel) · Step: {{ $bid->workflow_step_label }}@endif
+                            </p>
+                        </div>
+                        <div class="bidder-record-amount">
+                            @if($bid->isSealed())
+                                <small>Amount sealed until opening</small>
+                            @else
+                                <strong>&#8369;{{ number_format((float) $bid->bid_amount, 2) }}</strong>
+                            @endif
+                            <a href="{{ $viewUrl }}">Open the bid</a>
+                        </div>
+                    </article>
+                @empty
+                    <p class="bidder-record-empty">This bidder has not submitted any bid yet.</p>
+                @endforelse
+            </section>
+        @endif
     </main>
+
+    <style>
+        .bac-view { margin-top: 36px; padding: 20px; border: 2px solid #1d4f40; border-radius: 16px; background: #f4f8f6; }
+        .bac-view-head h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; }
+        .bac-view-head p { margin: 0 0 6px; color: #6b736e; font-size: 13px; }
+        .bac-view-link { color: #1d4f40; font-size: 13px; font-weight: 700; }
+        .bac-view-sub { margin: 20px 0 10px; font-size: 15px; }
+        .bac-tone-success { background: #e1f3e8; color: #1f7a4d; }
+        .bac-tone-danger { background: #fdecea; color: #b42318; }
+        .bac-tone-info { background: #e8f0fb; color: #1f4f86; }
+        .bac-tone-muted { background: #eef1ef; color: #55615b; }
+        @media print { .bac-view { display: none; } }
+    </style>
 
     <style>
         .bidder-record .public-page-kicker i { color: #047857; }

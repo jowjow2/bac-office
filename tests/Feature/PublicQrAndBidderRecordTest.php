@@ -75,3 +75,31 @@ it('shows the bidder record with successful bids first, then bids approved for a
         // The price of a bid not yet awarded stays private.
         ->assertDontSee('900,000.00');
 });
+
+it('adds a BAC view with every bid and the sanctions, for a signed-in admin or staff only', function () {
+    $won = ($this->project)('SJ-BAC-2026-I-001', 'Concreting of farm-to-market road');
+    Bid::create(['project_id' => $won->id, 'user_id' => $this->bidderUser->id, 'bid_amount' => 3000000, 'status' => 'awarded', 'workflow_step' => Bid::STEP_AWARDED, 'submission_channel' => Bid::CHANNEL_ELECTRONIC, 'submitted_at' => now()->subDays(21)]);
+    $lost = ($this->project)('SJ-BAC-2026-G-009', 'Supply of school desks');
+    $lostBid = Bid::create(['project_id' => $lost->id, 'user_id' => $this->bidderUser->id, 'bid_amount' => 777000, 'status' => 'rejected', 'workflow_step' => Bid::STEP_DISQUALIFIED, 'submission_channel' => Bid::CHANNEL_ELECTRONIC, 'submitted_at' => now()->subDays(30)]);
+    $admin = User::create(['name' => 'BAC Chair', 'email' => 'qr-admin@example.com', 'password' => Hash::make('password'), 'role' => 'admin', 'status' => 'active']);
+    $this->bidder->sanctions()->create(['type' => 'warning', 'reason' => 'Late submission of the performance security.', 'effective_date' => now()->subDays(3)->toDateString(), 'reference_number' => 'BAC-2026-S1', 'authorized_by' => $admin->id, 'created_by' => $admin->id]);
+
+    $url = route('public.bidder.verify', $this->bidder->fresh()->qr_token);
+
+    // The public sees only the public record, nothing about lost bids or sanctions.
+    testCase()->get($url)->assertOk()->assertDontSee('BAC view')->assertDontSee('Supply of school desks')->assertDontSee('Late submission of the performance security.');
+
+    $adminPage = testCase()->actingAs($admin)->get($url)->assertOk()
+        ->assertSee('BAC view')->assertSee('Supply of school desks')->assertSee('Disqualified')
+        ->assertSee('Late submission of the performance security.')->assertSee('BAC-2026-S1')
+        ->assertSee(route('admin.bid.view', $lostBid), false);
+    expect($adminPage->headers->get('cache-control'))->toContain('no-store');
+
+    $staff = User::create(['name' => 'BAC Staff', 'email' => 'qr-staff@example.com', 'password' => Hash::make('password'), 'role' => 'staff', 'status' => 'active']);
+    testCase()->actingAs($staff)->get($url)->assertOk()->assertSee('BAC view')->assertSee('Supply of school desks');
+
+    // Another bidder (or the bidder themselves) is signed in but gets the public record only.
+    $other = User::create(['name' => 'Other', 'email' => 'qr-other@example.com', 'password' => Hash::make('password'), 'role' => 'bidder', 'status' => 'active', 'company' => 'Other Co']);
+    testCase()->actingAs($other)->get($url)->assertOk()->assertDontSee('BAC view')->assertDontSee('Supply of school desks');
+    testCase()->actingAs($this->bidderUser)->get($url)->assertOk()->assertDontSee('BAC view');
+});

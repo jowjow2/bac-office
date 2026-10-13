@@ -6,6 +6,7 @@ use App\Models\Award;
 use App\Models\Bid;
 use App\Models\Bidder;
 use App\Support\QrSvg;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class PublicBidderController extends Controller
@@ -35,12 +36,31 @@ class PublicBidderController extends Controller
             ->orderByDesc('contract_date')
             ->get();
 
-        return view('public.bidder-verify', [
+        // Signed-in BAC members (admin and staff) also see the bidder's whole history under the public record.
+        $viewer = Auth::user();
+        $bacView = null;
+        if ($viewer && in_array($viewer->role, ['admin', 'staff'], true)) {
+            $bacView = [
+                'role' => $viewer->role,
+                'bids' => Bid::with(['project', 'award.contractImplementation'])
+                    ->where('user_id', $user->id)
+                    ->orderByDesc('created_at')
+                    ->get(),
+                'sanctions' => $bidder->sanctions()->get(),
+                'hasActiveSanction' => $bidder->hasActiveProcurementSanction(),
+            ];
+        }
+
+        $response = response()->view('public.bidder-verify', [
             'bidder' => $bidder,
             'user' => $user,
             'approvedBids' => $approvedBids,
             'awards' => $awards,
+            'bacView' => $bacView,
         ]);
+
+        // The BAC section is for the signed-in member only: never let a shared cache keep it.
+        return $bacView ? $response->header('Cache-Control', 'private, no-store') : $response;
     }
 
     /**
