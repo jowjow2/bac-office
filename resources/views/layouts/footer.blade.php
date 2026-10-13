@@ -37,7 +37,7 @@
 
         <section class="site-footer__col" aria-labelledby="footerGov">
             <h2 id="footerGov">Government links</h2>
-            <ul>
+            <ul class="site-footer__links">
                 @foreach($footerGovernment as [$label, $href])
                     <li><a href="{{ $href }}" target="_blank" rel="noopener noreferrer">{{ $label }}</a></li>
                 @endforeach
@@ -50,26 +50,28 @@
 </footer>
 
 <style>
-    .site-footer { margin-top: 32px; background: #1f5c45; color: #fff; font-family: inherit; }
-    .site-footer__inner { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 56px; max-width: 1000px; margin: 0 auto; padding: 22px 24px 18px; }
-    .site-footer h2 { margin: 0 0 10px; color: #fff; font-size: 14px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; }
-    .site-footer ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
-    .site-footer li { position: relative; padding-left: 16px; color: rgba(255, 255, 255, .92); font-size: 14px; line-height: 1.4; }
+    .site-footer { margin-top: 24px; background: #1f5c45; color: #fff; font-family: inherit; }
+    .site-footer__inner { display: grid; grid-template-columns: 1fr 1.5fr; gap: 12px 48px; max-width: 1000px; margin: 0 auto; padding: 14px 24px 10px; }
+    .site-footer h2 { margin: 0 0 6px; color: #fff; font-size: 13px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; }
+    .site-footer ul { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; }
+    .site-footer li { position: relative; padding-left: 16px; color: rgba(255, 255, 255, .92); font-size: 13.5px; line-height: 1.35; }
     .site-footer li::before { content: ''; position: absolute; left: 2px; top: .55em; width: 5px; height: 5px; border-radius: 50%; background: rgba(255, 255, 255, .85); }
     .site-footer a { color: inherit; text-decoration: none; }
     .site-footer a:hover, .site-footer a:focus-visible { text-decoration: underline; }
-    .site-footer__time { margin: 12px 0 0; color: rgba(255, 255, 255, .92); font-size: 13.5px; line-height: 1.6; }
+    .site-footer__time { margin: 8px 0 0; color: rgba(255, 255, 255, .92); font-size: 13.5px; line-height: 1.6; }
     .site-footer__time time { display: block; font-weight: 700; font-variant-numeric: tabular-nums; }
-    .site-footer__bar { padding: 9px 130px; background: #123d2d; color: rgba(255, 255, 255, .92); font-size: 13px; text-align: center; }
-    .site-footer__social { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; min-height: 36px; padding: 0 14px; border: 1px solid rgba(255, 255, 255, .45); border-radius: 999px; font-size: 13.5px; font-weight: 600; }
+    .site-footer__bar { padding: 7px 130px; background: #123d2d; color: rgba(255, 255, 255, .92); font-size: 12.5px; text-align: center; }
+    .site-footer__social { display: inline-flex; align-items: center; gap: 8px; margin-top: 8px; min-height: 32px; padding: 0 12px; border: 1px solid rgba(255, 255, 255, .45); border-radius: 999px; font-size: 13.5px; font-weight: 600; }
+    .site-footer__links { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 28px; }
     .site-footer__social-icon { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #fff; flex: 0 0 auto; }
     .site-footer__social:hover, .site-footer__social:focus-visible { background: rgba(255, 255, 255, .12); text-decoration: none; }
     @media (max-width: 900px) {
-        .site-footer__inner { grid-template-columns: 1fr 1fr; }
+        .site-footer__inner { grid-template-columns: 1fr 1.3fr; }
     }
     @media (max-width: 560px) {
-        .site-footer__inner { grid-template-columns: 1fr; padding: 20px 16px 16px; }
-        .site-footer__bar { padding: 9px 56px 9px 16px; }
+        .site-footer__inner { grid-template-columns: 1fr; padding: 12px 16px 10px; }
+        .site-footer__links { grid-template-columns: 1fr; }
+        .site-footer__bar { padding: 7px 56px 7px 16px; }
     }
     @media print { .site-footer { display: none; } }
 </style>
