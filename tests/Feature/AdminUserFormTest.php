@@ -128,3 +128,42 @@ it('lets the admin choose who to export: all users, bidders only, staff, admin o
     $html = testCase()->actingAs($admin)->get(route('admin.users', ['filter' => 'bidder', 'search' => 'Choice']))->assertOk()->getContent();
     expect($html)->toContain('What the list shows now');
 });
+
+it('has no new-password field in the edit dialog, but still asks for one when creating a user', function () {
+    $page = testCase()->actingAs($this->admin)->get(route('admin.users'))->assertOk();
+    $html = $page->getContent();
+
+    expect($html)->not->toContain('id="edit_password"')->and($html)->toContain('id="create_password"');
+    $page->assertDontSee('set a new password');
+});
+
+it('suspends or blacklists a bidder from the edit dialog, with the order details, and lifts it by setting Active', function () {
+    $user = User::create(['name' => 'Ana Reyes', 'email' => 'sanction-bidder@example.com', 'password' => Hash::make('password'), 'role' => 'bidder', 'status' => 'active', 'company' => 'Reyes Builders']);
+    $user->bidderProfile()->create(['company_name' => 'Reyes Builders', 'contact_person' => 'Ana Reyes', 'contact_number' => '09171234567', 'business_address' => 'San Jose', 'approval_status' => 'approved']);
+    $base = ['role' => 'bidder', 'company' => 'Reyes Builders', 'contact_number' => '09171234567', 'business_address' => 'San Jose', 'name' => 'Ana Reyes', 'email' => 'sanction-bidder@example.com'];
+    $update = fn (array $data) => testCase()->actingAs($this->admin)->put(route('admin.users.update', $user), $base + $data);
+
+    // The order's details are required.
+    $update(['status' => 'blacklisted'])->assertSessionHasErrors(['sanction_reference_number', 'sanction_reason', 'sanction_authorized_by']);
+    expect($user->fresh()->bidderProcurementStatus())->toBe('active');
+
+    $update(['status' => 'blacklisted', 'sanction_reference_number' => 'BAC-ORD-2026-05', 'sanction_reason' => 'Submitted falsified documents.', 'sanction_effective_date' => now()->toDateString(), 'sanction_authorized_by' => 'Municipal Mayor'])
+        ->assertSessionHasNoErrors();
+    $user = $user->fresh();
+    expect($user->status)->toBe('active')->and($user->bidderProcurementStatus())->toBe('blacklisted')
+        ->and($user->bidderProfile->activeSanction->reference_number)->toBe('BAC-ORD-2026-05');
+    expect(\App\Models\UserNotification::where('user_id', $user->id)->where('type', 'bidder_sanction')->count())->toBe(1);
+
+    // Saving other changes with the same sanction chosen does not record it again.
+    $update(['status' => 'blacklisted', 'company' => 'Reyes Builders'])->assertSessionHasNoErrors();
+    expect($user->bidderProfile->sanctions()->count())->toBe(1);
+
+    // A bidder is never sanctioned through a staff account: the status is only offered for bidders.
+    $staff = User::create(['name' => 'Jose', 'email' => 'sanction-staff@example.com', 'password' => Hash::make('password'), 'role' => 'staff', 'status' => 'active', 'office' => User::staffOfficeOptions()[0]]);
+    testCase()->actingAs($this->admin)->put(route('admin.users.update', $staff), ['role' => 'staff', 'office' => $staff->office, 'name' => 'Jose', 'email' => 'sanction-staff@example.com', 'status' => 'suspended'])->assertSessionHasErrors('status');
+
+    // Setting the bidder back to Active lifts the sanction.
+    $update(['status' => 'active'])->assertSessionHasNoErrors();
+    expect($user->fresh()->bidderProcurementStatus())->toBe('active')->and($user->bidderProfile->fresh()->hasActiveProcurementSanction())->toBeFalse();
+    expect(\App\Models\UserNotification::where('user_id', $user->id)->where('type', 'bidder_sanction_lifted')->count())->toBe(1);
+});

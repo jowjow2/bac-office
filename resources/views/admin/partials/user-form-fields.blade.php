@@ -92,9 +92,46 @@
             <option value="active" @selected($value('status', 'active') === 'active')>Active</option>
             <option value="pending" @selected($value('status') === 'pending')>Pending</option>
             <option value="rejected" @selected($value('status') === 'rejected')>Rejected</option>
+            @unless($isCreate)
+                <option value="suspended" data-sanction>Suspended (procurement)</option>
+                <option value="blacklisted" data-sanction>Blacklisted (procurement)</option>
+            @endunless
         </select>
+        @unless($isCreate)
+            <span class="um-hint" data-sanction-hint hidden>Suspended and Blacklisted record a procurement sanction. Choosing Active again lifts it.</span>
+        @endunless
     </div>
 </div>
+@unless($isCreate)
+    <div class="um-sanction" data-role-group="bidder" data-sanction-fields hidden>
+        <p class="um-note"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> Record this only on an issued order, after due process. The bidder is notified.</p>
+        <div class="um-grid">
+            <div class="um-field">
+                <label for="edit_sanction_reference_number" class="um-label">Order / reference no. <span class="um-req">*</span></label>
+                <input type="text" name="sanction_reference_number" id="edit_sanction_reference_number" class="form-input" maxlength="255">
+            </div>
+            <div class="um-field">
+                <label for="edit_sanction_authorized_by" class="um-label">Authorized / approved by <span class="um-req">*</span></label>
+                <input type="text" name="sanction_authorized_by" id="edit_sanction_authorized_by" class="form-input" maxlength="255">
+            </div>
+        </div>
+        <div class="um-field">
+            <label for="edit_sanction_reason" class="um-label">Reason <span class="um-req">*</span></label>
+            <textarea name="sanction_reason" id="edit_sanction_reason" rows="3" class="form-input" maxlength="5000" placeholder="Reason for the suspension or blacklisting."></textarea>
+        </div>
+        <div class="um-grid">
+            <div class="um-field">
+                <label for="edit_sanction_effective_date" class="um-label">Effective date <span class="um-req">*</span></label>
+                <input type="date" name="sanction_effective_date" id="edit_sanction_effective_date" class="form-input" value="{{ now()->toDateString() }}">
+            </div>
+            <div class="um-field">
+                <label for="edit_sanction_end_date" class="um-label">End date <span class="um-opt">(optional)</span></label>
+                <input type="date" name="sanction_end_date" id="edit_sanction_end_date" class="form-input">
+            </div>
+        </div>
+    </div>
+@endunless
+@if($isCreate)
 <div class="um-field">
     @if($isCreate)
         <label for="create_password" class="um-label">Password <span class="um-req">*</span></label>
@@ -107,3 +144,4 @@
     </div>
     <span class="um-hint">At least 6 characters. Share it with the user through a secure channel.</span>
 </div>
+@endif

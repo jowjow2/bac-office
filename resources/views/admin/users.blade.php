@@ -893,6 +893,7 @@
                                                     data-username="{{ e($user->username ?? '') }}"
                                                     data-role="{{ $user->role }}"
                                                     data-status="{{ $user->status }}"
+                                                    data-procurement="{{ $user->role === 'bidder' && in_array($procurementStatus ?? '', ['suspended', 'blacklisted'], true) ? $procurementStatus : '' }}"
                                                     data-office="{{ e($user->office ?? '') }}"
                                                     data-company="{{ e($user->company ?? '') }}"
                                                     data-registration="{{ e($user->registration_no ?? '') }}"
@@ -1060,7 +1061,7 @@
             <span class="um-head__icon" aria-hidden="true"><i class="fas fa-user-pen"></i></span>
             <div class="um-head__text">
                 <h2 id="editUserModalTitle">Edit user</h2>
-                <p>Update details or status, or set a new password.</p>
+                <p>Update details or status.</p>
             </div>
             <button type="button" onclick="closeEditUserModal()" class="um-close" aria-label="Close"><i class="fas fa-xmark" aria-hidden="true"></i></button>
         </div>
@@ -1482,6 +1483,7 @@
                 username: source.dataset.username || '',
                 role: source.dataset.role || 'bidder',
                 status: source.dataset.status || 'active',
+                procurement: source.dataset.procurement || '',
                 office: source.dataset.office || '',
                 company: source.dataset.company || '',
                 registration: source.dataset.registration || '',
@@ -1500,7 +1502,9 @@
         document.getElementById('edit_email').value = data.email || '';
         document.getElementById('edit_username').value = data.username || '';
         setUserRole('edit', data.role || 'bidder');
-        document.getElementById('edit_status').value = data.status || 'active';
+        const editStatus = document.getElementById('edit_status');
+        editStatus.value = data.procurement || data.status || 'active';
+        editStatus.dataset.current = data.procurement || '';
         const editOffice = document.getElementById('edit_office');
         editOffice.querySelectorAll('[data-legacy-office]').forEach(function (option) { option.remove(); });
         // Keep an office that is no longer on the list, so the account can still be edited.
@@ -1517,8 +1521,8 @@
         document.getElementById('edit_contact_number').value = data.contact || '';
         document.getElementById('edit_bidder_contact_number').value = data.contact || '';
         document.getElementById('edit_business_address').value = data.address || '';
-        document.getElementById('edit_password').value = '';
         toggleRoleFields('edit');
+        syncSanctionFields();
         document.getElementById('editUserModal').style.display = 'flex';
         document.getElementById('editUserModal').setAttribute('aria-hidden', 'false');
     }
@@ -1708,6 +1712,35 @@
         return checked ? checked.value : '';
     }
 
+    // Suspended / Blacklisted are procurement sanctions: only for bidders, and they ask for the order's details
+    // unless the bidder already has that sanction.
+    function syncSanctionFields() {
+        const status = document.getElementById('edit_status');
+        const block = document.querySelector('#editUserForm [data-sanction-fields]');
+        if (!status || !block) return;
+        const isBidder = userRole('edit') === 'bidder';
+        Array.from(status.options).forEach(function (option) {
+            if (option.hasAttribute('data-sanction')) {
+                option.hidden = !isBidder;
+                option.disabled = !isBidder;
+            }
+        });
+        if (!isBidder && status.selectedOptions[0] && status.selectedOptions[0].hasAttribute('data-sanction')) status.value = 'active';
+        const sanctioned = isBidder && (status.value === 'suspended' || status.value === 'blacklisted');
+        const needsDetails = sanctioned && status.value !== (status.dataset.current || '');
+        block.hidden = !needsDetails;
+        block.querySelectorAll('input, textarea').forEach(function (control) {
+            control.disabled = !needsDetails;
+            if (control.name !== 'sanction_end_date') control.required = needsDetails;
+        });
+        const hint = document.querySelector('#editUserForm [data-sanction-hint]');
+        if (hint) hint.hidden = !(isBidder && (sanctioned || status.dataset.current));
+    }
+    document.addEventListener('change', function (event) {
+        if (event.target && (event.target.id === 'edit_status' || (event.target.name === 'role' && event.target.closest('#editUserForm')))) {
+            syncSanctionFields();
+        }
+    });
     function setUserRole(prefix, role) {
         const radio = document.getElementById(prefix + '_role_' + role);
         if (radio) radio.checked = true;
@@ -1736,6 +1769,8 @@
             const roleInput = control.hasAttribute('data-role-input') && !has(control, 'data-role-input');
             control.disabled = Boolean(hiddenGroup) || roleInput;
         });
+
+        if (prefix === 'edit' && typeof syncSanctionFields === 'function') syncSanctionFields();
 
         const officeSelect = document.getElementById(prefix + '_office');
         const needsOffice = role === 'staff';

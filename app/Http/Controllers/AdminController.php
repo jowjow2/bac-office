@@ -1078,7 +1078,41 @@ class AdminController extends Controller
 
      public function updateUser(Request $request, User $user)
      {
-         [$validated, $profile] = $this->splitUserProfile($this->validateUser($request, $user));
+         $checked = $this->validateUser($request, $user);
+
+         // Suspended and Blacklisted are procurement sanctions, not account statuses: the account keeps its status
+         // and a sanction record is added (or the current one lifted when the status goes back to a normal one).
+         $sanctionType = in_array($checked['status'], [BidderSanction::TYPE_SUSPENDED, BidderSanction::TYPE_BLACKLISTED], true) ? $checked['status'] : null;
+         $newSanction = null;
+         $sanctionsReady = Schema::hasTable('bidders') && Schema::hasTable('bidder_sanctions');
+         if ($sanctionType) {
+             if (! $sanctionsReady) {
+                 return back()->withInput()->withErrors(['status' => 'Bidder sanctions are unavailable because the required database table is missing.']);
+             }
+             $checked['status'] = $user->status;
+             if ($this->ensureBidderProfile($user)->activeSanction()->first()?->type !== $sanctionType) {
+                 $fields = $request->validate([
+                     'sanction_reference_number' => ['required', 'string', 'max:255'],
+                     'sanction_reason' => ['required', 'string', 'max:5000'],
+                     'sanction_effective_date' => ['required', 'date'],
+                     'sanction_end_date' => ['nullable', 'date', 'after_or_equal:sanction_effective_date'],
+                     'sanction_authorized_by' => ['required', 'string', 'max:255'],
+                 ], [], [
+                     'sanction_reference_number' => 'order / reference number', 'sanction_reason' => 'reason', 'sanction_effective_date' => 'effective date',
+                     'sanction_end_date' => 'end date', 'sanction_authorized_by' => 'authorized by',
+                 ]);
+                 $newSanction = [
+                     'type' => $sanctionType,
+                     'reason' => $fields['sanction_reason'],
+                     'reference_number' => $fields['sanction_reference_number'],
+                     'effective_date' => $fields['sanction_effective_date'],
+                     'end_date' => $fields['sanction_end_date'] ?? null,
+                     'authorized_by' => $fields['sanction_authorized_by'],
+                 ];
+             }
+         }
+
+         [$validated, $profile] = $this->splitUserProfile($checked);
 
          if (blank($validated['password'] ?? null)) {
              unset($validated['password']);
@@ -1092,6 +1126,12 @@ class AdminController extends Controller
 
          $user->update($validated);
          $this->syncBidderProfile($user, $profile);
+
+         if ($newSanction) {
+             $this->recordBidderSanction($user, $newSanction);
+         } elseif (! $sanctionType && $user->role === 'bidder' && $sanctionsReady && $this->ensureBidderProfile($user)->hasActiveProcurementSanction()) {
+             $this->liftActiveBidderSanction($user);
+         }
 
          if ($oldStatus !== $user->status) {
              AuditLog::log('user_status_changed', $user, ['status' => $oldStatus], ['status' => $user->status], [
@@ -1516,6 +1556,39 @@ class AdminController extends Controller
             'authorized_by' => ['required', 'string', 'max:255'],
         ]);
 
+        $sanction = $this->recordBidderSanction($user, $validated);
+        $label = $validated['type'] === BidderSanction::TYPE_BLACKLISTED ? 'blacklisted' : 'suspended';
+
+        return redirect()
+            ->route('admin.users', ['filter' => $validated['type']])
+            ->with('success', 'Bidder ' . $label . ' with sanction record saved.');
+    }
+
+    public function liftBidderSanction(Request $request, User $user)
+    {
+        abort_unless($user->role === 'bidder', 404);
+
+        if (! Schema::hasTable('bidders') || ! Schema::hasTable('bidder_sanctions')) {
+            return redirect()
+                ->route('admin.users')
+                ->with('warning', 'Bidder sanctions are unavailable because the required database table is missing.');
+        }
+
+        $sanction = $this->liftActiveBidderSanction($user);
+
+        if (! $sanction) {
+            return redirect()
+                ->route('admin.users')
+                ->with('warning', 'This bidder has no active procurement sanction to lift.');
+        }
+
+        return redirect()
+            ->route('admin.users', ['filter' => 'bidder'])
+            ->with('success', 'Bidder procurement sanction lifted.');
+    }
+/** Records a suspension or blacklisting for a bidder: lifts the earlier ones, audits it and tells the bidder. */
+    private function recordBidderSanction(User $user, array $validated): BidderSanction
+    {
         $sanction = null;
 
         DB::transaction(function () use ($user, $validated, &$sanction): void {
@@ -1564,28 +1637,17 @@ class AdminController extends Controller
             ['sanction_id' => $sanction?->id, 'type' => $validated['type']]
         );
 
-        return redirect()
-            ->route('admin.users', ['filter' => $validated['type']])
-            ->with('success', 'Bidder ' . $label . ' with sanction record saved.');
+        return $sanction;
     }
 
-    public function liftBidderSanction(Request $request, User $user)
+    /** Lifts the bidder's active sanction; null when there is none. */
+    private function liftActiveBidderSanction(User $user): ?BidderSanction
     {
-        abort_unless($user->role === 'bidder', 404);
-
-        if (! Schema::hasTable('bidders') || ! Schema::hasTable('bidder_sanctions')) {
-            return redirect()
-                ->route('admin.users')
-                ->with('warning', 'Bidder sanctions are unavailable because the required database table is missing.');
-        }
-
         $bidder = $this->ensureBidderProfile($user);
         $sanction = $bidder->activeSanction()->first();
 
         if (! $sanction) {
-            return redirect()
-                ->route('admin.users')
-                ->with('warning', 'This bidder has no active procurement sanction to lift.');
+            return null;
         }
 
         DB::transaction(function () use ($user, $bidder, $sanction): void {
@@ -1624,11 +1686,10 @@ class AdminController extends Controller
             ['sanction_id' => $sanction->id]
         );
 
-        return redirect()
-            ->route('admin.users', ['filter' => 'bidder'])
-            ->with('success', 'Bidder procurement sanction lifted.');
+        return $sanction;
     }
-public function destroyUser(User $user)
+
+    public function destroyUser(User $user)
     {
         if ((int) $user->id === (int) Auth::id()) {
             return redirect()
@@ -3168,7 +3229,7 @@ public function destroyUser(User $user)
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user?->id)],
             'username' => ['nullable', 'string', 'min:4', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', Rule::unique('users', 'username')->ignore($user?->id)],
             'role' => ['required', Rule::in(['admin', 'staff', 'bidder'])],
-            'status' => ['required', Rule::in(['active', 'pending', 'rejected'])],
+            'status' => ['required', Rule::in(array_merge(['active', 'pending', 'rejected'], $user && $request->input('role') === 'bidder' ? [BidderSanction::TYPE_SUSPENDED, BidderSanction::TYPE_BLACKLISTED] : []))],
             'office' => [
                 Rule::excludeIf($request->input('role') !== 'staff'),
                 'required',

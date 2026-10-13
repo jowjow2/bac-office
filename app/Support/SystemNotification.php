@@ -30,6 +30,8 @@ class SystemNotification
         'award_decision',
         'account_approved',
         'account_rejected',
+        'bidder_sanction',
+        'bidder_sanction_lifted',
         'bidder_requirements_incomplete',
         'bidder_requirements_action',
         'bidder_requirements_resubmitted',
@@ -320,7 +322,7 @@ class SystemNotification
             'project_available', 'project_status' => route('bidder.available-projects'),
             'bid_approved', 'bid_rejected', 'documents_validated', 'documents_rejected', 'new_bid', 'bid_submitted', 'bid_document_review' => route('bidder.my-bids'),
             'award', 'award_won', 'award_decision' => route('bidder.awarded-contracts'),
-            'account_approved', 'account_rejected', 'staff_registration', 'bidder_registration', 'bidder_requirements_incomplete', 'bidder_requirements_action' => route('bidder.company-profile'),
+            'account_approved', 'account_rejected', 'bidder_sanction', 'bidder_sanction_lifted', 'staff_registration', 'bidder_registration', 'bidder_requirements_incomplete', 'bidder_requirements_action' => route('bidder.company-profile'),
             default => route('bidder.notifications'),
         };
     }
