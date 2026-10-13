@@ -29,7 +29,7 @@
             </p>
             @if($footerFacebook = config('bac-office.social.facebook'))
                 <a class="site-footer__social" href="{{ $footerFacebook }}" target="_blank" rel="noopener noreferrer" aria-label="Facebook page of the Bids and Awards Committee">
-                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M13.5 22v-8.2h2.8l.5-3.3h-3.3V8.4c0-.9.4-1.7 1.8-1.7h1.6V3.8c-.3 0-1.3-.2-2.4-.2-2.5 0-4.1 1.5-4.1 4.2v2.7H7.6v3.3h2.8V22h3.1z"/></svg>
+                    <span class="site-footer__social-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="#1877F2" d="M13.5 22v-8.2h2.8l.5-3.3h-3.3V8.4c0-.9.4-1.7 1.8-1.7h1.6V3.8c-.3 0-1.3-.2-2.4-.2-2.5 0-4.1 1.5-4.1 4.2v2.7H7.6v3.3h2.8V22h3.1z"/></svg></span>
                     <span>Bids and Awards Committee on Facebook</span>
                 </a>
             @endif
@@ -62,6 +62,7 @@
     .site-footer__time time { display: block; font-weight: 700; font-variant-numeric: tabular-nums; }
     .site-footer__bar { padding: 9px 130px; background: #123d2d; color: rgba(255, 255, 255, .92); font-size: 13px; text-align: center; }
     .site-footer__social { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; min-height: 36px; padding: 0 14px; border: 1px solid rgba(255, 255, 255, .45); border-radius: 999px; font-size: 13.5px; font-weight: 600; }
+    .site-footer__social-icon { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #fff; flex: 0 0 auto; }
     .site-footer__social:hover, .site-footer__social:focus-visible { background: rgba(255, 255, 255, .12); text-decoration: none; }
     @media (max-width: 900px) {
         .site-footer__inner { grid-template-columns: 1fr 1fr; }
