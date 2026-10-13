@@ -104,3 +104,13 @@ it('shows the progress tracker with the current stage highlighted', function () 
     $response->assertSee('Resubmitted');
     $response->assertSee('is-current', false);
 });
+
+it('shows the page title with a plain ampersand and a summary of the documents on file', function () {
+    $bidder = crBidder(['status' => 'active']);
+    $bidder->bidderProfile()->update(['approval_status' => 'approved']);
+
+    $page = testCase()->actingAs($bidder)->get(route('bidder.company-profile'))->assertOk();
+    $page->assertSee('Company profile &amp; documents', false)
+        ->assertDontSee('&amp;amp;', false)
+        ->assertSee('Registration documents')->assertSee('Required documents')->assertSee('Last document update');
+});

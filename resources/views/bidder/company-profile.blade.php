@@ -51,6 +51,10 @@
     ]);
     $otherDocuments = $bidderDocuments->reject(fn ($document) => $checklist->contains('document_type', $document->document_type));
     $onFile = $checklist->filter(fn ($row) => $row['document'])->count();
+    $requiredTotal = $checklist->where('required', true)->count();
+    $requiredOnFile = $checklist->where('required', true)->filter(fn ($row) => $row['document'])->count();
+    $filePercent = $checklist->count() > 0 ? (int) round($onFile / $checklist->count() * 100) : 0;
+    $lastUpdated = $bidderDocuments->map(fn ($document) => $document->uploaded_at ?? $document->created_at)->filter()->max();
     $documentHistory = $bidderDocumentHistory->where('is_current', false)->sortByDesc('id');
     $uploadedOn = fn ($document) => optional($document->uploaded_at ?? $document->created_at)->format('M d, Y');
 @endphp
@@ -92,6 +96,17 @@
     .cp-progress li.is-current { color: var(--ui-primary); }
     .cp-progress li.is-current .cp-progress-dot { border-color: var(--ui-primary); color: var(--ui-primary); box-shadow: 0 0 0 4px var(--ui-primary-soft); }
 
+    .cp-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .cp-tile { display: grid; align-content: start; gap: 6px; padding: 14px 16px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg); background: var(--ui-surface); }
+    .cp-tile-label { color: var(--ui-muted); font-size: var(--ui-text-xs); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .cp-tile strong { color: var(--ui-ink); font-size: 22px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .cp-tile strong small { color: var(--ui-muted); font-size: 13px; font-weight: 600; }
+    .cp-tile strong.is-warn { color: var(--ui-warning); }
+    .cp-tile-note { color: var(--ui-muted); font-size: var(--ui-text-xs); }
+    .cp-meter { display: block; height: 6px; overflow: hidden; border-radius: 999px; background: var(--ui-line-soft); }
+    .cp-meter i { display: block; height: 100%; border-radius: 999px; background: var(--ui-success); }
+    .cp-doc-file { display: block; overflow: hidden; color: var(--ui-subtle); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+    .cp-doc-file i { margin-right: 4px; }
     .cp-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; align-items: start; }
     .cp-col { display: grid; gap: 16px; min-width: 0; }
     .cp-card-note { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-muted); font-size: var(--ui-text-xs); font-weight: 600; }
@@ -116,9 +131,9 @@
     .cp-qr-hint { margin: 0; color: var(--ui-muted); font-size: var(--ui-text-xs); line-height: 1.5; }
 
     .cp-docs { display: grid; margin: 0; padding: 0; list-style: none; }
-    .cp-doc { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 18px; border-top: 1px solid var(--ui-line-soft); }
+    .cp-doc { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 14px 18px; border-top: 1px solid var(--ui-line-soft); }
     .cp-doc:first-child { border-top: 0; }
-    .cp-doc-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: var(--ui-success-soft); color: var(--ui-success); }
+    .cp-doc-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: var(--ui-success-soft); color: var(--ui-success); }
     .cp-doc.is-missing .cp-doc-icon { background: var(--ui-page); color: var(--ui-subtle); }
     .cp-doc.is-flagged .cp-doc-icon { background: var(--ui-warning-soft); color: var(--ui-warning); }
     .cp-doc-copy { display: grid; gap: 2px; min-width: 0; }
@@ -158,6 +173,7 @@
         .cp-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 640px) {
+        .cp-summary { grid-template-columns: 1fr; }
         .cp-facts > div { grid-template-columns: 1fr; gap: 2px; }
         .cp-qr { grid-template-columns: 1fr; justify-items: start; }
         .cp-qr-image { width: 140px; }
@@ -211,6 +227,24 @@
             </ol>
         </nav>
     @endif
+
+    <section class="cp-summary" aria-label="At a glance">
+        <article class="cp-tile">
+            <span class="cp-tile-label">Registration documents</span>
+            <strong>{{ $onFile }} <small>of {{ $checklist->count() }} on file</small></strong>
+            <span class="cp-meter" role="img" aria-label="{{ $filePercent }} percent of the documents are on file"><i style="width: {{ $filePercent }}%"></i></span>
+        </article>
+        <article class="cp-tile">
+            <span class="cp-tile-label">Required documents</span>
+            <strong class="{{ $requiredOnFile < $requiredTotal ? 'is-warn' : '' }}">{{ $requiredOnFile }} <small>of {{ $requiredTotal }} complete</small></strong>
+            <span class="cp-tile-note">{{ $requiredOnFile < $requiredTotal ? ($requiredTotal - $requiredOnFile).' still missing' : 'Nothing missing' }}</span>
+        </article>
+        <article class="cp-tile">
+            <span class="cp-tile-label">Last document update</span>
+            <strong>{{ $lastUpdated ? $lastUpdated->format('M d, Y') : 'None yet' }}</strong>
+            <span class="cp-tile-note">{{ $documentHistory->count() }} earlier {{ \Illuminate\Support\Str::plural('version', $documentHistory->count()) }} kept</span>
+        </article>
+    </section>
 
     {{-- Documents the SJBAC asked the bidder to correct. --}}
     @if($showActionRequired)
@@ -296,12 +330,10 @@
                         </div>
                     </div>
                     <dl class="cp-facts">
-                        <div><dt>Company name</dt><dd>{{ $user->company ?: 'Not provided' }}</dd></div>
                         <div><dt>Registration number</dt><dd>{{ $user->registration_no ?: 'Not provided' }}</dd></div>
                         <div><dt>Contact person</dt><dd>{{ $profile?->contact_person ?: $user->name }}</dd></div>
                         <div><dt>Contact number</dt><dd class="{{ $profile?->contact_number ? '' : 'is-missing' }}">{{ $profile?->contact_number ?: 'Not provided' }}</dd></div>
                         <div><dt>Business address</dt><dd>{{ $profile?->business_address ?: 'Not provided' }}</dd></div>
-                        <div><dt>Email address</dt><dd>{{ $user->email }}</dd></div>
                     </dl>
                     @if($isApproved)
                         <p class="ui-hint ui-mt-sm">Verified details are locked. To change them, message the SJBAC.</p>
@@ -365,11 +397,12 @@
                             </span>
                             <span class="cp-doc-meta" title="{{ $document?->display_name }}">
                                 @if($document)
-                                    Version {{ $document->version ?: 1 }} &middot; Uploaded {{ $uploadedOn($document) }} &middot; {{ $document->display_name }}
+                                    Version {{ $document->version ?: 1 }} &middot; Uploaded {{ $uploadedOn($document) }}
                                 @else
                                     Not uploaded yet
                                 @endif
                             </span>
+                            @if($document)<span class="cp-doc-file" title="{{ $document->display_name }}"><i class="far fa-file-lines" aria-hidden="true"></i> {{ $document->display_name }}</span>@endif
                         </div>
                         <div class="cp-doc-actions">
                             @if($document)
@@ -397,7 +430,8 @@
                             <span class="cp-doc-icon" aria-hidden="true"><i class="fas fa-file-circle-check"></i></span>
                             <div class="cp-doc-copy">
                                 <span class="cp-doc-title">{{ $document->document_type }}</span>
-                                <span class="cp-doc-meta" title="{{ $document->display_name }}">Version {{ $document->version ?: 1 }} &middot; Uploaded {{ $uploadedOn($document) }} &middot; {{ $document->display_name }}</span>
+                                <span class="cp-doc-meta">Version {{ $document->version ?: 1 }} &middot; Uploaded {{ $uploadedOn($document) }}</span>
+                                <span class="cp-doc-file" title="{{ $document->display_name }}"><i class="far fa-file-lines" aria-hidden="true"></i> {{ $document->display_name }}</span>
                             </div>
                             <div class="cp-doc-actions">
                                 <a href="{{ route('bidder.document.preview', $document) }}" target="_blank" rel="noopener" class="ui-btn ui-btn--ghost ui-btn--sm"><i class="fas fa-eye" aria-hidden="true"></i> Preview</a>

@@ -27,8 +27,8 @@
 
 <div class="portal-main">
     <x-page-header
-        :title="trim($__env->yieldContent('title', 'SJBAC Procurement'))"
-        :subtitle="trim($__env->yieldContent('subtitle'))"
+        :title="html_entity_decode(trim($__env->yieldContent('title', 'SJBAC Procurement')), ENT_QUOTES)"
+        :subtitle="html_entity_decode(trim($__env->yieldContent('subtitle')), ENT_QUOTES)"
         :crumbs="new \Illuminate\Support\HtmlString($__env->yieldContent('crumbs'))"
         :actions="new \Illuminate\Support\HtmlString($__env->yieldContent('actions'))"
     />
