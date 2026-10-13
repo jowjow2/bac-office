@@ -22,7 +22,7 @@ App\Models\User::create(['name' => 'x', 'email' => 'x@example.org', 'password' =
 $admin = "(SELECT id FROM users WHERE role = 'admin' AND status = 'active' ORDER BY id LIMIT 1)";
 $q = fn ($v) => $v === null ? 'NULL' : (is_bool($v) ? ($v ? 'true' : 'false') : (is_int($v) || is_float($v) ? (string) $v : "'".str_replace("'", "''", (string) $v)."'"));
 $t = fn ($c, $v) => $q($v).(is_string($v) && preg_match('/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/', $v) ? '::timestamp' : ($c === 'items' ? '::json' : ''));
-$out = ["-- Demo purchase requests and projects (20 each). Safe to run again: existing references are skipped.", "-- Remove them with the DELETE block at the end.", "BEGIN;", ''];
+$out = ["-- Demo purchase requests and projects (20 each). Safe to run again: existing references are skipped.", "-- Remove them with the DELETE block at the end.", "DO $$ BEGIN", ''];
 
 $skip = ['id'];
 foreach (DB::table('procurement_requests')->where('reference_no', 'like', 'PR-2026-D%')->orderBy('id')->get() as $row) {
@@ -52,13 +52,13 @@ foreach (DB::table('projects')->where('reference_no', 'like', 'SJ-BAC-2026-%-D__
     $out[] = 'INSERT INTO project_schedules (project_id, '.implode(', ', $sc).') SELECT p.id, '.implode(', ', $sv).' FROM projects p WHERE p.reference_no = '.$ref.' AND NOT EXISTS (SELECT 1 FROM project_schedules s WHERE s.project_id = p.id);';
     $out[] = "INSERT INTO project_requirements (project_id, required_documents, created_at, updated_at) SELECT p.id, '[]'::json, now(), now() FROM projects p WHERE p.reference_no = {$ref} AND NOT EXISTS (SELECT 1 FROM project_requirements r WHERE r.project_id = p.id);";
 }
-$out[] = ''; $out[] = 'COMMIT;'; $out[] = '';
+$out[] = ''; $out[] = 'END $$;'; $out[] = '';
 $out[] = "-- To remove the demo records:";
-$out[] = "-- BEGIN;";
+$out[] = "-- DO $$ BEGIN";
 $out[] = "-- DELETE FROM project_schedules WHERE project_id IN (SELECT id FROM projects WHERE reference_no LIKE 'SJ-BAC-2026-%-D__');";
 $out[] = "-- DELETE FROM project_requirements WHERE project_id IN (SELECT id FROM projects WHERE reference_no LIKE 'SJ-BAC-2026-%-D__');";
 $out[] = "-- DELETE FROM projects WHERE reference_no LIKE 'SJ-BAC-2026-%-D__';";
 $out[] = "-- DELETE FROM procurement_requests WHERE reference_no LIKE 'PR-2026-D%';";
-$out[] = "-- COMMIT;";
+$out[] = "-- END $$;";
 file_put_contents(__DIR__.'/demo-procurement.sql', implode("\n", $out)."\n");
 echo "written\n";
