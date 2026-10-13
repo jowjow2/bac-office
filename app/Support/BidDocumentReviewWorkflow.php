@@ -201,9 +201,9 @@ class BidDocumentReviewWorkflow
             throw ValidationException::withMessages(['document' => 'This bid is no longer eligible for document revision.']);
         }
 
-        $project = $bid->project()->with('schedule')->firstOrFail();
-        app(BidSubmission::class)->assertBeforeDeadline($project);
-
+        // The BAC reviews the technical files only after the bid opening, which is after the deadline. A document it
+        // marked Needs Revision can therefore be replaced after the deadline: only that document, and only until the
+        // BAC moves the bid forward (isModifiableOnline above).
         $latest = $document->reviewEvents()->reorder()->latest('id')->first();
         if ($latest?->status !== BidDocumentReviewEvent::STATUS_NEEDS_REVISION) {
             throw ValidationException::withMessages(['document' => 'A replacement can be uploaded only after the BAC marks this document Needs Revision.']);
@@ -228,9 +228,7 @@ class BidDocumentReviewWorkflow
                     throw ValidationException::withMessages(['document' => 'This revision request has already been resolved. Refresh the page and review the latest document status.']);
                 }
 
-                $project = $bid->project()->with('schedule')->firstOrFail();
-                app(BidSubmission::class)->assertBeforeDeadline($project);
-
+                $project = $bid->project()->firstOrFail();
                 $version = (int) $previous->version + 1;
                 $locked->update([
                     'file_path' => $path,

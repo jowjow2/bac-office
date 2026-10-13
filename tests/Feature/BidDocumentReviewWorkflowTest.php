@@ -163,7 +163,7 @@ it('does not review financial documents or reveal technical documents while the 
     expect($financial->fresh()->reviewEvents)->toBeEmpty();
 });
 
-it('blocks replacements after the bid deadline and rejects a bidder changing another bidder file', function () {
+it('lets the bidder replace only the document the BAC asked for, even after the deadline, and rejects another bidder', function () {
     $this->document->reviewEvents()->create([
         'bid_id' => $this->bid->id, 'requirement_key' => $this->document->requirement_key,
         'version' => 1, 'status' => BidDocumentReviewEvent::STATUS_NEEDS_REVISION,
@@ -173,9 +173,34 @@ it('blocks replacements after the bid deadline and rejects a bidder changing ano
     $this->project->update(['deadline' => now()->subMinute()]);
     $this->project->schedule()->update(['bid_submission_deadline' => now()->subMinute()]);
 
+    // Another technical document the BAC did not ask about stays as filed.
+    $other = BidDocument::create([
+        'bid_id' => $this->bid->id, 'requirement_key' => 'other_technical',
+        'component' => BidDocument::COMPONENT_TECHNICAL, 'label' => 'Other technical document',
+        'file_path' => 'bid-submissions/1/1/technical/other.pdf', 'original_name' => 'other.pdf',
+        'size' => 20, 'sha256' => str_repeat('b', 64),
+    ]);
+    $other->reviewEvents()->create([
+        'bid_id' => $this->bid->id, 'requirement_key' => $other->requirement_key, 'version' => 1,
+        'status' => BidDocumentReviewEvent::STATUS_PENDING, 'file_path' => $other->file_path,
+        'original_name' => $other->original_name, 'actor_id' => $this->bidder->id, 'uploaded_at' => now(),
+    ]);
+    $this->actingAs($this->bidder)->postJson(route('bidder.bid-document.replace', [$this->bid, $other]), [
+        'file' => UploadedFile::fake()->createWithContent('not-asked.pdf', '%PDF-1.4 not asked'),
+    ])->assertUnprocessable()->assertJsonValidationErrors('document');
+
+    // The deadline has passed, but the requested document can still be replaced.
+    $this->actingAs($this->bidder)->get(route('bidder.my-bids'))->assertOk()->assertSee('Upload replacement')->assertDontSee('deadline has passed');
     $this->actingAs($this->bidder)->postJson(route('bidder.bid-document.replace', [$this->bid, $this->document]), [
-        'file' => UploadedFile::fake()->createWithContent('late.pdf', '%PDF-1.4 late replacement'),
-    ])->assertUnprocessable()->assertJsonValidationErrors('deadline');
+        'file' => UploadedFile::fake()->createWithContent('replacement.pdf', '%PDF-1.4 replacement after the deadline'),
+    ])->assertRedirect();
+    expect($this->document->fresh()->reviewEvents->last()->status)->toBe(BidDocumentReviewEvent::STATUS_PENDING)
+        ->and((int) $this->document->fresh()->reviewEvents->last()->version)->toBe(2);
+
+    // Once it is replaced, there is nothing more to replace until the BAC asks again.
+    $this->actingAs($this->bidder)->postJson(route('bidder.bid-document.replace', [$this->bid, $this->document]), [
+        'file' => UploadedFile::fake()->createWithContent('again.pdf', '%PDF-1.4 again'),
+    ])->assertUnprocessable();
 
     $otherBidder = User::create(['name' => 'Other Supplier', 'email' => 'other-bidder@example.test', 'password' => Hash::make('password'), 'role' => 'bidder', 'status' => 'active']);
     $this->bid->update(['user_id' => $otherBidder->id]);

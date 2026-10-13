@@ -353,7 +353,7 @@
                                                     </details>
                                                 @endif
                                                 @if($reviewStatus === 'needs_revision')
-                                                    @if($row['isOpen'] && $bid->isModifiableOnline())
+                                                    @if($bid->isModifiableOnline())
                                                         <form method="POST" action="{{ route('bidder.bid-document.replace', ['bid' => $bid, 'bidDocument' => $document]) }}" enctype="multipart/form-data" class="mb-doc-review__replace">
                                                             @csrf
                                                             <label>{{ blank($document->file_path) ? "Upload requested document" : "Upload replacement" }}
@@ -362,7 +362,7 @@
                                                             <button type="submit" class="ui-btn ui-btn--primary ui-btn--sm">Resubmit document</button>
                                                         </form>
                                                     @else
-                                                        <p class="mb-doc-review__locked">Replacements are closed because the bid submission deadline has passed.</p>
+                                                        <p class="mb-doc-review__locked">Replacements are closed: the BAC has already moved this bid forward.</p>
                                                     @endif
                                                 @endif
                                             </article>
