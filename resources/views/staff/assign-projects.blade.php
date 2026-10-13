@@ -198,9 +198,6 @@
                                 : 0;
                             $published = in_array($project->status, \App\Models\Project::PUBLIC_STATUSES, true);
                             $tasks = array_values(array_filter([
-                                $published && $project->philgeps_posted_at === null
-                                    ? ['icon' => 'fa-bullhorn', 'text' => 'Record the PhilGEPS posting of the ITB / RFQ', 'url' => route('staff.procurement.show', $project), 'action' => 'Open record']
-                                    : null,
                                 $documentsToCheck > 0
                                     ? ['icon' => 'fa-file-circle-check', 'text' => $documentsToCheck.' bid '.\Illuminate\Support\Str::plural('document', $documentsToCheck).' to check', 'url' => route('staff.review-bids', ['project' => $project->id]), 'action' => 'Check documents']
                                     : null,

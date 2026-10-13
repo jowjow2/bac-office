@@ -231,7 +231,7 @@ it('shows staff their assigned projects with tasks and review links, and honest 
     testCase()->actingAs($staff)->get(route('staff.assign-projects'))->assertOk()
         ->assertSee('My assigned projects')
         ->assertSee('Your tasks')
-        ->assertSee('Record the PhilGEPS posting of the ITB / RFQ')
+        ->assertDontSee('PhilGEPS')
         ->assertSee(e(route('staff.review-bids', ['project' => $project->id, 'view_bid' => $bid->id])), false)
         ->assertDontSee(route('staff.bids.validate', $bid), false)
         ->assertDontSee('>Validate<', false);
