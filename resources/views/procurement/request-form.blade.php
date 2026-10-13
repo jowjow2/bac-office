@@ -263,7 +263,7 @@
             {{-- Step 4 --}}
             <section class="ui-step-panel" data-step data-step-review aria-labelledby="review-title">
                 <h2 class="ui-fieldset__legend" id="review-title">Review and submit</h2>
-                <p class="ui-fieldset__desc">Check the details below. Recording sends the request to the Budget / Procurement Office for the PPMP/APP and funds check.</p>
+                <p class="ui-fieldset__desc">Check the details below. Recording makes the request ready for procurement: the BAC then prepares the project from it.</p>
                 <dl class="ui-review" data-review></dl>
                 <div class="ui-actions ui-actions--between ui-mt">
                     <button type="button" class="ui-btn ui-btn--secondary" data-step-prev><i class="fas fa-arrow-left" aria-hidden="true"></i> Back</button>

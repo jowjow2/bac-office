@@ -147,7 +147,9 @@
                             <dl class="pw-pr__facts">
                                 <div><dt>Status</dt><dd><span class="ui-badge ui-badge--{{ $pr->statusTone() }}">{{ $pr->statusLabel() }}</span></dd></div>
                                 <div><dt>Estimated cost</dt><dd class="ui-num">₱{{ number_format((float) $pr->estimated_cost, 2) }}</dd></div>
-                                <div><dt>PPMP / APP</dt><dd>{{ $pr->ppmp_reference ?: '—' }} / {{ $pr->app_reference ?: '—' }}</dd></div>
+                                @if($pr->ppmp_reference || $pr->app_reference)
+                                    <div><dt>PPMP / APP</dt><dd>{{ $pr->ppmp_reference ?: '—' }} / {{ $pr->app_reference ?: '—' }}</dd></div>
+                                @endif
                             </dl>
                             <p class="pw-pr__note">Preparing bidding from {{ $pr->reference_no }}. Fields marked <span class="pw-chip">From PR</span> were copied from the request; changing them here does not change the request. <a class="ui-link" href="{{ route('admin.requests', ['tab' => 'bac', 'q' => $pr->reference_no]) }}">Open the request</a></p>
                         </div>

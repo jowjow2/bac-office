@@ -43,7 +43,7 @@
         <div class="ui-search">
             <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
             <label for="register-q" class="sr-only">Search</label>
-            <input type="search" id="register-q" name="q" value="{{ $filters['q'] }}" class="ui-input" placeholder="Search reference, PhilGEPS no., title, office">
+            <input type="search" id="register-q" name="q" value="{{ $filters['q'] }}" class="ui-input" placeholder="Search reference, title or office">
         </div>
         <div class="ui-field">
             <label for="register-mode" class="sr-only">Mode of procurement</label>

@@ -384,7 +384,6 @@ it('shows skipped and stopped stages for direct projects and failed biddings', f
     $stages = collect(ProcurementTimeline::forProject($project)->stages())->keyBy('key');
 
     expect($stages['request']['state'])->toBe('skipped')
-        ->and($stages['review']['state'])->toBe('skipped')
         ->and($stages['prebid']['state'])->toBe('skipped')
         ->and($stages['submission']['state'])->toBe('current');
 

@@ -330,3 +330,22 @@ it('has no PPMP/APP review step: the queue has no review tab and a waiting reque
     expect(\Illuminate\Support\Facades\Route::has('admin.requests.review'))->toBeFalse()
         ->and(\Illuminate\Support\Facades\Route::has('staff.requests.review'))->toBeFalse();
 });
+
+it('has no leftover PPMP/APP review wording where a recorded request is shown or tracked', function () {
+    testCase()->actingAs($this->admin)->post(route('admin.requests.store'), $this->details + ['end_user_office' => 'Municipal Engineering Office'])->assertSessionHasNoErrors();
+    $request = ProcurementRequest::firstOrFail();
+
+    // The recording form says the request is ready for procurement, not that it goes for a funds check.
+    testCase()->actingAs($this->admin)->get(route('admin.requests.create'))->assertOk()
+        ->assertSee('Recording makes the request ready for procurement')->assertDontSee('for the PPMP/APP and funds check');
+
+    // The register has no PR & funds check bucket and does not name PhilGEPS in its search; the request sits in preparation.
+    testCase()->actingAs($this->admin)->get(route('admin.dashboard'))->assertOk()
+        ->assertDontSee('PR &amp; funds check', false)->assertDontSee('PhilGEPS no.');
+    expect(\App\Support\ProcurementPipeline::BUCKETS)->not->toHaveKey('request');
+
+    // The timeline of a project made from the request has no review stage.
+    $project = \App\Models\Project::create(['title' => 'Laptops', 'description' => 'x', 'category' => 'goods', 'procurement_mode' => 'public_bidding', 'legal_basis' => 'ra_12009', 'budget' => 900000, 'status' => 'draft', 'procurement_request_id' => $request->id]);
+    $keys = collect(\App\Support\ProcurementTimeline::forProject($project)->stages())->pluck('key');
+    expect($keys)->toContain('request')->and($keys)->not->toContain('review');
+});

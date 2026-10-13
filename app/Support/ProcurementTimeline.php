@@ -113,7 +113,7 @@ class ProcurementTimeline
         return $this->project?->mode();
     }
 
-    /** End-user request and the PPMP/APP and funds review: the same for every mode. */
+    /** The signed purchase request the BAC records: the same for every mode. */
     private function requestStages(): array
     {
         $p = $this->project;
@@ -128,16 +128,6 @@ class ProcurementTimeline
                 },
                 $r?->submitted_at,
                 $r === null && $p !== null ? 'Prepared directly by the BAC.' : ($r ? $r->end_user_office.' · '.$r->reference_no : null)),
-
-            $this->stage('review', 'PPMP/APP & funds check', 'Budget / Procurement Office',
-                match (true) {
-                    $r === null && $p !== null => 'skipped',
-                    $r !== null && $r->forwarded_at !== null => 'done',
-                    $r !== null && $r->status === ProcurementRequest::STATUS_REJECTED => 'stopped',
-                    default => 'upcoming',
-                },
-                $r?->forwarded_at ?? $r?->reviewed_at,
-                $r?->ppmp_reference ? 'PPMP '.$r->ppmp_reference.($r->app_reference ? ' · APP '.$r->app_reference : '') : null),
         ];
     }
 
@@ -440,8 +430,7 @@ class ProcurementTimeline
         $deadlineText = $deadline?->copy()->timezone(config('bac-office.display_timezone'))->format('M d, Y h:i A');
 
         $detail = match ($current['key']) {
-            'request' => 'Complete the request with the specifications or TOR, then submit it for review.',
-            'review' => 'Check the request against the PPMP/APP and the available funds, then forward it to the BAC or return it.',
+            'request' => 'Record the signed purchase request with its specifications or TOR.',
             'preparation' => match (true) {
                 $p === null => 'Prepare the '.($alternative ? 'RFQ' : 'bidding documents').' and schedule from this request.',
                 $alternative => 'Complete the '.$mode->noticeLabel().', technical specifications, ABC and '.lcfirst($mode->deadlineLabel()).', then publish once the checks pass.',
@@ -533,7 +522,7 @@ class ProcurementTimeline
         }
         if ($r?->reviewed_at && $r->status !== ProcurementRequest::STATUS_SUBMITTED) {
             $events->push($this->event($r->reviewed_at, match (true) {
-                $r->forwarded_at !== null => 'PPMP/APP review completed; forwarded to the BAC',
+                $r->forwarded_at !== null => 'Recorded by the BAC; ready for procurement',
                 $r->status === ProcurementRequest::STATUS_REJECTED => 'Request not approved',
                 default => 'Request returned for correction',
             }, $r->review_remarks, $r->reviewer?->name, $r->status === ProcurementRequest::STATUS_REJECTED ? 'danger' : 'info'));

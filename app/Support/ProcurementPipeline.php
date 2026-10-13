@@ -22,7 +22,6 @@ class ProcurementPipeline
 {
     /** Pipeline buckets, in order. */
     public const BUCKETS = [
-        'request' => ['label' => 'PR & funds check', 'hint' => 'Purchase requests awaiting PPMP/APP and funds review'],
         'preparation' => ['label' => 'Preparation', 'hint' => 'Bidding documents or RFQ, ABC and schedule'],
         'posted' => ['label' => 'ITB / RFQ posted', 'hint' => 'Posted and accepting bids or quotations'],
         'evaluation' => ['label' => 'Opening & evaluation', 'hint' => 'Opening, evaluation and post-qualification'],
@@ -39,8 +38,7 @@ class ProcurementPipeline
     ];
 
     private const STAGE_BUCKETS = [
-        'request' => 'request',
-        'review' => 'request',
+        'request' => 'preparation',
         'preparation' => 'preparation',
         'posting' => 'posted',
         'publication' => 'posted',
@@ -389,11 +387,8 @@ class ProcurementPipeline
 
     private function requestRow(ProcurementRequest $request): array
     {
-        $bucket = match ($request->status) {
-            ProcurementRequest::STATUS_SUBMITTED => 'request',
-            ProcurementRequest::STATUS_FORWARDED => 'preparation',
-            default => 'request',
-        };
+        // A recorded request is ready for the BAC at once, so it is in preparation.
+        $bucket = 'preparation';
 
         $state = match ($request->status) {
             ProcurementRequest::STATUS_REJECTED => 'failed',
@@ -416,13 +411,11 @@ class ProcurementPipeline
             'bucket' => $state === 'active' ? $bucket : null,
             'state' => $state,
             'stage_label' => match ($request->status) {
-                ProcurementRequest::STATUS_FORWARDED => 'Forwarded to the BAC',
-                ProcurementRequest::STATUS_SUBMITTED => 'PPMP/APP & funds check',
+                ProcurementRequest::STATUS_FORWARDED, ProcurementRequest::STATUS_SUBMITTED => 'Ready for procurement',
                 default => $request->statusLabel(),
             },
             'office' => match ($request->status) {
-                ProcurementRequest::STATUS_SUBMITTED => 'Budget / Procurement Office',
-                ProcurementRequest::STATUS_FORWARDED => 'BAC Secretariat',
+                ProcurementRequest::STATUS_FORWARDED, ProcurementRequest::STATUS_SUBMITTED => 'BAC Secretariat',
                 default => 'End-user office',
             },
             'status' => ['label' => $request->statusLabel(), 'tone' => $request->statusTone()],
@@ -431,7 +424,7 @@ class ProcurementPipeline
             'award_due' => null,
             'past_award_period' => false,
             'awaiting_posting' => false,
-            'progress' => $request->status === ProcurementRequest::STATUS_FORWARDED ? 12 : ($request->status === ProcurementRequest::STATUS_SUBMITTED ? 6 : 0),
+            'progress' => in_array($request->status, [ProcurementRequest::STATUS_FORWARDED, ProcurementRequest::STATUS_SUBMITTED], true) ? 12 : 0,
             'updated_at' => $request->updated_at,
             'url' => match ($this->role) {
                 'staff' => route('staff.requests', ['q' => $request->reference_no]),
