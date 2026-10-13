@@ -1,12 +1,4 @@
 @php
-    // Plain lists: the municipal offices have no pages of their own in this portal, so they are not links.
-    $footerOffices = [
-        'Mayor', 'Vice Mayor', 'Sangguniang Bayan', 'Accountant', 'Administrator', 'Agriculturist', 'Assessor',
-        'Budget Officer', 'Civil Registrar', 'Disaster Risk Reduction and Management Officer', 'Engineer/Building Official',
-        'Environment and Natural Resources Officer', 'General Services Officer', 'Health Officer',
-        'Human Resource Management Officer', 'Nutrition Action Officer', 'Planning and Development Coordinator',
-        'Social Welfare and Development Officer', 'Tourism, Culture, and Arts', 'Treasurer',
-    ];
     $footerGovernment = [
         ['Office of the President', 'https://op-proper.gov.ph/'],
         ['Office of the Vice President', 'https://ovp.gov.ph/'],
@@ -45,15 +37,6 @@
                 @endforeach
             </ul>
         </section>
-
-        <section class="site-footer__col site-footer__col--offices" aria-labelledby="footerOffices">
-            <h2 id="footerOffices">Offices of the Municipality</h2>
-            <ul>
-                @foreach($footerOffices as $office)
-                    <li>{{ $office }}</li>
-                @endforeach
-            </ul>
-        </section>
     </div>
     <div class="site-footer__bar">
         Bids and Awards Committee &middot; The Official Procurement Portal of the Municipality of San Jose, Occidental Mindoro
@@ -62,24 +45,21 @@
 
 <style>
     .site-footer { margin-top: 48px; background: #1f5c45; color: #fff; font-family: inherit; }
-    .site-footer__inner { display: grid; grid-template-columns: 1fr 1fr 1.6fr; gap: 32px 40px; max-width: 1200px; margin: 0 auto; padding: 44px 24px 36px; }
+    .site-footer__inner { display: grid; grid-template-columns: 1fr 1fr; gap: 32px 56px; max-width: 1000px; margin: 0 auto; padding: 44px 24px 36px; }
     .site-footer h2 { margin: 0 0 14px; color: #fff; font-size: 14px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; }
     .site-footer ul { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
     .site-footer li { position: relative; padding-left: 16px; color: rgba(255, 255, 255, .92); font-size: 14px; line-height: 1.4; }
     .site-footer li::before { content: ''; position: absolute; left: 2px; top: .55em; width: 5px; height: 5px; border-radius: 50%; background: rgba(255, 255, 255, .85); }
     .site-footer a { color: inherit; text-decoration: none; }
     .site-footer a:hover, .site-footer a:focus-visible { text-decoration: underline; }
-    .site-footer__col--offices ul { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px 28px; }
     .site-footer__time { margin: 22px 0 0; color: rgba(255, 255, 255, .92); font-size: 13.5px; line-height: 1.6; }
     .site-footer__time time { display: block; font-weight: 700; font-variant-numeric: tabular-nums; }
     .site-footer__bar { padding: 14px 130px; background: #123d2d; color: rgba(255, 255, 255, .92); font-size: 13px; text-align: center; }
     @media (max-width: 900px) {
         .site-footer__inner { grid-template-columns: 1fr 1fr; }
-        .site-footer__col--offices { grid-column: 1 / -1; }
     }
     @media (max-width: 560px) {
         .site-footer__inner { grid-template-columns: 1fr; padding: 32px 16px 28px; }
-        .site-footer__col--offices ul { grid-template-columns: 1fr; }
         .site-footer__bar { padding: 14px 56px 14px 16px; }
     }
     @media print { .site-footer { display: none; } }
