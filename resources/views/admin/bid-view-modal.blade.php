@@ -874,7 +874,7 @@
                                             <select name="evaluation_result" required>
                                                 <option value="">Select result</option>
                                                 <option value="responsive">Responsive / meets the applicable criteria</option>
-                                                <option value="nonresponsive">Nonresponsive</option>
+                                                <option value="nonresponsive">Non-responsive</option>
                                             </select>
                                         </label>
                                         <label class="br-field">Remarks
