@@ -143,6 +143,9 @@
             <h2 class="br-title">{{ $bidderName }}</h2>
             <p class="br-subtitle">{{ $project?->title ?? 'Project not found' }}</p>
             <ul class="br-tags" aria-label="Procurement details">
+                @if($bid->user?->bidderProfile?->verificationUrl())
+                    <li><a href="{{ $bid->user->bidderProfile->verificationUrl() }}" target="_blank" rel="noopener" title="Opens the bidder's record with their full bidding history (BAC only)" style="color:inherit;font-weight:700"><i class="fas fa-id-card" aria-hidden="true"></i> View bidding record</a></li>
+                @endif
                 <li><i class="fas fa-gavel" aria-hidden="true"></i> {{ $mode?->label() ?? 'Mode not specified' }} &middot; {{ $mode?->legalBasisShort() ?? 'Regime not recorded' }}</li>
                 @if($criterion)
                     <li><i class="fas fa-scale-balanced" aria-hidden="true"></i> {{ $criterionLabels[$criterion] }}</li>
@@ -266,7 +269,7 @@
             @unless($focusReview)
             <section class="br-panel" role="tabpanel" id="br-panel-overview" aria-labelledby="br-tab-overview" data-br-panel="overview">
                 <dl class="br-facts">
-                    <div><dt>Bidder / Company</dt><dd>{{ $bidderName }}@if($bid->user?->bidderProfile?->verificationUrl()) <a href="{{ $bid->user->bidderProfile->verificationUrl() }}" target="_blank" rel="noopener" title="Opens the bidder's record with their full bidding history (BAC only)" style="margin-left:8px;font-size:12.5px;font-weight:600;white-space:nowrap">View bidding record</a>@endif</dd></div>
+                    <div><dt>Bidder / Company</dt><dd>{{ $bidderName }}</dd></div>
                     <div><dt>Email</dt><dd class="br-break">{{ $bid->user?->email ?? 'N/A' }}</dd></div>
                     <div class="is-wide"><dt>Project</dt><dd>{{ $project?->reference_no ? $project->reference_no.' - ' : '' }}{{ $project?->title ?? 'N/A' }}</dd></div>
                     <div><dt>Procurement mode</dt><dd>{{ $mode?->label() ?? 'Not specified' }} &middot; {{ $mode?->legalBasisShort() ?? 'Regime not recorded' }}</dd></div>
