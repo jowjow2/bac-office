@@ -163,14 +163,13 @@ it('leads the overview with the work waiting for each role, and leaves out what 
     User::create(['name' => 'New Supplier', 'email' => 'portal-new-bidder@example.com', 'password' => Hash::make('password'), 'role' => 'bidder', 'status' => 'pending', 'company' => 'New Supplier Co.']);
 
     testCase()->actingAs($this->admin)->get(route('admin.dashboard'))->assertOk()
-        ->assertSeeInOrder(['Needs your action', 'Purchase requests to review', 'Bidder registrations', 'Filter by stage'])
+        ->assertSeeInOrder(['Needs your action', 'Bidder registrations', 'Filter by stage'])->assertDontSee('Purchase requests to review')
         ->assertSee(route('admin.users', ['filter' => 'pending']), false)
         ->assertDontSee('Notices to Proceed to issue')
         ->assertDontSee('Past the IRR award period');
 
-    // The Secretariat reviews requests; bidder registrations stay with the BAC admin.
+    // Bidder registrations stay with the BAC admin.
     testCase()->actingAs($this->staff)->get(route('staff.dashboard'))->assertOk()
-        ->assertSee('Purchase requests to review')
         ->assertDontSee('Bidder registrations');
 
     ProcurementRequest::query()->delete();

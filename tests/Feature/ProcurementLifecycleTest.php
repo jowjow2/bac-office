@@ -90,7 +90,7 @@ it('denies unassigned staff access to procurement lifecycle records', function (
     ])->assertForbidden();
 });
 
-it('takes a request from the end-user office through PPMP/APP review to a BAC project', function () {
+it('takes a recorded request from the end-user office to a BAC project', function () {
     // The admin records the hard copy the end-user office handed in, with its TOR.
     testCase()->actingAs($this->admin)->get(route('admin.requests.create'))->assertOk()->assertSee('Record purchase request');
 
@@ -108,49 +108,9 @@ it('takes a request from the end-user office through PPMP/APP review to a BAC pr
         ->and($request->documents)->toHaveCount(1)
         ->and($request->documents->first()->document_type)->toBe('tor');
 
-    // The older review path still works for requests that wait for it.
-    $request->forceFill(['status' => ProcurementRequest::STATUS_SUBMITTED, 'forwarded_at' => null, 'reviewed_at' => null, 'reviewed_by' => null])->save();
-
-    // Staff return it with remarks; forwarding needs the PPMP/APP references and the budget.
-    testCase()->actingAs($this->staff)->get(route('staff.requests'))->assertOk()->assertSee($request->reference_no)->assertSee('Municipal Engineering Office');
-
-    testCase()->actingAs($this->staff)->post(route('staff.requests.review', $request), ['decision' => 'return'])
-        ->assertSessionHasErrors('review_remarks');
-    testCase()->actingAs($this->staff)->post(route('staff.requests.review', $request), ['decision' => 'forward', 'budget_available' => '1'])
-        ->assertSessionHasErrors(['ppmp_reference', 'app_reference']);
-    testCase()->actingAs($this->staff)->post(route('staff.requests.review', $request), ['decision' => 'forward', 'ppmp_reference' => 'PPMP-MEO-2026-12', 'app_reference' => 'APP-2026-45', 'budget_available' => '0'])
-        ->assertSessionHasErrors('budget_available');
-
-    testCase()->actingAs($this->staff)->post(route('staff.requests.review', $request), ['decision' => 'return', 'review_remarks' => 'Attach the itemized specifications of the printers.'])
-        ->assertSessionHasNoErrors();
-    expect($request->fresh()->status)->toBe(ProcurementRequest::STATUS_RETURNED)
-        ->and($request->fresh()->budget_available)->toBeFalse()
-        ->and($request->fresh()->budget_confirmed_by)->toBeNull();
-
-    expect(UserNotification::where('user_id', $this->admin->id)->where('title', 'Request returned to the office')->exists())->toBeTrue();
-
-    // The corrected hard copy is checked again.
-    $request->fresh()->forceFill(['status' => ProcurementRequest::STATUS_SUBMITTED, 'submitted_at' => now()])->save();
-
-    testCase()->actingAs($this->staff)->post(route('staff.requests.review', $request), [
-        'decision' => 'forward',
-        'ppmp_reference' => 'PPMP-MEO-2026-12',
-        'app_reference' => 'APP-2026-45',
-        'budget_available' => '1',
-    ])->assertSessionHasNoErrors();
-
-    $request->refresh();
-    expect($request->status)->toBe(ProcurementRequest::STATUS_FORWARDED)
-        ->and($request->forwarded_at)->not->toBeNull()
-        ->and($request->reviewed_by)->toBe($this->staff->id)
-        ->and($request->isEditable())->toBeFalse()
-        // The budget confirmation records who ticked it and when.
-        ->and($request->budget_available)->toBeTrue()
-        ->and($request->budget_confirmed_by)->toBe($this->staff->id)
-        ->and($request->budget_confirmed_at)->not->toBeNull();
-    testCase()->actingAs($this->admin)->get(route('admin.requests', ['tab' => 'bac']))->assertOk()
-        ->assertSee('Budget confirmed')
-        ->assertSee($this->staff->name);
+    // There is no separate review: the recorded request is ready for the BAC at once.
+    expect($request->isEditable())->toBeFalse();
+    testCase()->actingAs($this->admin)->get(route('admin.requests', ['tab' => 'bac']))->assertOk()->assertSee($request->reference_no);
 
     // The BAC starts the bidding project from the request: the wizard is prefilled.
     testCase()->actingAs($this->admin)->get(route('admin.requests', ['tab' => 'bac']))->assertOk()->assertSee('Prepare procurement');
@@ -183,9 +143,7 @@ it('takes a request from the end-user office through PPMP/APP review to a BAC pr
     testCase()->actingAs($this->admin)->get(route('admin.projects.create', ['request' => $request->id]))->assertNotFound();
 
 
-    // Returned once, forwarded once; refused attempts are not decisions.
-    expect(AuditLog::where('action', 'procurement_request_reviewed')->count())->toBe(2)
-        ->and(AuditLog::where('action', 'procurement_request_converted')->exists())->toBeTrue();
+    expect(AuditLog::where('action', 'procurement_request_converted')->exists())->toBeTrue();
 });
 
 it('keeps each office to its own requests and each role to its own pages', function () {
@@ -201,10 +159,8 @@ it('keeps each office to its own requests and each role to its own pages', funct
     testCase()->actingAs($this->engineering)->get(route('admin.requests'))->assertForbidden();
     testCase()->actingAs($this->engineering)->get(route('staff.requests'))->assertForbidden();
 
-    // Drafts are invisible to reviewers and cannot be reviewed.
+    // Drafts are invisible to the BAC queue.
     testCase()->actingAs($this->staff)->get(route('staff.requests', ['tab' => 'all']))->assertDontSee($request->reference_no);
-    testCase()->actingAs($this->staff)->post(route('staff.requests.review', $request), ['decision' => 'forward', 'ppmp_reference' => 'x', 'app_reference' => 'y', 'budget_available' => '1'])
-        ->assertSessionHasErrors('decision');
 
     // Request files are only for the office and the BAC.
     testCase()->actingAs($this->admin)->post(route('admin.requests.store'), $this->requestData + [

@@ -246,7 +246,6 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/admin/requests/uploads', [ProcurementRequestController::class, 'uploadToken'])->name('admin.requests.upload-token');
     Route::get('/admin/requests/{procurementRequest}/edit', [ProcurementRequestController::class, 'adminEdit'])->name('admin.requests.edit');
     Route::put('/admin/requests/{procurementRequest}', [ProcurementRequestController::class, 'adminUpdate'])->name('admin.requests.update');
-    Route::post('/admin/requests/{procurementRequest}/review', [ProcurementRequestController::class, 'review'])->name('admin.requests.review');
     Route::delete('/admin/requests/{procurementRequest}', [ProcurementRequestController::class, 'destroy'])->name('admin.requests.destroy');
     Route::get('/admin/settings/about', [\App\Http\Controllers\AboutSettingsController::class, 'edit'])->name('admin.settings.about');
     Route::put('/admin/settings/about', [\App\Http\Controllers\AboutSettingsController::class, 'update'])->name('admin.settings.about.update');
@@ -355,7 +354,6 @@ Route::middleware(['auth', 'staff'])->group(function () {
     Route::post('/staff/projects/{project}/open-bids', [StaffController::class, 'openProjectBids'])->name('staff.projects.open-bids');
     Route::get('/staff/requests', [ProcurementRequestController::class, 'queue'])->name('staff.requests');
     Route::get('/staff/requests/{procurementRequest}/print', [ProcurementRequestController::class, 'printForm'])->name('staff.requests.print');
-    Route::post('/staff/requests/{procurementRequest}/review', [ProcurementRequestController::class, 'review'])->name('staff.requests.review');
     Route::get('/staff/procurements/{project}', [ProcurementLifecycleController::class, 'show'])->name('staff.procurement.show');
     Route::get('/staff/awards/{award}/infrastructure', [\App\Http\Controllers\InfrastructureImplementationController::class, 'showStaff'])->name('staff.infrastructure.show');
     Route::put('/staff/awards/{award}/infrastructure', [\App\Http\Controllers\InfrastructureImplementationController::class, 'configure'])->name('staff.infrastructure.configure');

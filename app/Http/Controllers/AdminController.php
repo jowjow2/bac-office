@@ -3688,7 +3688,6 @@ class AdminController extends Controller
             ->groupBy('status')
             ->pluck('total', 'status');
         $requests = collect([
-            ['key' => 'submitted', 'label' => 'For PPMP/APP review', 'value' => (int) ($requestRows[\App\Models\ProcurementRequest::STATUS_SUBMITTED] ?? 0), 'color' => '#eab308'],
             ['key' => 'forwarded', 'label' => 'Forwarded to the BAC', 'value' => (int) ($requestRows[\App\Models\ProcurementRequest::STATUS_FORWARDED] ?? 0), 'color' => '#0ea5e9'],
             ['key' => 'in_procurement', 'label' => 'In procurement', 'value' => (int) ($requestRows[\App\Models\ProcurementRequest::STATUS_IN_PROCUREMENT] ?? 0), 'color' => '#10b981'],
             ['key' => 'returned', 'label' => 'Returned or not approved', 'value' => (int) (($requestRows[\App\Models\ProcurementRequest::STATUS_RETURNED] ?? 0) + ($requestRows[\App\Models\ProcurementRequest::STATUS_REJECTED] ?? 0)), 'color' => '#ef4444'],

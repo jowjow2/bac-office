@@ -90,18 +90,6 @@ it('records a request for an office, ready for procurement at once', function ()
     testCase()->actingAs($this->admin)->get(route('admin.requests', ['tab' => 'bac']))->assertOk()->assertSee($request->reference_no)->assertSee('Prepare procurement');
 });
 
-it('tells the admin when the Secretariat returns a request, so the office can hand in a corrected copy', function () {
-    // An older request still waiting for the PPMP/APP review.
-    $request = ProcurementRequest::create(array_merge($this->details, ['reference_no' => 'PR-2026-0050', 'end_user_office' => 'Municipal Engineering Office', 'requested_by' => null, 'status' => ProcurementRequest::STATUS_SUBMITTED, 'submitted_at' => now()]));
-    UserNotification::query()->delete();
-
-    testCase()->actingAs($this->staff)->post(route('staff.requests.review', $request), ['decision' => 'return', 'review_remarks' => 'Attach the canvass.'])->assertSessionHasNoErrors();
-
-    $notice = UserNotification::where('user_id', $this->admin->id)->where('title', 'Request returned to the office')->firstOrFail();
-    expect($request->fresh()->status)->toBe(ProcurementRequest::STATUS_RETURNED)
-        ->and($notice->message)->toContain('Attach the canvass.')->toContain('corrected hard copy');
-});
-
 it('accepts an estimated total cost typed with thousands separators', function () {
     $post = fn (array $extra) => testCase()->actingAs($this->admin)->post(route('admin.requests.store'), array_merge($this->details, ['end_user_office' => 'Municipal Engineering Office'], $extra));
 
@@ -229,7 +217,7 @@ it('keeps the form and explains a failed attachment upload instead of a server e
     expect($attempts)->toBe(3)->and(ProcurementRequest::count())->toBe(0);
 });
 
-it('opens the first queue that has something waiting, and shows a one-line all-clear', function () {
+it('opens the first queue that has something waiting', function () {
     // Nothing recorded yet: all requests.
     testCase()->actingAs($this->admin)->get(route('admin.requests'))->assertOk()->assertSee('aria-current="page"', false);
 
@@ -237,14 +225,6 @@ it('opens the first queue that has something waiting, and shows a one-line all-c
     // Only a forwarded request: that queue opens by itself.
     testCase()->actingAs($this->admin)->get(route('admin.requests'))->assertOk()->assertSee('Forwarded one');
 
-    // A request waiting for review takes priority over the forwarded one.
-    ProcurementRequest::create(array_merge($this->details, ['reference_no' => 'PR-2026-0701', 'end_user_office' => 'Municipal Engineering Office', 'status' => ProcurementRequest::STATUS_SUBMITTED, 'title' => 'Waiting one']));
-    testCase()->actingAs($this->admin)->get(route('admin.requests'))->assertOk()->assertSee('Waiting one')->assertDontSee('Forwarded one');
-
-    // Opening the empty review queue by hand explains in one line where the requests went.
-    ProcurementRequest::where('reference_no', 'PR-2026-0701')->delete();
-    testCase()->actingAs($this->admin)->get(route('admin.requests', ['tab' => 'review']))->assertOk()
-        ->assertSee('Nothing waiting for your review.')->assertSee('1 ready for procurement');
 });
 
 it('lets the admin correct a recorded request until a project is made from it', function () {
@@ -335,4 +315,18 @@ it('takes a purchase request attachment straight from Blob storage, so a large f
         'uploaded_document_names' => ['r0' => 'x.pdf'],
     ])->assertSessionHasErrors();
     expect(ProcurementRequest::count())->toBe($before);
+});
+
+it('has no PPMP/APP review step: the queue has no review tab and a waiting request becomes ready for procurement', function () {
+    $waiting = ProcurementRequest::create(array_merge($this->details, ['reference_no' => 'PR-2026-0800', 'end_user_office' => 'Municipal Engineering Office', 'status' => ProcurementRequest::STATUS_SUBMITTED, 'submitted_at' => now()->subDay(), 'title' => 'Waited for review']));
+
+    (require base_path('database/migrations/2026_10_28_000001_forward_requests_waiting_for_review.php'))->up();
+
+    expect($waiting->fresh()->status)->toBe(ProcurementRequest::STATUS_FORWARDED)->and($waiting->fresh()->forwarded_at)->not->toBeNull();
+
+    testCase()->actingAs($this->admin)->get(route('admin.requests', ['tab' => 'bac']))->assertOk()
+        ->assertSee('Waited for review')->assertSee('Prepare procurement')
+        ->assertDontSee('For PPMP/APP review')->assertDontSee('Record decision');
+    expect(\Illuminate\Support\Facades\Route::has('admin.requests.review'))->toBeFalse()
+        ->and(\Illuminate\Support\Facades\Route::has('staff.requests.review'))->toBeFalse();
 });

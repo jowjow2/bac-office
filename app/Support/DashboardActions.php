@@ -33,13 +33,10 @@ class DashboardActions
             }
         };
 
-        // Purchase requests: the Secretariat reviews them, the BAC turns them into projects.
+        // Purchase requests: the BAC admin records them, then turns them into projects.
         $requests = ProcurementRequest::query()
             ->whereIn('status', [ProcurementRequest::STATUS_SUBMITTED, ProcurementRequest::STATUS_FORWARDED])
             ->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
-        $add('requests_review', (int) ($requests[ProcurementRequest::STATUS_SUBMITTED] ?? 0),
-            'Purchase requests to review', 'Check the PPMP/APP and budget, then forward to the BAC or return.',
-            route($prefix.'.requests', ['tab' => 'review']), 'info', 'fa-file-circle-check');
         if ($isAdmin) {
             $add('requests_bac', (int) ($requests[ProcurementRequest::STATUS_FORWARDED] ?? 0),
                 'Purchase requests to start', 'Forwarded to the BAC. Create the procurement project.',

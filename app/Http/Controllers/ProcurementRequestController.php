@@ -45,7 +45,7 @@ class ProcurementRequestController extends Controller
      | Recording a purchase request (admin)
      |
      | End-user offices hand the BAC a signed hard copy; the admin records it
-     | here for its office. It goes straight to the PPMP/APP review and has
+     | here for its office. It is ready for procurement at once and has
      | no individual owner, so every account of that office can follow it.
      * ------------------------------------------------------------------- */
 
@@ -187,7 +187,7 @@ class ProcurementRequestController extends Controller
     }
 
     /* ---------------------------------------------------------------------
-     | PPMP/APP and budget review (staff and admin)
+     | The queue of recorded requests (staff and admin)
      * ------------------------------------------------------------------- */
 
     public function queue(Request $request)
@@ -207,7 +207,6 @@ class ProcurementRequestController extends Controller
             ->groupBy('status')
             ->pluck('total', 'status');
         $tabCounts = [
-            'review' => (int) ($counts[ProcurementRequest::STATUS_SUBMITTED] ?? 0),
             'bac' => (int) ($counts[ProcurementRequest::STATUS_FORWARDED] ?? 0),
             'returned' => (int) (($counts[ProcurementRequest::STATUS_RETURNED] ?? 0) + ($counts[ProcurementRequest::STATUS_REJECTED] ?? 0)),
             'procurement' => (int) ($counts[ProcurementRequest::STATUS_IN_PROCUREMENT] ?? 0),
@@ -215,12 +214,11 @@ class ProcurementRequestController extends Controller
 
         // Without a chosen tab, open the first queue that has something waiting.
         $tab = $request->query('tab');
-        if (! in_array($tab, ['review', 'bac', 'returned', 'procurement', 'all'], true)) {
-            $tab = collect(['review', 'bac', 'returned'])->first(fn ($key) => $tabCounts[$key] > 0) ?? 'all';
+        if (! in_array($tab, ['bac', 'returned', 'procurement', 'all'], true)) {
+            $tab = collect(['bac', 'returned'])->first(fn ($key) => $tabCounts[$key] > 0) ?? 'all';
         }
 
         $statuses = match ($tab) {
-            'review' => [ProcurementRequest::STATUS_SUBMITTED],
             'bac' => [ProcurementRequest::STATUS_FORWARDED],
             'returned' => [ProcurementRequest::STATUS_RETURNED, ProcurementRequest::STATUS_REJECTED],
             'procurement' => [ProcurementRequest::STATUS_IN_PROCUREMENT],
@@ -286,100 +284,9 @@ class ProcurementRequestController extends Controller
             ->with('success', $reference.' was deleted. The reason is kept in the audit log.');
     }
 
-    public function review(Request $request, ProcurementRequest $procurementRequest)
-    {
-        $role = $this->role($request);
-
-        if (! $procurementRequest->awaitsReview()) {
-            return back()->withErrors(['decision' => 'Only a request waiting for PPMP/APP review can be reviewed.']);
-        }
-
-        $validated = $request->validate([
-            'decision' => ['required', Rule::in(['forward', 'return', 'reject'])],
-            'ppmp_reference' => ['nullable', 'required_if:decision,forward', 'string', 'max:255'],
-            'app_reference' => ['nullable', 'required_if:decision,forward', 'string', 'max:255'],
-            'budget_available' => ['nullable', 'boolean'],
-            'review_remarks' => ['nullable', Rule::requiredIf(in_array($request->input('decision'), ['return', 'reject'], true)), 'string', 'max:2000'],
-        ], [
-            'ppmp_reference.required_if' => 'Enter the PPMP reference that covers this request.',
-            'app_reference.required_if' => 'Enter the APP reference that covers this request.',
-            'review_remarks.required' => 'Tell the end-user office why the request is returned or not approved.',
-        ]);
-
-        if ($validated['decision'] === 'forward' && ! ($validated['budget_available'] ?? false)) {
-            throw ValidationException::withMessages(['budget_available' => 'Confirm that the budget is available before forwarding to the BAC.']);
-        }
-
-        // Budget availability is only ever set by the reviewer ticking the box; record who and when.
-        $budgetConfirmed = (bool) ($validated['budget_available'] ?? false);
-
-        $before = $procurementRequest->only(['status', 'ppmp_reference', 'app_reference', 'budget_available', 'budget_confirmed_by', 'budget_confirmed_at', 'review_remarks']);
-        $status = match ($validated['decision']) {
-            'forward' => ProcurementRequest::STATUS_FORWARDED,
-            'return' => ProcurementRequest::STATUS_RETURNED,
-            'reject' => ProcurementRequest::STATUS_REJECTED,
-        };
-
-        $procurementRequest->update([
-            'status' => $status,
-            'ppmp_reference' => $validated['ppmp_reference'] ?? $procurementRequest->ppmp_reference,
-            'app_reference' => $validated['app_reference'] ?? $procurementRequest->app_reference,
-            'budget_available' => $budgetConfirmed,
-            'budget_confirmed_by' => $budgetConfirmed ? Auth::id() : null,
-            'budget_confirmed_at' => $budgetConfirmed ? now() : null,
-            'review_remarks' => $validated['review_remarks'] ?? null,
-            'reviewed_by' => Auth::id(),
-            'reviewed_at' => now(),
-            'forwarded_at' => $validated['decision'] === 'forward' ? now() : null,
-        ]);
-
-        AuditLog::log('procurement_request_reviewed', $procurementRequest, $before, $procurementRequest->only(array_keys($before)));
-
-        $label = $procurementRequest->reference_no.' ('.$procurementRequest->title.')';
-
-        $adminUrl = route('admin.requests', ['tab' => $validated['decision'] === 'forward' ? 'bac' : 'all', 'q' => $procurementRequest->reference_no]);
-        match ($validated['decision']) {
-            'forward' => SystemNotification::createForRole('admin', 'Procurement request for the BAC', $label.' from '.$procurementRequest->end_user_office.' is ready for the preparation of bidding documents.', 'procurement_request', ['url' => $adminUrl]),
-            'return' => SystemNotification::createForRole('admin', 'Request returned to the office', $label.' was returned: '.$validated['review_remarks'].' Ask '.$procurementRequest->end_user_office.' for a corrected hard copy.', 'procurement_request', ['url' => $adminUrl]),
-            'reject' => SystemNotification::createForRole('admin', 'Request not approved', $label.' was not approved: '.$validated['review_remarks'], 'procurement_request', ['url' => $adminUrl]),
-        };
-
-        $message = match ($validated['decision']) {
-            'forward' => 'Forwarded '.$procurementRequest->reference_no.' to the BAC.',
-            'return' => 'Returned '.$procurementRequest->reference_no.' with your remarks. The BAC admin is told.',
-            'reject' => 'Marked '.$procurementRequest->reference_no.' as not approved.',
-        };
-
-        return redirect()->route($role.'.requests', ['tab' => 'review'])->with('success', $message);
-    }
-
     /* ---------------------------------------------------------------------
      | Helpers
      * ------------------------------------------------------------------- */
-
-    private function markSubmitted(ProcurementRequest $procurementRequest): void
-    {
-        $procurementRequest->update([
-            'status' => ProcurementRequest::STATUS_SUBMITTED,
-            'submitted_at' => now(),
-            'review_remarks' => null,
-        ]);
-
-        AuditLog::log('procurement_request_submitted', $procurementRequest, null, ['status' => ProcurementRequest::STATUS_SUBMITTED]);
-
-        $message = $procurementRequest->end_user_office.' submitted '.$procurementRequest->reference_no.' ('.$procurementRequest->title.') for PPMP/APP and funds review.';
-        $queue = ['tab' => 'review', 'q' => $procurementRequest->reference_no];
-        try {
-            SystemNotification::createForRole('staff', 'Purchase request for PPMP/APP review', $message, 'procurement_request', ['url' => route('staff.requests', $queue)]);
-            SystemNotification::createForRole('admin', 'Purchase request for PPMP/APP review', $message, 'procurement_request', ['url' => route('admin.requests', $queue)]);
-        } catch (Throwable $exception) {
-            // The request is already submitted; a notification error must not turn it into a failed form submission.
-            Log::warning('Purchase request submitted, but a review notification failed.', [
-                'request_id' => $procurementRequest->id,
-                'exception' => $exception::class,
-            ]);
-        }
-    }
 
     /**
      * A draft needs only its title; submitting for the PPMP/APP and funds
