@@ -111,4 +111,31 @@ final class ProjectPublication
             report($exception);
         }
     }
+
+    /**
+     * A bidder approved after a procurement was posted never got its "new procurement" notice, so on approval
+     * they are told once which procurements are open right now. A failure here never undoes the approval.
+     */
+    public function notifyApprovedBidderOfOpenProjects(User $bidder): void
+    {
+        try {
+            $open = Project::query()->openForBidding()->orderBy('id')->get(['id', 'title']);
+            if ($open->isEmpty()) {
+                return;
+            }
+
+            $single = $open->count() === 1;
+            SystemNotification::createForUser(
+                $bidder->id,
+                $single ? 'A procurement is open for bidding' : $open->count().' procurements are open for bidding',
+                $single
+                    ? $open->first()->title.' is open for bidding. Open it to see the documents and the schedule.'
+                    : $open->take(3)->pluck('title')->implode('; ').($open->count() > 3 ? '; and '.($open->count() - 3).' more' : '').'. Open Available projects to see them.',
+                'project_available',
+                ['url' => $single ? route('bidder.opportunities.show', $open->first()) : route('bidder.available-projects')],
+            );
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+    }
 }

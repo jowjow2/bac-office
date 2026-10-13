@@ -71,3 +71,28 @@ it('announces a scheduled publication when its time arrives, once', function () 
     testCase()->actingAs($this->approved)->getJson(route('notifications.feed'))->assertOk();
     expect(UserNotification::where('user_id', $this->approved->id)->where('type', 'project_available')->count())->toBe(1);
 });
+
+it('tells a bidder approved later which procurements are open, once, and says nothing when none are', function () {
+    $late = $this->pending;
+    $publication = app(ProjectPublication::class);
+
+    // Nothing is open: no empty notice.
+    $publication->notifyApprovedBidderOfOpenProjects($late);
+    expect(UserNotification::where('user_id', $late->id)->where('type', 'project_available')->count())->toBe(0);
+
+    // Published before this bidder was approved, so the publication notice never reached them.
+    $publication->publish($this->project, $this->admin);
+    expect(UserNotification::where('user_id', $late->id)->where('type', 'project_available')->count())->toBe(0);
+
+    $publication->notifyApprovedBidderOfOpenProjects($late);
+    $notice = UserNotification::where('user_id', $late->id)->where('type', 'project_available')->firstOrFail();
+    expect($notice->title)->toBe('A procurement is open for bidding')
+        ->and($notice->message)->toContain('Supply of office chairs')
+        ->and($notice->data['url'])->toEndWith('/bidder/opportunities/'.$this->project->id);
+
+    $second = Project::create(['title' => 'Supply of laptops', 'description' => 'Laptops', 'budget' => 90000, 'deadline' => now()->addWeek(), 'status' => 'draft', 'category' => 'goods']);
+    $publication->publish($second, $this->admin);
+    $publication->notifyApprovedBidderOfOpenProjects($late);
+    $latest = UserNotification::where('user_id', $late->id)->where('title', 'like', '%procurements are open%')->firstOrFail();
+    expect($latest->message)->toContain('Supply of laptops')->and($latest->data['url'])->toEndWith('/bidder/available-projects');
+});

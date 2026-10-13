@@ -1178,6 +1178,7 @@ class AdminController extends Controller
         $user->refresh()->load('bidderProfile');
         if ($approvedNow) {
             SystemNotification::createForUser($user->id, 'Account approved', 'Your bidder account has been approved. You can now access the full SJBAC Portal.', 'account_approved');
+            app(\App\Support\ProjectPublication::class)->notifyApprovedBidderOfOpenProjects($user);
             try {
                 Mail::to($user->email)->send(new WelcomeMail($user));
             } catch (\Throwable $exception) {
