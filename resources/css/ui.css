@@ -1918,3 +1918,38 @@ a.ui-cell-title:hover {
     .ui-tabs::-webkit-scrollbar,
     .ui-stage-tabs::-webkit-scrollbar { display: none; }
 }
+
+
+/* ---------- Phone: dialogs are bottom sheets, and form actions stay in thumb reach ---------- */
+@media (max-width: 640px) {
+    dialog.ui-dialog {
+        width: 100%;
+        max-width: 100%;
+        max-height: 94dvh;
+        margin: auto 0 0;
+        border-radius: 18px 18px 0 0;
+        overscroll-behavior: contain;
+    }
+    .ui-dialog .ui-card__head { position: sticky; top: 0; z-index: 2; background: var(--ui-surface); }
+    /* The body ends at the action row, so the sticky bar sits flush with the bottom edge. */
+    .ui-dialog .ui-card__body { padding-bottom: 0; }
+    .ui-dialog .ui-card__body > :last-child:not(.ui-actions--end) { margin-bottom: 14px; }
+
+    /* The action row of a dialog or of a step form sticks to the bottom: full-width buttons, the main action first. */
+    .ui-dialog .ui-actions--end,
+    .ui-step-panel > .ui-actions--end {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        flex-direction: column-reverse;
+        align-items: stretch;
+        gap: 8px;
+        margin-inline: -14px;
+        padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+        border-top: 1px solid var(--ui-line);
+        background: var(--ui-surface);
+        box-shadow: 0 -8px 18px rgba(27, 36, 32, .06);
+    }
+    .ui-dialog .ui-actions--end .ui-btn,
+    .ui-step-panel > .ui-actions--end .ui-btn { width: 100%; }
+}

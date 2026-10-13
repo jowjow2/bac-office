@@ -15156,3 +15156,50 @@ body .admin-dashboard.admin-role-page .main-area.users-page .user-actions-menu-i
 body .admin-dashboard.admin-role-page .main-area.users-page .user-actions-menu-item.is-danger i { color: #d92d20 !important; -webkit-text-fill-color: #d92d20 !important; }
 body .admin-dashboard.admin-role-page .main-area.users-page .user-actions-menu-item:focus-visible { box-shadow: inset 0 0 0 2px var(--ui-primary) !important; }
 @media (prefers-reduced-motion: reduce) { body .admin-dashboard.admin-role-page .main-area.users-page .user-actions-menu.is-open .user-actions-dropdown { animation: none; } }
+
+
+/* ---------- Phone: modals become bottom sheets ----------
+   The shared admin/bidder modal system above is a centred card on a desktop. On a phone it is a sheet that rises
+   from the bottom: full width, up to 94% of the screen, with its footer buttons stacked full width (the main
+   action first) so they are within the thumb's reach. */
+@media (max-width: 640px) {
+    body :is(#awardViewModal, #declareWinnerModal, #projectFilesModal, #editProjectModal, #projectModal, #createUserModal, #editUserModal, #bidViewModal, #createModalOverlay, .assignment-modal, .modal-overlay, .admin-bid-modal-overlay, .bidder-modal-overlay, .bidder-scanner-modal-overlay, .message-chat-modal) {
+        padding: 0 !important;
+        align-items: flex-end !important;
+        justify-content: center !important;
+    }
+
+    body :is(#awardViewModal > div, #declareWinnerModal > div, #projectFilesModal > div, #editProjectModal > div, #projectModal > div, #createUserModal > div, #editUserModal .user-modal-card, #bidViewModal .admin-bid-modal-dialog, .assignment-modal .assignment-modal-dialog, .modal-overlay .modal-content, .admin-bid-modal-overlay .admin-bid-modal-dialog, .bidder-modal-overlay .bidder-modal:not(.bidder-submit-modal), .bidder-scanner-modal-overlay .bidder-scanner-modal, .message-chat-modal .message-chat-dialog) {
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: 94dvh !important;
+        border-width: 1px 0 0 !important;
+        border-radius: 18px 18px 0 0 !important;
+        box-shadow: 0 -14px 44px rgba(27, 36, 32, .28) !important;
+    }
+
+    body :is(.modal-header, .user-modal-header, .view-bid-modal-header, .view-project-modal-header, .edit-project-modal-header, .project-files-modal-header, .declare-award-modal-header, .assignment-modal-header, .bidder-modal-header, .bidder-scanner-modal-header, .message-chat-header) {
+        min-height: 56px !important;
+        padding: 12px 16px !important;
+    }
+
+    body :is(.modal-body, .user-modal-form, .view-bid-modal-body, .view-project-modal-body, .edit-project-form, .project-files-modal-body, .declare-award-body, .assignment-modal-form, .bidder-modal-body, .bidder-scanner-modal-body, .message-chat-body, #awardViewModalBody, #declareWinnerModalBody, #projectFilesModalBody, #viewModalBody, #editModalBody, #bidViewModalBody) {
+        padding: 16px !important;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+
+    body :is(.modal-footer, .user-modal-actions, .view-bid-actions, .view-project-actions, .edit-project-actions, .declare-award-actions, .assignment-modal-actions, .bidder-modal-footer, .bidder-scanner-modal-footer, .message-chat-footer, .create-modal-actions, .confirm-actions) {
+        flex-direction: column-reverse !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+        padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+        box-shadow: 0 -8px 18px rgba(27, 36, 32, .06) !important;
+    }
+
+    body :is(.modal-footer, .user-modal-actions, .view-bid-actions, .view-project-actions, .edit-project-actions, .declare-award-actions, .assignment-modal-actions, .bidder-modal-footer, .bidder-scanner-modal-footer, .message-chat-footer, .create-modal-actions, .confirm-actions) :is(button, a) {
+        width: 100% !important;
+        min-height: 44px !important;
+        justify-content: center !important;
+    }
+}

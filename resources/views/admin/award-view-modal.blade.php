@@ -170,5 +170,6 @@
         .av-actions .av-btn { flex: 1 1 100%; }
         .av-foot { padding: 12px 16px; }
         .av-foot .av-btn { width: 100%; }
+        .av-btn { min-height: 44px; }
     }
 </style>

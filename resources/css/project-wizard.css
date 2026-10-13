@@ -1033,3 +1033,9 @@ textarea.ui-input.pw-note__input {
     overflow: hidden;
     resize: none;
 }
+
+/* Phone: the wizard's Back / Next / Save buttons fill the width, easy to reach with a thumb. */
+@media (max-width: 640px) {
+    .pw__actions { gap: 8px; }
+    .pw__actions .ui-btn { flex: 1 1 0; min-width: 0; }
+}
