@@ -19,3 +19,7 @@ it('shows the Facebook link of the BAC only when its address is set', function (
     config(['bac-office.social.facebook' => 'https://www.facebook.com/example-bac']);
     testCase()->get('/')->assertOk()->assertSee('https://www.facebook.com/example-bac', false)->assertSee('Bids and Awards Committee on Facebook');
 });
+
+it('links to the Facebook page of the BAC by default', function () {
+    testCase()->get('/')->assertOk()->assertSee('https://www.facebook.com/bac.san.jose.oksimin', false);
+});

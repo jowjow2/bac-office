@@ -17,7 +17,7 @@ return [
 
     // The BAC's public pages on social media; the footer shows a link only when the address is set.
     'social' => [
-        'facebook' => env('BAC_FACEBOOK_URL'),
+        'facebook' => env('BAC_FACEBOOK_URL', 'https://www.facebook.com/bac.san.jose.oksimin'),
     ],
 
     // The procuring entity, as it appears on PhilGEPS notices.
