@@ -223,6 +223,16 @@
         .fee-row-actions { justify-content: flex-end; }
         .fee-alert-floating { top: 80px; right: 16px; }
     }
+
+    /* Phone: the four totals are a 2 x 2 block, so the projects start on the first screen. */
+    @media (max-width: 640px) {
+        .fee-board .fee-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .fee-board .fee-stat { padding: 12px 14px; border-right: 1px solid var(--fee-line); border-bottom: 1px solid var(--fee-line); }
+        .fee-board .fee-stat:nth-child(2n) { border-right: 0; }
+        .fee-board .fee-stat:nth-last-child(-n+2) { border-bottom: 0; }
+        .fee-board .fee-stat-icon { display: none; }
+        .fee-board .fee-stat-value { font-size: 17px; }
+    }
 </style>
 
 <div class="fee-board">

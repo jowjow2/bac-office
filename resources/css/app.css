@@ -18,7 +18,9 @@ html {
 body {
   background: var(--ui-page);
   color: var(--ui-ink);
+  /* clip, not hidden: no sideways scroll, and position: sticky keeps working. */
   overflow-x: hidden;
+  overflow-x: clip;
 }
 
 .home-page,
@@ -4054,3 +4056,47 @@ body.public-modal-open {
     main textarea { min-height: 96px; }
     .search-form button { min-height: 44px; }
 }
+
+
+/* ---------- Phone: a project page leads with the project ----------
+   The notice comes first; the participation card becomes a bar stuck to the bottom of the screen that holds only
+   Login to Participate (its date and ABC are already in the notice). A closed project has no bar. */
+@media (max-width: 640px) {
+  .bid-notice-aside {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    order: 1;
+    margin: 0 -16px;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+    border-width: 1px 0 0;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -10px 24px rgba(27, 36, 32, .12);
+  }
+  .bid-notice-aside .bid-notice-aside-label,
+  .bid-notice-aside .bid-notice-aside-date,
+  .bid-notice-aside .bid-notice-aside-amount,
+  .bid-notice-aside .btn-outline { display: none; }
+  .bid-notice-aside .btn { margin-top: 0; min-height: 48px; }
+  .bid-notice-aside:not(:has(.btn:not(.btn-outline))) { display: none; }
+  body:has(.bid-notice-aside .btn:not(.btn-outline)) .feedback-tab { bottom: 88px; }
+}
+
+
+/* ---------- Phone: the award document viewer ----------
+   Without a published document the viewer is a small note, not a screen-tall dark frame; with one, the frame
+   keeps a thin edge so the document gets the width. */
+@media (max-width: 640px) {
+  .award-post-viewer { padding: 8px; }
+  .award-post-viewer:has(.award-post-missing:not([hidden])) { padding: 0; background: transparent; }
+  .award-post-missing {
+    min-height: 0;
+    padding: 20px 16px;
+    border: 1px dashed var(--ui-line-strong, #cfd8d3);
+    border-radius: 12px;
+  }
+  .award-post-missing svg { width: 28px; height: 28px; }
+}
+
+/* See portal-shell.css: a screen-reader-only label never widens the page. */
+.sr-only { left: 0 !important; top: 0 !important; clip-path: inset(50%); }

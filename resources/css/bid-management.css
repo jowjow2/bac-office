@@ -3249,3 +3249,33 @@ body :is(#bidExportModal, #projectExportModal) .bid-export-preview-table :is(th,
 body :is(#bidExportModal, #projectExportModal) .bid-export-modal-dialog.is-empty, body :is(#bidExportModal, #projectExportModal).is-empty .bid-export-modal-dialog { width: min(420px, calc(100vw - 24px)) !important; }
 body :is(#bidExportModal, #projectExportModal).is-empty :is(.bid-export-filter-section, .bid-export-preview-section, .bid-export-warning) { display: none !important; }
 body :is(#bidExportModal, #projectExportModal).is-empty .bid-export-total { margin: 4px 0 8px !important; padding: 26px 16px !important; border: 1px dashed var(--ui-line-strong) !important; border-radius: 12px !important; background: var(--ui-surface-2) !important; text-align: center !important; font-size: 13.5px !important; }
+
+
+/* ---------- Phone: bid management ----------
+   The four counts are a 2 x 2 block and the filters sit two to a row under the search, so the bids start on the
+   first screen. In each bid card every line of a field (the e-mail under the bidder, the time under the date, the
+   list under the documents) stays in the value column instead of dropping into the narrow label column. */
+@media (max-width: 640px) {
+    html body .admin-bids-v2:not(#z) .bid-summary-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+    }
+    html body .admin-bids-v2:not(#z) .bid-summary-card { min-height: 0 !important; padding: 10px 12px !important; }
+    html body .admin-bids-v2:not(#z) .bid-summary-card small { display: none !important; }
+    html body .admin-bids-v2:not(#z) .bid-summary-card span { min-width: 0 !important; overflow: visible !important; white-space: normal !important; text-overflow: clip !important; line-height: 1.25 !important; }
+    html body .admin-bids-v2:not(#z) .bid-summary-card { align-items: center !important; }
+
+    html body .admin-bids-v2:not(#z):not(#y) .admin-bids-filter-group {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+    }
+    html body .admin-bids-v2:not(#z):not(#y) .admin-bids-filter-group > * { min-width: 0 !important; width: auto !important; }
+    html body .admin-bids-v2:not(#z):not(#y) .admin-bids-toolbar-field-search { grid-column: 1 / -1 !important; }
+    html body .admin-bids-v2:not(#z):not(#y) .admin-bids-toolbar-field select { width: 100% !important; font-weight: 500 !important; text-overflow: ellipsis !important; }
+
+    body #bid-management .bid-management-table:not(#z) td > * { grid-column: 2 !important; min-width: 0 !important; text-align: left !important; }
+    body #bid-management .bid-management-table:not(#z) td { row-gap: 2px !important; }
+    body #bid-management .bid-management-table:not(#z) td::before { grid-column: 1 !important; align-self: start !important; text-align: left !important; }
+}

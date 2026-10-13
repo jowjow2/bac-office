@@ -103,6 +103,12 @@
     .cp-tab:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: -2px; border-radius: 6px; }
     .cp-tab-count { padding: 1px 8px; border-radius: 999px; background: var(--ui-success-soft); color: var(--ui-success); font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
     .cp-tab-count.is-warn { background: var(--ui-warning-soft); color: var(--ui-warning); }
+    /* Phone: the three sections share the width (labels may wrap), none hidden past the edge. */
+    @media (max-width: 640px) {
+        .cp-tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0; overflow: visible; }
+        .cp-tab { flex-direction: column; justify-content: center; gap: 4px; min-height: 52px; padding: 8px 4px; font-size: 13px; line-height: 1.2; text-align: center; white-space: normal; }
+        .cp-tab > i { display: none; }
+    }
     .cp-panel[hidden] { display: none; }
     .cp-panel--narrow { max-width: 760px; }
     .cp-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; align-items: start; }

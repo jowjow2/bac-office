@@ -844,3 +844,15 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 @media (max-width: 640px) {
     .portal-main .ui-btn { min-height: 44px; }
 }
+
+/* A screen-reader-only label is absolutely positioned; left at its place inside a sideways-scrolling strip it
+   escaped the strip and made the whole page wider than the phone, so the browser zoomed the page out. Pinning it
+   to the corner of its containing block keeps it out of the page width. */
+.sr-only { left: 0 !important; top: 0 !important; clip-path: inset(50%); }
+
+/* An open conversation owns the bottom of the screen for its message box, so the tab bar steps aside (as chat apps
+   do); the list of conversations keeps it. */
+@media (max-width: 768px) {
+    body:has(.messenger-chat:not(.is-empty)) .portal-tabbar { display: none; }
+    body:has(.messenger-chat:not(.is-empty)) { padding-bottom: 0; }
+}

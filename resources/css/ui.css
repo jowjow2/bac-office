@@ -1967,8 +1967,10 @@ a.ui-cell-title:hover {
         overflow-x: visible;
     }
     .ui-tabs:not(:has(> :nth-child(5))) .ui-tab {
-        flex-direction: column;
-        justify-content: center;
+        display: grid;
+        grid-template-rows: minmax(0, 1fr) auto;
+        align-items: end;
+        justify-items: center;
         gap: 4px;
         padding: 8px 4px;
         font-size: 13px;
