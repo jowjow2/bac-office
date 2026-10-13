@@ -834,7 +834,11 @@ if (root && form) {
         file: $('[data-pw-doc-file]', row).files?.[0] || null,
     }));
 
-    function validateDocs(forPublish) {
+    // A document is complete when its row has both a type and a file.
+    const docComplete = ({ type, file }) => Boolean(file && type.value);
+
+    // requireOne: moving on or publishing needs at least one complete document; saving a draft does not.
+    function validateDocs(forPublish, requireOne = false) {
         let firstInvalid = null;
         docRows().forEach(({ row, type, file }) => {
             if (file && !type.value) {
@@ -847,6 +851,16 @@ if (root && form) {
                 checkDocFile(row);
             }
         });
+
+        if (requireOne && !docRows().some(docComplete)) {
+            const open = docRows().find((entry) => !docComplete(entry));
+            if (open) {
+                docError(open.row, !open.file && open.type.value
+                    ? 'Choose a file, or remove this row.'
+                    : 'Attach at least one document: choose its type and its file.');
+                firstInvalid ??= open.file ? open.type : $('[data-pw-doc-choose]', open.row);
+            }
+        }
 
         const needsInvitation = forPublish && isCompetitive();
         const hasInvitation = docRows().some(({ type, file }) => file && type.value === 'invitation_to_bid');
@@ -1173,9 +1187,9 @@ function nextWorkingDay(date, inclusive = true) {
         if (step === 3) {
             // Moving on only checks the rows; the Invitation to Bid is needed to publish,
             // since it usually quotes the dates set in the next step.
-            const first = show ? validateDocs(forPublish) : null;
+            const first = show ? validateDocs(forPublish, true) : null;
             if (!show) {
-                const pending = docRows().some(({ type, file }) => (file && !type.value) || (!file && type.value));
+                const pending = docRows().some(({ type, file }) => (file && !type.value) || (!file && type.value)) || !docRows().some(docComplete);
                 const needsInvitation = isCompetitive() && !docRows().some(({ type, file }) => file && type.value === 'invitation_to_bid');
                 if (pending || needsInvitation) invalid.push($('[data-pw-doc-add]'));
             } else if (first) {
