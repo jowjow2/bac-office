@@ -16,7 +16,7 @@
     <div class="site-footer__inner">
         <section class="site-footer__col" aria-labelledby="footerContact">
             <h2 id="footerContact">Contact us</h2>
-            <ul>
+            <ul class="site-footer__nav">
                 <li><a href="{{ route('contact') }}">Contact the BAC</a></li>
                 <li><a href="{{ url('/about') }}">About the BAC</a></li>
                 <li><a href="{{ route('public.procurement') }}">Public procurement</a></li>
@@ -35,13 +35,15 @@
             @endif
         </section>
 
-        <section class="site-footer__col" aria-labelledby="footerGov">
-            <h2 id="footerGov">Government links</h2>
-            <ul class="site-footer__links">
-                @foreach($footerGovernment as [$label, $href])
-                    <li><a href="{{ $href }}" target="_blank" rel="noopener noreferrer">{{ $label }}</a></li>
-                @endforeach
-            </ul>
+        <section class="site-footer__col" aria-label="Government links">
+            <details class="site-footer__gov" open>
+                <summary><h2 id="footerGov">Government links</h2></summary>
+                <ul class="site-footer__links">
+                    @foreach($footerGovernment as [$label, $href])
+                        <li><a href="{{ $href }}" target="_blank" rel="noopener noreferrer">{{ $label }}</a></li>
+                    @endforeach
+                </ul>
+            </details>
         </section>
     </div>
     <div class="site-footer__bar">
@@ -68,10 +70,27 @@
     @media (max-width: 900px) {
         .site-footer__inner { grid-template-columns: 1fr 1.3fr; }
     }
+    .site-footer__gov > summary { list-style: none; cursor: default; pointer-events: none; }
+    .site-footer__gov > summary::-webkit-details-marker { display: none; }
+    .site-footer__gov > summary h2 { margin: 0 0 6px; }
     @media (max-width: 560px) {
-        .site-footer__inner { grid-template-columns: 1fr; padding: 12px 16px 10px; }
-        .site-footer__links { grid-template-columns: 1fr; }
-        .site-footer__bar { padding: 7px 56px 7px 16px; }
+        .site-footer { margin-top: 16px; }
+        .site-footer__inner { grid-template-columns: 1fr; gap: 10px; padding: 14px 16px 10px; }
+        /* The page links become small pills in rows instead of a long list. */
+        .site-footer ul.site-footer__nav { display: flex; flex-wrap: wrap; gap: 6px; }
+        .site-footer__nav li { padding: 0; }
+        .site-footer__nav li::before { display: none; }
+        .site-footer__nav a { display: inline-flex; align-items: center; min-height: 30px; padding: 0 12px; border: 1px solid rgba(255, 255, 255, .35); border-radius: 999px; font-size: 13px; }
+        .site-footer__time { margin-top: 10px; font-size: 12.5px; line-height: 1.5; }
+        .site-footer__social { display: flex; justify-content: center; margin-top: 10px; }
+        /* Government links fold away until opened. */
+        .site-footer__gov { border-top: 1px solid rgba(255, 255, 255, .22); padding-top: 8px; }
+        .site-footer__gov > summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; pointer-events: auto; min-height: 32px; }
+        .site-footer__gov > summary h2 { margin: 0; }
+        .site-footer__gov > summary::after { content: ''; width: 8px; height: 8px; margin-right: 4px; border-right: 2px solid #fff; border-bottom: 2px solid #fff; transform: rotate(45deg); transition: transform .15s ease; }
+        .site-footer__gov[open] > summary::after { transform: rotate(-135deg); }
+        .site-footer__links { grid-template-columns: 1fr; padding: 6px 0 4px; }
+        .site-footer__bar { padding: 8px 56px 8px 16px; font-size: 12px; }
     }
     @media print { .site-footer { display: none; } }
 </style>
@@ -83,5 +102,15 @@
         function tick() { node.textContent = format.format(new Date()); }
         tick();
         setInterval(tick, 1000);
+    })();
+    // Government links start folded on a phone and stay open (and fixed) on a wide screen.
+    (function () {
+        var gov = document.querySelector('.site-footer__gov');
+        if (!gov) return;
+        var phone = window.matchMedia('(max-width: 560px)');
+        function apply() { gov.open = !phone.matches; }
+        apply();
+        if (phone.addEventListener) phone.addEventListener('change', apply);
+        gov.querySelector('summary').addEventListener('click', function (event) { if (!phone.matches) event.preventDefault(); });
     })();
 </script>
