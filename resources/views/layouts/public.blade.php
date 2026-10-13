@@ -45,7 +45,7 @@
         <style>
             .feedback-tab { position: fixed; right: 16px; bottom: 16px; z-index: 90; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 999px; background: #1b2420; color: #fff; font-size: 13px; font-weight: 600; text-decoration: none; box-shadow: 0 8px 22px rgba(27, 36, 32, .28); }
             .feedback-tab:hover { background: #1d4f40; }
-            @media (max-width: 640px) { .feedback-tab span { display: none; } .feedback-tab { width: 42px; padding: 0; justify-content: center; } }
+            @media (max-width: 640px) { .feedback-tab span { display: none; } .feedback-tab { right: 12px; bottom: 12px; width: 36px; min-height: 36px; padding: 0; justify-content: center; opacity: .88; } .feedback-tab svg { width: 16px; height: 16px; } }
             @media print { .feedback-tab { display: none; } }
         </style>
     @endif

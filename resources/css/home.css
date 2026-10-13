@@ -103,7 +103,22 @@
 .home-hero-stat {
   display: grid;
   gap: 4px;
+  padding: 6px 4px;
+  border-radius: 12px;
+  color: inherit;
   text-align: center;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.home-hero-stat:hover,
+.home-hero-stat:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.home-hero-stat:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
 }
 
 .home-hero-stat strong {
@@ -638,8 +653,14 @@
   }
 
   .home-hero-stat span {
-    font-size: 10px;
-    letter-spacing: 0.04em;
+    color: #ffffff;
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    line-height: 1.25;
+  }
+
+  .home-hero-stat strong {
+    font-size: 30px;
   }
 
   .home-content-shell {

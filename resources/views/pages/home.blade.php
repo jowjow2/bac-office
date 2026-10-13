@@ -26,20 +26,20 @@
                     <a href="{{ route('public.awards') }}" class="btn btn-outline">View Awards</a>
                 </div>
 
-                <dl class="home-hero-stats">
-                    <div class="home-hero-stat">
+                <div class="home-hero-stats">
+                    <a class="home-hero-stat" href="{{ route('public.procurement') }}">
                         <strong>{{ number_format($openProjectsCount ?? 0) }}</strong>
                         <span>Open Biddings</span>
-                    </div>
-                    <div class="home-hero-stat">
+                    </a>
+                    <a class="home-hero-stat" href="{{ route('public.awards') }}">
                         <strong>{{ number_format($awardedContractsCount ?? 0) }}</strong>
                         <span>Awarded Contracts</span>
-                    </div>
-                    <div class="home-hero-stat">
+                    </a>
+                    <a class="home-hero-stat" href="{{ route('public.procurement') }}">
                         <strong>{{ number_format($publicProjectsCount ?? 0) }}</strong>
                         <span>Published Projects</span>
-                    </div>
-                </dl>
+                    </a>
+                </div>
             </div>
             <p class="home-hero-caption">BAC Office · Municipal Compound, San Jose</p>
         </section>
