@@ -21,17 +21,7 @@
   overflow: hidden;
   /* Front of the BAC Office building, framed on the BAC Office sign. */
   background: #163d31 url("/Images/bac-office-front-clean.webp") 52% 42% / cover no-repeat;
-}
-
-/* The photo fades into the page colour at its lower edge instead of ending in a hard line. */
-.home-page-hero::after {
-  content: "";
-  position: absolute;
-  inset: auto 0 0 0;
-  z-index: 1;
-  height: 72px;
-  background: linear-gradient(180deg, transparent 0%, var(--ui-page) 100%);
-  pointer-events: none;
+  border-bottom: 1px solid var(--ui-line);
 }
 
 .home-hero-copy {
