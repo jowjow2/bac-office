@@ -1877,7 +1877,7 @@
                 $stageCount = fn (string $stage) => $awardStages->filter(fn ($value) => $value === $stage)->count();
             @endphp
 
-            <section class="awards-summary-grid" aria-label="Awards summary">
+            <section class="awards-summary-grid" aria-label="Awards summary" data-live-region="summary">
                 <article class="awards-stat-card">
                     <span class="awards-stat-icon is-dark" aria-hidden="true"><i class="fas fa-award"></i></span>
                     <div>
@@ -1913,6 +1913,7 @@
             </section>
 
             {{-- Shown only when a HoPE-approved bid is waiting for its Notice of Award. --}}
+            <div data-live-region="ready" style="display: contents">
             @if($readyProjectCollection->isNotEmpty())
             <section class="ready-awards-card" aria-labelledby="ready-awards-title">
                 <div class="ready-awards-header">
@@ -1969,6 +1970,7 @@
                 </div>
             </section>
             @endif
+            </div>
 
             <section class="awards-toolbar-card" aria-labelledby="awards-registry-title">
                 <div class="awards-toolbar-top">
@@ -1990,10 +1992,10 @@
                 </div>
                 <div class="awards-filter-tabs" role="tablist" aria-label="Award status filters">
                     <button type="button" class="awards-filter-tab is-active" data-award-filter="all" role="tab" aria-selected="true">All awards</button>
-                    <button type="button" class="awards-filter-tab" data-award-filter="awaiting" role="tab" aria-selected="false">Awaiting action <span class="awards-filter-count">{{ $stageCount('awaiting') }}</span></button>
-                    <button type="button" class="awards-filter-tab" data-award-filter="implementing" role="tab" aria-selected="false">In implementation <span class="awards-filter-count">{{ $stageCount('implementing') }}</span></button>
-                    <button type="button" class="awards-filter-tab" data-award-filter="completed" role="tab" aria-selected="false">Completed <span class="awards-filter-count">{{ $stageCount('completed') }}</span></button>
-                    <button type="button" class="awards-filter-tab" data-award-filter="cancelled" role="tab" aria-selected="false">Cancelled <span class="awards-filter-count">{{ $awardCollection->count() - $awardsInForce->count() }}</span></button>
+                    <button type="button" class="awards-filter-tab" data-award-filter="awaiting" role="tab" aria-selected="false">Awaiting action <span class="awards-filter-count" data-live-text="count-awaiting">{{ $stageCount('awaiting') }}</span></button>
+                    <button type="button" class="awards-filter-tab" data-award-filter="implementing" role="tab" aria-selected="false">In implementation <span class="awards-filter-count" data-live-text="count-implementing">{{ $stageCount('implementing') }}</span></button>
+                    <button type="button" class="awards-filter-tab" data-award-filter="completed" role="tab" aria-selected="false">Completed <span class="awards-filter-count" data-live-text="count-completed">{{ $stageCount('completed') }}</span></button>
+                    <button type="button" class="awards-filter-tab" data-award-filter="cancelled" role="tab" aria-selected="false">Cancelled <span class="awards-filter-count" data-live-text="count-cancelled">{{ $awardCollection->count() - $awardsInForce->count() }}</span></button>
                     <label class="awards-cert-filter">
                         <span class="sr-only">Certificate status</span>
                         <select id="awardCertFilter" aria-label="Certificate status">
@@ -2021,7 +2023,7 @@
                             <th scope="col">Action</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody data-live-region="rows">
                         @forelse($awardCollection as $award)
                             @php
                                 $projectTitle = $award->project?->title ?? 'Untitled project';
@@ -2202,6 +2204,7 @@
             </section>
 
         {{-- Cancelling an award: HoPE only, before contract signing, with its authority on record. --}}
+        <div data-live-region="cancel-dialogs">
         @php $cancelErrorFor = (string) old('cancel_award_id'); @endphp
         @foreach($awardCollection->filter(fn ($award) => ! $award->isCancelled() && $award->contract_date === null && $award->bid?->contract_signed_at === null) as $award)
             <dialog class="award-cancel" id="award-cancel-{{ $award->id }}" aria-labelledby="award-cancel-{{ $award->id }}-title" @if($cancelErrorFor === (string) $award->id) data-reopen @endif>
@@ -2232,8 +2235,11 @@
                 </form>
             </dialog>
         @endforeach
+        </div>
 
+        <div data-live-region="contract-dialogs">
         @include('partials.contract-implementation-dialogs', ['awards' => $awards, 'viewerMode' => 'admin'])
+        </div>
 
         </main>
     </div>
@@ -2557,17 +2563,18 @@
 
 <script>
     (() => {
-        const rows = Array.from(document.querySelectorAll('[data-award-row]'));
+        const getRows = () => Array.from(document.querySelectorAll('[data-award-row]'));
         const searchInput = document.getElementById('awardSearch');
         const statusFilter = document.getElementById('awardStatusFilter');
         const countLabel = document.getElementById('awardsRecordCount');
         const clearButton = document.getElementById('clearAwardFilters');
-        const filterTabs = Array.from(document.querySelectorAll('[data-award-filter]'));
-        const filteredEmpty = document.getElementById('awardsFilteredEmpty');
+        const getTabs = () => Array.from(document.querySelectorAll('[data-award-filter]'));
         let activeFilter = 'all';
 
         const applyFilters = () => {
             const query = (searchInput?.value || '').trim().toLowerCase();
+            const rows = getRows();
+            const filteredEmpty = document.getElementById('awardsFilteredEmpty');
             let visibleCount = 0;
 
             const certificate = document.getElementById('awardCertFilter')?.value || '';
@@ -2597,7 +2604,7 @@
                 statusFilter.value = activeFilter;
             }
 
-            filterTabs.forEach((tab) => {
+            getTabs().forEach((tab) => {
                 const isActive = tab.dataset.awardFilter === activeFilter;
                 tab.classList.toggle('is-active', isActive);
                 tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
@@ -2609,9 +2616,12 @@
         searchInput?.addEventListener('input', applyFilters);
         document.getElementById('awardCertFilter')?.addEventListener('change', applyFilters);
         statusFilter?.addEventListener('change', (event) => setFilter(event.target.value));
-        filterTabs.forEach((tab) => {
-            tab.addEventListener('click', () => setFilter(tab.dataset.awardFilter));
+        document.addEventListener('click', (event) => {
+            const tab = event.target.closest('[data-award-filter]');
+            if (tab) setFilter(tab.dataset.awardFilter);
         });
+        // After a live refresh the rows are new: apply the chosen stage, search and certificate filters again.
+        document.addEventListener('bac:live-refreshed', () => setFilter(activeFilter));
         clearButton?.addEventListener('click', () => {
             if (searchInput) searchInput.value = '';
             const certificateFilter = document.getElementById('awardCertFilter');

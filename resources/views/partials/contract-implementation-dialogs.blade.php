@@ -71,12 +71,13 @@
             // Closing (X or backdrop) is handled in partials.contract-implementation.
         });
 
-        document.querySelectorAll('.ci-dialog[data-ci-dialog]').forEach(function (dialog) {
-            dialog.addEventListener('close', function () {
-                setParam(null);
-                document.querySelector('[data-ci-open="' + dialog.dataset.ciDialog + '"]')?.focus();
-            });
-        });
+        // 'close' does not bubble: listen while it travels down, so dialogs swapped in by a live refresh still work.
+        document.addEventListener('close', function (event) {
+            const dialog = event.target;
+            if (!(dialog instanceof HTMLElement) || !dialog.matches('.ci-dialog[data-ci-dialog]')) return;
+            setParam(null);
+            document.querySelector('[data-ci-open="' + dialog.dataset.ciDialog + '"]')?.focus();
+        }, true);
 
         // A live refresh reloads the page under an open contract: remember where the reader was.
         const SCROLL_KEY = 'ci-live-scroll';

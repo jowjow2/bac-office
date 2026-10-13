@@ -245,7 +245,7 @@
         </div>
     @endif
 
-    <section class="fee-stats" aria-label="Payment summary">
+    <section class="fee-stats" aria-label="Payment summary" data-live-region="stats">
         <div class="fee-stat">
             <span class="fee-stat-icon" aria-hidden="true"><i class="fas fa-folder-open"></i></span>
             <div><span class="fee-stat-label">Open projects with a fee</span><span class="fee-stat-value">{{ number_format($stats['payable_projects']) }}</span></div>
@@ -386,7 +386,7 @@
             </div>
         </dialog>
 
-        <section class="fee-card" aria-labelledby="fee-open-title">
+        <section class="fee-card" aria-labelledby="fee-open-title" data-live-region="open">
             <div class="fee-card-head">
                 <div>
                     <h2 id="fee-open-title">Open for payment</h2>
@@ -424,12 +424,14 @@
                 <h2 id="fee-ledger-title">Payment records</h2>
                 <p>Every Official Receipt recorded. A payment already used for a submitted bid can be corrected but not removed.</p>
             </div>
+            <div data-live-region="ledger-head" style="display: contents">
             @unless($payments->isEmpty())
                 <a href="{{ route($routePrefix . '.payments.export', array_filter(['q' => $search, 'project' => $projectFilter])) }}" class="fee-btn fee-btn-ghost" data-export-dialog data-export-title="Export payment records" data-export-noun="payment" data-export-count="{{ method_exists($payments, 'total') ? $payments->total() : $payments->count() }}" data-export-note="{{ $hasFilters ? 'Only the payments that match your current search or project filter.' : 'Every Official Receipt recorded.' }}">
                     <i class="fas fa-file-export" aria-hidden="true"></i> {{ $hasFilters ? 'Export filtered' : 'Export' }}
                 </a>
-                @include('partials.export-dialog')
             @endunless
+            </div>
+            @include('partials.export-dialog')
         </div>
         <div class="fee-card-body" style="padding-bottom: 14px;">
             <form method="GET" action="{{ route($routePrefix . '.payments') }}" class="fee-toolbar" role="search">
@@ -450,6 +452,7 @@
             </form>
         </div>
 
+        <div data-live-region="ledger" style="display: contents">
         @if($payments->isEmpty())
             <div class="fee-empty" style="padding-bottom: 36px;">
                 <i class="fas fa-receipt" aria-hidden="true"></i>
@@ -539,6 +542,7 @@
                 </span>
             </nav>
         @endif
+        </div>
     </section>
 
     <dialog class="fee-dialog fee-report-dialog" id="fee-report-dialog" aria-labelledby="fee-report-title">
@@ -930,12 +934,12 @@
             if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');
         };
 
-        document.querySelectorAll('[data-fee-edit]').forEach(function (button) {
-            button.addEventListener('click', function () {
-                // Opening a row clears errors left from a previous edit attempt.
-                dialog.querySelectorAll('.fee-alert-error').forEach(function (node) { node.remove(); });
-                openEdit(button.dataset);
-            });
+        document.addEventListener('click', function (event) {
+            const button = event.target.closest('[data-fee-edit]');
+            if (!button || !dialog) return;
+            // Opening a row clears errors left from a previous edit attempt.
+            dialog.querySelectorAll('.fee-alert-error').forEach(function (node) { node.remove(); });
+            openEdit(button.dataset);
         });
 
         dialog && dialog.querySelectorAll('[data-fee-edit-close]').forEach(function (button) {

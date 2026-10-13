@@ -39,3 +39,15 @@ it('treats a Consulting award as tracked up to its Notice to Proceed', function 
         ->assertDontSee('No further tracking for this category yet.')
         ->assertDontSee('award-step-label">Completed', false);
 });
+
+it('marks the parts of the awards page that the live refresh swaps in place', function () {
+    $admin = \App\Models\User::create(['name' => 'Live Admin', 'email' => 'awards-live-admin@example.com', 'password' => \Illuminate\Support\Facades\Hash::make('password'), 'role' => 'admin', 'status' => 'active']);
+
+    $html = testCase()->actingAs($admin)->get(route('admin.awards.index'))->assertOk()->getContent();
+    foreach (['summary', 'ready', 'rows', 'cancel-dialogs', 'contract-dialogs'] as $region) {
+        expect(substr_count($html, 'data-live-region="'.$region.'"'))->toBe(1, "awards region {$region}");
+    }
+    foreach (['awaiting', 'implementing', 'completed', 'cancelled'] as $stage) {
+        expect(substr_count($html, 'data-live-text="count-'.$stage.'"'))->toBe(1, "awards count {$stage}");
+    }
+});

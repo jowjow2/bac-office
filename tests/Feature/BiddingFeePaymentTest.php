@@ -458,3 +458,12 @@ it('keeps Notes behind a button, and open when there is a note to show', functio
         ->assertSessionHasErrors('or_number');
     testCase()->actingAs($this->staff)->get(route('staff.payments'))->assertSee('Paid by the owner');
 });
+
+it('marks the parts of the payments page that the live refresh swaps in place, for admin and staff', function () {
+    foreach ([[$this->admin, 'admin.payments'], [$this->staff, 'staff.payments']] as [$user, $route]) {
+        $html = testCase()->actingAs($user)->get(route($route))->assertOk()->getContent();
+        foreach (['stats', 'open', 'ledger-head', 'ledger'] as $region) {
+            expect(substr_count($html, 'data-live-region="'.$region.'"'))->toBe(1, "{$route} region {$region}");
+        }
+    }
+});

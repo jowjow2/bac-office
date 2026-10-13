@@ -287,15 +287,44 @@
                 });
             }
 
+            // Pages that mark the parts showing records with data-live-region (and single numbers with
+            // data-live-text) are refreshed in place: fetch the page again, swap those parts, then tell the page
+            // (bac:live-refreshed) so it can re-apply its own filters. Returns false when it cannot.
+            async function genericLiveRefresh() {
+                const response = await fetch(window.location.href, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' },
+                    credentials: 'same-origin',
+                });
+                if (!response.ok || new URL(response.url).pathname !== window.location.pathname) return false;
+
+                const next = new DOMParser().parseFromString(await response.text(), 'text/html');
+                const pairs = Array.from(document.querySelectorAll('[data-live-region]')).map(function (current) {
+                    return [current, next.querySelector('[data-live-region="' + current.dataset.liveRegion + '"]')];
+                });
+                if (pairs.length === 0 || pairs.some(function (pair) { return !pair[1]; })) return false;
+
+                pairs.forEach(function (pair) { pair[0].innerHTML = pair[1].innerHTML; });
+                document.querySelectorAll('[data-live-text]').forEach(function (current) {
+                    const incoming = next.querySelector('[data-live-text="' + current.dataset.liveText + '"]');
+                    if (incoming) current.textContent = incoming.textContent;
+                });
+                document.dispatchEvent(new CustomEvent('bac:live-refreshed'));
+
+                return true;
+            }
+
             let liveRefreshing = false;
             async function reloadWhenIdle() {
                 if (!liveReloadPending || pageIsBusy() || liveRefreshing) return;
                 liveReloadPending = false;
                 // A page that can swap its own data in place does so; any failure falls back to the reload below.
-                if (typeof window.bacLiveRefresh === 'function' && !document.querySelector('dialog[open][data-live-reload]')) {
+                const refresh = typeof window.bacLiveRefresh === 'function'
+                    ? window.bacLiveRefresh
+                    : (document.querySelector('[data-live-region]') ? genericLiveRefresh : null);
+                if (refresh && !document.querySelector('dialog[open][data-live-reload]')) {
                     liveRefreshing = true;
                     try {
-                        if (await window.bacLiveRefresh()) return;
+                        if (await refresh()) return;
                     } catch (error) {
                         // Fall through to a normal reload.
                     } finally {
