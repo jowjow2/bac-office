@@ -40,6 +40,11 @@
 
     @yield('content')
 
+    {{-- Not on the printable award certificates. --}}
+    @unless(request()->routeIs('certificate.*', 'public.certificate.*', 'public.awards.document'))
+        @include('layouts.footer')
+    @endunless
+
     @if(\App\Models\Feedback::available() && ! request()->routeIs('feedback', 'certificate.*', 'public.certificate.*', 'public.awards.document'))
         <a href="{{ route('feedback') }}" class="feedback-tab" aria-label="Send feedback" aria-haspopup="dialog" data-feedback-open><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M4 3h16a2 2 0 012 2v11a2 2 0 01-2 2H9l-4.6 3.7A.8.8 0 013 20.1V5a2 2 0 011-1.4A2 2 0 014 3z"/></svg><span>Feedback</span></a>
         @include('partials.feedback-modal')
