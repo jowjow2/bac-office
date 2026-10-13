@@ -20,7 +20,7 @@
   padding: 64px 24px 56px;
   overflow: hidden;
   /* Front of the BAC Office building, framed on the BAC Office sign. */
-  background: #163d31 url("/Images/bac-office-front-wide.webp") 55% 40% / cover no-repeat;
+  background: #163d31 url("/Images/bac-office-front-wide.jpg") 55% 40% / cover no-repeat;
   border-bottom: 1px solid var(--ui-line);
 }
 
