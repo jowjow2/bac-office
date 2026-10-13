@@ -481,6 +481,73 @@ class BidderController extends Controller
             ->with('success', ($modified ? 'Bid modification received. It replaces your earlier submission. Receipt No. ' : 'Bid submitted online. Receipt No. ') . $bid->receipt_no . ' (' . $bid->submitted_at->timezone(config('bac-office.display_timezone'))->format('M d, Y h:i:s A') . ').');
     }
 
+    /**
+     * A new financial PIN for a submitted online bid, while it can still be modified (before the deadline and before
+     * the BAC has started on it). Nothing else changes: the same files, receipt and time of submission. The bidder
+     * confirms with the account password; the old PIN is never shown, since only its hash is kept.
+     */
+    public function changeFinancialPin(Request $request, Bid $bid)
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        abort_unless((int) $bid->user_id === (int) $user->id, 404);
+
+        $validated = $request->validateWithBag('pin', [
+            'account_password' => ['required', 'string'],
+            'financial_password' => ['required', 'digits:6', 'confirmed'],
+        ], [
+            'account_password.required' => 'Enter your account password to confirm.',
+            'financial_password.required' => 'Enter the new 6-digit PIN.',
+            'financial_password.digits' => 'The financial PIN must be exactly 6 digits.',
+            'financial_password.confirmed' => 'The two PINs do not match.',
+        ]);
+
+        if (! \Illuminate\Support\Facades\Hash::check($validated['account_password'], (string) $user->password)) {
+            throw ValidationException::withMessages(['account_password' => 'Your account password is incorrect.'])->errorBag('pin');
+        }
+
+        DB::transaction(function () use ($bid, $validated, $user, $request) {
+            $locked = Bid::with('project.schedule')->lockForUpdate()->findOrFail($bid->id);
+            if (! $locked->canBeModifiedNow()) {
+                throw ValidationException::withMessages(['financial_password' => 'The PIN can no longer be changed: the submission deadline has passed or the BAC has started on this bid.'])->errorBag('pin');
+            }
+
+            $locked->forceFill([
+                'financial_opening_password_hash' => \Illuminate\Support\Facades\Hash::make($validated['financial_password']),
+                'financial_password_attempts' => 0,
+                'financial_password_locked_until' => null,
+            ])->save();
+
+            // Shown in the bid history for the BAC; the PIN itself is never recorded.
+            $locked->trackings()->create([
+                'bidder_id' => $user->id,
+                'project_id' => $locked->project_id,
+                'status_title' => 'Financial PIN changed by the bidder',
+                'status_description' => 'The bidder set a new financial PIN before the submission deadline. The files and the time of submission are unchanged.',
+                'status_type' => 'info',
+                'visible_to_bidder' => false,
+                'created_by' => $user->id,
+            ]);
+            AuditLog::log('bid_financial_pin_changed', $locked, [], [
+                'bid_id' => $locked->id, 'project_id' => $locked->project_id, 'receipt_no' => $locked->receipt_no, 'changed_by' => $user->id,
+            ], ['ip_address' => $request->ip(), 'user_agent' => $request->userAgent()]);
+        });
+
+        try {
+            SystemNotification::createForUser(
+                $user->id,
+                'Financial PIN changed',
+                'You set a new financial PIN for '.($bid->project?->reference_no ?: 'your bid').'. Give the new PIN to the BAC at the financial opening. If you did not do this, contact the BAC right away.',
+                'bid_progress',
+                ['bid_id' => $bid->id, 'url' => route('bidder.my-bids')]
+            );
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+
+        return redirect()->route('bidder.my-bids')->with('success', 'Your new financial PIN is saved. Keep it safe: the BAC cannot recover it.');
+    }
+
     /** Folder in Blob storage for one bidder's direct uploads to one project. */
     private function bidUploadFolder(User $user, Project $project): string
     {

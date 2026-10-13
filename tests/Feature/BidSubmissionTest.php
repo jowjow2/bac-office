@@ -530,3 +530,44 @@ it('still asks for every required technical item when no combined file is sent',
     ($this->submit)($project, ['bid_amount' => '2,400,000.00', 'documents' => $financial])->assertSessionHasErrors('documents');
     expect(Bid::where('user_id', $this->bidder->id)->exists())->toBeFalse();
 });
+
+it('lets the bidder set a new financial PIN before the deadline, with the account password, and never after', function () {
+    $project = ($this->makeProject)();
+    ($this->authorizeElectronic)($project);
+    ($this->submit)($project, ['bid_amount' => '2,400,000.00', 'documents' => ($this->allRequiredFiles)($project)])->assertSessionHasNoErrors();
+    $bid = Bid::where('project_id', $project->id)->firstOrFail();
+    $receipt = $bid->receipt_no;
+    $submittedAt = $bid->submitted_at->toIso8601String();
+
+    // My bids offers it while the bid can be modified.
+    testCase()->actingAs($this->bidder)->get(route('bidder.my-bids'))->assertOk()
+        ->assertSee('Change PIN')->assertSee(route('bidder.bids.financial-pin', $bid), false);
+
+    $change = fn (array $data, ?User $as = null) => testCase()->actingAs($as ?? $this->bidder)->post(route('bidder.bids.financial-pin', $bid), $data + ['pin_bid_id' => $bid->id]);
+
+    // A wrong account password, or PINs that do not match, change nothing.
+    $change(['account_password' => 'nope', 'financial_password' => '111222', 'financial_password_confirmation' => '111222'])->assertSessionHasErrorsIn('pin', 'account_password');
+    $change(['account_password' => 'password', 'financial_password' => '111222', 'financial_password_confirmation' => '111333'])->assertSessionHasErrorsIn('pin', 'financial_password');
+    expect(Hash::check('482913', $bid->fresh()->financial_opening_password_hash))->toBeTrue();
+
+    // Another bidder cannot touch it.
+    $other = User::create(['name' => 'Other', 'email' => 'pin-other@example.com', 'password' => Hash::make('password'), 'role' => 'bidder', 'status' => 'active', 'company' => 'Other Co']);
+    $change(['account_password' => 'password', 'financial_password' => '111222', 'financial_password_confirmation' => '111222'], $other)->assertNotFound();
+
+    // The bidder sets a new PIN: only the PIN changes, it is on the record, and the bidder is told.
+    $change(['account_password' => 'password', 'financial_password' => '111222', 'financial_password_confirmation' => '111222'])
+        ->assertRedirect(route('bidder.my-bids'))->assertSessionHas('success');
+    $bid->refresh();
+    expect(Hash::check('111222', $bid->financial_opening_password_hash))->toBeTrue()
+        ->and(Hash::check('482913', $bid->financial_opening_password_hash))->toBeFalse()
+        ->and($bid->receipt_no)->toBe($receipt)
+        ->and($bid->submitted_at->toIso8601String())->toBe($submittedAt)
+        ->and(\App\Models\AuditLog::where('action', 'bid_financial_pin_changed')->count())->toBe(1)
+        ->and(BidTracking::where('bid_id', $bid->id)->where('status_title', 'Financial PIN changed by the bidder')->count())->toBe(1)
+        ->and(\App\Models\UserNotification::where('user_id', $this->bidder->id)->where('title', 'Financial PIN changed')->count())->toBe(1);
+
+    // After the deadline the PIN can no longer be changed.
+    $this->travelTo($project->deadline->copy()->addMinute());
+    $change(['account_password' => 'password', 'financial_password' => '333444', 'financial_password_confirmation' => '333444'])->assertSessionHasErrorsIn('pin', 'financial_password');
+    expect(Hash::check('111222', $bid->fresh()->financial_opening_password_hash))->toBeTrue();
+});

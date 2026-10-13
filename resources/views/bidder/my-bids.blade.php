@@ -376,6 +376,45 @@
                             <a href="{{ $trackUrl }}" class="ui-btn {{ $row['canModify'] || $row['canContinueDraft'] ? 'ui-btn--secondary' : 'ui-btn--primary' }}"><i class="fas fa-route" aria-hidden="true"></i> Submission status</a>
                             @if($row['canModify'])
                                 <a href="{{ $modifyUrl }}" class="ui-btn ui-btn--primary"><i class="fas fa-pen-to-square" aria-hidden="true"></i> Modify bid</a>
+                                @if($bid->submission_channel === \App\Models\Bid::CHANNEL_ELECTRONIC)
+                                    <button type="button" class="ui-btn ui-btn--secondary" data-pin-open="pin-dialog-{{ $bid->id }}"><i class="fas fa-key" aria-hidden="true"></i> Change PIN</button>
+                                    <dialog class="mb-pin" id="pin-dialog-{{ $bid->id }}" aria-labelledby="pin-title-{{ $bid->id }}" @if((string) old('pin_bid_id') === (string) $bid->id && $errors->pin->any()) data-reopen @endif>
+                                        <form method="POST" action="{{ route('bidder.bids.financial-pin', $bid) }}" class="mb-pin-form">
+                                            @csrf
+                                            <input type="hidden" name="pin_bid_id" value="{{ $bid->id }}">
+                                            <header class="mb-pin-head">
+                                                <div>
+                                                    <h2 id="pin-title-{{ $bid->id }}">Change financial PIN</h2>
+                                                    <p>{{ $project?->reference_no }} &middot; Receipt No. {{ $bid->receipt_no }}</p>
+                                                </div>
+                                                <button type="button" class="mb-pin-close" data-pin-close aria-label="Close">&times;</button>
+                                            </header>
+                                            <p class="mb-pin-note">Forgot your PIN, or want a new one? Set it here until {{ $row['deadline']?->format('M d, h:i A') ?? 'the deadline' }}. Your files, price and time of submission stay the same. After the deadline the PIN can no longer be changed.</p>
+                                            @php $pinErrors = (string) old('pin_bid_id') === (string) $bid->id ? $errors->pin : new \Illuminate\Support\MessageBag; @endphp
+                                            <label class="mb-pin-field">
+                                                <span>Your account password</span>
+                                                <input type="password" name="account_password" autocomplete="current-password" required>
+                                                @if($pinErrors->has('account_password'))<em>{{ $pinErrors->first('account_password') }}</em>@endif
+                                            </label>
+                                            <div class="mb-pin-row">
+                                                <label class="mb-pin-field">
+                                                    <span>New PIN</span>
+                                                    <input type="password" name="financial_password" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="new-password" placeholder="6 digits" required>
+                                                </label>
+                                                <label class="mb-pin-field">
+                                                    <span>Confirm new PIN</span>
+                                                    <input type="password" name="financial_password_confirmation" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="new-password" placeholder="6 digits" required>
+                                                </label>
+                                            </div>
+                                            @if($pinErrors->has('financial_password'))<em class="mb-pin-error">{{ $pinErrors->first('financial_password') }}</em>@endif
+                                            <p class="mb-pin-warning"><i class="fas fa-key" aria-hidden="true"></i> The BAC cannot recover this PIN. Write it down somewhere safe.</p>
+                                            <footer class="mb-pin-foot">
+                                                <button type="button" class="ui-btn ui-btn--secondary" data-pin-close>Cancel</button>
+                                                <button type="submit" class="ui-btn ui-btn--primary">Save new PIN</button>
+                                            </footer>
+                                        </form>
+                                    </dialog>
+                                @endif
                                 <p class="mb-side-note">You can change your price or files until {{ $row['deadline']?->format('M d, h:i A') ?? 'the deadline' }}.</p>
                             @elseif($row['canContinueDraft'])
                                 <a href="{{ $modifyUrl }}" class="ui-btn ui-btn--primary"><i class="fas fa-paper-plane" aria-hidden="true"></i> Finish and submit</a>
@@ -399,6 +438,50 @@
     </section>
 @endsection
 
+@push('head')
+<style>
+    .mb-pin { width: min(480px, calc(100vw - 24px)); padding: 0; border: 0; border-radius: 16px; box-shadow: 0 24px 70px rgba(15, 25, 21, .35); }
+    .mb-pin::backdrop { background: rgba(15, 25, 21, .55); backdrop-filter: blur(2px); }
+    .mb-pin-form { display: grid; gap: 14px; padding: 20px 22px; }
+    .mb-pin-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .mb-pin-head h2 { margin: 0; color: var(--ui-ink); font-size: 18px; }
+    .mb-pin-head p { margin: 3px 0 0; color: var(--ui-muted); font-size: 12.5px; }
+    .mb-pin-close { width: 32px; height: 32px; border: 1px solid var(--ui-line); border-radius: 9px; background: #fff; color: var(--ui-muted); font-size: 18px; line-height: 1; cursor: pointer; }
+    .mb-pin-note { margin: 0; color: var(--ui-ink-2); font-size: 13px; line-height: 1.55; }
+    .mb-pin-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .mb-pin-field { display: grid; gap: 6px; margin: 0; }
+    .mb-pin-field span { color: var(--ui-ink-2); font-size: 12.5px; font-weight: 600; }
+    .mb-pin-field input { width: 100%; min-height: 42px; padding: 0 12px; border: 1px solid var(--ui-line-strong); border-radius: 10px; font: inherit; font-size: 15px; }
+    .mb-pin-field input[name^="financial_password"] { font-family: var(--ui-mono, monospace); letter-spacing: .3em; }
+    .mb-pin-field em, .mb-pin-error { color: var(--ui-danger); font-size: 12.5px; font-style: normal; }
+    .mb-pin-warning { display: flex; align-items: baseline; gap: 8px; margin: 0; padding: 9px 12px; border: 1px solid var(--ui-warning-line); border-radius: 10px; background: var(--ui-warning-soft); color: var(--ui-ink); font-size: 12.5px; }
+    .mb-pin-warning i { color: var(--ui-warning); }
+    .mb-pin-foot { display: flex; justify-content: flex-end; gap: 8px; }
+    @media (max-width: 520px) { .mb-pin-row { grid-template-columns: 1fr; } }
+</style>
+@endpush
+@push('scripts')
+<script>
+    (function () {
+        document.addEventListener('click', function (event) {
+            const opener = event.target.closest('[data-pin-open]');
+            if (opener) {
+                const dialog = document.getElementById(opener.dataset.pinOpen);
+                if (dialog && typeof dialog.showModal === 'function') dialog.showModal();
+                return;
+            }
+            if (event.target.closest('[data-pin-close]')) event.target.closest('dialog')?.close();
+            else if (event.target instanceof HTMLDialogElement && event.target.classList.contains('mb-pin')) event.target.close();
+        });
+        // Only digits in the PIN boxes.
+        document.addEventListener('input', function (event) {
+            if (event.target.matches('.mb-pin input[name^="financial_password"]')) event.target.value = event.target.value.replace(/\D/g, '').slice(0, 6);
+        });
+        // A refused change comes back with the dialog open.
+        document.querySelector('.mb-pin[data-reopen]')?.showModal();
+    })();
+</script>
+@endpush
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function () {
