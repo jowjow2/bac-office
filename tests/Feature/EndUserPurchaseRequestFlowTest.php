@@ -280,3 +280,59 @@ it('lets the admin correct a recorded request until a project is made from it', 
     testCase()->actingAs($this->admin)->put(route('admin.requests.update', $request), $this->details + ['end_user_office' => 'Municipal Health Office'])->assertRedirect(route('admin.requests', ['tab' => 'all']));
     expect($request->fresh()->title)->toBe('Supply of survey equipment (corrected)');
 });
+
+it('takes a purchase request attachment straight from Blob storage, so a large file is not posted with the form', function () {
+    config()->set('services.vercel_blob', ['enabled' => true, 'token' => 'vercel_blob_rw_storeABC123_secretvalue']);
+    $host = 'storeabc123.private.blob.vercel-storage.com';
+    $folder = 'request-uploads/'.$this->admin->id;
+    $deleted = new ArrayObject;
+
+    Http::fake(function ($request) use ($host, $deleted) {
+        if ($request->method() === 'GET' && str_contains($request->url(), $host)) {
+            return Http::response("%PDF-1.4\nattachment", 200, ['Content-Type' => 'application/pdf']);
+        }
+        if ($request->method() === 'POST' && str_ends_with($request->url(), '/api/blob/delete')) {
+            foreach ($request->data()['urls'] as $url) {
+                $deleted[] = $url;
+            }
+
+            return Http::response([], 200);
+        }
+        if ($request->method() === 'PUT') {
+            parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+
+            return Http::response(['url' => 'https://'.$host.'/'.$query['pathname']]);
+        }
+
+        return Http::response([], 200);
+    });
+
+    // The token: only this admin's folder, only these file types.
+    $token = fn (string $pathname) => testCase()->actingAs($this->admin)->postJson(route('admin.requests.upload-token'), ['type' => 'blob.generate-client-token', 'payload' => ['pathname' => $pathname, 'clientPayload' => null, 'multipart' => false]]);
+    $token('request-uploads/999/0.pdf')->assertStatus(422);
+    $token($folder.'/0.exe')->assertStatus(422);
+    $token($folder.'/0.pdf')->assertOk()->assertJsonStructure(['clientToken']);
+    testCase()->actingAs($this->staff)->postJson(route('admin.requests.upload-token'), ['type' => 'blob.generate-client-token', 'payload' => ['pathname' => $folder.'/0.pdf']])->assertForbidden();
+
+    // The form sends the reference, not the file; the document type of that row is kept.
+    testCase()->actingAs($this->admin)->post(route('admin.requests.store'), $this->details + [
+        'end_user_office' => 'Municipal Engineering Office',
+        'document_types' => ['tor'],
+        'uploaded_documents' => ['r0' => 'https://'.$host.'/'.$folder.'/0-aB3dE.pdf'],
+        'uploaded_document_names' => ['r0' => 'TOR-big.pdf'],
+    ])->assertSessionHasNoErrors()->assertRedirect();
+
+    $document = ProcurementRequest::firstOrFail()->documents()->firstOrFail();
+    expect($document->original_name)->toBe('TOR-big.pdf')->and($document->document_type)->toBe('tor');
+    // The temporary direct upload is removed once the stored copy exists.
+    expect(collect($deleted)->contains('https://'.$host.'/'.$folder.'/0-aB3dE.pdf'))->toBeTrue();
+
+    // A reference into someone else's folder is refused and nothing is saved.
+    $before = ProcurementRequest::count();
+    testCase()->actingAs($this->admin)->post(route('admin.requests.store'), $this->details + [
+        'end_user_office' => 'Municipal Engineering Office',
+        'uploaded_documents' => ['r0' => 'https://'.$host.'/request-uploads/999/0-x.pdf'],
+        'uploaded_document_names' => ['r0' => 'x.pdf'],
+    ])->assertSessionHasErrors();
+    expect(ProcurementRequest::count())->toBe($before);
+});

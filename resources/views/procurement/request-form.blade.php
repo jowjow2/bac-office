@@ -29,7 +29,7 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ $editing ? route('admin.requests.update', $procurementRequest) : route('admin.requests.store') }}" enctype="multipart/form-data" class="ui-card" data-stepped data-validate>
+    <form method="POST" action="{{ $editing ? route('admin.requests.update', $procurementRequest) : route('admin.requests.store') }}" enctype="multipart/form-data" class="ui-card" data-stepped data-validate @if(\App\Support\VercelBlob::enabled()) data-direct-upload-url="{{ route('admin.requests.upload-token') }}" data-direct-upload-folder="request-uploads/{{ auth()->id() }}" @endif>
         @csrf
         @if($editing) @method('PUT') @endif
 
@@ -275,6 +275,10 @@
         </div>
     </form>
 
+@push('scripts')
+    @vite(['resources/js/request-direct-upload.js'])
+@endpush
+
 @push('head')
 <style>
     .pr-items { display: grid; gap: 10px; min-width: 0; }
@@ -497,6 +501,10 @@
 </script>
 @endpush
 
+
+@push('scripts')
+    @vite(['resources/js/request-direct-upload.js'])
+@endpush
 
 @push('head')
 <style>

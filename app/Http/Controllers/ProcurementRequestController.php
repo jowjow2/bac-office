@@ -62,6 +62,11 @@ class ProcurementRequestController extends Controller
 
     public function adminStore(Request $request)
     {
+        return $this->withDirectUploads($request, fn () => $this->recordRequest($request));
+    }
+
+    private function recordRequest(Request $request)
+    {
         // A recorded request is complete: it is checked like a submitted one.
         $request->merge(['action' => 'submit']);
         $validated = $this->validateRequest($request);
@@ -129,6 +134,11 @@ class ProcurementRequestController extends Controller
     }
 
     public function adminUpdate(Request $request, ProcurementRequest $procurementRequest)
+    {
+        return $this->withDirectUploads($request, fn () => $this->updateRecordedRequest($request, $procurementRequest));
+    }
+
+    private function updateRecordedRequest(Request $request, ProcurementRequest $procurementRequest)
     {
         if (! $this->editable($procurementRequest)) {
             return redirect()->route('admin.requests', ['tab' => 'all'])
@@ -518,6 +528,68 @@ class ProcurementRequestController extends Controller
         return back()
             ->withInput($request->except('documents'))
             ->withErrors(['documents' => 'The attachment could not be uploaded right now, so nothing was saved. Try again in a few minutes, or save without the attachment and add it later.']);
+    }
+
+    /** Where this admin's direct uploads for a purchase request go in Blob storage. */
+    private function uploadFolder(): string
+    {
+        return 'request-uploads/'.Auth::id();
+    }
+
+    /**
+     * Issues the short-lived token @vercel/blob "upload" asks for, so an attachment goes from the browser straight to
+     * private Blob storage: a serverless request takes at most 4.5 MB, which one 20 MB file already exceeds (413).
+     */
+    public function uploadToken(Request $request)
+    {
+        abort_unless(VercelBlob::enabled(), 404);
+        if ($request->input('type') !== 'blob.generate-client-token') {
+            return response()->json(['error' => 'Unsupported upload request.'], 422);
+        }
+
+        $pathname = (string) $request->input('payload.pathname');
+        if (! preg_match('#^'.preg_quote($this->uploadFolder(), '#').'/[A-Za-z0-9._-]{1,150}\.(pdf|doc|docx|xls|xlsx|jpg|jpeg|png)$#i', $pathname)) {
+            return response()->json(['error' => 'Use PDF, Word, Excel or image files.'], 422);
+        }
+
+        return response()->json([
+            'type' => 'blob.generate-client-token',
+            'clientToken' => VercelBlob::clientToken($pathname, 20480 * 1024, []),
+        ]);
+    }
+
+    /**
+     * Files the browser uploaded straight to Blob storage arrive as references: fetch them so they get the same
+     * checks and storage as posted files, run the request, then remove the temporary uploads.
+     */
+    private function withDirectUploads(Request $request, \Closure $callback)
+    {
+        try {
+            [$files, $urls, $temps] = VercelBlob::pullUploads(
+                (array) $request->input('uploaded_documents', []),
+                (array) $request->input('uploaded_document_names', []),
+                $this->uploadFolder(),
+                'documents'
+            );
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            return back()->withErrors($exception->errors())->withInput($request->except('documents', 'uploaded_documents', 'uploaded_document_names'));
+        }
+
+        try {
+            if ($files !== []) {
+                // The references are keyed r0, r1... (a plain 0 would not pass as a key); the number is the row of the
+                // attachment, which pairs the file with its document type.
+                $byRow = [];
+                foreach ($files as $key => $file) {
+                    $byRow[(int) substr((string) $key, 1)] = $file;
+                }
+                $request->files->set('documents', $byRow + (array) $request->files->get('documents', []));
+            }
+
+            return $callback();
+        } finally {
+            VercelBlob::discardUploads($urls, $temps);
+        }
     }
 
     private function storeDocuments(ProcurementRequest $procurementRequest, Request $request): void

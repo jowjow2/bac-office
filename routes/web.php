@@ -243,6 +243,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/requests/{procurementRequest}/print', [ProcurementRequestController::class, 'printForm'])->name('admin.requests.print');
     Route::get('/admin/requests/create', [ProcurementRequestController::class, 'adminCreate'])->name('admin.requests.create');
     Route::post('/admin/requests', [ProcurementRequestController::class, 'adminStore'])->name('admin.requests.store');
+    Route::post('/admin/requests/uploads', [ProcurementRequestController::class, 'uploadToken'])->name('admin.requests.upload-token');
     Route::get('/admin/requests/{procurementRequest}/edit', [ProcurementRequestController::class, 'adminEdit'])->name('admin.requests.edit');
     Route::put('/admin/requests/{procurementRequest}', [ProcurementRequestController::class, 'adminUpdate'])->name('admin.requests.update');
     Route::post('/admin/requests/{procurementRequest}/review', [ProcurementRequestController::class, 'review'])->name('admin.requests.review');
