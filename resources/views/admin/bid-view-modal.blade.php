@@ -266,7 +266,7 @@
             @unless($focusReview)
             <section class="br-panel" role="tabpanel" id="br-panel-overview" aria-labelledby="br-tab-overview" data-br-panel="overview">
                 <dl class="br-facts">
-                    <div><dt>Bidder / Company</dt><dd>{{ $bidderName }}</dd></div>
+                    <div><dt>Bidder / Company</dt><dd>{{ $bidderName }}@if($bid->user?->bidderProfile?->verificationUrl()) <a href="{{ $bid->user->bidderProfile->verificationUrl() }}" target="_blank" rel="noopener" title="Opens the bidder's record with their full bidding history (BAC only)" style="margin-left:8px;font-size:12.5px;font-weight:600;white-space:nowrap">View bidding record</a>@endif</dd></div>
                     <div><dt>Email</dt><dd class="br-break">{{ $bid->user?->email ?? 'N/A' }}</dd></div>
                     <div class="is-wide"><dt>Project</dt><dd>{{ $project?->reference_no ? $project->reference_no.' - ' : '' }}{{ $project?->title ?? 'N/A' }}</dd></div>
                     <div><dt>Procurement mode</dt><dd>{{ $mode?->label() ?? 'Not specified' }} &middot; {{ $mode?->legalBasisShort() ?? 'Regime not recorded' }}</dd></div>

@@ -95,6 +95,10 @@ it('adds a BAC view with every bid and the sanctions, for a signed-in admin or s
         ->assertSee(route('admin.bid.view', $lostBid), false);
     expect($adminPage->headers->get('cache-control'))->toContain('no-store');
 
+    // The admin reaches the same record from the bid, without scanning the QR.
+    testCase()->actingAs($admin)->get(route('admin.bid.view', $lostBid), ['X-Requested-With' => 'XMLHttpRequest'])->assertOk()
+        ->assertSee('View bidding record')->assertSee(e($url), false);
+
     $staff = User::create(['name' => 'BAC Staff', 'email' => 'qr-staff@example.com', 'password' => Hash::make('password'), 'role' => 'staff', 'status' => 'active']);
     // Staff see only the bids on their assigned projects.
     testCase()->actingAs($staff)->get($url)->assertOk()->assertSee('BAC view')->assertSee('no bid on the projects assigned to you')
