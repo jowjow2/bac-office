@@ -21,6 +21,7 @@ it('adds 20 purchase requests and 20 projects, none named as a test, and only on
     expect($requests->pluck('title')->merge($projects->pluck('title'))->filter(fn ($t) => stripos($t, 'test') !== false))->toBeEmpty();
     expect($projects->where('status', 'open')->every(fn ($p) => $p->deadline->isFuture()))->toBeTrue()->and($projects->where('status', 'open')->count())->toBeGreaterThan(10);
     expect($projects->whereNotNull('procurement_request_id'))->toHaveCount(6);
+    expect($projects->every(fn ($p) => (float) $p->bidding_documents_fee === (float) AppSupportBiddingDocumentsFee::maximumFor($p->budget)))->toBeTrue();
     expect(ProcurementRequest::nextReferenceNo())->not->toContain('D0');
 });
 

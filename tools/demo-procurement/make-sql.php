@@ -52,6 +52,12 @@ foreach (DB::table('projects')->where('reference_no', 'like', 'SJ-BAC-2026-%-D__
     $out[] = 'INSERT INTO project_schedules (project_id, '.implode(', ', $sc).') SELECT p.id, '.implode(', ', $sv).' FROM projects p WHERE p.reference_no = '.$ref.' AND NOT EXISTS (SELECT 1 FROM project_schedules s WHERE s.project_id = p.id);';
     $out[] = "INSERT INTO project_requirements (project_id, required_documents, created_at, updated_at) SELECT p.id, '[]'::json, now(), now() FROM projects p WHERE p.reference_no = {$ref} AND NOT EXISTS (SELECT 1 FROM project_requirements r WHERE r.project_id = p.id);";
 }
+// Demo projects added earlier without a bidding documents fee: set the schedule maximum for their ABC.
+$case = [];
+foreach (App\Support\BiddingDocumentsFee::schedule() as $row) {
+    $case[] = $row['limit'] === null ? 'ELSE '.$row['maximum'] : 'WHEN budget <= '.$row['limit'].' THEN '.$row['maximum'];
+}
+$out[] = ''; $out[] = "UPDATE projects SET bidding_fee_mode = 'schedule', bidding_documents_fee = CASE ".implode(' ', $case)." END WHERE reference_no LIKE 'SJ-BAC-2026-%-D__' AND bidding_fee_mode IS NULL;";
 $out[] = ''; $out[] = 'END $$;'; $out[] = '';
 $out[] = "-- To remove the demo records:";
 $out[] = "-- DO $$ BEGIN";

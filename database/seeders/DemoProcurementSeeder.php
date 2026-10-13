@@ -174,6 +174,8 @@ class DemoProcurementSeeder extends Seeder
                     'contract_duration' => $request?->delivery_period ?: '60 calendar days',
                     'submission_mode' => Project::SUBMISSION_ELECTRONIC, 'submission_venue' => 'BAC Secretariat, Municipal Hall, San Jose',
                     'bid_security_required' => true, 'procurement_request_id' => $request?->id,
+                    'bidding_fee_mode' => \App\Support\BiddingDocumentsFee::MODE_SCHEDULE,
+                    'bidding_documents_fee' => \App\Support\BiddingDocumentsFee::maximumFor($budget),
                     'status' => $status === 'draft' ? 'draft' : ($status === 'closed' ? 'closed' : 'open'),
                     'deadline' => $deadline,
                     'published_at' => $open ? now()->subDays(max(3, 14 - $days)) : null,
