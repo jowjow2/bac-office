@@ -483,28 +483,17 @@
         const add = document.querySelector('[data-add-attachment]');
         if (!rows || !add) return;
 
-        // An empty file box holds the step (Next and Save): the first box only when no document is on file yet,
-        // and every box added with "Add another file" until it gets a file or is removed.
-        const syncAttachments = function () {
-            const kept = document.querySelectorAll('input[name="remove_documents[]"]:not(:checked)').length;
-            rows.querySelectorAll('[data-attachment-file]').forEach(function (input, position) {
-                const empty = !input.files || input.files.length === 0;
-                const needed = position > 0 || kept === 0;
-                input.setCustomValidity(empty && needed
-                    ? (position > 0 ? 'Choose a file for this row, or remove the row.' : 'Attach at least one planning document: the terms of reference, specifications or PPMP extract.')
-                    : '');
-                if (!empty || !needed) {
-                    input.setAttribute('aria-invalid', 'false');
-                    const message = document.getElementById(input.getAttribute('aria-describedby'));
-                    if (message) { message.textContent = ''; message.hidden = true; }
-                }
-            });
+        // Every file box shown must get a file before Next or Save. A request with documents already on file shows
+        // no empty box (only "Add another file"); a request with none (or with all of them marked Remove) gets one
+        // box that must be filled.
+        const template = rows.firstElementChild.cloneNode(true);
+        const kept = function () {
+            return document.querySelectorAll('input[name="remove_documents[]"]:not(:checked)').length;
         };
+        let index = 0;
 
-        let index = 1;
-        add.addEventListener('click', function () {
-            if (rows.children.length >= 10) return;
-            const row = rows.firstElementChild.cloneNode(true);
+        const addRow = function () {
+            const row = template.cloneNode(true);
             row.querySelectorAll('select, input').forEach(function (field) {
                 const base = field.id.replace(/-\d+$/, '');
                 const label = row.querySelector('label[for="' + field.id + '"]');
@@ -525,8 +514,39 @@
             remove.innerHTML = '<i class="fas fa-xmark" aria-hidden="true"></i> Remove this row';
             row.querySelector('[data-attachment-file]').closest('.ui-field').appendChild(remove);
             rows.appendChild(row);
-            row.querySelector('select').focus();
             index++;
+
+            return row;
+        };
+
+        const syncAttachments = function () {
+            const onFile = kept();
+            // Nothing on file and no box left: one box comes back, and it must be filled.
+            if (onFile === 0 && rows.children.length === 0) addRow();
+            const boxes = Array.from(rows.querySelectorAll('[data-attachment-file]'));
+            const onlyBox = onFile === 0 && boxes.length === 1;
+            boxes.forEach(function (input) {
+                const empty = !input.files || input.files.length === 0;
+                input.setCustomValidity(empty
+                    ? (onlyBox ? 'Attach at least one planning document: the terms of reference, specifications or PPMP extract.' : 'Choose a file for this row, or remove the row.')
+                    : '');
+                if (!empty) {
+                    input.setAttribute('aria-invalid', 'false');
+                    const message = document.getElementById(input.getAttribute('aria-describedby'));
+                    if (message) { message.textContent = ''; message.hidden = true; }
+                }
+                const remove = input.closest('[data-attachment-row]').querySelector('[data-remove-attachment]');
+                if (remove) remove.hidden = onlyBox;
+            });
+        };
+
+        // Start from the template: no box when documents are already on file, one box otherwise.
+        rows.innerHTML = '';
+        if (kept() === 0) addRow();
+
+        add.addEventListener('click', function () {
+            if (rows.children.length >= 10) return;
+            addRow().querySelector('select').focus();
             syncAttachments();
         });
 
