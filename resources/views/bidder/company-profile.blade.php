@@ -107,6 +107,15 @@
     .cp-meter i { display: block; height: 100%; border-radius: 999px; background: var(--ui-success); }
     .cp-doc-file { display: block; overflow: hidden; color: var(--ui-subtle); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
     .cp-doc-file i { margin-right: 4px; }
+    .cp-tabs { display: flex; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--ui-line); }
+    .cp-tab { display: inline-flex; align-items: center; gap: 8px; margin-bottom: -1px; padding: 11px 16px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--ui-muted); font: inherit; font-size: var(--ui-text-sm); font-weight: 600; white-space: nowrap; cursor: pointer; }
+    .cp-tab:hover { color: var(--ui-ink); }
+    .cp-tab.is-active { border-bottom-color: var(--ui-primary); color: var(--ui-primary); }
+    .cp-tab:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: -2px; border-radius: 6px; }
+    .cp-tab-count { padding: 1px 8px; border-radius: 999px; background: var(--ui-success-soft); color: var(--ui-success); font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .cp-tab-count.is-warn { background: var(--ui-warning-soft); color: var(--ui-warning); }
+    .cp-panel[hidden] { display: none; }
+    .cp-panel--narrow { max-width: 760px; }
     .cp-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; align-items: start; }
     .cp-col { display: grid; gap: 16px; min-width: 0; }
     .cp-card-note { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-muted); font-size: var(--ui-text-xs); font-weight: 600; }
@@ -309,67 +318,22 @@
         </div>
     @endif
 
-    <div class="cp-grid">
-        <div class="cp-col">
-            <section class="ui-card" aria-labelledby="cp-company-title">
-                <div class="ui-card__head">
-                    <h2 class="ui-card__title" id="cp-company-title">Company Information</h2>
-                    @if($isApproved)
-                        <span class="cp-card-note" title="Verified company details are locked. Contact the SJBAC to request changes."><i class="fas fa-lock" aria-hidden="true"></i> Locked</span>
-                    @else
-                        <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" data-dialog-open="companyEditModal"><i class="fas fa-pen" aria-hidden="true"></i> Edit</button>
-                    @endif
-                </div>
-                <div class="ui-card__body">
-                    <div class="cp-company">
-                        <span class="cp-avatar" aria-hidden="true">{{ $companyInitial }}</span>
-                        <div>
-                            <h3>{{ $companyLabel }}</h3>
-                            <p>{{ $user->email }}</p>
-                            <span class="ui-badge ui-badge--{{ $statusMeta['tone'] === 'success' ? 'success' : ($statusMeta['tone'] === 'info' ? 'info' : $statusMeta['tone']) }}">{{ $statusMeta['label'] }}</span>
-                        </div>
-                    </div>
-                    <dl class="cp-facts">
-                        <div><dt>Registration number</dt><dd>{{ $user->registration_no ?: 'Not provided' }}</dd></div>
-                        <div><dt>Contact person</dt><dd>{{ $profile?->contact_person ?: $user->name }}</dd></div>
-                        <div><dt>Contact number</dt><dd class="{{ $profile?->contact_number ? '' : 'is-missing' }}">{{ $profile?->contact_number ?: 'Not provided' }}</dd></div>
-                        <div><dt>Business address</dt><dd>{{ $profile?->business_address ?: 'Not provided' }}</dd></div>
-                    </dl>
-                    @if($isApproved)
-                        <p class="ui-hint ui-mt-sm">Verified details are locked. To change them, message the SJBAC.</p>
-                    @endif
-                </div>
-            </section>
+    @php $hasQr = $isApproved && $profile?->tokenQrUrl(); @endphp
+    <div class="cp-tabs" role="tablist" aria-label="Profile sections">
+        <button type="button" role="tab" class="cp-tab is-active" id="cp-tab-documents" aria-controls="cp-panel-documents" aria-selected="true" data-cp-tab="documents">
+            <i class="fas fa-folder-open" aria-hidden="true"></i> Documents <span class="cp-tab-count {{ $requiredOnFile < $requiredTotal ? 'is-warn' : '' }}">{{ $onFile }}/{{ $checklist->count() }}</span>
+        </button>
+        <button type="button" role="tab" class="cp-tab" id="cp-tab-company" aria-controls="cp-panel-company" aria-selected="false" data-cp-tab="company" tabindex="-1">
+            <i class="fas fa-building" aria-hidden="true"></i> Company details
+        </button>
+        @if($hasQr)
+            <button type="button" role="tab" class="cp-tab" id="cp-tab-qr" aria-controls="cp-panel-qr" aria-selected="false" data-cp-tab="qr" tabindex="-1">
+                <i class="fas fa-qrcode" aria-hidden="true"></i> Public record QR
+            </button>
+        @endif
+    </div>
 
-            @if($isApproved && $profile?->tokenQrUrl())
-                <section class="ui-card" aria-labelledby="cp-qr-title">
-                    <div class="ui-card__head">
-                        <div>
-                            <h2 class="ui-card__title" id="cp-qr-title">Verified Bidding Record QR</h2>
-                            <p class="ui-card__desc">Share your track record: anyone who scans it sees your approved bids and awarded contracts.</p>
-                        </div>
-                    </div>
-                    <div class="ui-card__body cp-qr">
-                        <a class="cp-qr-image" href="{{ $profile->verificationUrl() }}" target="_blank" rel="noopener" title="Open your public record">
-                            <img src="{{ $profile->tokenQrUrl() }}" alt="QR code linking to your public bidding record">
-                        </a>
-                        <div class="cp-qr-copy">
-                            <label class="ui-label" for="bidderQrLink">Public verification link</label>
-                            <div class="cp-qr-link">
-                                <input type="text" class="ui-input" id="bidderQrLink" value="{{ $profile->verificationUrl() }}" readonly>
-                                <button type="button" class="ui-btn ui-btn--secondary" id="bidderQrCopyBtn"><i class="fas fa-copy" aria-hidden="true"></i> Copy</button>
-                            </div>
-                            <div class="cp-qr-actions">
-                                <a href="{{ $profile->tokenQrUrl() }}" download="bidding-record-qr.svg" class="ui-btn ui-btn--secondary ui-btn--sm"><i class="fas fa-download" aria-hidden="true"></i> Download QR</a>
-                                <a href="{{ $profile->verificationUrl() }}" target="_blank" rel="noopener" class="ui-btn ui-btn--ghost ui-btn--sm"><i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i> Open public page</a>
-                            </div>
-                            <p class="cp-qr-hint">Shows only your <strong>approved bids</strong> and <strong>awarded contracts</strong>, never your documents, pending bids or contact details.</p>
-                        </div>
-                    </div>
-                </section>
-            @endif
-        </div>
-
+    <div class="cp-panel" id="cp-panel-documents" role="tabpanel" aria-labelledby="cp-tab-documents" data-cp-panel="documents">
         <section class="ui-card" aria-labelledby="cp-docs-title">
             <div class="ui-card__head">
                 <div>
@@ -472,6 +436,68 @@
             @endif
         </section>
     </div>
+
+    <div class="cp-panel cp-panel--narrow" id="cp-panel-company" role="tabpanel" aria-labelledby="cp-tab-company" data-cp-panel="company" hidden>
+            <section class="ui-card" aria-labelledby="cp-company-title">
+                <div class="ui-card__head">
+                    <h2 class="ui-card__title" id="cp-company-title">Company Information</h2>
+                    @if($isApproved)
+                        <span class="cp-card-note" title="Verified company details are locked. Contact the SJBAC to request changes."><i class="fas fa-lock" aria-hidden="true"></i> Locked</span>
+                    @else
+                        <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" data-dialog-open="companyEditModal"><i class="fas fa-pen" aria-hidden="true"></i> Edit</button>
+                    @endif
+                </div>
+                <div class="ui-card__body">
+                    <div class="cp-company">
+                        <span class="cp-avatar" aria-hidden="true">{{ $companyInitial }}</span>
+                        <div>
+                            <h3>{{ $companyLabel }}</h3>
+                            <p>{{ $user->email }}</p>
+                            <span class="ui-badge ui-badge--{{ $statusMeta['tone'] === 'success' ? 'success' : ($statusMeta['tone'] === 'info' ? 'info' : $statusMeta['tone']) }}">{{ $statusMeta['label'] }}</span>
+                        </div>
+                    </div>
+                    <dl class="cp-facts">
+                        <div><dt>Registration number</dt><dd>{{ $user->registration_no ?: 'Not provided' }}</dd></div>
+                        <div><dt>Contact person</dt><dd>{{ $profile?->contact_person ?: $user->name }}</dd></div>
+                        <div><dt>Contact number</dt><dd class="{{ $profile?->contact_number ? '' : 'is-missing' }}">{{ $profile?->contact_number ?: 'Not provided' }}</dd></div>
+                        <div><dt>Business address</dt><dd>{{ $profile?->business_address ?: 'Not provided' }}</dd></div>
+                    </dl>
+                    @if($isApproved)
+                        <p class="ui-hint ui-mt-sm">Verified details are locked. To change them, message the SJBAC.</p>
+                    @endif
+                </div>
+            </section>
+    </div>
+
+    @if($hasQr)
+    <div class="cp-panel cp-panel--narrow" id="cp-panel-qr" role="tabpanel" aria-labelledby="cp-tab-qr" data-cp-panel="qr" hidden>
+                <section class="ui-card" aria-labelledby="cp-qr-title">
+                    <div class="ui-card__head">
+                        <div>
+                            <h2 class="ui-card__title" id="cp-qr-title">Verified Bidding Record QR</h2>
+                            <p class="ui-card__desc">Share your track record: anyone who scans it sees your approved bids and awarded contracts.</p>
+                        </div>
+                    </div>
+                    <div class="ui-card__body cp-qr">
+                        <a class="cp-qr-image" href="{{ $profile->verificationUrl() }}" target="_blank" rel="noopener" title="Open your public record">
+                            <img src="{{ $profile->tokenQrUrl() }}" alt="QR code linking to your public bidding record">
+                        </a>
+                        <div class="cp-qr-copy">
+                            <label class="ui-label" for="bidderQrLink">Public verification link</label>
+                            <div class="cp-qr-link">
+                                <input type="text" class="ui-input" id="bidderQrLink" value="{{ $profile->verificationUrl() }}" readonly>
+                                <button type="button" class="ui-btn ui-btn--secondary" id="bidderQrCopyBtn"><i class="fas fa-copy" aria-hidden="true"></i> Copy</button>
+                            </div>
+                            <div class="cp-qr-actions">
+                                <a href="{{ $profile->tokenQrUrl() }}" download="bidding-record-qr.svg" class="ui-btn ui-btn--secondary ui-btn--sm"><i class="fas fa-download" aria-hidden="true"></i> Download QR</a>
+                                <a href="{{ $profile->verificationUrl() }}" target="_blank" rel="noopener" class="ui-btn ui-btn--ghost ui-btn--sm"><i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i> Open public page</a>
+                            </div>
+                            <p class="cp-qr-hint">Shows only your <strong>approved bids</strong> and <strong>awarded contracts</strong>, never your documents, pending bids or contact details.</p>
+                        </div>
+                    </div>
+                </section>
+    </div>
+    @endif
 </div>
 
 {{-- Confirmation before resubmitting corrections --}}
@@ -525,6 +551,40 @@
     </dialog>
 @endunless
 @endsection
+
+@push('scripts')
+<script>
+    (function () {
+        var tabs = Array.prototype.slice.call(document.querySelectorAll('[data-cp-tab]'));
+        if (!tabs.length) return;
+        function show(name, focus) {
+            var found = tabs.some(function (tab) { return tab.dataset.cpTab === name; });
+            if (!found) name = 'documents';
+            tabs.forEach(function (tab) {
+                var on = tab.dataset.cpTab === name;
+                tab.classList.toggle('is-active', on);
+                tab.setAttribute('aria-selected', on ? 'true' : 'false');
+                tab.tabIndex = on ? 0 : -1;
+                if (on && focus) tab.focus();
+            });
+            document.querySelectorAll('[data-cp-panel]').forEach(function (panel) {
+                panel.hidden = panel.dataset.cpPanel !== name;
+            });
+            try { history.replaceState(null, '', '#' + name); } catch (e) {}
+        }
+        tabs.forEach(function (tab, index) {
+            tab.addEventListener('click', function () { show(tab.dataset.cpTab, false); });
+            tab.addEventListener('keydown', function (event) {
+                var next = event.key === 'ArrowRight' ? index + 1 : event.key === 'ArrowLeft' ? index - 1 : null;
+                if (next === null) return;
+                event.preventDefault();
+                show(tabs[(next + tabs.length) % tabs.length].dataset.cpTab, true);
+            });
+        });
+        show((location.hash || '').replace('#', '') || 'documents', false);
+    })();
+</script>
+@endpush
 
 @push('scripts')
 <script>

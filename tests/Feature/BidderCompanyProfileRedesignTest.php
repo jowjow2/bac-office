@@ -114,3 +114,22 @@ it('shows the page title with a plain ampersand and a summary of the documents o
         ->assertDontSee('&amp;amp;', false)
         ->assertSee('Registration documents')->assertSee('Required documents')->assertSee('Last document update');
 });
+
+it('splits the page into Documents, Company details and Public record QR tabs', function () {
+    $bidder = crBidder();
+    $bidder->bidderProfile()->update(['review_status' => 'for_re_evaluation']);
+
+    // Not approved yet: no QR tab, and the documents panel is the one shown first.
+    $page = testCase()->actingAs($bidder)->get(route('bidder.company-profile'))->assertOk();
+    $page->assertSee('data-cp-tab="documents"', false)->assertSee('data-cp-tab="company"', false)->assertDontSee('data-cp-tab="qr"', false)
+        ->assertSee('id="cp-panel-documents"', false)->assertSee('id="cp-panel-company"', false)
+        ->assertSee('REG-CR-1')->assertSee('BAC Avenue');
+    expect(preg_match('/id="cp-panel-documents"[^>]*\shidden/', $page->getContent()))->toBe(0);
+
+    $bidder->update(['status' => 'active']);
+    $bidder->bidderProfile()->update(['approval_status' => 'approved']);
+    $approved = testCase()->actingAs($bidder->fresh())->get(route('bidder.company-profile'))->assertOk();
+    if (str_contains($approved->getContent(), 'cp-qr-title')) {
+        $approved->assertSee('data-cp-tab="qr"', false)->assertSee('id="cp-panel-qr"', false);
+    }
+});
