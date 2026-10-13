@@ -96,14 +96,14 @@
             <section class="bidder-record-section bac-view" aria-label="BAC view">
                 <div class="bac-view-head">
                     <h2><i class="fas fa-user-shield" aria-hidden="true"></i> BAC view</h2>
-                    <p>Only you can see this because you are signed in as {{ $bacView['role'] === 'admin' ? 'BAC Admin' : 'BAC Secretariat' }}. Do not share this page.</p>
+                    <p>Only you can see this because you are signed in as {{ $bacView['role'] === 'admin' ? 'BAC Admin' : 'BAC Secretariat' }}. Do not share this page.@if($bacView['limited']) The bids below are only those on the projects assigned to you.@endif</p>
                     @if($bacView['role'] === 'admin')
                         <a class="bac-view-link" href="{{ route('admin.users', ['review' => $user->id]) }}">Open the bidder account</a>
                     @endif
                 </div>
 
                 <div class="bidder-record-stats">
-                    <div><span>All bids submitted</span><strong>{{ $bacBids->count() }}</strong></div>
+                    <div><span>{{ $bacView['limited'] ? 'Bids on your projects' : 'All bids submitted' }}</span><strong>{{ $bacBids->count() }}</strong></div>
                     <div><span>Awarded</span><strong>{{ $counts['awarded'] }}</strong></div>
                     <div><span>Not awarded</span><strong>{{ $counts['lost'] }}</strong></div>
                     <div><span>Disqualified or rejected</span><strong>{{ $counts['disqualified'] }}</strong></div>
@@ -127,7 +127,7 @@
                     <p class="bidder-record-empty">No sanctions on record.</p>
                 @endforelse
 
-                <h3 class="bac-view-sub">Every bid</h3>
+                <h3 class="bac-view-sub">{{ $bacView['limited'] ? 'Bids on your assigned projects' : 'Every bid' }}</h3>
                 @forelse($bacBids as $bid)
                     @php
                         [$outcomeLabel, $outcomeTone] = $outcome($bid);
@@ -155,7 +155,7 @@
                         </div>
                     </article>
                 @empty
-                    <p class="bidder-record-empty">This bidder has not submitted any bid yet.</p>
+                    <p class="bidder-record-empty">{{ $bacView['limited'] ? 'This bidder has no bid on the projects assigned to you.' : 'This bidder has not submitted any bid yet.' }}</p>
                 @endforelse
             </section>
         @endif

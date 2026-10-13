@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Assignment;
 use App\Models\Award;
 use App\Models\Bid;
 use App\Models\Bidder;
@@ -42,8 +43,11 @@ class PublicBidderController extends Controller
         if ($viewer && in_array($viewer->role, ['admin', 'staff'], true)) {
             $bacView = [
                 'role' => $viewer->role,
+                // BAC Secretariat sees only the bids on the projects assigned to them; the admin sees all.
+                'limited' => $viewer->role === 'staff',
                 'bids' => Bid::with(['project', 'award.contractImplementation'])
                     ->where('user_id', $user->id)
+                    ->when($viewer->role === 'staff', fn ($query) => $query->whereIn('project_id', Assignment::query()->where('staff_id', $viewer->id)->select('project_id')))
                     ->orderByDesc('created_at')
                     ->get(),
                 'sanctions' => $bidder->sanctions()->get(),

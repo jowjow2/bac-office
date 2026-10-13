@@ -96,7 +96,12 @@ it('adds a BAC view with every bid and the sanctions, for a signed-in admin or s
     expect($adminPage->headers->get('cache-control'))->toContain('no-store');
 
     $staff = User::create(['name' => 'BAC Staff', 'email' => 'qr-staff@example.com', 'password' => Hash::make('password'), 'role' => 'staff', 'status' => 'active']);
-    testCase()->actingAs($staff)->get($url)->assertOk()->assertSee('BAC view')->assertSee('Supply of school desks');
+    // Staff see only the bids on their assigned projects.
+    testCase()->actingAs($staff)->get($url)->assertOk()->assertSee('BAC view')->assertSee('no bid on the projects assigned to you')
+        ->assertDontSee('Supply of school desks')->assertDontSee('Concreting of farm-to-market road');
+    \App\Models\Assignment::create(['staff_id' => $staff->id, 'project_id' => $lost->id, 'role_in_project' => 'BAC Secretariat']);
+    testCase()->actingAs($staff)->get($url)->assertOk()->assertSee('Bids on your projects')->assertSee('Supply of school desks')
+        ->assertDontSee('Concreting of farm-to-market road')->assertSee('Late submission of the performance security.');
 
     // Another bidder (or the bidder themselves) is signed in but gets the public record only.
     $other = User::create(['name' => 'Other', 'email' => 'qr-other@example.com', 'password' => Hash::make('password'), 'role' => 'bidder', 'status' => 'active', 'company' => 'Other Co']);
