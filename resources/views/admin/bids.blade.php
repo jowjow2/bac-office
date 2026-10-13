@@ -43,7 +43,7 @@
                 <div class="bid-error" role="alert">{{ $errors->first() }}</div>
             @endif
 
-            <section class="bid-summary-grid" aria-label="Submission summary">
+            <section class="bid-summary-grid" aria-label="Submission summary" data-live-region="summary">
                 <div class="bid-summary-card"><span>Total in view</span><strong>{{ $summary['total'] ?? 0 }}</strong><small>Matches current filters</small></div>
                 <div class="bid-summary-card is-sealed"><span>Sealed submissions</span><strong>{{ $summary['sealed'] ?? 0 }}</strong><small>Opening must be recorded</small></div>
                 <div class="bid-summary-card is-ready"><span>Ready for examination</span><strong>{{ $summary['ready'] ?? 0 }}</strong><small>Opening/review available</small></div>
@@ -67,7 +67,7 @@
                         <h2>Submitted bids</h2>
                         <p>Open a submission to review its current stage and required documents.</p>
                     </div>
-                    <span class="bid-register-heading__count">{{ $bids->total() }} {{ \Illuminate\Support\Str::plural('submission', $bids->total()) }}</span>
+                    <span class="bid-register-heading__count" data-live-region="count">{{ $bids->total() }} {{ \Illuminate\Support\Str::plural('submission', $bids->total()) }}</span>
                 </div>
                 <form method="GET" action="{{ route($isStaff ? 'staff.review-bids' : 'admin.bids') }}" class="admin-bids-toolbar">
                     <input type="hidden" name="per_page" value="{{ $bids->perPage() }}">
@@ -118,10 +118,13 @@
                         </div>
                     </div>
                 </form>
-                @if($rankedProject)
-                    @include('admin.partials.bid-ranking')
-                @endif
-                @include('admin.partials.bid-table')
+                {{-- The part the live refresh swaps in place; display: contents keeps the layout as it was. --}}
+                <div data-live-region="table" style="display: contents">
+                    @if($rankedProject)
+                        @include('admin.partials.bid-ranking')
+                    @endif
+                    @include('admin.partials.bid-table')
+                </div>
             </section>
         </main>
     </div>

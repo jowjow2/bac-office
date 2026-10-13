@@ -311,3 +311,18 @@ it('selects the next recorded stage for Proceed including historical awards', fu
     'complete' => [fn () => ['post_qualification_at' => now(), 'post_qualification_result' => Bid::POST_QUALIFICATION_PASSED, 'bac_recommended_at' => now(), 'status' => 'awarded', 'award_decision' => Bid::AWARD_DECISION_APPROVED, 'notice_of_award_at' => now(), 'contract_signed_at' => now(), 'notice_to_proceed_at' => now()], ''],
     'disqualified' => [fn () => ['disqualified_at' => now()], ''],
 ]);
+
+it('marks the parts of the bid list that the live refresh swaps in place', function () {
+    ($this->makeBid)();
+
+    foreach ([route('admin.bids')] as $url) {
+        $html = $this->actingAs($this->admin)->get($url)->assertOk()->getContent();
+        foreach (['summary', 'count', 'table'] as $region) {
+            expect(substr_count($html, 'data-live-region="'.$region.'"'))->toBe(1);
+        }
+    }
+
+    // The page the live script watches is the one that carries the regions.
+    expect(\App\Support\LiveVersion::scopeForRoute('admin.bids'))->toBe('bids')
+        ->and(\App\Support\LiveVersion::scopeForRoute('staff.review-bids'))->toBe('bids');
+});

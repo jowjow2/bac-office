@@ -276,14 +276,32 @@
                     if (field.type === 'hidden' || field.disabled || field.getClientRects().length === 0) return false;
                     if (field.type === 'file') return field.files && field.files.length > 0;
                     if (field.type === 'checkbox' || field.type === 'radio') return field.checked !== field.defaultChecked;
-                    if (field.tagName === 'SELECT') return Array.from(field.options).some(function (option) { return option.selected !== option.defaultSelected; });
+                    if (field.tagName === 'SELECT') {
+                        if (field.multiple) return Array.from(field.options).some(function (option) { return option.selected !== option.defaultSelected; });
+                        // A select with no option marked selected shows its first option: that is its untouched state.
+                        const marked = Array.from(field.options).filter(function (option) { return option.defaultSelected; });
+                        const initial = marked.length ? marked[marked.length - 1] : field.options[0];
+                        return Boolean(initial) && field.selectedOptions[0] !== initial;
+                    }
                     return field.value !== field.defaultValue;
                 });
             }
 
-            function reloadWhenIdle() {
-                if (!liveReloadPending || pageIsBusy()) return;
+            let liveRefreshing = false;
+            async function reloadWhenIdle() {
+                if (!liveReloadPending || pageIsBusy() || liveRefreshing) return;
                 liveReloadPending = false;
+                // A page that can swap its own data in place does so; any failure falls back to the reload below.
+                if (typeof window.bacLiveRefresh === 'function' && !document.querySelector('dialog[open][data-live-reload]')) {
+                    liveRefreshing = true;
+                    try {
+                        if (await window.bacLiveRefresh()) return;
+                    } catch (error) {
+                        // Fall through to a normal reload.
+                    } finally {
+                        liveRefreshing = false;
+                    }
+                }
                 // A contract that is open on screen changes under the reader: say so after it reloads.
                 if (document.querySelector('dialog[open][data-live-reload]')) {
                     try { sessionStorage.setItem(LIVE_TOAST_KEY, 'This contract was just updated.'); } catch (error) {}

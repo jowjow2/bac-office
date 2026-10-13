@@ -4,8 +4,12 @@ if (root && root.dataset.bidManagementReady !== '1') {
     root.dataset.bidManagementReady = '1';
 
     const dashboard = root.closest('.admin-dashboard');
-    const scroll = root.querySelector('[data-bid-scroll]');
-    if (scroll) {
+    let scroll = null;
+    let scrollObserver = null;
+    const bindScroll = () => {
+        scrollObserver?.disconnect();
+        scroll = root.querySelector('[data-bid-scroll]');
+        if (!scroll) return;
         const frame = scroll.parentElement;
         const updateScroll = () => {
             const overflow = scroll.scrollWidth > scroll.clientWidth + 1;
@@ -15,9 +19,13 @@ if (root && root.dataset.bidManagementReady !== '1') {
             if (hint) hint.hidden = !overflow;
         };
         scroll.addEventListener('scroll', updateScroll, { passive: true });
-        new ResizeObserver(updateScroll).observe(scroll);
+        // Menus are placed outside the scroll container, so scrolling it closes the open one.
+        scroll.addEventListener('scroll', () => closeMenu(), { passive: true });
+        scrollObserver = new ResizeObserver(updateScroll);
+        scrollObserver.observe(scroll);
         updateScroll();
-    }
+    };
+    bindScroll();
 
     const exportKind = root.dataset.exportKind || 'bids';
     const exportModal = document.getElementById(root.dataset.exportModalId || 'bidExportModal');
@@ -275,7 +283,7 @@ if (root && root.dataset.bidManagementReady !== '1') {
         const top = rect.bottom + 6;
         popup.style.top = Math.max(8, top + popup.offsetHeight > window.innerHeight - 8 ? rect.top - popup.offsetHeight - 6 : top) + 'px';
     };
-    root.querySelectorAll('.bid-menu-toggle').forEach(trigger => {
+    const bindMenus = () => root.querySelectorAll('.bid-menu-toggle').forEach(trigger => {
         const menu = document.getElementById(trigger.getAttribute('aria-controls'));
         document.body.append(menu);
         trigger.addEventListener('click', () => {
@@ -290,6 +298,7 @@ if (root && root.dataset.bidManagementReady !== '1') {
             menu.querySelector('button:not(:disabled)')?.focus();
         });
     });
+    bindMenus();
     document.addEventListener('click', event => {
         if (activeMenu && !activeMenu.contains(event.target) && !menuTrigger.contains(event.target)) closeMenu();
         const review = event.target.closest('[data-bid-review]');
@@ -314,10 +323,49 @@ if (root && root.dataset.bidManagementReady !== '1') {
         } else if (event.key === 'Tab') closeMenu(true);
     });
     window.addEventListener('resize', () => closeMenu());
-    scroll?.addEventListener('scroll', () => closeMenu(), { passive: true });
     document.addEventListener('scroll', event => {
         if (activeMenu && !activeMenu.contains(event.target)) closeMenu();
     }, true);
+
+    // Live refresh (partials/notification-live): when the records change, swap the parts of the page that show
+    // them (summary, count, ranking and table) instead of reloading the whole page. Returns false when it cannot,
+    // and the caller then reloads as before.
+    window.bacLiveRefresh = async () => {
+        const names = ['summary', 'count', 'table'];
+        const response = await fetch(window.location.href, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' },
+            credentials: 'same-origin',
+        });
+        if (!response.ok || new URL(response.url).pathname !== window.location.pathname) return false;
+
+        const next = new DOMParser().parseFromString(await response.text(), 'text/html');
+        const pairs = names.map(name => [
+            document.querySelector('[data-live-region="' + name + '"]'),
+            next.querySelector('[data-live-region="' + name + '"]'),
+        ]);
+        if (pairs.some(([current, incoming]) => !current || !incoming)) return false;
+
+        const position = scroll ? { left: scroll.scrollLeft, top: scroll.scrollTop } : null;
+        closeMenu();
+        hideTooltip();
+        root.querySelectorAll('.bid-menu-toggle').forEach(trigger => document.getElementById(trigger.getAttribute('aria-controls'))?.remove());
+        pairs.forEach(([current, incoming]) => { current.innerHTML = incoming.innerHTML; });
+
+        const incomingRows = next.getElementById(root.dataset.exportRowsId || 'bidExportRows');
+        if (incomingRows && exportRowsNode) {
+            exportRowsNode.textContent = incomingRows.textContent;
+            try { exportRows = JSON.parse(exportRowsNode.textContent || '[]'); } catch (error) { exportRows = []; }
+        }
+
+        bindScroll();
+        bindMenus();
+        if (position && scroll) {
+            scroll.scrollLeft = position.left;
+            scroll.scrollTop = position.top;
+        }
+
+        return true;
+    };
 
     const tooltip = document.createElement('div');
     tooltip.id = 'bid-tooltip';
