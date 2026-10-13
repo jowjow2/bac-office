@@ -11,3 +11,11 @@ it('shows the site footer on the public pages', function () {
             ->assertSee('Philippine Standard Time')->assertSee('Municipality of San Jose, Occidental Mindoro');
     }
 });
+
+it('shows the Facebook link of the BAC only when its address is set', function () {
+    config(['bac-office.social.facebook' => null]);
+    testCase()->get('/')->assertOk()->assertDontSee('on Facebook');
+
+    config(['bac-office.social.facebook' => 'https://www.facebook.com/example-bac']);
+    testCase()->get('/')->assertOk()->assertSee('https://www.facebook.com/example-bac', false)->assertSee('Bids and Awards Committee on Facebook');
+});

@@ -15,6 +15,11 @@ return [
     // Same as app.timezone, which is Philippine Standard Time.
     'display_timezone' => env('BAC_DISPLAY_TIMEZONE', env('APP_TIMEZONE', 'Asia/Manila')),
 
+    // The BAC's public pages on social media; the footer shows a link only when the address is set.
+    'social' => [
+        'facebook' => env('BAC_FACEBOOK_URL'),
+    ],
+
     // The procuring entity, as it appears on PhilGEPS notices.
     'procuring_entity' => env('BAC_PROCURING_ENTITY', 'Municipality of San Jose, Occidental Mindoro'),
 

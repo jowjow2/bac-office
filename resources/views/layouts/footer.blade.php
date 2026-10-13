@@ -27,6 +27,12 @@
                 <span aria-hidden="true">&#127477;&#127469;</span> | Philippine Standard Time:
                 <time id="footerPhTime" data-footer-time>&nbsp;</time>
             </p>
+            @if($footerFacebook = config('bac-office.social.facebook'))
+                <a class="site-footer__social" href="{{ $footerFacebook }}" target="_blank" rel="noopener noreferrer" aria-label="Facebook page of the Bids and Awards Committee">
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M13.5 22v-8.2h2.8l.5-3.3h-3.3V8.4c0-.9.4-1.7 1.8-1.7h1.6V3.8c-.3 0-1.3-.2-2.4-.2-2.5 0-4.1 1.5-4.1 4.2v2.7H7.6v3.3h2.8V22h3.1z"/></svg>
+                    <span>Bids and Awards Committee on Facebook</span>
+                </a>
+            @endif
         </section>
 
         <section class="site-footer__col" aria-labelledby="footerGov">
@@ -44,23 +50,25 @@
 </footer>
 
 <style>
-    .site-footer { margin-top: 48px; background: #1f5c45; color: #fff; font-family: inherit; }
-    .site-footer__inner { display: grid; grid-template-columns: 1fr 1fr; gap: 32px 56px; max-width: 1000px; margin: 0 auto; padding: 44px 24px 36px; }
-    .site-footer h2 { margin: 0 0 14px; color: #fff; font-size: 14px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; }
-    .site-footer ul { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+    .site-footer { margin-top: 32px; background: #1f5c45; color: #fff; font-family: inherit; }
+    .site-footer__inner { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 56px; max-width: 1000px; margin: 0 auto; padding: 22px 24px 18px; }
+    .site-footer h2 { margin: 0 0 10px; color: #fff; font-size: 14px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; }
+    .site-footer ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
     .site-footer li { position: relative; padding-left: 16px; color: rgba(255, 255, 255, .92); font-size: 14px; line-height: 1.4; }
     .site-footer li::before { content: ''; position: absolute; left: 2px; top: .55em; width: 5px; height: 5px; border-radius: 50%; background: rgba(255, 255, 255, .85); }
     .site-footer a { color: inherit; text-decoration: none; }
     .site-footer a:hover, .site-footer a:focus-visible { text-decoration: underline; }
-    .site-footer__time { margin: 22px 0 0; color: rgba(255, 255, 255, .92); font-size: 13.5px; line-height: 1.6; }
+    .site-footer__time { margin: 12px 0 0; color: rgba(255, 255, 255, .92); font-size: 13.5px; line-height: 1.6; }
     .site-footer__time time { display: block; font-weight: 700; font-variant-numeric: tabular-nums; }
-    .site-footer__bar { padding: 14px 130px; background: #123d2d; color: rgba(255, 255, 255, .92); font-size: 13px; text-align: center; }
+    .site-footer__bar { padding: 9px 130px; background: #123d2d; color: rgba(255, 255, 255, .92); font-size: 13px; text-align: center; }
+    .site-footer__social { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; min-height: 36px; padding: 0 14px; border: 1px solid rgba(255, 255, 255, .45); border-radius: 999px; font-size: 13.5px; font-weight: 600; }
+    .site-footer__social:hover, .site-footer__social:focus-visible { background: rgba(255, 255, 255, .12); text-decoration: none; }
     @media (max-width: 900px) {
         .site-footer__inner { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 560px) {
-        .site-footer__inner { grid-template-columns: 1fr; padding: 32px 16px 28px; }
-        .site-footer__bar { padding: 14px 56px 14px 16px; }
+        .site-footer__inner { grid-template-columns: 1fr; padding: 20px 16px 16px; }
+        .site-footer__bar { padding: 9px 56px 9px 16px; }
     }
     @media print { .site-footer { display: none; } }
 </style>
