@@ -73,11 +73,14 @@
                 data-export-status-order="awarded,open,closed,approved_for_bidding,draft"
             >
                 <div class="projects-toolbar-actions">
+                    {{-- The archive is only offered when something is archived (or while viewing it). --}}
+                    @if(($showArchived ?? false) || $archivedCount > 0)
                     <a href="{{ ($showArchived ?? false) ? route('admin.projects') : route('admin.projects', ['archived' => 1]) }}" class="projects-archive-link {{ ($showArchived ?? false) ? 'is-active' : '' }}" title="{{ ($showArchived ?? false) ? 'Return to active projects' : 'View archived projects' }}">
                         <i class="fas fa-box-archive" aria-hidden="true"></i>
                         <span>{{ ($showArchived ?? false) ? 'Active Projects' : 'Archived Projects' }}</span>
                         @if(! ($showArchived ?? false) && $archivedCount > 0)<span class="projects-count-chip">{{ $archivedCount }}</span>@endif
                     </a>
+                    @endif
                 </div>
 
                 @unless($isEmptyAll)
@@ -232,11 +235,13 @@
                                     <i class="fas fa-plus" aria-hidden="true"></i>
                                     <span>Create Project</span>
                                 </a>
+                                @if($archivedCount > 0)
                                 <a href="{{ route('admin.projects', ['archived' => 1]) }}" class="projects-archive-link" title="View archived projects">
                                     <i class="fas fa-box-archive" aria-hidden="true"></i>
                                     <span>Archived Projects</span>
                                     @if($archivedCount > 0)<span class="projects-count-chip">{{ $archivedCount }}</span>@endif
                                 </a>
+                                @endif
                             </div>
                         </div>
                         <div class="projects-start__queue">
