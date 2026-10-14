@@ -107,7 +107,7 @@
     .fee-project-note strong { font-variant-numeric: tabular-nums; }
     .fee-form-actions { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 4px; flex-wrap: wrap; }
 
-    .fee-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; padding: 9px 16px; border-radius: var(--ui-radius); border: 1px solid transparent; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; text-decoration: none; transition: background .15s ease, border-color .15s ease, color .15s ease; }
+    .fee-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 7px 14px; border-radius: var(--ui-radius); border: 1px solid transparent; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; text-decoration: none; transition: background .15s ease, border-color .15s ease, color .15s ease; }
     .fee-btn:focus-visible { outline: 3px solid rgba(29, 79, 64, .35); outline-offset: 2px; }
     .fee-btn-primary { background: var(--ui-primary); color: #fff; }
     .fee-btn-primary:hover { background: var(--ui-primary-hover); }
@@ -436,7 +436,7 @@
             </div>
             <div data-live-region="ledger-head" style="display: contents">
             @unless($payments->isEmpty())
-                <a href="{{ route($routePrefix . '.payments.export', array_filter(['q' => $search, 'project' => $projectFilter])) }}" class="fee-btn fee-btn-ghost" data-export-dialog data-export-title="Export payment records" data-export-noun="payment" data-export-count="{{ method_exists($payments, 'total') ? $payments->total() : $payments->count() }}" data-export-note="{{ $hasFilters ? 'Only the payments that match your current search or project filter.' : 'Every Official Receipt recorded.' }}">
+                <a href="{{ route($routePrefix . '.payments.export', array_filter(['q' => $search, 'project' => $projectFilter])) }}" class="fee-btn fee-btn-ghost" data-export-dialog data-export-title="Export payment records" data-export-noun="payment" data-export-file="Excel" data-export-count="{{ method_exists($payments, 'total') ? $payments->total() : $payments->count() }}" data-export-note="{{ $hasFilters ? 'Only the payments that match your current search or project filter.' : 'Every Official Receipt recorded.' }}">
                     <i class="fas fa-file-export" aria-hidden="true"></i> {{ $hasFilters ? 'Export filtered' : 'Export' }}
                 </a>
             @endunless

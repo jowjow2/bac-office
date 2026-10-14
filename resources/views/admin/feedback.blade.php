@@ -1,5 +1,6 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 @include('partials.dashboard-viewport')
+@include('partials.export-dialog')
 @php $kinds = \App\Models\Feedback::CATEGORIES; $tz = config('bac-office.display_timezone', 'Asia/Manila'); @endphp
 <div class="admin-dashboard admin-role-page dashboard-home admin-feedback-page">
     @vite(['resources/css/dashboard.css'])
@@ -9,7 +10,7 @@
         <x-page-header title="Feedback" subtitle="What visitors and bidders say about the portal.">
             <x-slot:actions>
                 @if($available)
-                    <a class="afb-btn" href="{{ route('admin.feedback.export', array_filter(['category' => $category, 'status' => $status])) }}"><i class="fas fa-file-export" aria-hidden="true"></i> Export</a>
+                    <a class="afb-btn" href="{{ route('admin.feedback.export', array_filter(['category' => $category, 'status' => $status])) }}" data-export-dialog data-export-title="Export feedback" data-export-noun="feedback" data-export-file="Excel" data-export-choices-label="Received" data-export-formats="{{ json_encode($exportChoices ?? []) }}"><i class="fas fa-file-export" aria-hidden="true"></i> Export</a>
                 @endif
             </x-slot:actions>
         </x-page-header>
@@ -124,7 +125,7 @@
     .admin-feedback-page .afb-from a { color: var(--ui-primary); }
     .admin-feedback-page .afb-from em { font-style: normal; }
     .admin-feedback-page .afb-from code { font-size: 12px; }
-    .admin-feedback-page .afb-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 14px; border: 1px solid var(--ui-line-strong); border-radius: 9px; background: #fff; color: var(--ui-ink); font: inherit; font-size: 13.5px; font-weight: 600; text-decoration: none; cursor: pointer; }
+    .admin-feedback-page .afb-btn { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 7px 14px; border: 1px solid var(--ui-line-strong); border-radius: var(--ui-radius); background: #fff; color: var(--ui-ink); font: inherit; font-size: 12.5px; line-height: 1.2; font-weight: 600; text-decoration: none; cursor: pointer; }
     .admin-feedback-page .afb-btn:hover { background: var(--ui-surface-2, #f7faf8); }
     .admin-feedback-page .afb-btn--small { min-height: 32px; padding: 0 11px; font-size: 12.5px; }
     .admin-feedback-page .afb-empty { display: grid; justify-items: center; gap: 6px; padding: 44px 20px; text-align: center; color: var(--ui-muted); border: 1px dashed var(--ui-line-strong); border-radius: 12px; background: #fff; }

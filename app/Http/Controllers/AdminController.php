@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\ExportPeriods;
 use App\Support\SimpleXlsx;
 use App\Mail\BidderRejectedMail;
 use App\Mail\BidderIncompleteRequirementsMail;
@@ -119,7 +120,7 @@ class AdminController extends Controller
             'waitingRequests',
             'waitingRequestsCount',
             'archivedCount'
-        ));
+        ) + ['exportChoices' => $this->projectExportChoices($showArchived)]);
     }
 
     public function exportProjects(Request $request)
@@ -134,7 +135,10 @@ class AdminController extends Controller
             ->all();
 
 
+        [$from, $to] = ExportPeriods::range($request);
         $projects = $this->filteredProjectsQuery($search, $status, $showArchived)
+            ->when($from, fn ($query) => $query->whereDate('created_at', '>=', $from))
+            ->when($to, fn ($query) => $query->whereDate('created_at', '<=', $to))
             ->latest()
             ->get();
 
@@ -168,7 +172,20 @@ class AdminController extends Controller
             ['title' => 'Staff', 'width' => 24],
             ['title' => 'Bids', 'width' => 8, 'type' => SimpleXlsx::INTEGER],
             ['title' => 'Status', 'width' => 22],
-        ], $rows, 'projects-'.now()->format('Y-m-d').'.xlsx');
+        ], $rows, 'projects'.ExportPeriods::suffix($from, $to).'-'.now()->format('Y-m-d').'.xlsx');
+    }
+
+    /** The periods the projects export dialog offers. */
+    private function projectExportChoices(bool $archived): array
+    {
+        return ExportPeriods::choices(
+            'project',
+            fn (?string $from, ?string $to) => $this->filteredProjectsQuery('', '', $archived)->withCount([])
+                ->when($from, fn ($query) => $query->whereDate('created_at', '>=', $from))
+                ->when($to, fn ($query) => $query->whereDate('created_at', '<=', $to)),
+            fn (array $params) => route('admin.projects.export', array_filter($params + ['archived' => $archived ? 1 : null])),
+            fn ($query, int $count) => $count.' project'.($count === 1 ? '' : 's').' · ₱'.number_format((float) (clone $query)->sum('budget'), 2).' budget'
+        );
     }
 
     /** Sends rows as an Excel (.xlsx) download. */
@@ -678,7 +695,7 @@ class AdminController extends Controller
             'bids', 'projects', 'search', 'status', 'projectFilter', 'modeFilter',
             'documentStatusFilter', 'exportRows', 'statusOptions', 'modeOptions',
             'documentStatusOptions', 'summary', 'rankings', 'rankedProject', 'projectRanking', 'portal'
-        ));
+        ) + ['exportChoices' => $this->bidExportChoices($portal === 'admin' ? 'admin.bids.export' : 'staff.bids.export', $projectIds)]);
     }
 
     public function exportBids(Request $request)
@@ -688,6 +705,7 @@ class AdminController extends Controller
 
     public function bidsExport(Request $request, ?array $projectIds = null)
     {
+        [$from, $to] = ExportPeriods::range($request);
         $search = $this->requestString($request, 'search');
         $status = $this->requestString($request, 'status');
 
@@ -701,7 +719,10 @@ class AdminController extends Controller
             ->all();
 
         $bids = $this->bidsForStatusFilter(
-            $this->filteredBidsQuery($search, $projectFilter, $modeFilter, $projectIds)->latest()->orderByDesc('id')->get(),
+            $this->filteredBidsQuery($search, $projectFilter, $modeFilter, $projectIds)
+                ->when($from, fn ($query) => $query->whereDate('created_at', '>=', $from))
+                ->when($to, fn ($query) => $query->whereDate('created_at', '<=', $to))
+                ->latest()->orderByDesc('id')->get(),
             $status
         );
         $bids = $this->bidsForDocumentStatusFilter($bids, $documentStatusFilter);
@@ -712,7 +733,19 @@ class AdminController extends Controller
                 ->values();
         }
 
-        return $this->streamBidsCsv($bids);
+        return $this->streamBidsCsv($bids, ExportPeriods::suffix($from, $to));
+    }
+
+    /** The periods the bids export dialog offers. */
+    private function bidExportChoices(string $route, ?array $projectIds): array
+    {
+        return ExportPeriods::choices(
+            'bid',
+            fn (?string $from, ?string $to) => $this->filteredBidsQuery('', '', '', $projectIds)
+                ->when($from, fn ($query) => $query->whereDate('created_at', '>=', $from))
+                ->when($to, fn ($query) => $query->whereDate('created_at', '<=', $to)),
+            fn (array $params) => route($route, $params)
+        );
     }
 
     private function filteredBidsQuery(string $search, string $projectFilter, string $modeFilter, ?array $projectIds = null)
@@ -801,7 +834,7 @@ class AdminController extends Controller
     /**
      * CSV of bids. Amounts of bids that are still sealed are not exported.
      */
-    private function streamBidsCsv(Collection $bids)
+    private function streamBidsCsv(Collection $bids, string $period = '')
     {
         $rows = $bids->map(function (Bid $bid) {
             $budget = (float) ($bid->project?->budget ?? 0);
@@ -838,7 +871,7 @@ class AdminController extends Controller
             ['title' => 'Procurement Mode', 'width' => 26],
             ['title' => 'Receipt / Reference No.', 'width' => 22],
             ['title' => 'Document Status', 'width' => 24],
-        ], $rows, 'bids-'.now()->format('Y-m-d').'.xlsx');
+        ], $rows, 'bids'.$period.'-'.now()->format('Y-m-d').'.xlsx');
     }
     /**
      * Bulk actions are limited to export: decisions are recorded one bid at a
@@ -905,31 +938,33 @@ class AdminController extends Controller
             ->when($withProfile, fn ($builder) => $builder->with('bidderProfile.activeSanction'))
             ->orderBy('name');
 
-        return response()->streamDownload(function () use ($query, $zone, $contactColumns, $withProfile) {
-            $out = fopen('php://output', 'w');
-            fwrite($out, "\xEF\xBB\xBF"); // byte-order mark so Excel reads accents correctly
-            fputcsv($out, ['Name', 'Email', 'Role', 'Company', 'Business registration no.', 'Office / position', 'Contact number', 'Account status', 'Bidder approval', 'Sanction', 'Registered (Asia/Manila)']);
-            $query->chunk(500, function ($users) use ($out, $zone, $contactColumns, $withProfile) {
-                foreach ($users as $user) {
-                    $profile = $withProfile ? $user->bidderProfile : null;
-                    $sanction = $profile?->activeSanction;
-                    fputcsv($out, [
-                        $user->name,
-                        $user->email,
-                        ucfirst((string) $user->role),
-                        $user->company,
-                        $user->registration_no,
-                        $user->role === 'bidder' ? null : trim(($user->office ?: '').($contactColumns && $user->position ? ' · '.$user->position : ''), ' ·'),
-                        $user->role === 'bidder' ? $profile?->contact_number : ($contactColumns ? $user->contact_number : null),
-                        ucfirst((string) $user->status),
-                        $user->role === 'bidder' ? ucfirst((string) ($profile?->approval_status ?? '')) : null,
-                        $sanction ? ucfirst((string) $sanction->type) : null,
-                        $user->created_at?->timezone($zone)->format('Y-m-d H:i'),
-                    ]);
-                }
-            });
-            fclose($out);
-        }, 'users-'.now($zone)->format('Ymd-His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8', 'Cache-Control' => 'no-store']);
+        $rows = [];
+        $query->chunk(500, function ($users) use (&$rows, $zone, $contactColumns, $withProfile) {
+            foreach ($users as $user) {
+                $profile = $withProfile ? $user->bidderProfile : null;
+                $sanction = $profile?->activeSanction;
+                $rows[] = [
+                    $user->name,
+                    $user->email,
+                    ucfirst((string) $user->role),
+                    $user->company,
+                    $user->registration_no,
+                    $user->role === 'bidder' ? null : trim(($user->office ?: '').($contactColumns && $user->position ? ' · '.$user->position : ''), ' ·'),
+                    $user->role === 'bidder' ? $profile?->contact_number : ($contactColumns ? $user->contact_number : null),
+                    ucfirst((string) $user->status),
+                    $user->role === 'bidder' ? ucfirst((string) ($profile?->approval_status ?? '')) : null,
+                    $sanction ? ucfirst((string) $sanction->type) : null,
+                    $user->created_at?->timezone($zone)->format('Y-m-d H:i'),
+                ];
+            }
+        });
+
+        return $this->xlsxDownload('Users', [
+            ['title' => 'Name', 'width' => 28], ['title' => 'Email', 'width' => 32], ['title' => 'Role', 'width' => 10],
+            ['title' => 'Company', 'width' => 30], ['title' => 'Business registration no.', 'width' => 24], ['title' => 'Office / position', 'width' => 28],
+            ['title' => 'Contact number', 'width' => 18], ['title' => 'Account status', 'width' => 16], ['title' => 'Bidder approval', 'width' => 16],
+            ['title' => 'Sanction', 'width' => 14], ['title' => 'Registered (Asia/Manila)', 'width' => 22],
+        ], $rows, 'users-'.now($zone)->format('Ymd-His').'.xlsx');
     }
     /** The users the Manage users list shows for a search and a tab; the export uses the same rows. */
     private function filteredUsers(string $search, string $filter)
@@ -2703,7 +2738,7 @@ class AdminController extends Controller
             ->latest('updated_at')
             ->get();
 
-        return view('admin.awards', compact('awards', 'readyProjects'));
+        return view('admin.awards', compact('awards', 'readyProjects') + ['exportChoices' => $this->awardExportChoices()]);
     }
 
     /** Every award with its relations, newest first; the register behind the export and the report. */
@@ -2733,32 +2768,58 @@ class AdminController extends Controller
 
     public function exportAwards(Request $request)
     {
-        $awards = $this->awardRegister();
+        [$from, $to] = ExportPeriods::range($request);
         $zone = config('bac-office.display_timezone', 'Asia/Manila');
-        $safe = static fn ($value) => preg_match('/^[\s]*[=+@-]|^[\t\r\n]/u', (string) $value) ? "'".(string) $value : (string) $value;
+        $awards = $this->awardsInPeriod($this->awardRegister(), $from, $to);
 
-        return response()->streamDownload(function () use ($awards, $safe) {
-            $out = fopen('php://output', 'w');
-            fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['Project reference', 'Project', 'Procurement mode', 'Winning bidder', 'Contract amount (PHP)', 'Award (NOA) date', 'Contract date', 'Contract stage', 'Certificate no.', 'Certificate status'], ',', '"', '');
-            foreach ($awards as $award) {
-                fputcsv($out, [
-                    $safe($award->project?->reference_no),
-                    $safe($award->project?->title),
-                    $safe($award->project?->mode()->label()),
-                    $safe($award->bidder?->company ?: ($award->bidder?->name ?? $award->bid?->user?->name)),
-                    number_format((float) $award->contract_amount, 2, '.', ''),
-                    $award->awardDate()?->format('Y-m-d'),
-                    $award->contract_date?->format('Y-m-d'),
-                    $this->awardStageLabel($award),
-                    $safe($award->certificate_number),
-                    $safe($award->certificate_status ?: $award->status),
-                ], ',', '"', '');
-            }
-            fclose($out);
-        }, 'awards-'.now($zone)->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8', 'Cache-Control' => 'no-store']);
+        $rows = $awards->map(fn (Award $award) => [
+            $award->project?->reference_no,
+            $award->project?->title,
+            $award->project?->mode()->label(),
+            $award->bidder?->company ?: ($award->bidder?->name ?? $award->bid?->user?->name),
+            round((float) $award->contract_amount, 2),
+            $award->awardDate()?->format('Y-m-d'),
+            $award->contract_date?->format('Y-m-d'),
+            $this->awardStageLabel($award),
+            $award->certificate_number,
+            $award->certificate_status ?: $award->status,
+        ])->all();
+
+        return $this->xlsxDownload('Awards', [
+            ['title' => 'Project reference', 'width' => 22], ['title' => 'Project', 'width' => 56], ['title' => 'Procurement mode', 'width' => 26],
+            ['title' => 'Winning bidder', 'width' => 30], ['title' => 'Contract amount (PHP)', 'width' => 22, 'type' => SimpleXlsx::MONEY],
+            ['title' => 'Award (NOA) date', 'width' => 16], ['title' => 'Contract date', 'width' => 14], ['title' => 'Contract stage', 'width' => 24],
+            ['title' => 'Certificate no.', 'width' => 18], ['title' => 'Certificate status', 'width' => 18],
+        ], $rows, 'awards'.ExportPeriods::suffix($from, $to).'-'.now($zone)->format('Y-m-d').'.xlsx');
     }
 
+    /** The awards given in a period (by award date, or the day they were recorded). */
+    private function awardsInPeriod(Collection $awards, ?string $from, ?string $to): Collection
+    {
+        if (! $from && ! $to) {
+            return $awards->values();
+        }
+        $zone = config('bac-office.display_timezone', 'Asia/Manila');
+
+        return $awards->filter(function (Award $award) use ($from, $to, $zone) {
+            $date = ($award->awardDate() ?? $award->created_at)?->copy()->timezone($zone)->toDateString();
+
+            return $date !== null && (! $from || $date >= $from) && (! $to || $date <= $to);
+        })->values();
+    }
+
+    /** The periods the awards export dialog offers. */
+    private function awardExportChoices(): array
+    {
+        $register = $this->awardRegister();
+
+        return ExportPeriods::choices(
+            'award',
+            fn (?string $from, ?string $to) => $this->awardsInPeriod($register, $from, $to),
+            fn (array $params) => route('admin.awards.export', $params),
+            fn ($awards, int $count) => $count.' award'.($count === 1 ? '' : 's').' · ₱'.number_format((float) $awards->sum('contract_amount'), 2).' contract amount'
+        );
+    }
     /** Printable awards and contracts report for a period (by award date). */
     public function awardsReport(Request $request)
     {

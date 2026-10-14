@@ -225,7 +225,7 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/dashboard/admin', [AdminController::class, 'dashboard'])->name('admin.dashboard');
     Route::get('/admin/projects', [AdminController::class, 'projects'])->name('admin.projects');
-    Route::post('/admin/projects/export', [AdminController::class, 'exportProjects'])->name('admin.projects.export');
+    Route::match(['get', 'post'], '/admin/projects/export', [AdminController::class, 'exportProjects'])->name('admin.projects.export');
     Route::get('/admin/projects/create', [AdminController::class, 'createProject'])->name('admin.projects.create');
     Route::post('/admin/projects', [AdminController::class, 'storeProject'])->name('admin.projects.store');
     Route::post('/admin/projects/wizard/store', [AdminController::class, 'storeProjectWizard'])->name('admin.projects.wizard.store');
@@ -267,7 +267,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::delete('/admin/payments/{payment}', [BiddingFeePaymentController::class, 'destroy'])->name('admin.payments.destroy');
     Route::get('/admin/bidders', [AdminController::class, 'allBids'])->name('admin.bids');
     Route::post('/admin/bids/bulk', [AdminController::class, 'bulkBids'])->name('admin.bids.bulk');
-    Route::post('/admin/bids/export', [AdminController::class, 'exportBids'])->name('admin.bids.export');
+    Route::match(['get', 'post'], '/admin/bids/export', [AdminController::class, 'exportBids'])->name('admin.bids.export');
     Route::get('/admin/bids/{bid}', [AdminController::class, 'viewBid'])->name('admin.bid.view');
     Route::get('/admin/bids/{bid}/documents/{document}/pdf', [AdminController::class, 'streamBidDocumentPdf'])->name('admin.bid.document.pdf');
     Route::get('/admin/bids/{bid}/documents/{document}', [AdminController::class, 'previewBidDocument'])->name('admin.bid.document.preview');
@@ -375,7 +375,7 @@ Route::middleware(['auth', 'staff'])->group(function () {
     Route::put('/staff/payments/{payment}', [BiddingFeePaymentController::class, 'update'])->name('staff.payments.update');
     Route::delete('/staff/payments/{payment}', [BiddingFeePaymentController::class, 'destroy'])->name('staff.payments.destroy');
     Route::get('/staff/review-bids', [StaffController::class, 'reviewBids'])->name('staff.review-bids');
-    Route::post('/staff/review-bids/export', [StaffController::class, 'exportBids'])->name('staff.bids.export');
+    Route::match(['get', 'post'], '/staff/review-bids/export', [StaffController::class, 'exportBids'])->name('staff.bids.export');
     Route::get('/staff/bid-review/{bid}', [StaffController::class, 'viewBid'])->name('staff.bid.view');
     Route::get('/staff/bid-review/{bid}/files/{bidDocument}', [StaffController::class, 'streamBidComponentFile'])->name('staff.bid.component-file');
     Route::get('/staff/bid-review/{bid}/documents/{document}/pdf', [StaffController::class, 'streamBidDocument'])->name('staff.bid.document.pdf');

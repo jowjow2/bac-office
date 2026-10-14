@@ -57,7 +57,7 @@
 
         /* Export menu (page header) */
         .ra-export-wrap { position: relative; }
-        .ra-export-wrap .ra-button { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border: 1px solid var(--ui-line-strong); border-radius: var(--ui-radius); background: #fff; color: var(--ui-ink-2); font: 600 12.5px/1 var(--ui-font); cursor: pointer; }
+        .ra-export-wrap .ra-button { display: inline-flex; align-items: center; gap: 7px; height: auto; min-height: 36px; padding: 7px 14px; border: 1px solid var(--ui-line-strong); border-radius: var(--ui-radius); background: #fff; color: var(--ui-ink-2); font: 600 12.5px/1.2 var(--ui-font); cursor: pointer; }
         .ra-export-wrap .ra-button:hover { border-color: var(--ui-primary-line); background: var(--ui-primary-soft); color: var(--ui-primary); }
         .ra-export-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 40; min-width: 180px; padding: 5px; border: 1px solid var(--ui-line-strong); border-radius: var(--ui-radius-lg); background: #fff; box-shadow: 0 16px 32px rgba(27, 36, 32, .15); }
         .ra-export-menu a { display: flex; align-items: center; gap: 9px; min-height: 34px; padding: 0 10px; border-radius: 7px; color: var(--ui-ink-2); font: 600 12.5px/1 var(--ui-font); text-decoration: none; }

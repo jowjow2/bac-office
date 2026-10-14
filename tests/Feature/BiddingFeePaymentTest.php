@@ -367,14 +367,14 @@ it('exports the payment records as CSV with the page filters', function () {
 
     $all = testCase()->actingAs($this->admin)->get(route('admin.payments.export'));
     $all->assertOk();
-    expect($all->headers->get('content-type'))->toContain('text/csv');
-    $csv = $all->streamedContent();
+    expect($all->headers->get('content-type'))->toContain('spreadsheetml');
+    $csv = xlsxText($all);
     expect($csv)->toContain('Official Receipt No.')
         ->toContain('OR-1001')->toContain('Mindoro Builders')->toContain('Juan Builder')->toContain('Paid by representative')
-        ->toContain('OR-2002')->toContain('Total,6000.00');
+        ->toContain('OR-2002')->toContain('Total,6000');
 
-    $filtered = testCase()->actingAs($this->staff)->get(route('staff.payments.export', ['project' => $other->id]))->assertOk()->streamedContent();
-    expect($filtered)->toContain('OR-2002')->not->toContain('OR-1001')->toContain('Total,1000.00');
+    $filtered = xlsxText(testCase()->actingAs($this->staff)->get(route('staff.payments.export', ['project' => $other->id]))->assertOk());
+    expect($filtered)->toContain('OR-2002')->not->toContain('OR-1001')->toContain('Total,1000');
 
     testCase()->actingAs($this->bidder)->get(route('admin.payments.export'))->assertForbidden();
 });
@@ -388,10 +388,10 @@ it('exports the payments for a period: today, this month, this year or all time'
     $page->assertSee('Which period')->assertSee('This month')->assertSee('This year')->assertSee('All time')->assertSee('Collection report');
 
     $today = now($zone)->toDateString();
-    $csv = testCase()->actingAs($this->admin)->get(route('admin.payments.export', ['from' => $today, 'to' => $today]))->assertOk()->streamedContent();
-    expect($csv)->toContain('OR-TODAY')->not->toContain('OR-OLD')->toContain('Total,5000.00');
+    $csv = xlsxText(testCase()->actingAs($this->admin)->get(route('admin.payments.export', ['from' => $today, 'to' => $today]))->assertOk());
+    expect($csv)->toContain('OR-TODAY')->not->toContain('OR-OLD')->toContain('Total,5000');
 
-    $all = testCase()->actingAs($this->admin)->get(route('admin.payments.export'))->streamedContent();
+    $all = xlsxText(testCase()->actingAs($this->admin)->get(route('admin.payments.export')));
     expect($all)->toContain('OR-TODAY')->toContain('OR-OLD');
 });
 it('prints a collection report for a period, per project and per receipt', function () {

@@ -103,14 +103,17 @@ it('exports the users of the current tab and search as a spreadsheet', function 
     $page = testCase()->actingAs($admin)->get(route('admin.users'))->assertOk();
     $page->assertSee('data-export-title="Export users"', false)->assertSee(route('admin.users.export'), false);
 
-    $all = testCase()->actingAs($admin)->get(route('admin.users.export'))->assertOk()->streamedContent();
+    $all = testCase()->actingAs($admin)->get(route('admin.users.export'))->assertOk();
+    $all = xlsxText($all);
     expect($all)->toContain('Name,Email,Role,Company')->toContain('export-admin@example.com')->toContain('Cruz Builders')->toContain('Supply Office')
         ->not->toContain('password');
 
-    $bidders = testCase()->actingAs($admin)->get(route('admin.users.export', ['filter' => 'bidder']))->assertOk()->streamedContent();
+    $bidders = testCase()->actingAs($admin)->get(route('admin.users.export', ['filter' => 'bidder']))->assertOk();
+    $bidders = xlsxText($bidders);
     expect($bidders)->toContain('export-bidder@example.com')->not->toContain('export-staff@example.com');
 
-    $found = testCase()->actingAs($admin)->get(route('admin.users.export', ['search' => 'Maria']))->assertOk()->streamedContent();
+    $found = testCase()->actingAs($admin)->get(route('admin.users.export', ['search' => 'Maria']))->assertOk();
+    $found = xlsxText($found);
     expect($found)->toContain('export-bidder@example.com')->not->toContain('export-admin@example.com');
 
     testCase()->actingAs($staff)->get(route('admin.users.export'))->assertForbidden();

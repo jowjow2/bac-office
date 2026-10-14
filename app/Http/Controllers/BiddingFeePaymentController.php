@@ -135,37 +135,44 @@ class BiddingFeePaymentController extends Controller
                 $period .= '-'.$edge.'-'.$value;
             }
         }
-        $filename = 'bidding-fee-payments'.$period.'-'.now($zone)->format('Ymd-His').'.csv';
+        $filename = 'bidding-fee-payments'.$period.'-'.now($zone)->format('Ymd-His').'.xlsx';
 
-        return response()->streamDownload(function () use ($query, $zone) {
-            $out = fopen('php://output', 'w');
-            fwrite($out, "\xEF\xBB\xBF"); // byte-order mark so Excel reads ñ and accents correctly
-            fputcsv($out, ['Date paid', 'Official Receipt No.', 'Project reference', 'Project', 'Bidder', 'Contact person', 'Amount (PHP)', 'Used for a submitted bid', 'Recorded by', 'Recorded on (Asia/Manila)', 'Notes']);
-            $total = 0.0;
-            $query->chunk(500, function ($payments) use ($out, $zone, &$total) {
-                $submitted = $this->submittedKeys($payments);
-                foreach ($payments as $payment) {
-                    $total += (float) $payment->amount;
-                    fputcsv($out, [
-                        $payment->paid_at?->format('Y-m-d'),
-                        $payment->or_number,
-                        $payment->project?->reference_no,
-                        $payment->project?->title,
-                        $payment->bidder?->company ?: $payment->bidder?->name,
-                        $payment->bidder?->company ? $payment->bidder?->name : null,
-                        number_format((float) $payment->amount, 2, '.', ''),
-                        $submitted->has($payment->project_id.':'.$payment->user_id) ? 'Yes' : 'No',
-                        $payment->recorder?->name,
-                        $payment->created_at?->timezone($zone)->format('Y-m-d H:i'),
-                        $payment->notes,
-                    ]);
-                }
-            });
-            fputcsv($out, ['', '', '', '', '', 'Total', number_format($total, 2, '.', '')]);
-            fclose($out);
-        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8', 'Cache-Control' => 'no-store']);
+        $total = 0.0;
+        $rows = [];
+        $query->chunk(500, function ($payments) use (&$rows, $zone, &$total) {
+            $submitted = $this->submittedKeys($payments);
+            foreach ($payments as $payment) {
+                $total += (float) $payment->amount;
+                $rows[] = [
+                    $payment->paid_at?->format('Y-m-d'),
+                    $payment->or_number,
+                    $payment->project?->reference_no,
+                    $payment->project?->title,
+                    $payment->bidder?->company ?: $payment->bidder?->name,
+                    $payment->bidder?->company ? $payment->bidder?->name : null,
+                    round((float) $payment->amount, 2),
+                    $submitted->has($payment->project_id.':'.$payment->user_id) ? 'Yes' : 'No',
+                    $payment->recorder?->name,
+                    $payment->created_at?->timezone($zone)->format('Y-m-d H:i'),
+                    $payment->notes,
+                ];
+            }
+        });
+
+        $file = \App\Support\SimpleXlsx::build('Payments', [
+            ['title' => 'Date paid', 'width' => 14], ['title' => 'Official Receipt No.', 'width' => 20], ['title' => 'Project reference', 'width' => 22],
+            ['title' => 'Project', 'width' => 50], ['title' => 'Bidder', 'width' => 30], ['title' => 'Contact person', 'width' => 24],
+            ['title' => 'Amount (PHP)', 'width' => 16, 'type' => \App\Support\SimpleXlsx::MONEY], ['title' => 'Used for a submitted bid', 'width' => 22],
+            ['title' => 'Recorded by', 'width' => 22], ['title' => 'Recorded on (Asia/Manila)', 'width' => 22], ['title' => 'Notes', 'width' => 36],
+        ], $rows, ['', '', '', '', '', 'Total', round($total, 2)]);
+
+        return response($file, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Content-Length' => (string) strlen($file),
+            'Cache-Control' => 'no-store',
+        ]);
     }
-
     /** Printable collection report for a period: totals, by project, by day and every Official Receipt. */
     public function report(Request $request)
     {

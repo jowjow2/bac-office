@@ -37,37 +37,57 @@ class AuditLogController extends Controller
             'actors' => User::query()->whereIn('id', AuditLog::query()->whereNotNull('user_id')->select('user_id'))
                 ->orderBy('name')->get(['id', 'name', 'role']),
             'total' => AuditLog::count(),
+            'exportChoices' => $this->exportChoices($request),
         ]);
     }
 
-    /** The filtered entries as CSV, for COA / internal audit requests. */
+    /** The filtered entries as an Excel (.xlsx) workbook, for COA / internal audit requests. */
     public function export(Request $request)
     {
         $query = $this->filtered($request)->with('user:id,name,role')->latest('id');
         $zone = config('bac-office.display_timezone', 'Asia/Manila');
-        $filename = 'audit-logs-'.now($zone)->format('Ymd-His').'.csv';
+        $filename = 'audit-logs-'.now($zone)->format('Ymd-His').'.xlsx';
 
-        return response()->streamDownload(function () use ($query, $zone) {
-            $out = fopen('php://output', 'w');
-            fputcsv($out, ['Date and time (Asia/Manila)', 'Action', 'Record', 'By', 'Role', 'Changes', 'IP address']);
-            $query->chunk(500, function ($logs) use ($out, $zone) {
-                $this->loadRecords($logs);
-                foreach ($logs as $log) {
-                    fputcsv($out, [
-                        $log->created_at?->timezone($zone)->format('Y-m-d H:i:s'),
-                        $log->actionLabel(),
-                        $log->recordLabel(),
-                        $log->actorLabel(),
-                        $log->user?->role ?? 'system',
-                        collect($log->changes())->map(fn ($change) => $change['field'].': '.($change['old'] ?? '—').' → '.($change['new'] ?? '—'))->implode('; '),
-                        $log->ip_address,
-                    ]);
-                }
-            });
-            fclose($out);
-        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8', 'Cache-Control' => 'no-store']);
+        $rows = [];
+        $query->chunk(500, function ($logs) use (&$rows, $zone) {
+            $this->loadRecords($logs);
+            foreach ($logs as $log) {
+                $rows[] = [
+                    $log->created_at?->timezone($zone)->format('Y-m-d H:i:s'),
+                    $log->actionLabel(),
+                    $log->recordLabel(),
+                    $log->actorLabel(),
+                    $log->user?->role ?? 'system',
+                    collect($log->changes())->map(fn ($change) => $change['field'].': '.($change['old'] ?? '—').' → '.($change['new'] ?? '—'))->implode('; '),
+                    $log->ip_address,
+                ];
+            }
+        });
+
+        $file = \App\Support\SimpleXlsx::build('Audit logs', [
+            ['title' => 'Date and time (Asia/Manila)', 'width' => 24], ['title' => 'Action', 'width' => 26], ['title' => 'Record', 'width' => 40],
+            ['title' => 'By', 'width' => 26], ['title' => 'Role', 'width' => 12], ['title' => 'Changes', 'width' => 70], ['title' => 'IP address', 'width' => 16],
+        ], $rows);
+
+        return response($file, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Content-Length' => (string) strlen($file),
+            'Cache-Control' => 'no-store',
+        ]);
     }
 
+    /** The periods the export dialog offers, on top of the filters the page is showing. */
+    private function exportChoices(Request $request): array
+    {
+        $keep = array_filter($request->only(['q', 'type', 'actor']));
+
+        return \App\Support\ExportPeriods::choices(
+            'entry',
+            fn (?string $from, ?string $to) => $this->filtered(Request::create('/', 'GET', $keep + array_filter(['from' => $from, 'to' => $to]))),
+            fn (array $params) => route('admin.audit-logs.export', $keep + $params)
+        );
+    }
     /**
      * The logged records, one query per model type. Types that are not (or no
      * longer) models are skipped, and deleted records stay null.

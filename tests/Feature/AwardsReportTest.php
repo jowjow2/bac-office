@@ -35,11 +35,11 @@ it('has Export, and no Report button, in the awards page header', function () {
         ->assertDontSee('data-report-dialog="awardsReport"', false);
 });
 
-it('exports the awards register as CSV', function () {
+it('exports the awards register as an Excel file', function () {
     $response = testCase()->actingAs($this->admin)->get(route('admin.awards.export'))->assertOk();
-    expect($response->headers->get('content-type'))->toContain('text/csv');
-    expect($response->streamedContent())
-        ->toContain('Winning bidder')->toContain('Concreting of Barangay Road')->toContain('SJ-BAC-2026-I-300')->toContain('1800000.00');
+    expect($response->headers->get('content-type'))->toContain('spreadsheetml');
+    expect(xlsxText($response))
+        ->toContain('Winning bidder')->toContain('Concreting of Barangay Road')->toContain('SJ-BAC-2026-I-300')->toContain('1800000');
 
     testCase()->actingAs($this->staff)->get(route('admin.awards.export'))->assertForbidden();
 });

@@ -70,7 +70,7 @@ it('lets only the BAC Admin read, filter, mark and export feedback', function ()
     testCase()->actingAs($this->admin)->post(route('admin.feedback.review', $problem))->assertRedirect();
     expect($problem->fresh()->reviewed_at)->toBeNull();
 
-    $csv = testCase()->actingAs($this->admin)->get(route('admin.feedback.export'))->assertOk()->streamedContent();
+    $csv = xlsxText(testCase()->actingAs($this->admin)->get(route('admin.feedback.export'))->assertOk());
     expect($csv)->toContain('Date,Kind,Rating,Message')->toContain('The upload button does not work on my phone.');
 });
 

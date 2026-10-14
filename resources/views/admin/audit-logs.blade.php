@@ -32,7 +32,7 @@
     #auditLogs .alog-actions-left { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     #auditLogs .alog-count { color: var(--ui-muted); font-size: 12.5px; }
 
-    #auditLogs .alog-btn { display: inline-flex !important; align-items: center; justify-content: center; gap: 7px; height: 36px !important; padding: 0 14px !important; border: 1px solid var(--ui-line-strong) !important; border-radius: var(--ui-radius) !important; background: #fff !important; color: var(--ui-ink-2) !important; -webkit-text-fill-color: var(--ui-ink-2) !important; font: inherit !important; font-size: 12.5px !important; font-weight: 600 !important; text-decoration: none !important; box-shadow: none !important; cursor: pointer; }
+    #auditLogs .alog-btn { display: inline-flex !important; align-items: center; justify-content: center; gap: 7px; height: auto !important; min-height: 36px !important; padding: 7px 14px !important; line-height: 1.2 !important; border: 1px solid var(--ui-line-strong) !important; border-radius: var(--ui-radius) !important; background: #fff !important; color: var(--ui-ink-2) !important; -webkit-text-fill-color: var(--ui-ink-2) !important; font: inherit !important; font-size: 12.5px !important; font-weight: 600 !important; text-decoration: none !important; box-shadow: none !important; cursor: pointer; }
     #auditLogs .alog-btn:hover { background: var(--ui-surface-2) !important; }
     #auditLogs .alog-btn.is-primary { border-color: var(--ui-primary) !important; background: var(--ui-primary) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; }
     #auditLogs .alog-btn.is-primary:hover { background: var(--ui-primary-hover) !important; }
@@ -131,8 +131,8 @@
                     {{ number_format($logs->total()) }} {{ $hasFilters ? 'matching' : '' }} {{ \Illuminate\Support\Str::plural('entry', $logs->total()) }}{{ $hasFilters ? ' of '.number_format($total) : '' }}
                 </span>
             </div>
-            <a href="{{ route('admin.audit-logs.export', request()->only(['q', 'type', 'actor', 'from', 'to'])) }}" class="alog-btn" data-export-dialog data-export-title="Export audit logs" data-export-noun="entry" data-export-count="{{ $logs->total() }}" data-export-note="{{ $hasFilters ? 'Only the entries that match your current filters.' : 'Every audit log entry, newest first.' }}" @if($logs->total() === 0) aria-disabled="true" @endif>
-                <i class="fas fa-file-csv" aria-hidden="true"></i> Export CSV
+            <a href="{{ route('admin.audit-logs.export', request()->only(['q', 'type', 'actor', 'from', 'to'])) }}" class="alog-btn" data-export-dialog data-export-title="Export audit logs" data-export-noun="entry" data-export-file="Excel" data-export-choices-label="Recorded" data-export-formats="{{ json_encode($exportChoices) }}" @if($logs->total() === 0) aria-disabled="true" @endif>
+                <i class="fas fa-file-export" aria-hidden="true"></i> Export
             </a>
         </div>
     </form>

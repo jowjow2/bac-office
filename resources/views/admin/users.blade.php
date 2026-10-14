@@ -695,7 +695,7 @@
                     $exportChoices[] = ['label' => 'Staff', 'hint' => 'BAC staff accounts', 'count' => $roleCounts['staff'], 'icon' => 'fa-user-tie', 'url' => route('admin.users.export', ['filter' => 'staff'])];
                     $exportChoices[] = ['label' => 'Admin', 'hint' => 'BAC Admin accounts', 'count' => $roleCounts['admin'], 'icon' => 'fa-user-shield', 'url' => route('admin.users.export', ['filter' => 'admin'])];
                 @endphp
-                <a href="{{ route('admin.users.export') }}" class="xd-hbtn" data-export-dialog data-export-title="Export users" data-export-noun="user" data-export-choices-label="Who to include" data-export-formats="{{ json_encode($exportChoices) }}"><i class="fas fa-file-export" aria-hidden="true"></i> Export</a>
+                <a href="{{ route('admin.users.export') }}" class="xd-hbtn" data-export-dialog data-export-title="Export users" data-export-noun="user" data-export-file="Excel" data-export-choices-label="Who to include" data-export-formats="{{ json_encode($exportChoices) }}"><i class="fas fa-file-export" aria-hidden="true"></i> Export</a>
                 <button type="button" class="ul-add" onclick="openCreateUserModal()"><i class="fas fa-plus" aria-hidden="true"></i> Add user</button>
             </x-slot:actions>
         </x-page-header>

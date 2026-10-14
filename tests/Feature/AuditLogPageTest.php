@@ -46,11 +46,11 @@ it('lists who did what to which record, with the system shown for scheduled acti
         ->assertSee('No entries match these filters');
 });
 
-it('exports the filtered entries as CSV', function () {
+it('exports the filtered entries as an Excel file', function () {
     testCase()->actingAs($this->admin);
     AuditLog::log('project_schedule_changed', $this->project, [], ['deadline' => '2026-10-14 10:00:00']);
 
-    $csv = testCase()->actingAs($this->admin)->get(route('admin.audit-logs.export'))->assertOk()->streamedContent();
+    $csv = xlsxText(testCase()->actingAs($this->admin)->get(route('admin.audit-logs.export'))->assertOk());
 
     expect($csv)->toContain('Date and time (Asia/Manila)')
         ->toContain('Schedule changed')

@@ -101,7 +101,16 @@ class FeedbackController extends Controller
             'by_category' => Feedback::selectRaw('category, count(*) as total')->groupBy('category')->pluck('total', 'category')->all(),
         ];
 
-        return view('admin.feedback', ['available' => true, 'items' => $items, 'stats' => $stats, 'category' => $category, 'status' => $status]);
+        $keep = array_filter(['category' => $category, 'status' => $status]);
+        $exportChoices = \App\Support\ExportPeriods::choices(
+            'feedback',
+            fn (?string $from, ?string $to) => $this->filtered($category, $status)
+                ->when($from, fn ($query) => $query->whereDate('created_at', '>=', $from))
+                ->when($to, fn ($query) => $query->whereDate('created_at', '<=', $to)),
+            fn (array $params) => route('admin.feedback.export', $keep + $params)
+        );
+
+        return view('admin.feedback', ['available' => true, 'items' => $items, 'stats' => $stats, 'category' => $category, 'status' => $status, 'exportChoices' => $exportChoices]);
     }
 
     public function review(Feedback $feedback)
@@ -120,29 +129,35 @@ class FeedbackController extends Controller
         abort_unless(Auth::user()?->role === 'admin', 403);
         abort_unless(Feedback::available(), 404);
 
-        $rows = $this->filtered((string) $request->query('category', ''), (string) $request->query('status', ''))->with('user:id,name,company')->latest()->get();
+        [$from, $to] = \App\Support\ExportPeriods::range($request);
+        $rows = $this->filtered((string) $request->query('category', ''), (string) $request->query('status', ''))
+            ->when($from, fn ($query) => $query->whereDate('created_at', '>=', $from))
+            ->when($to, fn ($query) => $query->whereDate('created_at', '<=', $to))
+            ->with('user:id,name,company')->latest()->get();
+        $zone = config('bac-office.display_timezone', 'Asia/Manila');
 
-        return response()->streamDownload(function () use ($rows) {
-            $out = fopen('php://output', 'w');
-            fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['Date', 'Kind', 'Rating', 'Message', 'Name', 'Email', 'Signed-in account', 'Page', 'Reviewed']);
-            foreach ($rows as $row) {
-                fputcsv($out, [
-                    $row->created_at?->timezone(config('bac-office.display_timezone', 'Asia/Manila'))->format('Y-m-d H:i'),
-                    $row->categoryLabel(),
-                    $row->rating,
-                    $row->message,
-                    $row->name,
-                    $row->email,
-                    $row->user ? ($row->user->company ?: $row->user->name) : '',
-                    $row->page_url,
-                    $row->reviewed_at ? 'Yes' : 'No',
-                ]);
-            }
-            fclose($out);
-        }, 'feedback-'.now()->format('Ymd').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        $file = \App\Support\SimpleXlsx::build('Feedback', [
+            ['title' => 'Date', 'width' => 18], ['title' => 'Kind', 'width' => 16], ['title' => 'Rating', 'width' => 8, 'type' => \App\Support\SimpleXlsx::INTEGER],
+            ['title' => 'Message', 'width' => 70], ['title' => 'Name', 'width' => 24], ['title' => 'Email', 'width' => 28],
+            ['title' => 'Signed-in account', 'width' => 26], ['title' => 'Page', 'width' => 36], ['title' => 'Reviewed', 'width' => 10],
+        ], $rows->map(fn ($row) => [
+            $row->created_at?->timezone($zone)->format('Y-m-d H:i'),
+            $row->categoryLabel(),
+            $row->rating,
+            $row->message,
+            $row->name,
+            $row->email,
+            $row->user ? ($row->user->company ?: $row->user->name) : '',
+            $row->page_url,
+            $row->reviewed_at ? 'Yes' : 'No',
+        ])->all());
+
+        return response($file, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="feedback'.\App\Support\ExportPeriods::suffix($from, $to).'-'.now()->format('Ymd').'.xlsx"',
+            'Content-Length' => (string) strlen($file),
+        ]);
     }
-
     private function filtered(string $category, string $status)
     {
         return Feedback::query()

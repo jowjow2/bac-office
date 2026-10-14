@@ -46,7 +46,7 @@
     .xd-btn:disabled { border-color: #dfe6e1; background: #eef1ef; color: #9aa6a0; cursor: not-allowed; }
     body.xd-open { overflow: hidden; }
     /* Header buttons (Export, Report) beside the page title. */
-    body .main-area a.xd-hbtn { display: inline-flex !important; align-items: center !important; gap: 8px !important; height: 38px !important; padding: 0 16px !important; border: 1px solid var(--ui-line-strong, #d5ddd8) !important; border-radius: 9px !important; background: #fff !important; color: var(--ui-ink-2, #2d3a34) !important; -webkit-text-fill-color: var(--ui-ink-2, #2d3a34) !important; font: 600 13.5px/1 var(--ui-font, inherit) !important; text-decoration: none !important; }
+    body .main-area a.xd-hbtn { display: inline-flex !important; align-items: center !important; gap: 7px !important; height: auto !important; min-height: 36px !important; padding: 7px 14px !important; border: 1px solid var(--ui-line-strong, #d5ddd8) !important; border-radius: var(--ui-radius, 8px) !important; background: #fff !important; color: var(--ui-ink-2, #2d3a34) !important; -webkit-text-fill-color: var(--ui-ink-2, #2d3a34) !important; font: 600 12.5px/1.2 var(--ui-font, inherit) !important; text-decoration: none !important; }
     body .main-area a.xd-hbtn:hover { border-color: var(--ui-primary, #1f5c45) !important; background: var(--ui-primary-soft, #e8f3ee) !important; color: var(--ui-primary, #1f5c45) !important; -webkit-text-fill-color: var(--ui-primary, #1f5c45) !important; }
     body .main-area a.xd-hbtn i { color: inherit !important; -webkit-text-fill-color: currentColor !important; font-size: 12px !important; }
     @keyframes xd-fade { from { opacity: 0; } to { opacity: 1; } }
@@ -77,7 +77,7 @@
             const count = hasCount ? parseInt(data.exportCount, 10) : null;
             let formats = [];
             try { formats = JSON.parse(data.exportFormats || '[]'); } catch (e) { formats = []; }
-            if (!formats.length) formats = [{ label: 'CSV file', hint: 'Opens in Excel, Sheets or any spreadsheet', url: link.href, icon: 'fa-file-csv' }];
+            if (!formats.length) formats = [{ label: (data.exportFile || 'CSV') + ' file', hint: 'Opens in Excel, Sheets or any spreadsheet', url: link.href, icon: '' + (data.exportFile === 'Excel' ? 'fa-file-excel' : 'fa-file-csv') + '' }];
             chosen = formats[0];
             const choicesLabel = data.exportChoicesLabel || '';
 

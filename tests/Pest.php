@@ -116,3 +116,9 @@ function xlsxRows($response): array
 
     return $rows;
 }
+
+/** An Excel (.xlsx) download as plain text: one line per row, cells joined by commas. */
+function xlsxText($response): string
+{
+    return implode("\n", array_map(fn ($row) => implode(',', $row), xlsxRows($response)));
+}

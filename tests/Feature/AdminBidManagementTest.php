@@ -335,3 +335,15 @@ it('exports the projects as an Excel workbook', function () {
         ->and($rows[0][0])->toBe('Reference No.')->and($rows[0][3])->toBe('Budget (PHP)')
         ->and(array_column($rows, 1))->toContain($this->project->title);
 });
+
+it('offers projects and bids exports by period, as Excel', function () {
+    $this->actingAs($this->admin)->get(route('admin.projects'))->assertOk()
+        ->assertSee('data-export-file="Excel"', false)->assertSee('Export projects')->assertSee('This month');
+    $this->actingAs($this->admin)->get(route('admin.bids'))->assertOk()
+        ->assertSee('data-export-file="Excel"', false)->assertSee('Export bids')->assertSee('This year');
+
+    $today = now(config('bac-office.display_timezone', 'Asia/Manila'))->toDateString();
+    $inPeriod = xlsxRows($this->actingAs($this->admin)->get(route('admin.projects.export', ['from' => $today, 'to' => $today]))->assertOk());
+    $old = xlsxRows($this->actingAs($this->admin)->get(route('admin.projects.export', ['from' => '2001-01-01', 'to' => '2001-12-31']))->assertOk());
+    expect(array_column($inPeriod, 1))->toContain($this->project->title)->and(array_column($old, 1))->not->toContain($this->project->title);
+});
