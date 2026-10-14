@@ -90,6 +90,12 @@ foreach (DB::table('awards')->orderBy('id')->get() as $award) {
     $units[] = $unit;
 }
 $certificate = "UPDATE awards SET certificate_number = 'BAC-AWD-' || to_char(created_at, 'YYYY') || '-' || lpad(id::text, 6, '0') WHERE certificate_number IS NULL AND project_id IN (SELECT id FROM projects WHERE reference_no LIKE 'SJ-BAC-2026-%-D__');";
+// Demo awards added by an earlier run have no recorded bid opening or financial opening: record them, so their bids are
+// not treated as sealed any more.
+$reopen = [
+    "UPDATE projects SET bids_opened_at = (SELECT s.bid_opening_date FROM project_schedules s WHERE s.project_id = projects.id), bids_opened_by = v_admin WHERE status = 'awarded' AND bids_opened_at IS NULL AND reference_no LIKE 'SJ-BAC-2026-%-D__';",
+    "UPDATE bids SET financial_opened_at = documents_validated_at + interval '3 hours', financial_opened_by = v_admin WHERE financial_opened_at IS NULL AND award_decision = 'approved' AND documents_validated_at IS NOT NULL AND project_id IN (SELECT id FROM projects WHERE reference_no LIKE 'SJ-BAC-2026-%-D__');",
+];
 $guard = 'IF (SELECT count(*) FROM users WHERE email IN ('.implode(', ', array_map($q, $emails)).')) = '.count($emails).' THEN';
 $guardElse = "ELSE\nRAISE NOTICE 'The awarded projects of this part were not added: the demo bidder accounts are not all in the database. Load the demo accounts first, then run this part again.';\nEND IF;";
 
@@ -132,6 +138,7 @@ foreach ($final as $i => $part) {
         $lines[] = $guard;
         array_push($lines, ...$part['statements']);
         $lines[] = $certificate;
+        array_push($lines, ...$reopen);
         $lines[] = $guardElse;
     } else {
         array_push($lines, ...$part['statements']);

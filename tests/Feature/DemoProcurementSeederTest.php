@@ -51,6 +51,8 @@ it('adds 30 awarded projects with their bids and awards, posted publicly and lis
         ->and(\App\Models\Award::count())->toBe(30)
         ->and($projects->pluck('title')->filter(fn ($t) => stripos($t, 'test') !== false))->toBeEmpty();
     expect(\App\Models\Award::publiclyPosted()->count())->toBe(30);
+    // The awarded demo bids were opened: none of them reads as sealed, so a bid with a recommendation is not "Submitted".
+    expect(\App\Models\Bid::with('project')->where('award_decision', 'approved')->get()->every(fn ($bid) => ! $bid->isSealed() && ! $bid->isFinancialSealed()))->toBeTrue();
     expect(\App\Models\Award::with('bid')->get()->every(fn ($a) => (float) $a->contract_amount === (float) $a->bid->bid_amount && (float) $a->contract_amount <= (float) $a->project->budget))->toBeTrue();
 
     testCase()->actingAs($admin)->get(route('admin.awards.index'))->assertOk()->assertSee($projects->first()->title);

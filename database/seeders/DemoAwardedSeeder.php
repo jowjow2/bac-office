@@ -129,6 +129,8 @@ class DemoAwardedSeeder extends Seeder
                     'created_by' => $admin->id,
                 ]);
                 ProjectSchedule::create(['project_id' => $project->id, 'date_posted' => $postedAt, 'bid_submission_deadline' => $deadline, 'bid_opening_date' => $openingAt]);
+                // The bids were opened at the scheduled time; without this the system treats every bid as still sealed.
+                $project->forceFill(['bids_opened_at' => $openingAt, 'bids_opened_by' => $admin->id])->save();
                 ProjectRequirement::create(['project_id' => $project->id, 'required_documents' => []]);
 
                 // The winner and two others from the same line of business (a different start for each project).
@@ -162,6 +164,7 @@ class DemoAwardedSeeder extends Seeder
 
                     $bid->forceFill([
                         'documents_validated_at' => $openingAt->copy()->addDay(), 'documents_validated_by' => $admin->id,
+                        'financial_opened_at' => $openingAt->copy()->addDay()->setTime(14, 0), 'financial_opened_by' => $admin->id,
                         'bac_evaluation_at' => $openingAt->copy()->addDays(2), 'bac_evaluation_by' => $admin->id,
                         'evaluated_at' => $openingAt->copy()->addDays(3), 'evaluated_by' => $admin->id,
                         'post_qualification_at' => $openingAt->copy()->addDays(5), 'post_qualification_by' => $admin->id,
