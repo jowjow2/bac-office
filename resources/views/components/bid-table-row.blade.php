@@ -9,7 +9,7 @@
     // One short word or two in the row; the full sentence and the missing files are in the tooltip and the bid view.
     $documentShort = match ($documentStatus['key']) {
         'complete' => 'Complete',
-        'received_sealed' => 'Complete · sealed',
+        'received_sealed' => 'Complete',
         'incomplete' => count($missing).' missing',
         'sealed_envelope' => 'Sealed envelope',
         'draft' => 'Draft',

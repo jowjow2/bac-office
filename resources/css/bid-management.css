@@ -3384,3 +3384,7 @@ body #bid-management:not(#z) .bid-management-table .bid-review-button span { whi
     body #bid-management.admin-bids-v2:not(#z) .bid-management-table .bid-col-action { width: 12% !important; }
     body #bid-management:not(#z) .bid-management-table .bid-actions-cell { text-align: right !important; }
 }
+
+/* A document chip never spills out of its column: whatever the label, it is cut with an ellipsis (the full
+   sentence is in the tooltip). */
+body #bid-management:not(#z) .bid-management-table .bid-document-status { max-width: 100% !important; box-sizing: border-box !important; overflow: hidden !important; text-overflow: ellipsis !important; }
