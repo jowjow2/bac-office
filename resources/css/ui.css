@@ -395,13 +395,22 @@ a.ui-stat:hover {
 /* ---------- Needs your action ---------- */
 
 .ui-todo {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
     gap: 10px;
     margin: 0;
     padding: 0;
     list-style: none;
 }
+
+/* Cards share each row, so a last row with fewer cards stretches instead of leaving a gap. */
+.ui-todo > li {
+    display: flex;
+    flex: 1 1 280px;
+    min-width: 0;
+}
+
+.ui-todo > li > .ui-todo__item { flex: 1 1 auto; }
 
 .ui-todo__item {
     display: grid;
