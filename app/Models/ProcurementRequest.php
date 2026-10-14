@@ -72,6 +72,7 @@ class ProcurementRequest extends Model
         'reviewed_by',
         'reviewed_at',
         'forwarded_at',
+        'seen_at',
     ];
 
     protected $casts = [
@@ -83,6 +84,7 @@ class ProcurementRequest extends Model
         'submitted_at' => 'datetime',
         'reviewed_at' => 'datetime',
         'forwarded_at' => 'datetime',
+        'seen_at' => 'datetime',
     ];
 
     public function requester(): BelongsTo
@@ -217,15 +219,28 @@ class ProcurementRequest extends Model
         return in_array($this->status, [self::STATUS_DRAFT, self::STATUS_RETURNED], true);
     }
 
-    /** How long a recorded request is marked NEW in the queue. */
-    public const NEW_FOR_HOURS = 24;
+    private static ?bool $hasSeenAt = null;
 
-    /** Recorded within the last day and not yet turned into a project: the queue marks it NEW. */
+    /** The seen_at column exists (the page keeps working, without the NEW mark, until the migration has run). */
+    public static function tracksNew(): bool
+    {
+        return self::$hasSeenAt ??= \Illuminate\Support\Facades\Schema::hasColumn((new self)->getTable(), 'seen_at');
+    }
+
+    /** Recorded by the BAC and not yet started: the queue marks it NEW, in front, until Prepare procurement is used. */
     public function isNew(): bool
     {
-        return $this->created_at !== null
-            && $this->created_at->greaterThanOrEqualTo(now()->subHours(self::NEW_FOR_HOURS))
-            && ! in_array($this->status, [self::STATUS_IN_PROCUREMENT, self::STATUS_DRAFT], true);
+        return self::tracksNew()
+            && $this->seen_at === null
+            && in_array($this->status, [self::STATUS_FORWARDED, self::STATUS_SUBMITTED], true);
+    }
+
+    /** The admin started the procurement from this request: it is no longer NEW. */
+    public function markSeen(): void
+    {
+        if (self::tracksNew() && $this->seen_at === null) {
+            $this->forceFill(['seen_at' => now()])->saveQuietly();
+        }
     }
 
     public function awaitsReview(): bool

@@ -350,23 +350,23 @@ it('has no leftover PPMP/APP review wording where a recorded request is shown or
     expect($keys)->toContain('request')->and($keys)->not->toContain('review');
 });
 
-it('marks a request recorded within the last day as NEW, in front, and not an older one', function () {
-    $old = ProcurementRequest::create(array_merge($this->details, ['reference_no' => 'PR-2026-0900', 'end_user_office' => 'Municipal Engineering Office', 'status' => ProcurementRequest::STATUS_FORWARDED, 'submitted_at' => now()->subDays(5), 'forwarded_at' => now()->subDays(5), 'title' => 'Older request']));
-    ProcurementRequest::whereKey($old->id)->update(['created_at' => now()->subDays(5)]);
-    expect($old->fresh()->isNew())->toBeFalse();
+it('marks a request NEW, in front, until the admin starts its procurement', function () {
+    // A request that existed before (or was already started) is not NEW.
+    $old = ProcurementRequest::create(array_merge($this->details, ['reference_no' => 'PR-2026-0900', 'end_user_office' => 'Municipal Engineering Office', 'status' => ProcurementRequest::STATUS_FORWARDED, 'submitted_at' => now()->subDays(5), 'forwarded_at' => now()->subDays(5), 'title' => 'Older request', 'seen_at' => now()->subDays(4)]));
+    expect($old->isNew())->toBeFalse();
 
     testCase()->actingAs($this->admin)->post(route('admin.requests.store'), array_merge($this->details, ['end_user_office' => 'Municipal Engineering Office', 'title' => 'Brand new request']))->assertSessionHasNoErrors();
     $new = ProcurementRequest::where('title', 'Brand new request')->firstOrFail();
     expect($new->isNew())->toBeTrue();
 
-    $page = testCase()->actingAs($this->admin)->get(route('admin.requests', ['tab' => 'bac']));
-    $page->assertOk()->assertSee('pr-new', false);
-    // The new one is in front of the older one, and only it carries the mark.
-    $html = $page->getContent();
+    $html = testCase()->actingAs($this->admin)->get(route('admin.requests', ['tab' => 'bac']))->assertOk()->getContent();
     expect(strpos($html, 'Brand new request'))->toBeLessThan(strpos($html, 'Older request'))
         ->and(substr_count($html, 'class="pr-new"'))->toBe(1);
 
-    // Once it is a project it is no longer marked.
-    $new->update(['status' => ProcurementRequest::STATUS_IN_PROCUREMENT]);
-    expect($new->fresh()->isNew())->toBeFalse();
+    // Viewing or editing does not clear it; starting the procurement does.
+    testCase()->actingAs($this->admin)->get(route('admin.requests.edit', $new))->assertOk();
+    expect($new->fresh()->isNew())->toBeTrue();
+    testCase()->actingAs($this->admin)->get(route('admin.projects.create', ['request' => $new->id]))->assertOk();
+    expect($new->fresh()->isNew())->toBeFalse()->and($new->fresh()->seen_at)->not->toBeNull();
+    expect(substr_count(testCase()->actingAs($this->admin)->get(route('admin.requests', ['tab' => 'bac']))->getContent(), 'class="pr-new"'))->toBe(0);
 });

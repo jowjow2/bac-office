@@ -46,7 +46,7 @@ $convert = function (array $row, array $skip, array $map) use ($t, $admin) {
 // ---- Base records: purchase requests, projects (all 50), their schedules and requirements, and the fee fix ----
 $base = [];
 foreach (DB::table('procurement_requests')->where('reference_no', 'like', 'PR-2026-D%')->orderBy('id')->get() as $row) {
-    $row = (array) $row; unset($row['id']);
+    $row = (array) $row; unset($row['id'], $row['seen_at']); // seen_at only exists once its migration has run
     $cols = []; $vals = [];
     foreach ($row as $c => $v) { if ($v === null) continue; $cols[] = $c; $vals[] = $c === 'budget_available' ? $q((bool) $v) : $t($c, $v); }
     $base[] = 'INSERT INTO procurement_requests ('.implode(', ', $cols).') SELECT '.implode(', ', $vals).' WHERE NOT EXISTS (SELECT 1 FROM procurement_requests WHERE reference_no = '.$q($row['reference_no']).');';

@@ -144,6 +144,7 @@ class DemoProcurementSeeder extends Seeder
                     'fund_source' => $fund, 'delivery_period' => $period,
                     'justification' => 'Included in the Annual Procurement Plan for the year.',
                     'status' => $status,
+                    'seen_at' => now(), // demo requests are not NEW
                     'ppmp_reference' => in_array($status, ['draft'], true) ? null : sprintf('PPMP-2026-%03d', $i + 1),
                     'app_reference' => in_array($status, ['draft'], true) ? null : sprintf('APP-2026-%03d', $i + 1),
                     'budget_available' => in_array($status, ['forwarded', 'in_procurement'], true),

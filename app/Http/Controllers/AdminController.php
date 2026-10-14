@@ -232,6 +232,8 @@ class AdminController extends Controller
         if ($request->filled('request')) {
             $procurementRequest = \App\Models\ProcurementRequest::find($request->integer('request'));
             abort_unless($procurementRequest && $procurementRequest->awaitsBac() && ! $procurementRequest->project()->exists(), 404);
+            // Starting the procurement is what clears the NEW mark.
+            $procurementRequest->markSeen();
 
             // Start the wizard from the request unless the form is being redisplayed after an error.
             if (old('procurement_request_id') === null) {
