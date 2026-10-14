@@ -90,7 +90,7 @@
                         @foreach($requests as $item)
                             <tr>
                                 <td data-label="Request">
-                                    <span class="ui-cell-title">{{ $item->title }}</span>
+                                    <span class="ui-cell-title">@if($item->isNew())<span class="pr-new" title="Recorded within the last day">New</span>@endif{{ $item->title }}</span>
                                     <span class="ui-cell-sub"><span class="ui-mono">{{ $item->reference_no }}</span> &middot; {{ ucfirst($item->category) }} &middot; {{ $item->quantityLabel() }}</span>
                                 </td>
                                 <td data-label="Office">{{ $item->end_user_office }}</td>
@@ -217,6 +217,8 @@
 @endforeach
 <style>
     .pr-delete { width: min(520px, calc(100vw - 32px)); }
+    /* The NEW mark in front of a request recorded within the last day. */
+    .pr-new { display: inline-block; margin-right: 8px; padding: 1px 8px; border-radius: 999px; background: var(--ui-success); color: #fff; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; line-height: 1.6; text-transform: uppercase; vertical-align: 1px; }
     /* The row actions stay on one line on wide screens. */
     @media (min-width: 1100px) { td.is-actions .ui-actions { flex-wrap: nowrap; } }
     .pr-delete__title { margin: 0; color: var(--ui-ink); font-size: 15px; font-weight: 600; }

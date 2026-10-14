@@ -217,6 +217,17 @@ class ProcurementRequest extends Model
         return in_array($this->status, [self::STATUS_DRAFT, self::STATUS_RETURNED], true);
     }
 
+    /** How long a recorded request is marked NEW in the queue. */
+    public const NEW_FOR_HOURS = 24;
+
+    /** Recorded within the last day and not yet turned into a project: the queue marks it NEW. */
+    public function isNew(): bool
+    {
+        return $this->created_at !== null
+            && $this->created_at->greaterThanOrEqualTo(now()->subHours(self::NEW_FOR_HOURS))
+            && ! in_array($this->status, [self::STATUS_IN_PROCUREMENT, self::STATUS_DRAFT], true);
+    }
+
     public function awaitsReview(): bool
     {
         return $this->status === self::STATUS_SUBMITTED;

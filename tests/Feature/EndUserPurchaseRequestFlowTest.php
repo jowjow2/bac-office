@@ -349,3 +349,24 @@ it('has no leftover PPMP/APP review wording where a recorded request is shown or
     $keys = collect(\App\Support\ProcurementTimeline::forProject($project)->stages())->pluck('key');
     expect($keys)->toContain('request')->and($keys)->not->toContain('review');
 });
+
+it('marks a request recorded within the last day as NEW, in front, and not an older one', function () {
+    $old = ProcurementRequest::create(array_merge($this->details, ['reference_no' => 'PR-2026-0900', 'end_user_office' => 'Municipal Engineering Office', 'status' => ProcurementRequest::STATUS_FORWARDED, 'submitted_at' => now()->subDays(5), 'forwarded_at' => now()->subDays(5), 'title' => 'Older request']));
+    ProcurementRequest::whereKey($old->id)->update(['created_at' => now()->subDays(5)]);
+    expect($old->fresh()->isNew())->toBeFalse();
+
+    testCase()->actingAs($this->admin)->post(route('admin.requests.store'), array_merge($this->details, ['end_user_office' => 'Municipal Engineering Office', 'title' => 'Brand new request']))->assertSessionHasNoErrors();
+    $new = ProcurementRequest::where('title', 'Brand new request')->firstOrFail();
+    expect($new->isNew())->toBeTrue();
+
+    $page = testCase()->actingAs($this->admin)->get(route('admin.requests', ['tab' => 'bac']));
+    $page->assertOk()->assertSee('pr-new', false);
+    // The new one is in front of the older one, and only it carries the mark.
+    $html = $page->getContent();
+    expect(strpos($html, 'Brand new request'))->toBeLessThan(strpos($html, 'Older request'))
+        ->and(substr_count($html, 'class="pr-new"'))->toBe(1);
+
+    // Once it is a project it is no longer marked.
+    $new->update(['status' => ProcurementRequest::STATUS_IN_PROCUREMENT]);
+    expect($new->fresh()->isNew())->toBeFalse();
+});

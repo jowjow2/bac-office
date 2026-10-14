@@ -226,6 +226,9 @@ class ProcurementRequestController extends Controller
         $requests = ProcurementRequest::with(['project', 'requester', 'budgetConfirmer', 'documents'])
             ->whereIn('status', $statuses)
             ->tap($matchesSearch)
+            // What was just recorded comes first (it is marked NEW), then the queue in the order it came in.
+            ->orderByRaw('case when created_at >= ? then 0 else 1 end', [now()->subHours(ProcurementRequest::NEW_FOR_HOURS)])
+            ->orderByRaw('case when created_at >= ? then created_at end desc', [now()->subHours(ProcurementRequest::NEW_FOR_HOURS)])
             ->orderByRaw('submitted_at is null')
             ->orderBy('submitted_at')
             ->paginate(15)
