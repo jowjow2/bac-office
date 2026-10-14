@@ -78,6 +78,7 @@ class Project extends Model
         'published_at',
         'published_by',
         'archived_at',
+        'seen_at',
         'created_by',
         'failed_bidding_at',
         'failed_bidding_by',
@@ -117,6 +118,7 @@ class Project extends Model
         'quality_price_ratio' => 'integer',
         'deadline' => 'datetime',
         'archived_at' => 'datetime',
+        'seen_at' => 'datetime',
         'failed_bidding_at' => 'datetime',
         'bids_opened_at' => 'datetime',
         'financial_opening_at' => 'datetime',
@@ -967,5 +969,27 @@ class Project extends Model
     public function firstUploadedDocument(): ?ProjectDocument
     {
         return $this->uploadedDocuments()->first();
+    }
+
+    private static ?bool $hasSeenAt = null;
+
+    /** The seen_at column exists (the list keeps working, without the NEW mark, until the migration has run). */
+    public static function tracksNew(): bool
+    {
+        return self::$hasSeenAt ??= \Illuminate\Support\Facades\Schema::hasColumn((new self)->getTable(), 'seen_at');
+    }
+
+    /** Created by the BAC and not yet opened: the Projects list marks it NEW until the admin opens it. */
+    public function isNew(): bool
+    {
+        return self::tracksNew() && $this->seen_at === null && $this->archived_at === null;
+    }
+
+    /** The admin opened this project: it is no longer NEW. */
+    public function markSeen(): void
+    {
+        if (self::tracksNew() && $this->seen_at === null) {
+            $this->forceFill(['seen_at' => now()])->saveQuietly();
+        }
     }
 }

@@ -125,6 +125,7 @@ class DemoAwardedSeeder extends Seeder
                     'submission_mode' => Project::SUBMISSION_ELECTRONIC, 'submission_venue' => 'BAC Secretariat, Municipal Hall, San Jose',
                     'bid_security_required' => true,
                     'bidding_fee_mode' => BiddingDocumentsFee::MODE_SCHEDULE, 'bidding_documents_fee' => BiddingDocumentsFee::maximumFor($abc),
+                    'seen_at' => now(), // demo projects are not NEW
                     'status' => 'awarded', 'deadline' => $deadline, 'published_at' => $postedAt, 'published_by' => $admin->id,
                     'created_by' => $admin->id,
                 ]);

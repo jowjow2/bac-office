@@ -52,7 +52,7 @@ foreach (DB::table('procurement_requests')->where('reference_no', 'like', 'PR-20
     $base[] = 'INSERT INTO procurement_requests ('.implode(', ', $cols).') SELECT '.implode(', ', $vals).' WHERE NOT EXISTS (SELECT 1 FROM procurement_requests WHERE reference_no = '.$q($row['reference_no']).');';
 }
 foreach (DB::table('projects')->where('reference_no', 'like', 'SJ-BAC-2026-%-D__')->orderBy('id')->get() as $row) {
-    $row = (array) $row; $id = $row['id']; unset($row['id']);
+    $row = (array) $row; $id = $row['id']; unset($row['id'], $row['seen_at']); // seen_at only exists once its migration has run
     $reqRef = $row['procurement_request_id'] ? DB::table('procurement_requests')->where('id', $row['procurement_request_id'])->value('reference_no') : null;
     [$cols, $vals] = $convert($row, [], [
         'procurement_request_id' => '(SELECT id FROM procurement_requests WHERE reference_no = '.$q($reqRef).')',

@@ -2323,6 +2323,7 @@ class AdminController extends Controller
 
     public function viewProject(Project $project)
     {
+        $project->markSeen();
         $project->loadCount('bids');
         $project->load(['assignments.staff', 'documents', 'bids:id,project_id,bid_amount,financial_opened_at,financial_opened_by', 'rebidProject:id,title']);
 
@@ -2382,6 +2383,7 @@ class AdminController extends Controller
 
     public function editProject(Project $project)
     {
+        $project->markSeen();
         $project->loadCount('bids');
         $project->load(['assignments', 'documents', 'schedule']);
 

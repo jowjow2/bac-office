@@ -185,6 +185,7 @@ class DemoProcurementSeeder extends Seeder
                     'bidding_fee_mode' => \App\Support\BiddingDocumentsFee::MODE_SCHEDULE,
                     'bidding_documents_fee' => \App\Support\BiddingDocumentsFee::maximumFor($budget),
                     'status' => $status === 'draft' ? 'draft' : ($status === 'closed' ? 'closed' : 'open'),
+                    'seen_at' => now(), // demo projects are not NEW
                     'deadline' => $deadline,
                     'published_at' => $open ? now()->subDays(max(3, 14 - $days)) : null,
                     'published_by' => $open ? $admin->id : null, 'created_by' => $admin->id,

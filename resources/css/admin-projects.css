@@ -1020,3 +1020,6 @@ body .admin-dashboard.admin-role-page .main-area.projects-page a.ui-btn.pj-creat
     html body .admin-dashboard.admin-role-page .main-area.projects-page:not(#z) .projects-summary-card > span:last-child { width: 100% !important; justify-content: space-between !important; }
     html body .admin-dashboard.admin-role-page .main-area.projects-page:not(#z) .projects-summary-card.is-active { border-color: var(--ui-primary) !important; background: var(--ui-primary-soft) !important; }
 }
+
+/* The NEW mark in front of a project the admin has not opened yet. */
+body .admin-dashboard.admin-role-page .main-area.projects-page .pj-new { display: inline-block !important; margin-right: 8px !important; padding: 1px 8px !important; border-radius: 999px !important; background: var(--ui-success) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; font-size: 10.5px !important; font-weight: 700 !important; letter-spacing: .06em !important; line-height: 1.6 !important; text-transform: uppercase !important; vertical-align: 1px !important; }

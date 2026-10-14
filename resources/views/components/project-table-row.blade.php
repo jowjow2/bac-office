@@ -46,7 +46,7 @@
     <td data-label="Project">
         <div class="projects-title-stack">
             <button type="button" onclick="loadViewModal({{ $project->id }})" class="projects-title-button" title="{{ $project->title }}">
-                {{ $project->title }}
+                @if($project->isNew())<span class="pj-new" title="Just created: opening it clears this mark">New</span>@endif{{ $project->title }}
             </button>
             <p class="projects-title-meta" title="{{ $project->modeLabel() }} · {{ $project->mode()->legalBasisShort() }}{{ $project->reference_no ? ' · '.$project->reference_no : '' }}">
                 <span>{{ $project->modeLabel() }}</span>
