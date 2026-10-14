@@ -115,6 +115,7 @@ class BiddingFeePaymentController extends Controller
             'hint' => 'Totals by project and day. Pick any dates there',
             'icon' => 'fa-file-pdf',
             'open' => true,
+            'dialog' => 'fee-report-dialog',
             'url' => route($role.'.payments.report'),
         ];
 

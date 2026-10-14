@@ -129,7 +129,12 @@
             });
             go.addEventListener('click', () => {
                 close();
-                if (chosen.open) window.open(chosen.url, '_blank', 'noopener');
+                const report = chosen.dialog ? document.getElementById(chosen.dialog) : null;
+                if (report) {
+                    const frame = report.querySelector('iframe[data-src]');
+                    if (frame && !frame.getAttribute('src')) frame.setAttribute('src', frame.dataset.src);
+                    if (typeof report.showModal === 'function') report.showModal(); else report.setAttribute('open', '');
+                } else if (chosen.open) window.open(chosen.url, '_blank', 'noopener');
                 else window.location.href = chosen.url;
             });
             document.body.append(overlay);
