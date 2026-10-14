@@ -1713,17 +1713,26 @@ a.ui-cell-title:hover {
     .ui-search { flex: 1 1 100%; }
     .ui-toast { top: 12px; right: 16px; }
 
-    /* Tables become label/value cards. */
+    /* Tables become cards: the first cell is the card's title, the rest are label/value pairs, the actions sit on their own row. */
     .ui-table--stack thead { display: none; }
     .ui-table--stack,
-    .ui-table--stack tbody,
-    .ui-table--stack tr { display: block; width: 100%; }
-    .ui-table--stack tr { padding: 10px 14px; border-bottom: 1px solid var(--ui-line); }
+    .ui-table--stack tbody { display: block; width: 100%; }
+    .ui-table-wrap:has(> .ui-table--stack) { padding: 12px; background: var(--ui-surface-2, #f6f8f7); }
+    .ui-table--stack tbody { display: grid; gap: 10px; }
+    .ui-table--stack tr {
+        display: block;
+        width: 100%;
+        padding: 14px;
+        border: 1px solid var(--ui-line);
+        border-radius: var(--ui-radius-lg, 12px);
+        background: var(--ui-surface, #fff);
+    }
     .ui-table--stack td {
         display: grid;
-        grid-template-columns: 104px minmax(0, 1fr);
+        grid-template-columns: 96px minmax(0, 1fr);
+        align-items: baseline;
         gap: 10px;
-        padding: 4px 0;
+        padding: 5px 0;
         border: 0;
         text-align: left;
     }
@@ -1739,8 +1748,22 @@ a.ui-cell-title:hover {
     .ui-table--stack td > * { grid-column: 2; justify-self: start; max-width: 100%; }
     .ui-table--stack td[colspan] { display: block; }
     .ui-table--stack td[colspan]::before { content: none; }
-}
 
+    /* The first cell is the title of the card, across the full width. */
+    .ui-table--stack td:first-child:not([colspan]) { display: block; padding: 0 0 8px; margin-bottom: 4px; border-bottom: 1px solid var(--ui-line); }
+    .ui-table--stack td:first-child:not([colspan])::before { content: none; }
+    .ui-table--stack td:first-child > * { max-width: 100%; }
+    .ui-table--stack td:first-child .ui-cell-title { display: block; font-size: 14.5px; line-height: 1.35; }
+    .ui-table--stack td:first-child .ui-cell-sub { display: block; margin-top: 3px; }
+
+    /* Actions: their own row at the bottom of the card, buttons side by side. */
+    .ui-table--stack td.is-actions { display: block; padding: 10px 0 0; margin-top: 6px; border-top: 1px solid var(--ui-line); }
+    .ui-table--stack td.is-actions::before { content: none; }
+    .ui-table--stack td.is-actions .ui-actions { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
+    .ui-table--stack td.is-actions .ui-actions > .ui-btn { flex: 1 1 auto; min-height: 38px; }
+    .ui-table--stack td.is-actions .ui-actions > .ui-btn--ghost:has(> .fa-print),
+    .ui-table--stack td.is-actions .ui-actions > .ui-btn--danger { flex: 0 0 auto; }
+}
 @media (max-width: 360px) {
     .ui-kpis,
     .ui-stats { grid-template-columns: minmax(0, 1fr); }
