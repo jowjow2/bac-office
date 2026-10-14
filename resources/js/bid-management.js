@@ -211,14 +211,14 @@ if (root && root.dataset.bidManagementReady !== '1') {
                 headers: {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
                     'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'text/csv'
+                    'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 },
                 body: params
             });
             if (!response.ok) throw new Error('Export request failed');
             const blob = await response.blob();
             const disposition = response.headers.get('Content-Disposition') || '';
-            const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] || 'selected-' + exportItemLabelPlural(2) + '.csv';
+            const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] || 'selected-' + exportItemLabelPlural(2) + '.xlsx';
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
@@ -227,7 +227,7 @@ if (root && root.dataset.bidManagementReady !== '1') {
             link.click();
             link.remove();
             setTimeout(() => URL.revokeObjectURL(url), 1000);
-            showExportToast('Export complete \u2014 ' + count + ' ' + exportItemLabelPlural(count) + ' downloaded as .csv', 'success', 3500);
+            showExportToast('Export complete \u2014 ' + count + ' ' + exportItemLabelPlural(count) + ' downloaded as Excel', 'success', 3500);
         } catch (error) {
             showExportToast('Export failed. Please try again.', 'error', 5000);
         } finally {

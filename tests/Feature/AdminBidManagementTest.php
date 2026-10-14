@@ -136,17 +136,17 @@ it('exports exactly the selection and escapes spreadsheet formulas', function ()
     ($this->makeBid)();
 
     // Before the bid opening the amount and variance stay sealed in exports too.
-    $sealedRow = str_getcsv(preg_split('/\r?\n/', trim($this->actingAs($this->admin)->post(route('admin.bids.bulk'), [
+    $sealedRow = xlsxRows($this->actingAs($this->admin)->post(route('admin.bids.bulk'), [
         'action' => 'export', 'ids' => [$selected->id],
-    ])->streamedContent()))[1], ',', '"', '');
+    ]))[1];
     expect($sealedRow[4])->toBe('Sealed')->and($sealedRow[6])->toBe('')->and($sealedRow[8])->toBe('Submitted');
 
     // Opened, but the financial component stays sealed until preliminary examination is passed.
     $this->project->update(['deadline' => now()->subDay(), 'status' => 'closed', 'bids_opened_at' => now()]);
     $this->project->forceFill(['award_criterion' => 'lowest_calculated_bid', 'opening_documents_reference' => 'ITB clause 24'])->save();
-    $openedRow = str_getcsv(preg_split('/\r?\n/', trim($this->post(route('admin.bids.bulk'), [
+    $openedRow = xlsxRows($this->post(route('admin.bids.bulk'), [
         'action' => 'export', 'ids' => [$selected->id],
-    ])->streamedContent()))[1], ',', '"', '');
+    ]))[1];
     expect($openedRow[4])->toBe('Sealed')->and($openedRow[8])->toBe('Preliminary Examination');
 
     $this->project->forceFill(['award_criterion' => 'lowest_calculated_bid', 'opening_documents_reference' => 'ITB clause 24'])->save();
@@ -158,13 +158,13 @@ it('exports exactly the selection and escapes spreadsheet formulas', function ()
     $response = $this->post(route('admin.bids.bulk'), [
         'action' => 'export', 'ids' => [$selected->id],
     ]);
-    $response->assertDownload('bids-'.now()->format('Y-m-d').'.csv');
-    $lines = preg_split('/\r?\n/', trim($response->streamedContent()));
+    $response->assertDownload('bids-'.now()->format('Y-m-d').'.xlsx');
+    $lines = xlsxRows($response);
     expect($lines)->toHaveCount(2);
-    $row = str_getcsv($lines[1], ',', '"', '');
+    $row = $lines[1];
     expect($row[0])->toBe((string) $selected->id)
-        ->and($row[1])->toBe("'=SUM(1,2)")
-        ->and($row[6])->toBe('-5')
+        ->and($row[1])->toBe('=SUM(1,2)')
+        ->and((float) $row[6])->toBe(-5.0)
         ->and($row[8])->toBe('Bid Evaluation')
         ->and($selected->fresh()->status)->toBe('pending');
 });
@@ -325,4 +325,13 @@ it('marks the parts of the bid list that the live refresh swaps in place', funct
     // The page the live script watches is the one that carries the regions.
     expect(\App\Support\LiveVersion::scopeForRoute('admin.bids'))->toBe('bids')
         ->and(\App\Support\LiveVersion::scopeForRoute('staff.review-bids'))->toBe('bids');
+});
+
+it('exports the projects as an Excel workbook', function () {
+    $response = $this->actingAs($this->admin)->post(route('admin.projects.export'))->assertOk()
+        ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    $rows = xlsxRows($response);
+    expect($response->headers->get('content-disposition'))->toContain('projects-')->toContain('.xlsx')
+        ->and($rows[0][0])->toBe('Reference No.')->and($rows[0][3])->toBe('Budget (PHP)')
+        ->and(array_column($rows, 1))->toContain($this->project->title);
 });

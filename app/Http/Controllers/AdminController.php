@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\SimpleXlsx;
 use App\Mail\BidderRejectedMail;
 use App\Mail\BidderIncompleteRequirementsMail;
 use App\Mail\BidderRequirementsActionMail;
@@ -143,32 +144,44 @@ class AdminController extends Controller
                 ->values();
         }
 
-        return response()->streamDownload(function () use ($projects) {
-            $stream = fopen('php://output', 'w');
-            $safeText = static fn ($value) => preg_match('/^[\s]*[=+@-]|^[\t\r\n]/u', (string) $value)
-                ? "'".(string) $value : (string) $value;
-            fputcsv($stream, ['Reference No.', 'Project', 'Procurement Mode', 'Budget (PHP)', 'Submission Deadline', 'Bid Opening', 'Staff', 'Bids', 'Status'], ',', '"', '');
-            foreach ($projects as $project) {
-                $staff = $project->assignments->first()?->staff?->name ?? 'Unassigned';
-                $status = $this->projectExportStatus($project);
-                fputcsv($stream, [
-                    $safeText($project->reference_no),
-                    $safeText($project->title),
-                    $safeText($project->mode()->label()),
-                    number_format((float) $project->budget, 2, '.', ''),
-                    $project->deadline?->format('Y-m-d H:i') ?? '',
-                    $project->schedule?->bid_opening_date?->format('Y-m-d H:i') ?? '',
-                    $safeText($staff),
-                    (int) $project->bids_count,
-                    $safeText($status['label']),
-                ], ',', '"', '');
-            }
-            fclose($stream);
-        }, 'projects-'.now()->format('Y-m-d').'.csv', [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
+        $rows = $projects->map(function (Project $project) {
+            return [
+                $project->reference_no,
+                $project->title,
+                $project->mode()->label(),
+                round((float) $project->budget, 2),
+                $project->deadline?->format('Y-m-d H:i') ?? '',
+                $project->schedule?->bid_opening_date?->format('Y-m-d H:i') ?? '',
+                $project->assignments->first()?->staff?->name ?? 'Unassigned',
+                (int) $project->bids_count,
+                $this->projectExportStatus($project)['label'],
+            ];
+        })->all();
+
+        return $this->xlsxDownload('Projects', [
+            ['title' => 'Reference No.', 'width' => 22],
+            ['title' => 'Project', 'width' => 56],
+            ['title' => 'Procurement Mode', 'width' => 26],
+            ['title' => 'Budget (PHP)', 'width' => 18, 'type' => SimpleXlsx::MONEY],
+            ['title' => 'Submission Deadline', 'width' => 20],
+            ['title' => 'Bid Opening', 'width' => 20],
+            ['title' => 'Staff', 'width' => 24],
+            ['title' => 'Bids', 'width' => 8, 'type' => SimpleXlsx::INTEGER],
+            ['title' => 'Status', 'width' => 22],
+        ], $rows, 'projects-'.now()->format('Y-m-d').'.xlsx');
     }
 
+    /** Sends rows as an Excel (.xlsx) download. */
+    private function xlsxDownload(string $sheet, array $columns, array $rows, string $filename)
+    {
+        $file = SimpleXlsx::build($sheet, $columns, $rows);
+
+        return response($file, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Content-Length' => (string) strlen($file),
+        ]);
+    }
     private function requestString(Request $request, string $key, ?string $default = null): string
     {
         $value = $request->input($key, $default);
@@ -790,36 +803,43 @@ class AdminController extends Controller
      */
     private function streamBidsCsv(Collection $bids)
     {
-        return response()->streamDownload(function () use ($bids) {
-            $stream = fopen('php://output', 'w');
-            // Prevent user-controlled spreadsheet cells from becoming formulas.
-            $safeText = static fn ($value) => preg_match('/^[\s]*[=+@-]|^[\t\r\n]/u', (string) $value)
-                ? "'".(string) $value : (string) $value;
-            fputcsv($stream, ['Bid ID', 'Bidder', 'Email', 'Project', 'Bid Amount (PHP)', 'Budget (PHP)', 'Variance (%)', 'Submitted', 'Status', 'Project Reference', 'Procurement Mode', 'Receipt / Reference No.', 'Document Status'], ',', '"', '');
-            foreach ($bids as $bid) {
-                $budget = (float) ($bid->project?->budget ?? 0);
-                $sealed = $bid->isFinancialSealed();
-                $variance = ! $sealed && $budget > 0 ? round(((float) $bid->amount - $budget) / $budget * 100, 1) : '';
-                fputcsv($stream, [
-                    $bid->id,
-                    $safeText($bid->user?->company ?: $bid->user?->name),
-                    $safeText($bid->user?->email),
-                    $safeText($bid->project?->title),
-                    $sealed ? 'Sealed' : $bid->amount,
-                    $budget,
-                    $variance,
-                    $bid->created_at?->toDateTimeString(),
-                    $bid->progress()->adminStatus()['label'],
-                    $safeText($bid->project?->reference_no),
-                    $safeText($bid->project?->mode()->label()),
-                    $safeText($bid->receipt_no),
-                    $safeText($bid->submissionDocumentStatus()['label']),
-                ], ',', '"', '');
-            }
-            fclose($stream);
-        }, 'bids-'.now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
-    }
+        $rows = $bids->map(function (Bid $bid) {
+            $budget = (float) ($bid->project?->budget ?? 0);
+            $sealed = $bid->isFinancialSealed();
 
+            return [
+                $bid->id,
+                $bid->user?->company ?: $bid->user?->name,
+                $bid->user?->email,
+                $bid->project?->title,
+                $sealed ? 'Sealed' : round((float) $bid->amount, 2),
+                $budget,
+                ! $sealed && $budget > 0 ? round(((float) $bid->amount - $budget) / $budget * 100, 1) : '',
+                $bid->created_at?->toDateTimeString(),
+                $bid->progress()->adminStatus()['label'],
+                $bid->project?->reference_no,
+                $bid->project?->mode()->label(),
+                $bid->receipt_no,
+                $bid->submissionDocumentStatus()['label'],
+            ];
+        })->all();
+
+        return $this->xlsxDownload('Bids', [
+            ['title' => 'Bid ID', 'width' => 8, 'type' => SimpleXlsx::INTEGER],
+            ['title' => 'Bidder', 'width' => 30],
+            ['title' => 'Email', 'width' => 30],
+            ['title' => 'Project', 'width' => 50],
+            ['title' => 'Bid Amount (PHP)', 'width' => 18, 'type' => SimpleXlsx::MONEY],
+            ['title' => 'Budget (PHP)', 'width' => 18, 'type' => SimpleXlsx::MONEY],
+            ['title' => 'Variance (%)', 'width' => 12],
+            ['title' => 'Submitted', 'width' => 20],
+            ['title' => 'Status', 'width' => 24],
+            ['title' => 'Project Reference', 'width' => 22],
+            ['title' => 'Procurement Mode', 'width' => 26],
+            ['title' => 'Receipt / Reference No.', 'width' => 22],
+            ['title' => 'Document Status', 'width' => 24],
+        ], $rows, 'bids-'.now()->format('Y-m-d').'.xlsx');
+    }
     /**
      * Bulk actions are limited to export: decisions are recorded one bid at a
      * time, because each needs its own document verification and reason.

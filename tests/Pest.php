@@ -82,3 +82,37 @@ function workdayAt(int $daysAhead, int $hour, int $minute = 0): Carbon
 
     return $day->setTime($hour, $minute);
 }
+
+/**
+ * The rows of an Excel (.xlsx) download as lists of cell values (an empty cell is ''), header row first.
+ */
+function xlsxRows($response): array
+{
+    $path = tempnam(sys_get_temp_dir(), 'xlsx');
+    file_put_contents($path, $response->getContent());
+    $zip = new ZipArchive;
+    expect($zip->open($path, ZipArchive::CHECKCONS))->toBeTrue();
+    $sheet = simplexml_load_string($zip->getFromName('xl/worksheets/sheet1.xml'));
+    $zip->close();
+    @unlink($path);
+
+    $rows = [];
+    foreach ($sheet->sheetData->row as $row) {
+        $cells = [];
+        foreach ($row->c as $cell) {
+            $letters = preg_replace('/\d+/', '', (string) $cell['r']);
+            $index = 0;
+            foreach (str_split($letters) as $letter) {
+                $index = $index * 26 + ord($letter) - 64;
+            }
+            $cells[$index - 1] = isset($cell->is) ? (string) $cell->is->t : (string) $cell->v;
+        }
+        $line = [];
+        for ($i = 0; $i <= (empty($cells) ? -1 : max(array_keys($cells))); $i++) {
+            $line[] = $cells[$i] ?? '';
+        }
+        $rows[] = $line;
+    }
+
+    return $rows;
+}
