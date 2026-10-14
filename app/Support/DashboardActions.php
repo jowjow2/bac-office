@@ -11,7 +11,8 @@ use Illuminate\Support\Collection;
 /**
  * "Needs your action" on the BAC and Secretariat overview: the work waiting
  * for the viewer, each with a count, what it means and where to do it.
- * Items with nothing waiting are left out.
+ * Items with nothing waiting are left out, and only what needs a decision is listed (contract
+ * terms and this week's deadlines are on the register and the Upcoming list).
  */
 class DashboardActions
 {
@@ -60,17 +61,9 @@ class DashboardActions
                 'Notices to Proceed to issue', 'The contract is signed. Issue the NTP with its signed PDF.',
                 route('admin.awards.index'), 'action', 'fa-file-signature');
         }
-        $add('terms', $awards->filter(fn (Award $award) => $award->bid?->notice_to_proceed_at !== null
-                && in_array(strtolower((string) $award->project?->category), ['goods', 'infrastructure'], true)
-                && ! $award->contractImplementation?->isConfigured())->count(),
-            'Contract terms to record', 'Copy the deadline, items and warranty from the signed contract.',
-            route($isAdmin ? 'admin.awards.index' : 'staff.assign-projects'), 'action', 'fa-truck-ramp-box');
-
         // Compliance flags from the register.
         $add('late', (int) ($kpis['past_period']['count'] ?? 0),
             'Past the IRR award period', 'Bid opening to award is over the limit. Needs BAC action.', route($dashboard, ['flag' => 'late']), 'danger', 'fa-triangle-exclamation');
-        $add('week', (int) ($kpis['openings_week']['count'] ?? 0),
-            'Deadlines this week', 'Bid and quotation deadlines in the next 7 days.', route($dashboard, ['flag' => 'week']), 'info', 'fa-calendar-day');
 
         return $items;
     }
