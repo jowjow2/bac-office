@@ -3279,3 +3279,108 @@ body :is(#bidExportModal, #projectExportModal).is-empty .bid-export-total { marg
     body #bid-management .bid-management-table:not(#z) td { row-gap: 2px !important; }
     body #bid-management .bid-management-table:not(#z) td::before { grid-column: 1 !important; align-self: start !important; text-align: left !important; }
 }
+
+
+/* ---------- Redesign: one clear value per column ----------
+   Reference chip and two-line title; the bidder with an initials badge; date, time and receipt on their own
+   lines; Sealed, Complete or "8 missing" as small chips (the full sentence and the missing files are in the
+   tooltip and the bid view); the stage badge with a short opening date; the action and its menu on one line. */
+body #bid-management:not(#z) .bid-management-table .bid-project-ref {
+    display: inline-block !important;
+    margin-bottom: 4px !important;
+    padding: 1px 7px !important;
+    border-radius: 6px !important;
+    background: var(--ui-surface-2) !important;
+    color: var(--ui-ink-2) !important;
+    font: 600 11.5px/1.5 var(--ui-mono, ui-monospace, monospace) !important;
+    letter-spacing: .02em !important;
+}
+body #bid-management:not(#z) .bid-management-table .bid-project-title {
+    display: -webkit-box !important;
+    overflow: hidden !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 2 !important;
+    white-space: normal !important;
+    color: var(--ui-ink) !important;
+    font-size: 13.5px !important;
+    font-weight: 600 !important;
+    line-height: 1.35 !important;
+}
+body #bid-management:not(#z) .bid-management-table .bid-mode-label { display: block !important; margin-top: 3px !important; color: var(--ui-muted) !important; font-size: 12px !important; font-weight: 500 !important; }
+
+body #bid-management:not(#z) .bid-management-table .bid-bidder { display: flex !important; align-items: center !important; gap: 10px !important; min-width: 0 !important; }
+body #bid-management:not(#z) .bid-management-table .bid-avatar {
+    display: grid !important;
+    flex: 0 0 32px !important;
+    width: 32px !important;
+    height: 32px !important;
+    place-items: center !important;
+    border-radius: 50% !important;
+    background: var(--ui-primary-soft) !important;
+    color: var(--ui-primary) !important;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+}
+body #bid-management:not(#z) .bid-management-table .bid-bidder-text { display: grid !important; gap: 1px !important; min-width: 0 !important; }
+body #bid-management:not(#z) .bid-management-table .bid-name { overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; font-weight: 600 !important; }
+body #bid-management:not(#z) .bid-management-table .bid-email { overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; color: var(--ui-muted) !important; font-size: 12px !important; }
+
+body #bid-management:not(#z) .bid-management-table .bid-submission-cell { line-height: 1.35 !important; }
+body #bid-management:not(#z) .bid-management-table .bid-date { display: block !important; color: var(--ui-ink) !important; font-weight: 600 !important; }
+body #bid-management:not(#z) .bid-management-table .bid-time { display: block !important; color: var(--ui-muted) !important; font-size: 12px !important; }
+body #bid-management:not(#z) .bid-management-table .bid-receipt { display: block !important; margin-top: 2px !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; color: var(--ui-subtle) !important; font: 500 11.5px/1.4 var(--ui-mono, ui-monospace, monospace) !important; }
+
+body #bid-management:not(#z) .bid-management-table .bid-sealed-value {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 3px 10px !important;
+    border-radius: 999px !important;
+    background: var(--ui-surface-2) !important;
+    color: var(--ui-ink-2) !important;
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+}
+body #bid-management:not(#z) .bid-management-table .bid-amount { font-variant-numeric: tabular-nums !important; white-space: nowrap !important; }
+
+body #bid-management:not(#z) .bid-management-table .bid-document-status {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 3px 10px !important;
+    border-radius: 999px !important;
+    background: var(--ui-surface-2) !important;
+    color: var(--ui-ink-2) !important;
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    line-height: 1.4 !important;
+    white-space: nowrap !important;
+    cursor: help;
+}
+body #bid-management:not(#z) .bid-management-table .bid-document-status:is(.is-complete, .is-received_sealed) { background: var(--ui-success-soft) !important; color: var(--ui-success) !important; }
+body #bid-management:not(#z) .bid-management-table .bid-document-status.is-incomplete { background: var(--ui-warning-soft) !important; color: var(--ui-warning) !important; }
+
+body #bid-management:not(#z) .bid-management-table .bid-stage-note { display: block !important; margin-top: 4px !important; color: var(--ui-muted) !important; font-size: 12px !important; white-space: nowrap !important; }
+
+body #bid-management:not(#z) .bid-management-table .bid-actions { display: inline-flex !important; align-items: center !important; justify-content: flex-end !important; gap: 6px !important; }
+body #bid-management:not(#z) .bid-management-table .bid-review-button span { white-space: nowrap !important; }
+
+@media (min-width: 901px) {
+    body #bid-management:not(#z) .bid-management-table tbody td { vertical-align: top !important; padding-top: 14px !important; padding-bottom: 14px !important; }
+    body #bid-management:not(#z) .bid-management-table tbody tr:hover td { background: var(--ui-surface-2) !important; }
+    body #bid-management:not(#z) .bid-management-table .bid-stage-cell { text-align: left !important; }
+}
+
+/* Column widths of the redesigned rows: room for the bidder's name and a one-line action. */
+@media (min-width: 901px) {
+    body #bid-management.admin-bids-v2:not(#z) .bid-management-table { table-layout: fixed !important; width: 100% !important; min-width: 0 !important; }
+    body #bid-management.admin-bids-v2:not(#z) .bid-management-table .bid-col-project { width: 24% !important; }
+    body #bid-management.admin-bids-v2:not(#z) .bid-management-table .bid-col-bidder { width: 19% !important; }
+    body #bid-management.admin-bids-v2:not(#z) .bid-management-table .bid-col-submitted { width: 13% !important; }
+    body #bid-management.admin-bids-v2:not(#z) .bid-management-table .bid-col-amount { width: 9% !important; }
+    body #bid-management.admin-bids-v2:not(#z) .bid-management-table .bid-col-documents { width: 11% !important; }
+    body #bid-management.admin-bids-v2:not(#z) .bid-management-table .bid-col-stage { width: 12% !important; }
+    body #bid-management.admin-bids-v2:not(#z) .bid-management-table .bid-col-action { width: 12% !important; }
+    body #bid-management:not(#z) .bid-management-table .bid-actions-cell { text-align: right !important; }
+}
