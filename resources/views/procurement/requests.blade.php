@@ -13,12 +13,14 @@
 @endphp
 
 @section('actions')
+    <a href="{{ route($routePrefix.'.requests.export') }}" class="ui-btn ui-btn--secondary" data-export-dialog data-export-title="Export purchase requests" data-export-noun="purchase request" data-export-choices-label="Recorded" data-export-formats="{{ json_encode($exportChoices) }}"><i class="fas fa-file-export" aria-hidden="true"></i> Export</a>
     @if($routePrefix === 'admin')
         <a href="{{ route('admin.requests.create') }}" class="ui-btn ui-btn--primary"><i class="fas fa-plus" aria-hidden="true"></i> Record purchase request</a>
     @endif
 @endsection
 
 @section('content')
+@include('partials.export-dialog')
 <div class="ui-page">
     @if($errors->any())
         <div class="ui-alert ui-alert--danger" role="alert">

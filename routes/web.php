@@ -240,6 +240,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::delete('/admin/projects/{project}', [AdminController::class, 'destroyProject'])->name('admin.project.destroy');
     Route::post('/admin/projects/{project}/publish', [AdminController::class, 'publishProject'])->name('admin.project.publish');
     Route::get('/admin/requests', [ProcurementRequestController::class, 'queue'])->name('admin.requests');
+    Route::get('/admin/requests/export', [ProcurementRequestController::class, 'export'])->name('admin.requests.export');
     Route::get('/admin/requests/{procurementRequest}/print', [ProcurementRequestController::class, 'printForm'])->name('admin.requests.print');
     Route::get('/admin/requests/create', [ProcurementRequestController::class, 'adminCreate'])->name('admin.requests.create');
     Route::post('/admin/requests', [ProcurementRequestController::class, 'adminStore'])->name('admin.requests.store');
@@ -353,6 +354,7 @@ Route::middleware(['auth', 'staff'])->group(function () {
     Route::patch('/staff/projects/{project}/status', [StaffController::class, 'updateProjectStatus'])->name('staff.projects.status');
     Route::post('/staff/projects/{project}/open-bids', [StaffController::class, 'openProjectBids'])->name('staff.projects.open-bids');
     Route::get('/staff/requests', [ProcurementRequestController::class, 'queue'])->name('staff.requests');
+    Route::get('/staff/requests/export', [ProcurementRequestController::class, 'export'])->name('staff.requests.export');
     Route::get('/staff/requests/{procurementRequest}/print', [ProcurementRequestController::class, 'printForm'])->name('staff.requests.print');
     Route::get('/staff/procurements/{project}', [ProcurementLifecycleController::class, 'show'])->name('staff.procurement.show');
     Route::get('/staff/awards/{award}/infrastructure', [\App\Http\Controllers\InfrastructureImplementationController::class, 'showStaff'])->name('staff.infrastructure.show');

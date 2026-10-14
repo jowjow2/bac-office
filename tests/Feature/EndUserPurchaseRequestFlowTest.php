@@ -370,3 +370,24 @@ it('marks a request NEW, in front, until the admin starts its procurement', func
     expect($new->fresh()->isNew())->toBeFalse()->and($new->fresh()->seen_at)->not->toBeNull();
     expect(substr_count(testCase()->actingAs($this->admin)->get(route('admin.requests', ['tab' => 'bac']))->getContent(), 'class="pr-new"'))->toBe(0);
 });
+
+it('exports the purchase requests as an Excel-ready CSV, by period, without drafts', function () {
+    testCase()->actingAs($this->admin)->post(route('admin.requests.store'), array_merge($this->details, ['end_user_office' => 'Municipal Engineering Office', 'title' => 'Exported request']))->assertSessionHasNoErrors();
+    ProcurementRequest::create(array_merge($this->details, ['reference_no' => 'PR-2026-0950', 'end_user_office' => 'Municipal Health Office', 'status' => ProcurementRequest::STATUS_DRAFT, 'title' => 'A draft']));
+    $old = ProcurementRequest::create(array_merge($this->details, ['reference_no' => 'PR-2026-0951', 'end_user_office' => 'Municipal Health Office', 'status' => ProcurementRequest::STATUS_FORWARDED, 'title' => 'Older request']));
+    ProcurementRequest::whereKey($old->id)->update(['created_at' => now()->subYears(2)]);
+
+    // The page offers the export, with the same button style as Record purchase request.
+    testCase()->actingAs($this->admin)->get(route('admin.requests'))->assertOk()
+        ->assertSee('data-export-dialog', false)->assertSee(route('admin.requests.export'), false)->assertSee('Export purchase requests');
+    testCase()->actingAs($this->staff)->get(route('staff.requests'))->assertOk()->assertSee(route('staff.requests.export'), false);
+
+    $csv = testCase()->actingAs($this->admin)->get(route('admin.requests.export'))->assertOk()->assertHeader('content-type', 'text/csv; charset=UTF-8');
+    $body = $csv->streamedContent();
+    expect($body)->toContain('PR No.')->toContain('Exported request')->toContain('Older request')->not->toContain('A draft')->toContain('Total');
+
+    // A period keeps only the requests recorded in it; the staff gets the same file.
+    $today = now()->toDateString();
+    $thisYear = testCase()->actingAs($this->staff)->get(route('staff.requests.export', ['from' => $today, 'to' => $today]))->assertOk()->streamedContent();
+    expect($thisYear)->toContain('Exported request')->not->toContain('Older request');
+});

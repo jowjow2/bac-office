@@ -241,7 +241,79 @@ class ProcurementRequestController extends Controller
             'search' => $search,
             'drafts' => (int) ProcurementRequest::where('status', ProcurementRequest::STATUS_DRAFT)->count(),
             'counts' => $tabCounts,
+            'exportChoices' => $this->exportChoices($role),
         ]);
+    }
+
+    /** The periods the export dialog offers, each with how many requests it holds and their estimated cost. */
+    private function exportChoices(string $role): array
+    {
+        $zone = config('bac-office.display_timezone', 'Asia/Manila');
+        $today = now($zone)->startOfDay();
+        $choices = [];
+        foreach ([['Today', $today, $today], ['This month', $today->copy()->startOfMonth(), $today], ['This year', $today->copy()->startOfYear(), $today], ['All time', null, null]] as [$label, $from, $to]) {
+            $query = $this->exportQuery($from?->toDateString(), $to?->toDateString());
+            $count = (clone $query)->count();
+            $choices[] = [
+                'label' => $label,
+                'hint' => $count === 0 ? 'No purchase requests recorded' : '₱'.number_format((float) $query->sum('estimated_cost'), 2).' estimated cost',
+                'count' => $count,
+                'icon' => 'fa-calendar-days',
+                'url' => route($role.'.requests.export', $from ? ['from' => $from->toDateString(), 'to' => $to->toDateString()] : []),
+            ];
+        }
+
+        return $choices;
+    }
+
+    /** Recorded requests (never drafts), optionally limited to the day they were recorded. */
+    private function exportQuery(?string $from, ?string $to)
+    {
+        return ProcurementRequest::query()
+            ->where('status', '!=', ProcurementRequest::STATUS_DRAFT)
+            ->when($from, fn ($query) => $query->whereDate('created_at', '>=', $from))
+            ->when($to, fn ($query) => $query->whereDate('created_at', '<=', $to));
+    }
+
+    /** The purchase requests as CSV for Excel, newest first. */
+    public function export(Request $request)
+    {
+        $this->role($request);
+        $zone = config('bac-office.display_timezone', 'Asia/Manila');
+        $edge = fn (string $name) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query($name, '')) ? (string) $request->query($name) : null;
+        $from = $edge('from');
+        $to = $edge('to');
+        $query = $this->exportQuery($from, $to)->with('project')->orderByDesc('created_at')->orderByDesc('id');
+        $period = ($from ? '-from-'.$from : '').($to ? '-to-'.$to : '');
+        $filename = 'purchase-requests'.$period.'-'.now($zone)->format('Ymd-His').'.csv';
+
+        return response()->streamDownload(function () use ($query, $zone) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "﻿"); // byte-order mark so Excel reads ñ and accents correctly
+            fputcsv($out, ['PR No.', 'Title', 'Category', 'End-user office', 'Items', 'Estimated cost (PHP)', 'Source of funds', 'Delivery / duration', 'Status', 'Recorded on (Asia/Manila)', 'Project reference', 'Project status']);
+            $total = 0.0;
+            $query->chunk(500, function ($requests) use ($out, $zone, &$total) {
+                foreach ($requests as $item) {
+                    $total += (float) $item->estimated_cost;
+                    fputcsv($out, [
+                        $item->reference_no,
+                        $item->title,
+                        ucfirst((string) $item->category),
+                        $item->end_user_office,
+                        count($item->itemRows()),
+                        number_format((float) $item->estimated_cost, 2, '.', ''),
+                        $item->fund_source,
+                        $item->delivery_period,
+                        $item->statusLabel(),
+                        $item->created_at?->timezone($zone)->format('Y-m-d H:i'),
+                        $item->project?->reference_no,
+                        $item->project ? ucfirst(str_replace('_', ' ', (string) $item->project->status)) : null,
+                    ]);
+                }
+            });
+            fputcsv($out, ['', '', '', '', 'Total', number_format($total, 2, '.', '')]);
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     /**
