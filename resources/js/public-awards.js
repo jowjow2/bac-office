@@ -1,6 +1,8 @@
 // Public /awards: selecting an award posting swaps the viewed document in place, and the
 // arrows or tabs page through that award's documents (Notice of Award, Notice to Proceed).
 // Every card is a real link (?award=ID, ?doc=ntp), so the page works fully without this script.
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+
 const page = document.querySelector('[data-award-docs]');
 
 if (page) {
@@ -25,6 +27,58 @@ if (page) {
 
     const documents = () => (record && record.documents) || [];
 
+    // The document is drawn page by page with PDF.js, so it shows the same in every browser: a browser set to
+    // download PDFs, or a phone without a built-in PDF viewer, only offers an Open button inside an iframe.
+    // The iframe stays as the fallback (and for visitors without this script).
+    const pages = document.createElement('div');
+    pages.className = 'award-pdf-pages';
+    pages.hidden = true;
+    pages.tabIndex = 0;
+    frame?.after(pages);
+    let renderToken = 0;
+
+    const renderPdf = async (url, label) => {
+        const mine = ++renderToken;
+        pages.setAttribute('aria-label', label || 'Award document');
+        pages.innerHTML = '<p class="award-pdf-status">Loading the document…</p>';
+        pages.hidden = false;
+        frame.hidden = true;
+        frame.src = 'about:blank';
+        try {
+            const pdfjs = await import('pdfjs-dist');
+            pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+            const pdf = await pdfjs.getDocument({ url, withCredentials: true }).promise;
+            if (mine !== renderToken) return;
+            pages.innerHTML = '';
+            const width = Math.max(240, Math.min(pages.clientWidth - 16, 820));
+            const ratio = Math.min(window.devicePixelRatio || 1, 2);
+            for (let number = 1; number <= pdf.numPages; number++) {
+                const pdfPage = await pdf.getPage(number);
+                if (mine !== renderToken) return;
+                const scale = width / pdfPage.getViewport({ scale: 1 }).width;
+                const viewport = pdfPage.getViewport({ scale: scale * ratio });
+                const canvas = document.createElement('canvas');
+                canvas.className = 'award-pdf-page';
+                canvas.width = Math.floor(viewport.width);
+                canvas.height = Math.floor(viewport.height);
+                canvas.style.width = `${Math.floor(viewport.width / ratio)}px`;
+                canvas.setAttribute('role', 'img');
+                canvas.setAttribute('aria-label', `${label || 'Document'}, page ${number} of ${pdf.numPages}`);
+                pages.appendChild(canvas);
+                await pdfPage.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+            }
+        } catch (error) {
+            if (mine !== renderToken) return;
+            // Not readable here: hand it back to the browser's own viewer.
+            pages.hidden = true;
+            pages.innerHTML = '';
+            frame.hidden = false;
+            frame.src = url;
+        }
+    };
+
+    const hidePdf = () => { renderToken++; pages.hidden = true; pages.innerHTML = ''; };
+
     const remember = () => {
         const url = new URL(window.location.href);
         url.searchParams.set('award', record.id);
@@ -43,11 +97,16 @@ if (page) {
 
         field('post_title').textContent = doc.title;
         const hasFile = Boolean(doc.url);
-        frame.hidden = !hasFile;
         missing.hidden = hasFile;
         if (missingText) missingText.textContent = doc.missing || 'This document has not been published online.';
         frame.title = `${doc.label}: ${record.title}`;
-        frame.src = hasFile ? doc.url : 'about:blank';
+        if (hasFile) {
+            renderPdf(doc.url, frame.title);
+        } else {
+            hidePdf();
+            frame.hidden = true;
+            frame.src = 'about:blank';
+        }
         openLink.hidden = !hasFile;
         openLink.href = doc.url || '#';
 
@@ -128,6 +187,10 @@ if (page) {
         event.preventDefault();
         select(card);
     });
+
+    // The page opens with a document: draw it.
+    const initialUrl = frame?.getAttribute('src');
+    if (frame && initialUrl && initialUrl !== 'about:blank' && !frame.hidden) renderPdf(initialUrl, frame.title);
 
     // Left and right arrow keys page the documents while the viewer has focus.
     viewer?.addEventListener('keydown', (event) => {

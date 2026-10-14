@@ -199,6 +199,13 @@
         .award-doc-nav:disabled { opacity: .35; cursor: default; box-shadow: none; }
         .award-doc-nav[hidden] { display: none; }
         .award-post-viewer { flex-direction: column; }
+        /* The document drawn by PDF.js: white pages in a scrolling column the size of the old frame. */
+        .award-pdf-pages { display: grid; justify-items: center; align-content: start; gap: 12px; width: 100%; max-width: 840px; height: min(80vh, 920px); min-height: 420px; margin: 0 auto; padding: 8px; overflow-y: auto; overscroll-behavior: contain; border-radius: 4px; }
+        .award-pdf-pages[hidden] { display: none; }
+        .award-pdf-pages:focus-visible { outline: 3px solid #9bc9b7; outline-offset: 2px; }
+        .award-pdf-page { display: block; max-width: 100%; height: auto; background: #fff; box-shadow: 0 8px 24px rgba(27, 36, 32, .35); }
+        .award-pdf-status { align-self: center; margin: auto; color: #fff; font-size: 14px; }
+        @media (max-width: 640px) { .award-pdf-pages { height: 70vh; min-height: 380px; padding: 4px; } }
         .award-doc-link { padding: 0; border: 0; background: none; color: var(--ui-primary, #1d4f40); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
         .award-post-card-docs { color: var(--ui-primary, #1d4f40) !important; font-weight: 600; }
         @media (max-width: 640px) {
