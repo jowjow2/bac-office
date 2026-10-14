@@ -2011,6 +2011,8 @@ a.ui-cell-title:hover {
         white-space: normal;
     }
     .ui-toolbar > .ui-btn { width: 100%; }
+    /* The label sits in the middle of the button (older page styles could pin it to the top). */
+    html body .ui-toolbar > .ui-btn { display: inline-flex; align-items: center; justify-content: center; padding-top: 0; padding-bottom: 0; line-height: 1.2; }
 }
 
 

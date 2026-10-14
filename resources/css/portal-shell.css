@@ -761,6 +761,9 @@
     .portal-bell { order: 1; }
     .portal-header__actions { order: 2; flex: 1 1 100%; justify-content: stretch; }
     .portal-header__actions > * { flex: 1 1 auto; }
+    /* A secondary button beside the page's main one keeps its own width; the main one takes the rest of the row. */
+    .portal-header__actions > .ui-btn--secondary:has(+ .ui-btn--primary) { flex: 0 0 auto; padding-left: 11px; padding-right: 11px; }
+    .portal-header__actions > .ui-btn--primary { flex: 1 1 150px; min-width: 0; white-space: normal; text-align: center; }
     .portal-header__title { font-size: 18px; }
 }
 
