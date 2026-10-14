@@ -7,6 +7,7 @@
       data-export-noun="payment"              what one record is called (singular)
       data-export-note="Filtered by …"        optional: one line about what is included
       data-export-formats='[{"label":"Excel (CSV)","hint":"…","url":"…","icon":"fa-file-csv","open":false}]'
+      data-export-file="Excel"                    optional: what the file is called on the button (default CSV)
       data-export-choices-label="Who to include"   optional: the options are choices of what to export (not file formats); each may carry
                                                     its own "count" and the button then just says "Download CSV file"
 
@@ -109,7 +110,7 @@
                 go.disabled = none;
                 summary.classList.toggle('is-empty', none);
                 summary.querySelector('strong').textContent = headlineFor();
-                go.textContent = none ? 'Nothing to export' : (chosen.open ? 'Open report' : choicesLabel ? 'Download CSV file' : (formats.length > 1 ? 'Export as ' + chosen.label.replace(/\s*\(.*\)$/, '') : 'Download ' + chosen.label.replace(/\s*\(.*\)$/, '')));
+                go.textContent = none ? 'Nothing to export' : (chosen.open ? 'Open report' : choicesLabel ? 'Download ' + (data.exportFile || 'CSV') + ' file' : (formats.length > 1 ? 'Export as ' + chosen.label.replace(/\s*\(.*\)$/, '') : 'Download ' + chosen.label.replace(/\s*\(.*\)$/, '')));
             };
             const list = overlay.querySelector('.xd-formats');
             if (list) {

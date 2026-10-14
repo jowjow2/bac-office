@@ -371,23 +371,52 @@ it('marks a request NEW, in front, until the admin starts its procurement', func
     expect(substr_count(testCase()->actingAs($this->admin)->get(route('admin.requests', ['tab' => 'bac']))->getContent(), 'class="pr-new"'))->toBe(0);
 });
 
-it('exports the purchase requests as an Excel-ready CSV, by period, without drafts', function () {
+it('exports the purchase requests as an Excel (.xlsx) workbook, by period, without drafts', function () {
     testCase()->actingAs($this->admin)->post(route('admin.requests.store'), array_merge($this->details, ['end_user_office' => 'Municipal Engineering Office', 'title' => 'Exported request']))->assertSessionHasNoErrors();
     ProcurementRequest::create(array_merge($this->details, ['reference_no' => 'PR-2026-0950', 'end_user_office' => 'Municipal Health Office', 'status' => ProcurementRequest::STATUS_DRAFT, 'title' => 'A draft']));
     $old = ProcurementRequest::create(array_merge($this->details, ['reference_no' => 'PR-2026-0951', 'end_user_office' => 'Municipal Health Office', 'status' => ProcurementRequest::STATUS_FORWARDED, 'title' => 'Older request']));
     ProcurementRequest::whereKey($old->id)->update(['created_at' => now()->subYears(2)]);
 
-    // The page offers the export, with the same button style as Record purchase request.
+    // The page offers the export (named Excel on its button), in the same style as Record purchase request.
     testCase()->actingAs($this->admin)->get(route('admin.requests'))->assertOk()
-        ->assertSee('data-export-dialog', false)->assertSee(route('admin.requests.export'), false)->assertSee('Export purchase requests');
+        ->assertSee('data-export-dialog', false)->assertSee(route('admin.requests.export'), false)->assertSee('Export purchase requests')->assertSee('data-export-file="Excel"', false);
     testCase()->actingAs($this->staff)->get(route('staff.requests'))->assertOk()->assertSee(route('staff.requests.export'), false);
 
-    $csv = testCase()->actingAs($this->admin)->get(route('admin.requests.export'))->assertOk()->assertHeader('content-type', 'text/csv; charset=UTF-8');
-    $body = $csv->streamedContent();
-    expect($body)->toContain('PR No.')->toContain('Exported request')->toContain('Older request')->not->toContain('A draft')->toContain('Total');
+    // Opens the downloaded workbook and returns its rows.
+    $rowsOf = function ($response) {
+        $path = tempnam(sys_get_temp_dir(), 'xlsx');
+        file_put_contents($path, $response->getContent());
+        $zip = new ZipArchive;
+        expect($zip->open($path, ZipArchive::CHECKCONS))->toBeTrue();
+        $sheet = simplexml_load_string($zip->getFromName('xl/worksheets/sheet1.xml'));
+        $zip->close();
+        @unlink($path);
+        $rows = [];
+        foreach ($sheet->sheetData->row as $row) {
+            $cells = [];
+            foreach ($row->c as $cell) {
+                $cells[preg_replace('/\d+/', '', (string) $cell['r'])] = isset($cell->is) ? (string) $cell->is->t : (string) $cell->v;
+            }
+            $rows[] = $cells;
+        }
+
+        return $rows;
+    };
+
+    $response = testCase()->actingAs($this->admin)->get(route('admin.requests.export'))->assertOk()
+        ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    expect($response->headers->get('content-disposition'))->toContain('.xlsx');
+    $rows = $rowsOf($response);
+    $titles = array_column($rows, 'B');
+    expect($rows[0]['A'])->toBe('PR No.')->and($rows[0]['F'])->toBe('Estimated cost (PHP)')
+        ->and($titles)->toContain('Exported request')->toContain('Older request')->not->toContain('A draft');
+    // The estimated cost is a real number in its own column, and the last row totals it.
+    $exported = collect($rows)->firstWhere('B', 'Exported request');
+    expect((float) $exported['F'])->toBe((float) str_replace(',', '', $this->details['estimated_cost']));
+    expect(end($rows)['D'])->toBe('Total')->and((float) end($rows)['F'])->toBe(round((float) collect($rows)->slice(1, -1)->sum(fn ($row) => (float) $row['F']), 2));
 
     // A period keeps only the requests recorded in it; the staff gets the same file.
     $today = now()->toDateString();
-    $thisYear = testCase()->actingAs($this->staff)->get(route('staff.requests.export', ['from' => $today, 'to' => $today]))->assertOk()->streamedContent();
-    expect($thisYear)->toContain('Exported request')->not->toContain('Older request');
+    $titles = array_column($rowsOf(testCase()->actingAs($this->staff)->get(route('staff.requests.export', ['from' => $today, 'to' => $today]))->assertOk()), 'B');
+    expect($titles)->toContain('Exported request')->not->toContain('Older request');
 });

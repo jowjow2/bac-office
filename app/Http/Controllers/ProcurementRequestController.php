@@ -275,7 +275,7 @@ class ProcurementRequestController extends Controller
             ->when($to, fn ($query) => $query->whereDate('created_at', '<=', $to));
     }
 
-    /** The purchase requests as CSV for Excel, newest first. */
+    /** The purchase requests as an Excel (.xlsx) workbook, newest first. */
     public function export(Request $request)
     {
         $this->role($request);
@@ -283,37 +283,43 @@ class ProcurementRequestController extends Controller
         $edge = fn (string $name) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query($name, '')) ? (string) $request->query($name) : null;
         $from = $edge('from');
         $to = $edge('to');
-        $query = $this->exportQuery($from, $to)->with('project')->orderByDesc('created_at')->orderByDesc('id');
         $period = ($from ? '-from-'.$from : '').($to ? '-to-'.$to : '');
-        $filename = 'purchase-requests'.$period.'-'.now($zone)->format('Ymd-His').'.csv';
+        $filename = 'purchase-requests'.$period.'-'.now($zone)->format('Ymd-His').'.xlsx';
 
-        return response()->streamDownload(function () use ($query, $zone) {
-            $out = fopen('php://output', 'w');
-            fwrite($out, "﻿"); // byte-order mark so Excel reads ñ and accents correctly
-            fputcsv($out, ['PR No.', 'Title', 'Category', 'End-user office', 'Items', 'Estimated cost (PHP)', 'Source of funds', 'Delivery / duration', 'Status', 'Recorded on (Asia/Manila)', 'Project reference', 'Project status']);
-            $total = 0.0;
-            $query->chunk(500, function ($requests) use ($out, $zone, &$total) {
-                foreach ($requests as $item) {
-                    $total += (float) $item->estimated_cost;
-                    fputcsv($out, [
-                        $item->reference_no,
-                        $item->title,
-                        ucfirst((string) $item->category),
-                        $item->end_user_office,
-                        count($item->itemRows()),
-                        number_format((float) $item->estimated_cost, 2, '.', ''),
-                        $item->fund_source,
-                        $item->delivery_period,
-                        $item->statusLabel(),
-                        $item->created_at?->timezone($zone)->format('Y-m-d H:i'),
-                        $item->project?->reference_no,
-                        $item->project ? ucfirst(str_replace('_', ' ', (string) $item->project->status)) : null,
-                    ]);
-                }
-            });
-            fputcsv($out, ['', '', '', '', 'Total', number_format($total, 2, '.', '')]);
-            fclose($out);
-        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+        $total = 0.0;
+        $rows = [];
+        $this->exportQuery($from, $to)->with('project')->orderByDesc('created_at')->orderByDesc('id')->chunk(500, function ($requests) use (&$rows, &$total, $zone) {
+            foreach ($requests as $item) {
+                $total += (float) $item->estimated_cost;
+                $rows[] = [
+                    $item->reference_no, $item->title, ucfirst((string) $item->category), $item->end_user_office, count($item->itemRows()),
+                    round((float) $item->estimated_cost, 2), $item->fund_source, $item->delivery_period, $item->statusLabel(),
+                    $item->created_at?->timezone($zone)->format('Y-m-d H:i'),
+                    $item->project?->reference_no, $item->project ? ucfirst(str_replace('_', ' ', (string) $item->project->status)) : null,
+                ];
+            }
+        });
+
+        $file = \App\Support\SimpleXlsx::build('Purchase requests', [
+            ['title' => 'PR No.', 'width' => 16],
+            ['title' => 'Title', 'width' => 52],
+            ['title' => 'Category', 'width' => 14],
+            ['title' => 'End-user office', 'width' => 34],
+            ['title' => 'Items', 'width' => 8, 'type' => \App\Support\SimpleXlsx::INTEGER],
+            ['title' => 'Estimated cost (PHP)', 'width' => 20, 'type' => \App\Support\SimpleXlsx::MONEY],
+            ['title' => 'Source of funds', 'width' => 26],
+            ['title' => 'Delivery / duration', 'width' => 24],
+            ['title' => 'Status', 'width' => 22],
+            ['title' => 'Recorded on (Asia/Manila)', 'width' => 22],
+            ['title' => 'Project reference', 'width' => 20],
+            ['title' => 'Project status', 'width' => 16],
+        ], $rows, ['', '', '', 'Total', null, round($total, 2)]);
+
+        return response($file, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Content-Length' => (string) strlen($file),
+        ]);
     }
 
     /**
