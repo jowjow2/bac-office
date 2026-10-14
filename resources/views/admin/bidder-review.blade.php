@@ -119,6 +119,48 @@
                 </dl>
             </section>
 
+            {{-- Checks on the registration itself --}}
+            @if($isPendingReview)
+                <section class="brv-card" aria-labelledby="brvChecksTitle">
+                    <h3 id="brvChecksTitle">Registration checks</h3>
+                    @if($emailUnconfirmed)
+                        <div class="brv-alert is-warning">
+                            <i class="fas fa-envelope-circle-check" aria-hidden="true"></i>
+                            <span><strong>Email address not confirmed yet.</strong> The bidder has not opened the link sent to {{ $user->email }}. The registration cannot be approved until they do.</span>
+                        </div>
+                        <form action="{{ route($reviewRoutePrefix . '.users.resend-confirmation', $user) }}" method="POST" class="brv-step">
+                            @csrf
+                            <button type="submit" class="brv-btn"><i class="fas fa-paper-plane" aria-hidden="true"></i> Resend confirmation email</button>
+                        </form>
+                    @elseif($user->email_verified_at)
+                        <div class="brv-alert is-success">
+                            <i class="fas fa-circle-check" aria-hidden="true"></i>
+                            <span><strong>Email address confirmed</strong> {{ $stamp($user->email_verified_at) }}.</span>
+                        </div>
+                    @endif
+
+                    @if($sharedWithOthers !== [])
+                        <div class="brv-alert is-warning" style="margin-top: 10px">
+                            <i class="fas fa-clone" aria-hidden="true"></i>
+                            <div>
+                                <strong>Shares details with other bidder accounts.</strong> Look at these before approving; a real business can have only one account.
+                                <ul>
+                                    @foreach($sharedWithOthers as $match)
+                                        <li>
+                                            {{ ucfirst($match['what']) }}:
+                                            @foreach($match['accounts'] as $account)
+                                                <a href="{{ route($reviewRoutePrefix . '.users.review', $account['id']) }}">{{ $account['name'] }}</a> ({{ $account['status'] }}){{ ! $loop->last ? ',' : '' }}
+                                            @endforeach
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        </div>
+                    @else
+                        <p class="brv-note" style="margin-top: 10px">No other bidder account has the same contact number, company name, address, email domain or document files.</p>
+                    @endif
+                </section>
+            @endif
             {{-- Registration documents, one row per requirement --}}
             <section class="brv-card" aria-labelledby="brvDocsTitle">
                 <div class="brv-card-head">
@@ -226,7 +268,12 @@
                     </div>
                 @endif
 
-                @if($canApproveBidder)
+                @if($canApproveBidder && $emailUnconfirmed)
+                    <div class="brv-alert is-warning">
+                        <i class="fas fa-envelope" aria-hidden="true"></i>
+                        <span><strong>Approval unavailable.</strong> The bidder has not confirmed their email address yet.</span>
+                    </div>
+                @elseif($canApproveBidder)
                     <form action="{{ route($reviewRoutePrefix . '.users.approve', $user) }}" method="POST" data-async-review-action="approve" class="brv-step">
                         @csrf
                         @method('PATCH')

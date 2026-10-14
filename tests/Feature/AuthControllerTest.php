@@ -38,6 +38,7 @@ function validBidderRegistrationPayload(array $overrides = []): array
         'email' => ' NEW@EXAMPLE.COM ',
         'password' => 'SecurePass1!',
         'registration_no' => 'REG123',
+        'certify_documents' => '1',
         'registration_documents' => $documents,
     ], $overrides);
 }
@@ -227,7 +228,7 @@ it('creates a new user with a hashed password and notifies admins when registrat
     $response->assertOk();
     $response->assertJsonPath('ok', true);
     $response->assertJsonPath('tab', 'register');
-    $response->assertJsonPath('message', 'Registered successfully! Your account is pending admin approval.');
+    $response->assertJsonPath('message', 'Registered successfully! We sent a link to your email: open it to confirm your address, then your account waits for admin approval.');
 
     $test->assertDatabaseHas('users', [
         'name' => 'Ada Buyer',

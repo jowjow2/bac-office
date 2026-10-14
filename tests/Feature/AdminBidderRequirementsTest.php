@@ -26,7 +26,7 @@ it('shows incomplete requirements and emails the bidder from the review modal', 
         'status' => 'active',
     ]);
 
-    $bidder = User::create([
+    $bidder = verifiedBidder([
         'name' => 'Bidder Contact',
         'email' => 'bidder-requirements@example.com',
         'password' => Hash::make('password'),
@@ -94,7 +94,7 @@ it('sends a needs-action email with the correct requirements and resubmission li
         'status' => 'active',
     ]);
 
-    $bidder = User::create([
+    $bidder = verifiedBidder([
         'name' => 'Bidder Contact',
         'email' => 'bidder-needs-action@example.com',
         'password' => Hash::make('password'),
@@ -175,7 +175,7 @@ it('does not send a second email when the same requirements request is resubmitt
         'status' => 'active',
     ]);
 
-    $bidder = User::create([
+    $bidder = verifiedBidder([
         'name' => 'Bidder Contact',
         'email' => 'bidder-dedupe@example.com',
         'password' => Hash::make('password'),
@@ -220,7 +220,7 @@ it('tells the bidder to reply to the correction email with the corrected files',
 
 it('opens a bidder review link as the modal of Manage users instead of a separate page', function () {
     $admin = User::create(['name' => 'BAC Admin', 'email' => 'review-link-admin@example.com', 'password' => Hash::make('password'), 'role' => 'admin', 'status' => 'active']);
-    $bidder = User::create(['name' => 'Maria Cruz', 'email' => 'review-link-bidder@example.com', 'password' => Hash::make('password'), 'role' => 'bidder', 'status' => 'pending', 'company' => 'Cruz Builders']);
+    $bidder = verifiedBidder(['name' => 'Maria Cruz', 'email' => 'review-link-bidder@example.com', 'password' => Hash::make('password'), 'role' => 'bidder', 'status' => 'pending', 'company' => 'Cruz Builders']);
 
     testCase()->actingAs($admin)->get(route('admin.users.review', $bidder))
         ->assertRedirect(route('admin.users', ['review' => $bidder->id]));

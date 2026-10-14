@@ -15,6 +15,10 @@ return [
     // Same as app.timezone, which is Philippine Standard Time.
     'display_timezone' => env('BAC_DISPLAY_TIMEZONE', env('APP_TIMEZONE', 'Asia/Manila')),
 
+    // Bidders who register on or after this date must confirm their email address (the link sent to them) before the
+    // BAC can approve them. Accounts registered earlier are not asked to.
+    'email_verification_from' => env('BAC_EMAIL_VERIFICATION_FROM', '2026-10-15'),
+
     // The BAC's public pages on social media; the footer shows a link only when the address is set.
     'social' => [
         'facebook' => env('BAC_FACEBOOK_URL', 'https://www.facebook.com/bac.san.jose.oksimin'),

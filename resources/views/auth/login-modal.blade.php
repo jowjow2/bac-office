@@ -346,6 +346,13 @@
                                 </li>
                             @endforeach
                         </ul>
+                        <div class="auth-certify">
+                            <label class="auth-check">
+                                <input type="checkbox" name="certify_documents" value="1" required {{ old('certify_documents') ? 'checked' : '' }}>
+                                <span>I certify that the information and documents I am submitting are authentic and my own. I understand that a falsified or made-up document may lead to my registration being rejected and my business being blacklisted.</span>
+                            </label>
+                            <div class="field-error" data-error-for="certify_documents"></div>
+                        </div>
                     </section>
                 </div>
 

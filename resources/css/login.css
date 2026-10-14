@@ -1767,3 +1767,7 @@
     #authModal :is(.auth-welcome, .auth-welcome__title, .auth-welcome__sub) { animation: none; }
     #authModal .auth-welcome__check :is(circle, path) { animation: none; stroke-dashoffset: 0; }
 }
+/* The certification under the eligibility documents. */
+#authModal .auth-certify { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--ui-line, #dfe6e1); border-radius: 10px; background: var(--ui-surface-2, #f6f8f7); }
+#authModal .auth-certify .auth-check { align-items: flex-start; font-size: 12.5px; line-height: 1.5; }
+#authModal .auth-certify .auth-check input { flex: 0 0 auto; margin-top: 2px; }

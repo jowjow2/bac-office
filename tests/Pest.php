@@ -122,3 +122,12 @@ function xlsxText($response): string
 {
     return implode("\n", array_map(fn ($row) => implode(',', $row), xlsxRows($response)));
 }
+
+/** A bidder account whose email address was already confirmed (new registrations must confirm it before approval). */
+function verifiedBidder(array $attributes): \App\Models\User
+{
+    $user = \App\Models\User::create($attributes);
+    $user->forceFill(['email_verified_at' => now()])->save();
+
+    return $user;
+}

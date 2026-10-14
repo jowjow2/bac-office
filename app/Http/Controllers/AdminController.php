@@ -1073,7 +1073,31 @@ class AdminController extends Controller
             'registrationRequirementsComplete',
             'openRequirementRequests',
             'registrationRequirementOptions',
-        ));
+        ) + [
+            'emailUnconfirmed' => \App\Support\RegistrationChecks::emailUnconfirmed($user),
+            'sharedWithOthers' => $user->status === 'pending' ? \App\Support\RegistrationChecks::sharedWithOthers($user) : [],
+        ]);
+    }
+
+    /** Sends the bidder the email-confirmation link again (the BAC cannot approve the registration before it is opened). */
+    public function resendBidderEmailConfirmation(Request $request, User $user)
+    {
+        abort_unless($user->role === 'bidder', 404);
+        $back = Auth::user()?->role === 'staff' ? redirect()->route('staff.users.review', $user) : redirect()->route('admin.users', ['review' => $user->id]);
+
+        if (! \App\Support\RegistrationChecks::emailConfirmationReady() || $user->email_verified_at !== null) {
+            return $back->with('success', 'This bidder already confirmed their email address.');
+        }
+
+        try {
+            Mail::to($user->email)->send(new \App\Mail\BidderEmailVerificationMail($user));
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return $back->withErrors(['email' => 'The confirmation email could not be sent right now. Try again in a few minutes.']);
+        }
+
+        return $back->with('success', 'A new confirmation email was sent to '.$user->email.'.');
     }
 
     protected function missingBidderRegistrationRequirements(Collection $registrationDocuments): array
@@ -1136,6 +1160,10 @@ class AdminController extends Controller
      public function updateUser(Request $request, User $user)
      {
          $checked = $this->validateUser($request, $user);
+
+         if ($user->role === 'bidder' && $user->status === 'pending' && ($checked['status'] ?? null) === 'active' && \App\Support\RegistrationChecks::emailUnconfirmed($user)) {
+             return back()->withInput()->withErrors(['status' => 'This bidder has not confirmed their email address yet, so the account cannot be activated.']);
+         }
 
          // Suspended and Blacklisted are procurement sanctions, not account statuses: the account keeps its status
          // and a sanction record is added (or the current one lifted when the status goes back to a normal one).
@@ -1227,6 +1255,12 @@ class AdminController extends Controller
             if (Schema::hasTable('bidder_sanctions') && $bidder->hasActiveProcurementSanction()) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'bidder_status' => 'Lift the active procurement sanction before approving this bidder.',
+                ]);
+            }
+
+            if (\App\Support\RegistrationChecks::emailUnconfirmed($lockedUser)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'email' => 'This bidder has not confirmed their email address yet. Resend the confirmation email and wait for them to open the link.',
                 ]);
             }
 

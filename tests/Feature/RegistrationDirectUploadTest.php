@@ -32,7 +32,7 @@ beforeEach(function () {
         ->postJson(route('register.upload-token'), ['type' => 'blob.generate-client-token', 'payload' => ['pathname' => $pathname, 'clientPayload' => null, 'multipart' => false]]);
 
     $this->form = fn (array $references) => [
-        'role' => 'bidder', 'company' => 'Divine Company', 'registration_no' => '12233445', 'contact_person' => 'Juan Dela Cruz',
+        'role' => 'bidder', 'certify_documents' => '1', 'company' => 'Divine Company', 'registration_no' => '12233445', 'contact_person' => 'Juan Dela Cruz',
         'contact_number' => '09171234567', 'business_address' => 'San Jose, Occidental Mindoro', 'email' => 'divine@example.com',
         'password' => 'Secret-pass-2026', 'password_confirmation' => 'Secret-pass-2026',
         'uploaded_registration_documents' => $references,

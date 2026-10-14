@@ -700,6 +700,7 @@ const REGISTER_FIELD_LABELS = {
     business_address: 'Business address',
     email: 'Email address',
     password: 'Password',
+    certify_documents: 'The certification that your documents are authentic',
 };
 
 function addClientFieldError(errors, key, message) {
@@ -824,6 +825,14 @@ function validateRegisterForm(form) {
 
             if (files.some((file) => !fileHasAllowedType(file))) {
                 addClientFieldError(errors, key, `${label} must be a PDF, JPG, JPEG, or PNG file.`);
+            }
+
+            return;
+        }
+
+        if (input.type === 'checkbox') {
+            if (input.required && !input.checked) {
+                addClientFieldError(errors, key, 'Please confirm that the information and documents you submit are authentic.');
             }
 
             return;

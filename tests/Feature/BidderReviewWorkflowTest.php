@@ -23,7 +23,7 @@ beforeEach(function () {
 
 function workflowBidder(array $overrides = []): User
 {
-    $user = User::create(array_replace([
+    $user = verifiedBidder(array_replace([
         'name' => 'Workflow Bidder',
         'email' => 'workflow-bidder@example.com',
         'password' => Hash::make('password'),

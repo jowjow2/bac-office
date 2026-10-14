@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Mail\LoginVerificationCodeMail;
 use App\Mail\PasswordResetCodeMail;
 use App\Mail\BidderIncompleteRequirementsMail;
+use App\Models\AuditLog;
 use App\Models\BidderDocument;
 use App\Models\Project;
 use App\Models\User;
@@ -329,6 +330,10 @@ class AuthController extends Controller
                 'string',
                 'max:255',
             ],
+            'certify_documents' => [
+                Rule::excludeIf($request->input('role') !== 'bidder'),
+                'accepted',
+            ],
         ], $documentRules), array_merge([
             'role.required' => 'Account type is required.',
             'role.in' => 'Please select a valid account type.',
@@ -348,6 +353,7 @@ class AuthController extends Controller
             'office.required' => 'Office is required for staff registration.',
             'office.in' => 'Please select a valid staff office.',
             'registration_no.required' => 'Registration number is required.',
+            'certify_documents.accepted' => 'Please confirm that the information and documents you submit are authentic.',
         ], $documentMessages));
 
         if ($validator->fails()) {
@@ -457,7 +463,9 @@ class AuthController extends Controller
                             continue;
                         }
 
-                        $filename = 'registration_' . $user->id . '_' . $key . '_' . Str::random(12) . '.' . strtolower($file->getClientOriginalExtension());
+                        // The file's fingerprint is part of its stored name, so the same file sent under another account can be spotted at review.
+                        $fingerprint = \App\Support\RegistrationChecks::fileFingerprint($file->getRealPath());
+                        $filename = 'registration_' . $user->id . '_' . $key . '_' . $fingerprint . '_' . Str::random(12) . '.' . strtolower($file->getClientOriginalExtension());
                         $storedPath = Uploads::store($file, 'bidder-registration-documents/' . $user->id, $filename);
                         $storedPaths[] = $storedPath;
                         $primaryDocumentPath ??= $storedPath;
@@ -485,6 +493,13 @@ class AuthController extends Controller
                     ['email' => $request->email, 'user_id' => $user->id]
                 );
 
+                // The certification that the documents are authentic, on record with the time and address it was given from.
+                AuditLog::log('bidder_registered', $bidder, null, [
+                    'company' => $request->company,
+                    'certified_documents_authentic' => true,
+                    'certified_at' => now()->toISOString(),
+                ], ['ip_address' => $request->ip(), 'user_agent' => $request->userAgent(), 'user_id' => $user->id]);
+
                 DB::commit();
             } catch (Throwable $e) {
                 if (DB::transactionLevel() > 0) {
@@ -507,12 +522,42 @@ class AuthController extends Controller
             }
         }
 
+        $confirmationSent = false;
+        if ($request->input('role') === 'bidder' && isset($user) && \App\Support\RegistrationChecks::emailConfirmationReady()) {
+            try {
+                Mail::to($user->email)->send(new \App\Mail\BidderEmailVerificationMail($user));
+                $confirmationSent = true;
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
+
         return $this->authResponse(
             $request,
             true,
-            'Registered successfully! Your account is pending admin approval.',
+            $confirmationSent
+                ? 'Registered successfully! We sent a link to your email: open it to confirm your address, then your account waits for admin approval.'
+                : 'Registered successfully! Your account is pending admin approval.',
             'register'
         );
+    }
+
+    /** The link in the confirmation email: marks the bidder's address as confirmed. */
+    public function confirmEmail(Request $request, int $user, string $hash)
+    {
+        $account = \App\Support\RegistrationChecks::emailConfirmationReady() ? User::query()->where('role', 'bidder')->find($user) : null;
+
+        if (! $account || ! hash_equals(sha1((string) $account->email), $hash)) {
+            return response()->view('auth.email-verified', ['ok' => false, 'message' => 'This confirmation link does not match a bidder registration. Register again, or contact the BAC Secretariat.'], 403);
+        }
+
+        if ($account->email_verified_at === null) {
+            $account->forceFill(['email_verified_at' => now()])->save();
+            AuditLog::log('bidder_email_confirmed', $account, null, ['email' => $account->email], ['user_id' => $account->id]);
+            SystemNotification::createForRole('admin', 'Bidder email confirmed', ($account->company ?: $account->name).' confirmed their email address. The registration can now be reviewed.', 'bidder_registration', ['user_id' => $account->id]);
+        }
+
+        return response()->view('auth.email-verified', ['ok' => true, 'message' => 'Thank you. Your email address is confirmed. The BAC Secretariat will now review your registration and you will be told once it is approved.']);
     }
 
     public function login(Request $request)

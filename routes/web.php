@@ -189,7 +189,9 @@ Route::get('/login', [AuthController::class, 'showLoginPage'])->name('login.page
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 Route::post('/login/verify-code', [AuthController::class, 'verifyLoginCode'])->name('login.verify-code');
 Route::post('/login/resend-code', [AuthController::class, 'resendLoginCode'])->name('login.resend-code');
-Route::post('/register', [AuthController::class, 'register'])->name('register');
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,10')->name('register');
+// The link in the bidder's confirmation email.
+Route::get('/email/confirm/{user}/{hash}', [AuthController::class, 'confirmEmail'])->middleware(['signed', 'throttle:30,1'])->name('bidder.email.verify');
 // Registration documents go from the browser straight to Blob storage (413 above 4.5 MB per request).
 Route::post('/register/uploads', [AuthController::class, 'registrationUploadToken'])->middleware('throttle:60,1')->name('register.upload-token');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
@@ -293,6 +295,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/admin/users', [AdminController::class, 'storeUser'])->name('admin.users.store');
     Route::put('/admin/users/{user}', [AdminController::class, 'updateUser'])->name('admin.users.update');
     Route::patch('/admin/users/{user}/approve', [AdminController::class, 'approveUser'])->name('admin.users.approve');
+    Route::post('/admin/users/{user}/resend-email-confirmation', [AdminController::class, 'resendBidderEmailConfirmation'])->middleware('throttle:6,10')->name('admin.users.resend-confirmation');
     Route::patch('/admin/users/{user}/reject', [AdminController::class, 'rejectUser'])->name('admin.users.reject');
     Route::post('/admin/users/{user}/requirements', [AdminController::class, 'requestBidderRequirements'])->name('admin.users.requirements');
     Route::post('/admin/users/{user}/requirements/resend', [AdminController::class, 'resendBidderRequirementsNotification'])->name('admin.users.requirements.resend');
@@ -411,6 +414,7 @@ Route::middleware(['auth', 'staff'])->group(function () {
     Route::get('/staff/users/{user}/documents/{document}', [AdminController::class, 'previewBidderDocument'])->name('staff.user.document.preview');
     Route::get('/staff/users/{user}/documents/{document}/pdf', [AdminController::class, 'streamBidderDocumentPdf'])->name('staff.user.document.pdf');
     Route::patch('/staff/users/{user}/approve', [AdminController::class, 'approveUser'])->name('staff.users.approve');
+    Route::post('/staff/users/{user}/resend-email-confirmation', [AdminController::class, 'resendBidderEmailConfirmation'])->middleware('throttle:6,10')->name('staff.users.resend-confirmation');
     Route::patch('/staff/users/{user}/reject', [AdminController::class, 'rejectUser'])->name('staff.users.reject');
     Route::post('/staff/users/{user}/requirements', [AdminController::class, 'requestBidderRequirements'])->name('staff.users.requirements');
     Route::post('/staff/users/{user}/requirements/resend', [AdminController::class, 'resendBidderRequirementsNotification'])->name('staff.users.requirements.resend');
