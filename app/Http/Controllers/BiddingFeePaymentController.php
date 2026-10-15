@@ -440,6 +440,24 @@ class BiddingFeePaymentController extends Controller
         ];
     }
 
+    /** The bidder behind a scanned Verified Bidding Record QR code, if they are approved and can pay. */
+    public function bidderLookup(Request $request)
+    {
+        $this->role($request);
+        $token = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $request->query('token', ''));
+        $profile = strlen($token) >= 8 ? \App\Models\Bidder::with('user.bidderProfile.activeSanction')->where('qr_token', $token)->first() : null;
+        $user = $profile?->user;
+
+        if (! $user) {
+            return response()->json(['ok' => false, 'message' => 'This QR code does not belong to a registered bidder.'], 404);
+        }
+        if (! $user->isApprovedBidder()) {
+            return response()->json(['ok' => false, 'message' => ($user->company ?: $user->name).' is not an approved bidder, so a payment cannot be recorded for them.'], 422);
+        }
+
+        return response()->json(['ok' => true, 'id' => $user->id, 'label' => $user->company ?: $user->name]);
+    }
+
     private function role(Request $request): string
     {
         return $request->routeIs('staff.*') ? 'staff' : 'admin';

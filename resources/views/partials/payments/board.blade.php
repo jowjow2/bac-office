@@ -101,6 +101,19 @@
     .fee-or { text-transform: none; letter-spacing: normal; }
     .fee-or::placeholder { text-transform: none; letter-spacing: normal; }
     .fee-hint { color: var(--fee-muted); font-size: 12px; line-height: 1.45; }
+    .fee-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .fee-scan-link { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border: 1px solid var(--ui-line-strong); border-radius: 999px; background: #fff; color: var(--ui-primary); font: 600 12px/1.3 inherit; cursor: pointer; }
+    .fee-scan-link:hover { background: var(--ui-primary-soft); }
+    .fee-scan-note { margin: 6px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--ui-success); }
+    .fee-scan-note.is-warn { color: var(--ui-danger); }
+    .fee-scan-dialog { width: min(440px, calc(100vw - 24px)); }
+    .fee-scan-body { display: grid; gap: 12px; padding: 4px 22px 20px; }
+    .fee-scan-view { position: relative; overflow: hidden; border-radius: 12px; background: #0f1915; aspect-ratio: 4 / 3; }
+    .fee-scan-view video { display: block; width: 100%; height: 100%; object-fit: cover; }
+    .fee-scan-view::after { content: ''; position: absolute; inset: 18%; border: 3px solid rgba(255, 255, 255, .85); border-radius: 14px; box-shadow: 0 0 0 999px rgba(0, 0, 0, .25); pointer-events: none; }
+    .fee-scan-status { margin: 0; font-size: 13px; line-height: 1.5; color: var(--fee-muted); }
+    .fee-scan-status.is-warn { color: var(--ui-danger); }
+    .fee-scan-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
     .fee-error { color: var(--fee-bad); font-size: 12px; font-weight: 500; }
     .fee-project-note { display: none; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border-radius: var(--ui-radius-lg); background: var(--fee-accent-soft); color: var(--ui-primary-hover); font-size: 12.5px; }
     .fee-project-note.is-visible { display: flex; }
@@ -332,7 +345,10 @@
                         </div>
 
                         <div class="fee-field is-wide">
-                            <label for="fee-bidder">Bidder <span class="fee-req" aria-hidden="true">*</span></label>
+                            <div class="fee-label-row">
+                                <label for="fee-bidder">Bidder <span class="fee-req" aria-hidden="true">*</span></label>
+                                <button type="button" class="fee-scan-link" data-fee-scan><i class="fas fa-qrcode" aria-hidden="true"></i> Scan bidder QR</button>
+                            </div>
                             <select id="fee-bidder" name="user_id" class="fee-input @if($recordFormActive && $errors->has('user_id')) is-invalid @endif" required data-fee-combo="Search by company, name or email">
                                 <option value="">Select the approved bidder who paid</option>
                                 @foreach($bidders as $bidder)
@@ -341,6 +357,7 @@
                                     </option>
                                 @endforeach
                             </select>
+                            <p class="fee-scan-note" data-fee-scan-note hidden></p>
                             @if($bidders->isEmpty())
                                 <span class="fee-hint">No approved bidders yet. Bidders must be approved before they can pay and bid.</span>
                             @endif
@@ -563,6 +580,25 @@
         <iframe class="fee-report-frame" title="Bidding documents fee collection report" data-fee-report-frame data-src="{{ route($routePrefix . '.payments.report', ['embed' => 1]) }}"></iframe>
     </dialog>
 
+    <dialog class="fee-dialog fee-scan-dialog" id="fee-scan-dialog" aria-labelledby="fee-scan-title">
+        <div class="fee-card-head">
+            <div>
+                <h2 id="fee-scan-title">Scan the bidder's QR code</h2>
+                <p>The bidder shows the Verified Bidding Record QR from their profile. Then pick the project and finish the payment.</p>
+            </div>
+            <button type="button" class="fee-dialog-close" data-fee-scan-close aria-label="Close"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+        </div>
+        <div class="fee-scan-body">
+            <div class="fee-scan-view"><video playsinline muted data-fee-scan-video></video></div>
+            <canvas hidden data-fee-scan-canvas></canvas>
+            <p class="fee-scan-status" data-fee-scan-status>Opening the camera…</p>
+            <div class="fee-scan-actions">
+                <label class="fee-btn fee-btn-ghost" style="cursor:pointer"><i class="fas fa-image" aria-hidden="true"></i> Use a photo instead<input type="file" accept="image/*" hidden data-fee-scan-file></label>
+                <button type="button" class="fee-btn fee-btn-ghost" data-fee-scan-close>Cancel</button>
+            </div>
+        </div>
+    </dialog>
+
     <dialog class="fee-dialog" id="fee-edit-dialog" aria-labelledby="fee-edit-title">
         <form method="POST" action="#" data-fee-edit-form novalidate>
             @csrf
@@ -771,6 +807,15 @@
                     }
                 },
                 focus: function () { quietFocus = true; input.focus(); },
+                // Chooses an option by its value (used after a QR scan); false when it cannot be picked.
+                pick: function (value) {
+                    const hit = options.find(function (item) { return item.value === String(value); });
+                    if (!hit || blocked[hit.value]) return false;
+                    select.value = hit.value;
+                    input.value = hit.text;
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                    return true;
+                },
             };
             input.value = chosenText();
         });
@@ -894,6 +939,70 @@
                 window.setTimeout(function () { first?.feeCombo?.focus(); }, 60);
             };
             document.querySelectorAll('[data-fee-open-record]').forEach(function (button) { button.addEventListener('click', openRecord); });
+
+            // Scan the bidder's QR code: the record form opens with that bidder already chosen; the project is picked as usual.
+            const scanDialog = document.getElementById('fee-scan-dialog');
+            if (scanDialog) {
+                const statusLine = scanDialog.querySelector('[data-fee-scan-status]');
+                const note = recordDialog.querySelector('[data-fee-scan-note]');
+                const lookupUrl = @json(route($routePrefix . '.payments.bidder-lookup'));
+                const setStatus = function (text, kind) { statusLine.textContent = text; statusLine.classList.toggle('is-warn', kind === 'warn'); };
+                const setNote = function (text, warn) { note.hidden = !text; note.textContent = text || ''; note.classList.toggle('is-warn', !!warn); };
+                let scanner = null;
+
+                const closeScan = function () {
+                    if (scanner) scanner.stop();
+                    if (scanDialog.close) scanDialog.close(); else scanDialog.removeAttribute('open');
+                };
+                const startScan = function () {
+                    if (typeof window.feeQrScan !== 'function') { setStatus('The scanner is still loading. Close this and try again in a moment.', 'warn'); return; }
+                    if (!scanner) {
+                        scanner = window.feeQrScan({
+                            video: scanDialog.querySelector('[data-fee-scan-video]'),
+                            canvas: scanDialog.querySelector('[data-fee-scan-canvas]'),
+                            onToken: function (token) { bidderFound(token); },
+                            onStatus: setStatus,
+                        });
+                    }
+                    scanner.start();
+                };
+                const bidderFound = function (token) {
+                    setStatus('QR code read. Looking up the bidder…');
+                    fetch(lookupUrl + '?token=' + encodeURIComponent(token), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+                        .then(function (response) { return response.json().then(function (data) { return { ok: response.ok && data.ok, data: data }; }); })
+                        .then(function (result) {
+                            if (!result.ok) { setStatus(result.data.message || 'This bidder cannot be found.', 'warn'); window.setTimeout(startScan, 1800); return; }
+                            closeScan();
+                            if (!recordDialog.open) openRecord();
+                            const bidderSelect = recordDialog.querySelector('select[name="user_id"]');
+                            if (bidderSelect && bidderSelect.feeCombo && bidderSelect.feeCombo.pick(result.data.id)) {
+                                setNote('Scanned: ' + result.data.label + '. Now choose the project.');
+                            } else {
+                                setNote(result.data.label + ' has already paid for the chosen project (or is not in the list). Choose another project, or scan again.', true);
+                            }
+                            const projectSelect = recordDialog.querySelector('select[data-fee-project]');
+                            if (projectSelect && !projectSelect.value && projectSelect.feeCombo) projectSelect.feeCombo.focus();
+                        })
+                        .catch(function () { setStatus('The bidder could not be looked up. Check the connection and scan again.', 'warn'); window.setTimeout(startScan, 1800); });
+                };
+                const openScan = function () {
+                    setNote('');
+                    setStatus('Opening the camera…');
+                    if (typeof scanDialog.showModal === 'function') scanDialog.showModal(); else scanDialog.setAttribute('open', '');
+                    startScan();
+                };
+
+                document.querySelectorAll('[data-fee-scan], [data-fee-open-scan]').forEach(function (button) { button.addEventListener('click', openScan); });
+                scanDialog.querySelectorAll('[data-fee-scan-close]').forEach(function (button) { button.addEventListener('click', closeScan); });
+                scanDialog.addEventListener('cancel', function () { if (scanner) scanner.stop(); });
+                scanDialog.querySelector('[data-fee-scan-file]').addEventListener('change', function (event) {
+                    const file = event.target.files && event.target.files[0];
+                    event.target.value = '';
+                    if (!file) return;
+                    if (!scanner) startScan();
+                    if (scanner) scanner.fromFile(file);
+                });
+            }
             recordDialog.querySelectorAll('[data-fee-record-close]').forEach(function (button) {
                 button.addEventListener('click', function () { recordDialog.close ? recordDialog.close() : recordDialog.removeAttribute('open'); });
             });

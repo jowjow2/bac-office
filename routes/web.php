@@ -262,6 +262,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/admin/feedback/{feedback}/review', [\App\Http\Controllers\FeedbackController::class, 'review'])->name('admin.feedback.review');
     Route::get('/admin/payments', [BiddingFeePaymentController::class, 'index'])->name('admin.payments');
     Route::get('/admin/payments/export', [BiddingFeePaymentController::class, 'export'])->name('admin.payments.export');
+    Route::get('/admin/payments/bidder-lookup', [BiddingFeePaymentController::class, 'bidderLookup'])->middleware('throttle:60,1')->name('admin.payments.bidder-lookup');
     Route::get('/admin/payments/report', [BiddingFeePaymentController::class, 'report'])->name('admin.payments.report');
     Route::get('/admin/payments/check-receipt', [BiddingFeePaymentController::class, 'checkReceipt'])->name('admin.payments.check-receipt');
     Route::post('/admin/payments', [BiddingFeePaymentController::class, 'store'])->name('admin.payments.store');
@@ -372,6 +373,7 @@ Route::middleware(['auth', 'staff'])->group(function () {
     Route::post('/staff/procurements/{project}/acceptance', [ProcurementLifecycleController::class, 'recordAcceptance'])->name('staff.procurement.acceptance');
     Route::get('/staff/payments', [BiddingFeePaymentController::class, 'index'])->name('staff.payments');
     Route::get('/staff/payments/export', [BiddingFeePaymentController::class, 'export'])->name('staff.payments.export');
+    Route::get('/staff/payments/bidder-lookup', [BiddingFeePaymentController::class, 'bidderLookup'])->middleware('throttle:60,1')->name('staff.payments.bidder-lookup');
     Route::get('/staff/payments/report', [BiddingFeePaymentController::class, 'report'])->name('staff.payments.report');
     Route::get('/staff/payments/check-receipt', [BiddingFeePaymentController::class, 'checkReceipt'])->name('staff.payments.check-receipt');
     Route::post('/staff/payments', [BiddingFeePaymentController::class, 'store'])->name('staff.payments.store');

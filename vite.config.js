@@ -15,6 +15,7 @@ export default defineConfig({
                 'resources/css/ui.css',
                 'resources/css/portal-shell.css',
                 'resources/js/portal.js',
+                'resources/js/payment-qr-scan.js',
                 'resources/css/project-wizard.css',
                 'resources/js/project-wizard.js',
                 'resources/js/dashboard.js',
