@@ -31,3 +31,11 @@ it('shows New on a freshly published project and award posting, not on older one
     expect(substr_count($html, 'public-new-badge">New'))->toBe(1);
     testCase()->get(route('public.procurement'))->assertSeeInOrder(['public-new-badge', 'SJ-BAC-2026-G-NEW1'], false);
 });
+
+it('lists the new procurement before the others, even when its deadline is later', function () {
+    config(['bac-office.new_badge_from' => now()->subHour()->toDateTimeString()]);
+    \App\Models\Project::create(['reference_no' => 'SJ-BAC-2026-G-SOON', 'title' => 'Closing soon', 'description' => 'x', 'budget' => 500000, 'status' => 'open', 'deadline' => now()->addDays(2), 'published_at' => now()->subDays(6)]);
+    \App\Models\Project::create(['reference_no' => 'SJ-BAC-2026-G-FRESH', 'title' => 'Just posted', 'description' => 'x', 'budget' => 500000, 'status' => 'open', 'deadline' => now()->addDays(20), 'published_at' => now()]);
+
+    testCase()->get(route('public.procurement'))->assertOk()->assertSeeInOrder(['SJ-BAC-2026-G-FRESH', 'SJ-BAC-2026-G-SOON'], false);
+});

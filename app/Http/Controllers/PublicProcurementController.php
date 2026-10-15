@@ -50,6 +50,10 @@ class PublicProcurementController extends Controller
                 && $project->bidSubmissionDeadline()?->isFuture());
             $projects = $upcoming->sortBy(fn (Project $project) => $project->bidSubmissionDeadline()->getTimestamp())
                 ->concat($others)->values();
+
+            // What was just posted comes first, newest on top, so it is seen right away.
+            [$fresh, $rest] = $projects->partition(fn (Project $project) => \App\Support\NewBadge::isNew($project->published_at));
+            $projects = $fresh->sortByDesc(fn (Project $project) => $project->published_at->getTimestamp())->concat($rest)->values();
         } catch (Throwable) {
             $projects = collect();
         }

@@ -49,7 +49,9 @@ class PublicAwardController extends Controller
             $awards = collect();
         }
 
+        // Newly posted awards first (the list is already newest first), then the rest in date order.
         $records = $awards->map(fn (Award $award) => $this->publicRecord($award))->values();
+        $records = $records->where('is_new', true)->concat($records->where('is_new', false))->values();
         $selected = $records->firstWhere('id', (int) $request->query('award')) ?? $records->first();
 
         // Postings below the viewer, ten per page like the municipal posting board.
