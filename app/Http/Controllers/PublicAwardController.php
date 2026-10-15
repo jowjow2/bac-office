@@ -87,6 +87,7 @@ class PublicAwardController extends Controller
         $status = strtolower((string) ($award->certificate_status ?: $award->status ?: ''));
 
         return [
+            'is_new' => \App\Support\NewBadge::isNew($award->created_at),
             'id' => $award->id,
             'title' => $award->project?->title ?? 'Untitled project',
             'project_reference' => $award->project?->reference_no,

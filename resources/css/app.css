@@ -4100,3 +4100,19 @@ body.public-modal-open {
 
 /* See portal-shell.css: a screen-reader-only label never widens the page. */
 .sr-only { left: 0 !important; top: 0 !important; clip-path: inset(50%); }
+
+/* "New" mark on freshly posted procurement and awards. */
+.public-new-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--ui-danger, #c2410c);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.6;
+  text-transform: uppercase;
+  vertical-align: middle;
+}

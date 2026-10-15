@@ -143,7 +143,7 @@
                                     @unless($record['document_url'])<em>No document</em>@endunless
                                 </span>
                                 <span class="award-post-card-body">
-                                    <strong>{{ $postTitle($record) }} – {{ $record['title'] }}</strong>
+                                    <strong>@if($record['is_new'] ?? false)<span class="public-new-badge">New</span> @endif{{ $postTitle($record) }} – {{ $record['title'] }}</strong>
                                     <small>{{ $record['date'] }}</small>
                                     <small class="award-post-mono">{{ $record['reference'] }}</small>
                                     @if(count($record['documents'] ?? []) > 1)<small class="award-post-card-docs">Notice of Award &middot; Notice to Proceed</small>@endif

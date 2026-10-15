@@ -96,6 +96,7 @@
 
                         <div class="proc-main">
                             <p class="proc-topline">
+                                @if(\App\Support\NewBadge::isNew($project->published_at))<span class="public-new-badge">New</span>@endif
                                 @if($project->reference_no)<span class="proc-ref">{{ $project->reference_no }}</span>@endif
                                 <span class="public-status public-status-{{ $project->status }}">{{ $statusLabel }}</span>
                                 @if($timeLeft)<span class="proc-left {{ $timeLeft === 'Submission closed' ? 'is-closed' : '' }}">{{ $timeLeft }}</span>@endif
