@@ -833,6 +833,8 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 
     /* Room for the bar under the page; the sticky form buttons sit above it. */
     body:has(.portal-tabbar) { padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)); }
+    /* The bar has its own Menu button, so the one in the page header is not needed (it stays while the bar is hidden by an open chat). */
+    body:has(.portal-tabbar):not(:has(.messenger-chat:not(.is-empty))) .portal-menu-btn { display: none; }
     body:has(.portal-tabbar) .ui-step-panel > .ui-actions--end { bottom: calc(66px + env(safe-area-inset-bottom, 0px)); }
 }
 
