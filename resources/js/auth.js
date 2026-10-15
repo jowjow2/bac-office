@@ -1027,6 +1027,22 @@ function startRegistrationPreUpload(form, input) {
     registrationPreUploads.set(input.name, entry);
 }
 
+/** Reloads the home page in the background to start a new session; returns its CSRF token, or null. */
+async function refreshCsrfToken() {
+    try {
+        const response = await fetch('/', { credentials: 'same-origin', headers: { Accept: 'text/html' } });
+        const html = await response.text();
+        const token = (html.match(/<meta name="csrf-token" content="([^"]+)"/) || [])[1];
+        if (!token) return null;
+        document.querySelectorAll('meta[name="csrf-token"]').forEach((meta) => meta.setAttribute('content', token));
+        document.querySelectorAll('input[name="_token"]').forEach((input) => { input.value = token; });
+
+        return token;
+    } catch (error) {
+        return null;
+    }
+}
+
 async function uploadRegistrationDocuments(form, formData, csrfToken) {
     const inputs = Array.from(form.querySelectorAll('input[type="file"][name^="registration_documents["]'))
         .filter((input) => input.files && input.files.length);
@@ -1081,7 +1097,7 @@ async function submitAuthForm(form, fallbackTab, isRetry = false) {
     }
 
     const formData = new FormData(form);
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    let csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     const loginForm = document.getElementById('loginForm');
     const verifyLoginForm = document.getElementById('verifyLoginForm');
     const registerForm = document.getElementById('registerForm');
@@ -1123,6 +1139,16 @@ async function submitAuthForm(form, fallbackTab, isRetry = false) {
             },
             body: formData,
         });
+
+        // The page was open longer than the session lasts (or the session was reset): get a fresh token and send it again, once.
+        if (response.status === 419 && !isRetry) {
+            const fresh = await refreshCsrfToken();
+            if (fresh) {
+                registrationPreUploads.clear();
+                setAuthFormLoading(form, false);
+                return submitAuthForm(form, fallbackTab, true);
+            }
+        }
 
         if (response.status === 413) {
             switchTab(fallbackTab);
