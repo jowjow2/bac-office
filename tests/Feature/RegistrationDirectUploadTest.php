@@ -33,7 +33,7 @@ beforeEach(function () {
 
     $this->form = fn (array $references) => [
         'role' => 'bidder', 'certify_documents' => '1', 'company' => 'Divine Company', 'registration_no' => '12233445', 'contact_person' => 'Juan Dela Cruz',
-        'contact_number' => '09171234567', 'business_address' => 'San Jose, Occidental Mindoro', 'email' => 'divine@example.com',
+        'contact_number' => '09171234567', 'business_address' => 'San Jose, Occidental Mindoro', 'email' => 'divine@example.com', 'email_confirmation' => 'divine@example.com',
         'password' => 'Secret-pass-2026', 'password_confirmation' => 'Secret-pass-2026',
         'uploaded_registration_documents' => $references,
         'uploaded_registration_document_names' => collect($references)->map(fn ($url, $key) => "{$key}.pdf")->all(),

@@ -244,6 +244,7 @@ class AuthController extends Controller
 
         $request->merge([
             'email' => strtolower(trim((string) $request->email)),
+            'email_confirmation' => strtolower(trim((string) $request->input('email_confirmation'))),
             'role' => strtolower(trim((string) $request->input('role', 'bidder'))),
             'name' => trim((string) $request->name),
             'company' => trim((string) $request->company),
@@ -316,6 +317,11 @@ class AuthController extends Controller
                 'max:1000',
             ],
             'email' => ['required', 'email'],
+            'email_confirmation' => [
+                Rule::excludeIf($request->input('role') !== 'bidder'),
+                'required',
+                'same:email',
+            ],
             'password' => ['required', 'string', PasswordRule::min(8)->mixedCase()->numbers()->symbols()],
             'office' => [
                 Rule::excludeIf($request->input('role') !== 'staff'),
@@ -343,6 +349,8 @@ class AuthController extends Controller
             'contact_number.required' => 'Contact number is required.',
             'contact_number.max' => \App\Rules\PhilippineContactNumber::MESSAGE,
             'business_address.required' => 'Business address is required.',
+            'email_confirmation.required' => 'Type your email address a second time.',
+            'email_confirmation.same' => 'The two email addresses are not the same. Check for a typo: the confirmation link is sent there.',
             'email.required' => 'Email is required.',
             'email.email' => 'Please enter a valid email address.',
             'password.required' => 'Password is required.',

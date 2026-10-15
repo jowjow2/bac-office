@@ -383,6 +383,11 @@
                         <input type="email" id="registerEmail" name="email" value="{{ old('email') }}" class="auth-input" placeholder="name@example.com" required autocomplete="email" autocapitalize="off" spellcheck="false">
                         <div class="field-error" data-error-for="email"></div>
                     </div>
+                    <div class="auth-field" id="registerEmailConfirmField">
+                        <label for="registerEmailConfirm" class="auth-label">Type the email address again</label>
+                        <input type="email" id="registerEmailConfirm" name="email_confirmation" value="{{ old('email_confirmation') }}" class="auth-input" placeholder="Same email, to catch a typo" required autocomplete="off" autocapitalize="off" spellcheck="false">
+                        <div class="field-error" data-error-for="email_confirmation"></div>
+                    </div>
                     <div class="auth-field">
                         <label for="registerPassword" class="auth-label">Create password</label>
                         <div class="auth-input-wrap is-plain">

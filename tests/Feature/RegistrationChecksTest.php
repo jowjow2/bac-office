@@ -22,11 +22,13 @@ beforeEach(function () {
             $documents[$key] = UploadedFile::fake()->createWithContent($key.'.pdf', '%PDF-1.4 '.$key.' '.uniqid());
         }
 
-        return array_replace_recursive([
+        $payload = array_replace_recursive([
             'role' => 'bidder', 'company' => 'Checked Builders', 'contact_person' => 'Cora Check', 'contact_number' => '09175550001',
             'business_address' => '1 Rizal St, San Jose', 'email' => 'cora@checked-builders.example', 'password' => 'SecurePass1!',
             'registration_no' => 'DTI-CHECK-1', 'certify_documents' => '1', 'registration_documents' => $documents,
         ], $overrides);
+
+        return $payload + ['email_confirmation' => $payload['email']];
     };
     $this->approvedBidder = function (array $user, array $profile, bool $confirmed = true) {
         $account = User::create($user + ['password' => Hash::make('password'), 'role' => 'bidder', 'status' => 'active']);

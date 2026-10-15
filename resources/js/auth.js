@@ -699,6 +699,7 @@ const REGISTER_FIELD_LABELS = {
     contact_number: 'Contact number',
     business_address: 'Business address',
     email: 'Email address',
+    email_confirmation: 'The second email address',
     password: 'Password',
     certify_documents: 'The certification that your documents are authentic',
 };
@@ -843,6 +844,10 @@ function validateRegisterForm(form) {
         if (input.required && value === '') {
             addClientFieldError(errors, key, `${label} is required.`);
             return;
+        }
+
+        if (input.name === 'email_confirmation' && value !== '' && value.toLowerCase() !== String(form.querySelector('[name="email"]')?.value || '').trim().toLowerCase()) {
+            addClientFieldError(errors, key, 'The two email addresses are not the same. Check for a typo: the confirmation link is sent there.');
         }
 
         if (input.type === 'email' && value !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {

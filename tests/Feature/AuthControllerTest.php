@@ -29,7 +29,7 @@ function validBidderRegistrationPayload(array $overrides = []): array
         $documents[$key] = UploadedFile::fake()->create($key . '.pdf', 64, 'application/pdf');
     }
 
-    return array_replace_recursive([
+    $payload = array_replace_recursive([
         'role' => 'bidder',
         'company' => 'Acme Ltd',
         'contact_person' => 'Ada Buyer',
@@ -41,6 +41,9 @@ function validBidderRegistrationPayload(array $overrides = []): array
         'certify_documents' => '1',
         'registration_documents' => $documents,
     ], $overrides);
+
+    // The form asks for the email twice; unless a test says otherwise the second one matches.
+    return $payload + ['email_confirmation' => $payload['email']];
 }
 
 it('returns the home view for the landing page', function () {

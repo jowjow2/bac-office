@@ -122,7 +122,7 @@ it('moves Sep 29 to the Oct 5 opening and award date, then rewinds and restores 
     testCase()->actingAs($this->admin)->get(route('admin.bid.component-file', ['bid' => $bid, 'bidDocument' => $document]))->assertOk();
     expect($bid->fresh()->isSealed())->toBeFalse();
 
-    $this->clock->set(\Carbon\CarbonImmutable::parse('2026-10-15 11:00', 'Asia/Manila'), $this->admin->id);
+    $this->clock->set(\Carbon\CarbonImmutable::parse('2027-01-15 11:00', 'Asia/Manila'), $this->admin->id);
     $bid->refresh()->forceFill([
         'workflow_step' => Bid::STEP_NOTICE_TO_PROCEED,
         'workflow_step_updated_at' => now(),
@@ -136,8 +136,8 @@ it('moves Sep 29 to the Oct 5 opening and award date, then rewinds and restores 
         'bid_id' => $bid->id,
         'bidder_id' => $this->supplier->id,
         'contract_amount' => 490000,
-        'notice_of_award_date' => '2026-10-15',
-        'contract_date' => '2026-10-15',
+        'notice_of_award_date' => '2027-01-15',
+        'contract_date' => '2027-01-15',
         'status' => Award::STATUS_VALID,
         'certificate_status' => Award::STATUS_VALID,
     ]);
@@ -172,7 +172,7 @@ it('moves Sep 29 to the Oct 5 opening and award date, then rewinds and restores 
         ->and(Award::query()->publiclyPosted()->whereKey($award->id)->exists())->toBeFalse();
     testCase()->actingAs($this->admin)->get(route('admin.bid.component-file', ['bid' => $bid, 'bidDocument' => $document]))->assertOk();
 
-    $this->clock->set(\Carbon\CarbonImmutable::parse('2026-10-15 11:00', 'Asia/Manila'), $this->admin->id);
+    $this->clock->set(\Carbon\CarbonImmutable::parse('2027-01-15 11:00', 'Asia/Manila'), $this->admin->id);
     expect(Award::query()->publiclyPosted()->whereKey($award->id)->exists())->toBeTrue();
     config(['bac-office.demo_clock.enabled' => false]);
     \Illuminate\Support\Carbon::setTestNow();
