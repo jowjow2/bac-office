@@ -69,16 +69,49 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // The slides sit side by side in one track; showing another one slides the track along.
+    let carouselTrack = null;
+
+    function buildTrack() {
+        if (!carouselImage || carouselTrack) return;
+
+        const frame = carouselImage.parentElement;
+        carouselTrack = document.createElement('div');
+        carouselTrack.className = 'carousel-track';
+        frame.insertBefore(carouselTrack, carouselImage);
+        carouselTrack.appendChild(carouselImage);
+
+        slides.forEach((slide, index) => {
+            if (index === 0) return;
+            const image = document.createElement('img');
+            image.src = slide.src;
+            image.alt = slide.title;
+            image.loading = 'lazy';
+            image.decoding = 'async';
+            image.draggable = false;
+            carouselTrack.appendChild(image);
+        });
+        carouselImage.alt = slides[0].title;
+        carouselImage.draggable = false;
+
+        // Swipe on touch screens.
+        let startX = null;
+        frame.addEventListener('touchstart', (event) => { startX = event.touches[0].clientX; }, { passive: true });
+        frame.addEventListener('touchend', (event) => {
+            if (startX === null) return;
+            const distance = event.changedTouches[0].clientX - startX;
+            startX = null;
+            if (Math.abs(distance) < 40) return;
+            if (distance < 0) showNextSlide(); else showPreviousSlide();
+            resetAutoSlide();
+        }, { passive: true });
+    }
+
     function renderSlide(index) {
-        if (!carouselImage) return;
+        if (!carouselTrack) return;
 
-        carouselImage.style.opacity = '0';
-
-        window.setTimeout(() => {
-            carouselImage.src = slides[index].src;
-            carouselImage.style.opacity = '1';
-            renderSlideMeta(index);
-        }, 180);
+        carouselTrack.style.transform = `translateX(-${index * 100}%)`;
+        renderSlideMeta(index);
     }
 
     function showNextSlide() {
@@ -130,6 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        buildTrack();
         renderSlideMeta(currentSlideIndex);
         resetAutoSlide();
     }

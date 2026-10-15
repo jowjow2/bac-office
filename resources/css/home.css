@@ -551,12 +551,21 @@
   background: var(--ui-ink);
 }
 
+.carousel-track {
+  display: flex;
+  width: 100%;
+  transition: transform 0.55s cubic-bezier(0.22, 0.7, 0.2, 1);
+  will-change: transform;
+}
+
 .carousel-frame img {
   display: block;
+  flex: 0 0 100%;
   width: 100%;
+  min-width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
-  transition: opacity 0.24s ease;
+  user-select: none;
 }
 
 .carousel-dot {
@@ -743,7 +752,7 @@
 @media (prefers-reduced-motion: reduce) {
   [data-home-reveal],
   .carousel-dot,
-  .carousel-frame img {
+  .carousel-track {
     transition: none;
   }
 
