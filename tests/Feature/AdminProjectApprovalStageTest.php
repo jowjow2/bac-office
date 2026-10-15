@@ -452,7 +452,7 @@ it('shows procurement QR login context with the project category', function () {
     $procurementResponse = $test->get(route('public.procurement'));
 
     $procurementResponse->assertOk();
-    $procurementResponse->assertSee(route('public.procurement.qr', $project), false);
+    $procurementResponse->assertDontSee(route('public.procurement.qr', $project), false);
     $procurementResponse->assertSee(route('login.page', ['qr_project' => $project->id]), false);
     $procurementResponse->assertSee('Infrastructure');
 

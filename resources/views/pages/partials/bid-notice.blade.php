@@ -19,7 +19,6 @@
     $contact = \App\Support\ProcuringEntity::contact();
     $isOpen = $project->status === 'open';
     $participateUrl = route('login.page', ['qr_project' => $project->id]);
-    $qrUrl = route('public.procurement.qr', ['project' => $project, 'status' => $project->status]);
     $titleId = ($compact ? 'bid-notice-dialog-' : 'bid-notice-').$project->id.'-title';
 
     $details = array_filter([
@@ -122,15 +121,10 @@
     </section>
 
     <section class="bid-notice-section bid-notice-participate">
-        <div class="bid-notice-qr">
-            <a href="{{ $isOpen ? $participateUrl : route('public.procurement.show', $project) }}" aria-label="{{ $isOpen ? 'Participate' : 'View' }}: {{ $project->title }}">
-                <img src="{{ $qrUrl }}" alt="QR code for {{ $project->title }}" loading="lazy">
-            </a>
-        </div>
         <div class="bid-notice-participate-copy">
             <h3>{{ $isOpen ? 'How to participate' : 'This notice is '.strtolower($statusLabel) }}</h3>
             @if($isOpen)
-                <p>Scan the code or select <strong>Login to Participate</strong>. Sign in with an approved SJBAC bidder account to download the bidding documents and submit your bid before the closing date.</p>
+                <p>Select <strong>Login to Participate</strong>. Sign in with an approved SJBAC bidder account to download the bidding documents and submit your bid before the closing date.</p>
             @else
                 <p>Bids are no longer accepted for this project. Results are posted under Awards &amp; Contracts once awarded.</p>
             @endif
