@@ -117,3 +117,17 @@ it('does not ask accounts registered before the rule started to confirm their em
     $old->forceFill(['created_at' => '2026-09-01 08:00:00'])->save();
     expect(RegistrationChecks::emailUnconfirmed($old->fresh()))->toBeFalse();
 });
+
+it('lets a bidder register with the email of a retired end-user office account', function () {
+    Mail::fake();
+    $retired = User::create(['name' => 'Old Office', 'email' => 'cora@checked-builders.example', 'password' => Hash::make('password'), 'role' => 'end_user', 'status' => 'active']);
+
+    testCase()->postJson('/register', ($this->payload)())->assertOk()->assertJsonPath('ok', true);
+
+    expect(User::where('email', 'cora@checked-builders.example')->first()->role)->toBe('bidder')
+        ->and($retired->fresh()->email)->toBe('retired-'.$retired->id.'-cora@checked-builders.example');
+
+    // A real account with that email still blocks a second registration.
+    testCase()->postJson('/register', ($this->payload)(['registration_no' => 'DTI-OTHER-2']))->assertStatus(422)
+        ->assertJsonPath('errors.email.0', 'An account with this email already exists.');
+});

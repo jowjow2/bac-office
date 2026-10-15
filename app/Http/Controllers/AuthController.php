@@ -383,6 +383,14 @@ class AuthController extends Controller
             );
         }
 
+        // Retired end-user office accounts no longer appear in Manage users and cannot sign in; their email address is
+        // released for the new registration (the old record stays, under a retired address, so its history is kept).
+        $retired = User::where('email', $request->email)->where('role', 'end_user')->first();
+        if ($retired) {
+            $retired->forceFill(['email' => 'retired-'.$retired->id.'-'.$retired->email])->save();
+            AuditLog::log('retired_account_email_released', $retired, ['email' => $request->email], ['email' => $retired->email], ['user_id' => null]);
+        }
+
         if (User::where('email', $request->email)->exists()) {
             return $this->authResponse($request, false, 'An account with this email already exists. Please sign in instead.', 'register', 422, null, [
                 'email' => ['An account with this email already exists.'],
