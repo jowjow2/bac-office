@@ -88,7 +88,7 @@
 </style>
 
 <div id="auditLogs">
-    <form method="GET" action="{{ route('admin.audit-logs') }}" class="alog-card alog-filters" role="search">
+    <form method="GET" action="{{ route('admin.audit-logs') }}" class="alog-card alog-filters" role="search" data-live-filter>
         <label class="alog-field alog-search">
             <span>Search</span>
             <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
@@ -121,11 +121,11 @@
             <span>To</span>
             <input type="date" name="to" value="{{ $filters['to'] }}" class="alog-input">
         </label>
-        <div class="alog-actions">
+        <div class="alog-actions" data-live-region="actions">
             <div class="alog-actions-left">
                 <button type="submit" class="alog-btn is-primary"><i class="fas fa-filter" aria-hidden="true"></i> Filter</button>
                 @if($hasFilters)
-                    <a href="{{ route('admin.audit-logs') }}" class="alog-btn">Clear</a>
+                    <a data-live-link href="{{ route('admin.audit-logs') }}" class="alog-btn">Clear</a>
                 @endif
                 <span class="alog-count">
                     {{ number_format($logs->total()) }} {{ $hasFilters ? 'matching' : '' }} {{ \Illuminate\Support\Str::plural('entry', $logs->total()) }}{{ $hasFilters ? ' of '.number_format($total) : '' }}
@@ -139,7 +139,7 @@
 
     @include('partials.export-dialog')
 
-    <section class="alog-card" aria-label="Audit log entries">
+    <section class="alog-card" aria-label="Audit log entries" data-live-region="results">
         @if($logs->isEmpty())
             <div class="alog-empty">
                 <i class="fas fa-clipboard-list" aria-hidden="true"></i>

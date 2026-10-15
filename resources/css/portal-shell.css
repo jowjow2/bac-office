@@ -861,3 +861,6 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
     body:has(.messenger-chat:not(.is-empty)) .portal-tabbar { display: none; }
     body:has(.messenger-chat:not(.is-empty)) { padding-bottom: 0; }
 }
+
+/* Results being refreshed by a live filter. */
+.is-live-loading { opacity: .55; transition: opacity .15s ease; pointer-events: none; }

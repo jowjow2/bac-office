@@ -10,7 +10,7 @@
         <x-page-header title="Feedback" subtitle="What visitors and bidders say about the portal.">
             <x-slot:actions>
                 @if($available)
-                    <a class="afb-btn" href="{{ route('admin.feedback.export', array_filter(['category' => $category, 'status' => $status])) }}" data-export-dialog data-export-title="Export feedback" data-export-noun="feedback" data-export-file="Excel" data-export-choices-label="Received" data-export-formats="{{ json_encode($exportChoices ?? []) }}"><i class="fas fa-file-export" aria-hidden="true"></i> Export</a>
+                    <span data-live-region="export" style="display: contents"><a class="afb-btn" href="{{ route('admin.feedback.export', array_filter(['category' => $category, 'status' => $status])) }}" data-export-dialog data-export-title="Export feedback" data-export-noun="feedback" data-export-file="Excel" data-export-choices-label="Received" data-export-formats="{{ json_encode($exportChoices ?? []) }}"><i class="fas fa-file-export" aria-hidden="true"></i> Export</a></span>
                 @endif
             </x-slot:actions>
         </x-page-header>
@@ -32,23 +32,24 @@
                     @endforeach
                 </section>
 
-                <form method="GET" class="afb-filters" action="{{ route('admin.feedback') }}">
+                <form method="GET" class="afb-filters" action="{{ route('admin.feedback') }}" data-live-filter>
                     <label><span class="sr-only">Kind</span>
-                        <select name="category" onchange="this.form.submit()">
+                        <select name="category">
                             <option value="">All kinds</option>
                             @foreach($kinds as $key => $kind)<option value="{{ $key }}" @selected($category === $key)>{{ $kind['label'] }}</option>@endforeach
                         </select>
                     </label>
                     <label><span class="sr-only">Status</span>
-                        <select name="status" onchange="this.form.submit()">
+                        <select name="status">
                             <option value="">New and reviewed</option>
                             <option value="new" @selected($status === 'new')>New only</option>
                             <option value="reviewed" @selected($status === 'reviewed')>Reviewed only</option>
                         </select>
                     </label>
-                    @if($category || $status)<a href="{{ route('admin.feedback') }}" class="afb-clear">Clear</a>@endif
+                    <span data-live-region="clear" style="display: contents">@if($category || $status)<a data-live-link href="{{ route('admin.feedback') }}" class="afb-clear">Clear</a>@endif</span>
                 </form>
 
+                <div data-live-region="results">
                 <section class="afb-list" aria-label="Feedback">
                     @forelse($items as $item)
                         <article class="afb-item {{ $item->reviewed_at ? 'is-reviewed' : 'is-new' }}">
@@ -92,6 +93,7 @@
                 </section>
 
                 @if($items->hasPages())<div class="afb-pager">{{ $items->links() }}</div>@endif
+                </div>
             @endif
         </main>
     </div>

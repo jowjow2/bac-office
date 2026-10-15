@@ -40,7 +40,7 @@
         <main class="dashboard-content projects-content">
             @unless($isEmptyAll)
             <section class="projects-command-panel" aria-label="Projects overview">
-                <div class="projects-summary-grid" aria-label="Project status summary">
+                <div class="projects-summary-grid" aria-label="Project status summary" data-live-region="summary">
                     @foreach(['' => 'all', 'draft' => 'draft', 'open' => 'open', 'closed' => 'closed', 'awarded' => 'awarded'] as $statusKey => $totalKey)
                         @php
                             $statusOption = $projectStatusOptions[$statusKey];
@@ -84,7 +84,7 @@
                 </div>
 
                 @unless($isEmptyAll)
-                <form method="GET" action="{{ route('admin.projects') }}" class="projects-filter-form">
+                <form method="GET" action="{{ route('admin.projects') }}" class="projects-filter-form" data-live-filter>
                     <div class="projects-filter-group">
                         <div class="projects-search-control">
                             <label class="projects-search-field">
@@ -101,7 +101,7 @@
                         </div>
                         <label class="projects-status-field">
                             <span class="sr-only">Filter by status</span>
-                            <select name="status" onchange="this.form.submit()" class="projects-status-select">
+                            <select name="status" class="projects-status-select">
                                 <option value="">All Status</option>
                                 <option value="draft" {{ ($status ?? '') === 'draft' ? 'selected' : '' }}>Draft</option>
                                 <option value="approved_for_bidding" {{ ($status ?? '') === 'approved_for_bidding' ? 'selected' : '' }}>Approved for Bidding</option>
@@ -112,12 +112,14 @@
                             <i class="fas fa-chevron-down" aria-hidden="true"></i>
                         </label>
                     </div>
+                    <span data-live-region="clear" style="display: contents">
                     @if(($status ?? '') !== '' || ($search ?? '') !== '')
-                        <a href="{{ route('admin.projects') }}{{ ($showArchived ?? false) ? '?archived=1' : '' }}" class="projects-clear-filters-link">
+                        <a data-live-link href="{{ route('admin.projects') }}{{ ($showArchived ?? false) ? '?archived=1' : '' }}" class="projects-clear-filters-link">
                             <i class="fas fa-xmark" aria-hidden="true"></i>
                             <span>Clear filters</span>
                         </a>
                     @endif
+                    </span>
                     @if(($showArchived ?? false))
                         <input type="hidden" name="archived" value="1">
                     @endif
@@ -188,6 +190,7 @@
             @endif
 
             <!-- PROJECTS CARD -->
+            <div data-live-region="table" style="display: contents">
             <section class="projects-table-panel" aria-label="Project list">
                 <div class="projects-list-head">
                     <div>
@@ -326,6 +329,7 @@
                 </nav>
             </div>
             @endif
+            </div>
 
         </main>
     </div>

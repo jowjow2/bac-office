@@ -30,16 +30,16 @@
     @endif
 
     <section class="ui-card">
-        <nav class="ui-tabs ui-tabs--inset" aria-label="Request queues">
+        <nav class="ui-tabs ui-tabs--inset" aria-label="Request queues" data-live-region="tabs">
             @foreach($tabs as $key => [$label, $count])
-                <a class="ui-tab" href="{{ route($routePrefix.'.requests', array_filter(['tab' => $key, 'q' => $search])) }}" @if($tab === $key) aria-current="page" @endif>
+                <a class="ui-tab" data-live-link href="{{ route($routePrefix.'.requests', array_filter(['tab' => $key, 'q' => $search])) }}" @if($tab === $key) aria-current="page" @endif>
                     {{ $label }}
                     @if($count !== null)<span class="ui-tab__count {{ '' }}">{{ $count }}</span>@endif
                 </a>
             @endforeach
         </nav>
 
-        <form method="GET" action="{{ route($routePrefix.'.requests') }}" class="ui-toolbar" role="search">
+        <form method="GET" action="{{ route($routePrefix.'.requests') }}" class="ui-toolbar" role="search" data-live-filter>
             <input type="hidden" name="tab" value="{{ $tab }}">
             <label class="ui-search">
                 <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
@@ -49,6 +49,7 @@
             <button type="submit" class="ui-btn ui-btn--secondary">Search</button>
         </form>
 
+        <div data-live-region="results">
         @if($requests->isEmpty())
             @php
                 // Queues where the search does find something.
@@ -62,11 +63,11 @@
                         @if($elsewhere)
                             Found in
                             @foreach($elsewhere as $key => [$label, $count])
-                                <a class="ui-link" href="{{ route($routePrefix.'.requests', ['tab' => $key, 'q' => $search]) }}">{{ $label }} ({{ $count }})</a>@if(! $loop->last), @endif
+                                <a class="ui-link" data-live-link href="{{ route($routePrefix.'.requests', ['tab' => $key, 'q' => $search]) }}">{{ $label }} ({{ $count }})</a>@if(! $loop->last), @endif
                             @endforeach
                             &middot;
                         @endif
-                        <a class="ui-link" href="{{ route($routePrefix.'.requests', ['tab' => $tab]) }}">Clear search</a>
+                        <a class="ui-link" data-live-link href="{{ route($routePrefix.'.requests', ['tab' => $tab]) }}">Clear search</a>
                     @elseif($tab === 'bac')
                         Record the signed hard copies that end-user offices hand to the BAC, and they appear here ready to become projects.
                         @if($drafts > 0) {{ $drafts }} {{ \Illuminate\Support\Str::plural('draft', $drafts) }} {{ $drafts === 1 ? 'is' : 'are' }} still being prepared by the offices. @endif
@@ -127,14 +128,16 @@
             <nav class="ui-pager" aria-label="Pages">
                 <span>Showing {{ $requests->firstItem() }}–{{ $requests->lastItem() }} of {{ $requests->total() }}</span>
                 <span class="ui-actions">
-                    <a class="ui-btn ui-btn--secondary ui-btn--sm" href="{{ $requests->previousPageUrl() ?? '#' }}" @if($requests->onFirstPage()) aria-disabled="true" tabindex="-1" @endif>Previous</a>
-                    <a class="ui-btn ui-btn--secondary ui-btn--sm" href="{{ $requests->nextPageUrl() ?? '#' }}" @unless($requests->hasMorePages()) aria-disabled="true" tabindex="-1" @endunless>Next</a>
+                    <a class="ui-btn ui-btn--secondary ui-btn--sm" data-live-link href="{{ $requests->previousPageUrl() ?? '#' }}" @if($requests->onFirstPage()) aria-disabled="true" tabindex="-1" @endif>Previous</a>
+                    <a class="ui-btn ui-btn--secondary ui-btn--sm" data-live-link href="{{ $requests->nextPageUrl() ?? '#' }}" @unless($requests->hasMorePages()) aria-disabled="true" tabindex="-1" @endunless>Next</a>
                 </span>
             </nav>
         @endif
+        </div>
     </section>
 </div>
 
+<div data-live-region="dialogs">
 @foreach($requests as $item)
     <dialog class="ui-dialog" id="request-{{ $item->id }}" aria-labelledby="request-{{ $item->id }}-title">
         <div class="ui-card__head">
@@ -217,6 +220,7 @@
         </dialog>
     @endif
 @endforeach
+</div>
 <style>
     .pr-delete { width: min(520px, calc(100vw - 32px)); }
     /* The NEW mark in front of a request recorded within the last day. */

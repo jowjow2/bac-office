@@ -14,13 +14,13 @@
 @endphp
 
 <section class="ui-card" aria-labelledby="register-title">
-    <header class="ui-card__head">
+    <header class="ui-card__head" data-live-region="register-head">
         <div>
             <h2 class="ui-card__title" id="register-title">{{ $heading }} · <span class="ui-num">{{ $rows->total() }}</span></h2>
             <p class="ui-card__desc">Sorted by the next scheduled date. Open a reference for its full record.</p>
         </div>
         @if($hasFilters)
-            <a href="{{ route($routeName) }}" class="ui-btn ui-btn--ghost ui-btn--sm"><i class="fas fa-xmark" aria-hidden="true"></i> Clear filters</a>
+            <a data-live-link href="{{ route($routeName) }}" class="ui-btn ui-btn--ghost ui-btn--sm"><i class="fas fa-xmark" aria-hidden="true"></i> Clear filters</a>
         @endif
     </header>
 
@@ -30,16 +30,16 @@
             $keep = array_filter(['mode' => $filters['mode'], 'q' => $filters['q'] ?: null, 'state' => $filters['state'] !== 'active' ? $filters['state'] : null]);
             $allCount = array_sum(array_map('intval', $buckets));
         @endphp
-        <nav class="ui-stage-tabs" aria-label="Filter by stage">
-            <a href="{{ route($routeName, $keep) }}" class="ui-stage-tab" @unless($filters['stage']) aria-current="true" @endunless>All <span>{{ number_format($allCount) }}</span></a>
+        <nav class="ui-stage-tabs" aria-label="Filter by stage" data-live-region="register-stages">
+            <a data-live-link href="{{ route($routeName, $keep) }}" class="ui-stage-tab" @unless($filters['stage']) aria-current="true" @endunless>All <span>{{ number_format($allCount) }}</span></a>
             @foreach(ProcurementPipeline::BUCKETS as $key => $bucket)
                 @php $count = (int) ($buckets[$key] ?? 0); @endphp
-                <a href="{{ route($routeName, $keep + ['stage' => $key]) }}" class="ui-stage-tab {{ $count === 0 ? 'is-empty' : '' }}" title="{{ $bucket['hint'] }}" @if($filters['stage'] === $key) aria-current="true" @endif>{{ $bucket['label'] }} <span>{{ number_format($count) }}</span></a>
+                <a data-live-link href="{{ route($routeName, $keep + ['stage' => $key]) }}" class="ui-stage-tab {{ $count === 0 ? 'is-empty' : '' }}" title="{{ $bucket['hint'] }}" @if($filters['stage'] === $key) aria-current="true" @endif>{{ $bucket['label'] }} <span>{{ number_format($count) }}</span></a>
             @endforeach
         </nav>
     @endif
 
-    <form method="GET" action="{{ route($routeName) }}" class="ui-toolbar" role="search" aria-label="Filter the register">
+    <form method="GET" action="{{ route($routeName) }}" class="ui-toolbar" role="search" aria-label="Filter the register" data-live-filter>
         <div class="ui-search">
             <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
             <label for="register-q" class="sr-only">Search</label>
@@ -47,7 +47,7 @@
         </div>
         <div class="ui-field">
             <label for="register-mode" class="sr-only">Mode of procurement</label>
-            <select id="register-mode" name="mode" class="ui-input" data-autosubmit>
+            <select id="register-mode" name="mode" class="ui-input">
                 <option value="">All modes</option>
                 @foreach(ProcurementPipeline::modeOptions() as $value => $label)
                     <option value="{{ $value }}" @selected($filters['mode'] === $value)>{{ $label }}</option>
@@ -56,7 +56,7 @@
         </div>
         <div class="ui-field">
             <label for="register-state" class="sr-only">Status</label>
-            <select id="register-state" name="state" class="ui-input" data-autosubmit>
+            <select id="register-state" name="state" class="ui-input">
                 @foreach(ProcurementPipeline::STATES as $value => $label)
                     <option value="{{ $value }}" @selected($filters['state'] === $value)>{{ $label }}</option>
                 @endforeach
@@ -71,6 +71,7 @@
         <button type="submit" class="ui-btn ui-btn--secondary">Apply</button>
     </form>
 
+    <div data-live-region="register-rows">
     <div class="ui-table-wrap">
         <table class="ui-table ui-table--stack">
             <caption class="sr-only">{{ $heading }}</caption>
@@ -154,4 +155,5 @@
             </span>
         </nav>
     @endif
+    </div>
 </section>

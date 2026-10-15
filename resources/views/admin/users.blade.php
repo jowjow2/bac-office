@@ -751,9 +751,9 @@
 
             <section class="ul-card" aria-label="User accounts">
                 <div class="ul-toolbar">
-                    <nav class="ul-tabs" aria-label="Filter users">
+                    <nav class="ul-tabs" aria-label="Filter users" data-live-region="tabs">
                         @foreach($filterTabs as $key => [$label, $count])
-                            <a href="{{ route('admin.users', ['filter' => $key, 'search' => $search !== '' ? $search : null]) }}"
+                            <a data-live-link href="{{ route('admin.users', ['filter' => $key, 'search' => $search !== '' ? $search : null]) }}"
                                class="ul-tab {{ $activeFilter === $key ? 'is-active' : '' }}"
                                @if($activeFilter === $key) aria-current="page" @endif>
                                 <span>{{ $label }}</span>
@@ -762,16 +762,19 @@
                         @endforeach
                     </nav>
 
-                    <form method="GET" action="{{ route('admin.users') }}" class="ul-search" role="search">
+                    <form method="GET" action="{{ route('admin.users') }}" class="ul-search" role="search" data-live-filter>
                         <input type="hidden" name="filter" value="{{ $activeFilter }}">
                         <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
                         <input type="search" name="search" value="{{ $search }}" placeholder="Search name, email, company or office" aria-label="Search users">
+                        <span data-live-region="clear" style="display: contents">
                         @if($search !== '')
-                            <a href="{{ route('admin.users', ['filter' => $activeFilter !== 'all' ? $activeFilter : null]) }}" class="ul-search__clear" aria-label="Clear search"><i class="fas fa-xmark" aria-hidden="true"></i></a>
+                            <a data-live-link href="{{ route('admin.users', ['filter' => $activeFilter !== 'all' ? $activeFilter : null]) }}" class="ul-search__clear" aria-label="Clear search"><i class="fas fa-xmark" aria-hidden="true"></i></a>
                         @endif
+                        </span>
                     </form>
                 </div>
 
+                <div data-live-region="table" style="display: contents">
                 <div class="ul-table-wrap">
                     <table class="ul-table">
                         <thead>
@@ -958,6 +961,7 @@
                         </span>
                     </nav>
                 @endif
+                </div>
             </section>
         </main>
     </div>

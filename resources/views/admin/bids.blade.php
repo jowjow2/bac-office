@@ -70,7 +70,7 @@
                     </div>
                     <span class="bid-register-heading__count" data-live-region="count">{{ $bids->total() }} {{ \Illuminate\Support\Str::plural('submission', $bids->total()) }}</span>
                 </div>
-                <form method="GET" action="{{ route($isStaff ? 'staff.review-bids' : 'admin.bids') }}" class="admin-bids-toolbar">
+                <form method="GET" action="{{ route($isStaff ? 'staff.review-bids' : 'admin.bids') }}" class="admin-bids-toolbar" data-live-filter>
                     <input type="hidden" name="per_page" value="{{ $bids->perPage() }}">
                     <div class="admin-bids-filter-group">
                         <div class="admin-bids-toolbar-field admin-bids-toolbar-field-search admin-search-field">
@@ -80,7 +80,7 @@
                         <span class="admin-bids-filter-divider" aria-hidden="true"></span>
                         <div class="admin-bids-toolbar-field">
                             <span class="bid-filter-caption">Stage</span>
-                            <select name="status" onchange="this.form.submit()" class="admin-bids-select" aria-label="Filter by stage">
+                            <select name="status" class="admin-bids-select" aria-label="Filter by stage">
                                 <option value="">All Stages</option>
                                 @foreach(($statusOptions ?? []) as $value => $label)
                                     <option value="{{ $value }}" @selected(($status ?? '') === $value)>{{ $label }}</option>
@@ -90,7 +90,7 @@
                         <span class="admin-bids-filter-divider" aria-hidden="true"></span>
                         <div class="admin-bids-toolbar-field">
                             <span class="bid-filter-caption">Project</span>
-                            <select name="project" onchange="this.form.submit()" class="admin-bids-select" aria-label="Filter by project">
+                            <select name="project" class="admin-bids-select" aria-label="Filter by project">
                                 <option value="">All Projects</option>
                                 @foreach(($projects ?? collect()) as $project)
                                     <option value="{{ $project->id }}" {{ (string) ($projectFilter ?? '') === (string) $project->id ? 'selected' : '' }}>{{ $project->title }}</option>
@@ -100,7 +100,7 @@
                         <span class="admin-bids-filter-divider" aria-hidden="true"></span>
                         <div class="admin-bids-toolbar-field">
                             <span class="bid-filter-caption">Procurement</span>
-                            <select name="mode" onchange="this.form.submit()" class="admin-bids-select" aria-label="Filter by procurement mode">
+                            <select name="mode" class="admin-bids-select" aria-label="Filter by procurement mode">
                                 <option value="">All Procurement Modes</option>
                                 @foreach(($modeOptions ?? []) as $value => $label)
                                     <option value="{{ $value }}" @selected(($modeFilter ?? '') === $value)>{{ $label }}</option>
@@ -110,7 +110,7 @@
                         <span class="admin-bids-filter-divider" aria-hidden="true"></span>
                         <div class="admin-bids-toolbar-field">
                             <span class="bid-filter-caption">Documents</span>
-                            <select name="document_status" onchange="this.form.submit()" class="admin-bids-select" aria-label="Filter by document status">
+                            <select name="document_status" class="admin-bids-select" aria-label="Filter by document status">
                                 <option value="">All Document States</option>
                                 @foreach(($documentStatusOptions ?? []) as $value => $label)
                                     <option value="{{ $value }}" @selected(($documentStatusFilter ?? '') === $value)>{{ $label }}</option>

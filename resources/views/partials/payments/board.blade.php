@@ -461,7 +461,7 @@
             @include('partials.export-dialog')
         </div>
         <div class="fee-card-body" style="padding-bottom: 14px;">
-            <form method="GET" action="{{ route($routePrefix . '.payments') }}" class="fee-toolbar" role="search">
+            <form method="GET" action="{{ route($routePrefix . '.payments') }}" class="fee-toolbar" role="search" data-live-filter>
                 <div class="fee-search">
                     <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
                     <input type="search" id="fee-search-input" name="q" value="{{ $search }}" class="fee-input" placeholder="Search OR no., bidder, or project" aria-label="Search payments">
@@ -473,9 +473,11 @@
                     @endforeach
                 </select>
                 <button type="submit" class="fee-btn fee-btn-primary"><i class="fas fa-filter" aria-hidden="true"></i> Filter</button>
+                <span data-live-region="clear" style="display: contents">
                 @if($hasFilters)
-                    <a href="{{ route($routePrefix . '.payments') }}" class="fee-btn fee-btn-ghost">Clear</a>
+                    <a data-live-link href="{{ route($routePrefix . '.payments') }}" class="fee-btn fee-btn-ghost">Clear</a>
                 @endif
+                </span>
             </form>
         </div>
 

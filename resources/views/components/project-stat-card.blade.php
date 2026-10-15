@@ -1,6 +1,6 @@
 @props(['statusKey', 'totalKey', 'metric', 'icon', 'count', 'active' => false])
 
-<a
+<a data-live-link
     href="{{ $statusKey === '' ? route('admin.projects') : route('admin.projects', ['status' => $statusKey]) }}"
     class="projects-summary-card projects-summary-card--{{ $totalKey }}{{ $active ? ' is-active' : '' }}{{ (int) $count === 0 ? ' is-empty' : '' }}"
     aria-label="Filter projects by {{ $metric }}"

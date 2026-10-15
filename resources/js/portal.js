@@ -7,6 +7,7 @@
 import './phone-input';
 
 import { groupDigits } from './money-input';
+import { setupLiveFilters } from './live-filter';
 
 const body = document.body;
 
@@ -377,6 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupToasts();
     setupDialogs();
     setupAutoSubmit();
+    setupLiveFilters();
     setupInlineValidation();
     setupMoneyInputs();
     setupSteppedForms();

@@ -4116,3 +4116,6 @@ body.public-modal-open {
   text-transform: uppercase;
   vertical-align: middle;
 }
+
+/* Results being refreshed by a live filter. */
+.is-live-loading { opacity: .55; transition: opacity .15s ease; pointer-events: none; }
