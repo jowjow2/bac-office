@@ -112,3 +112,15 @@ it('adds a BAC view with every bid and the sanctions, for a signed-in admin or s
     testCase()->actingAs($other)->get($url)->assertOk()->assertDontSee('BAC view')->assertDontSee('Supply of school desks');
     testCase()->actingAs($this->bidderUser)->get($url)->assertOk()->assertDontSee('BAC view');
 });
+
+it('shows the same record, plus every submitted bid, under Bidding record in the bidder\'s company profile', function () {
+    $won = ($this->project)('SJ-BAC-2026-I-011', 'Concreting of the barangay road');
+    $wonBid = Bid::create(['project_id' => $won->id, 'user_id' => $this->bidderUser->id, 'bid_amount' => 3000000, 'status' => 'awarded', 'workflow_step' => Bid::STEP_AWARDED, 'submission_channel' => Bid::CHANNEL_ELECTRONIC, 'submitted_at' => now()->subDays(21), 'receipt_no' => 'R-CP-1']);
+    Award::create(['project_id' => $won->id, 'bid_id' => $wonBid->id, 'bidder_id' => $this->bidderUser->id, 'contract_amount' => 2900000, 'notice_of_award_date' => now()->subDays(5)->toDateString(), 'status' => Award::STATUS_VALID, 'certificate_status' => Award::STATUS_VALID]);
+    $open = ($this->project)('SJ-BAC-2026-G-012', 'Supply of school armchairs');
+    Bid::create(['project_id' => $open->id, 'user_id' => $this->bidderUser->id, 'bid_amount' => 500000, 'status' => 'pending', 'workflow_step' => Bid::STEP_SUBMITTED, 'submission_channel' => Bid::CHANNEL_ELECTRONIC, 'submitted_at' => now()->subDay(), 'receipt_no' => 'R-CP-2']);
+
+    testCase()->actingAs($this->bidderUser)->get(route('bidder.company-profile'))->assertOk()
+        ->assertSee('id="cp-panel-record"', false)
+        ->assertSeeInOrder(['Successful bids', 'Concreting of the barangay road', '₱2,900,000.00', 'Approved for award', 'Other submitted bids', 'Supply of school armchairs']);
+});

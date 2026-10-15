@@ -219,7 +219,17 @@ class BidderController extends Controller
 
     public function companyProfile(Request $request)
     {
-        return view('bidder.company-profile', $this->bidderPageData($request));
+        $bids = Bid::with(['project', 'award'])
+            ->where('user_id', $request->user()->id)
+            ->whereNotNull('submitted_at')
+            ->latest('submitted_at')
+            ->get();
+        // Won (an award that is still in force), approved and waiting for the award, and everything still moving or closed out.
+        $won = $bids->filter(fn (Bid $bid) => $bid->award && ! $bid->award->cancelled_at)->values();
+        $approved = $bids->filter(fn (Bid $bid) => ! $won->contains('id', $bid->id) && $bid->status === 'approved')->values();
+        $other = $bids->reject(fn (Bid $bid) => $won->contains('id', $bid->id) || $approved->contains('id', $bid->id))->values();
+
+        return view('bidder.company-profile', $this->bidderPageData($request) + ['recordWon' => $won, 'recordApproved' => $approved, 'recordOther' => $other]);
     }
 
     public function notifications(Request $request)

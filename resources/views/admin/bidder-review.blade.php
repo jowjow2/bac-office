@@ -111,6 +111,9 @@
                     <div><dt>Contact person</dt><dd>{{ $contactPerson }}</dd></div>
                     <div><dt>Contact number</dt><dd>{{ $profile?->contact_number ?? 'N/A' }}</dd></div>
                     <div class="is-wide"><dt>Business address</dt><dd>{{ $profile?->business_address ?? 'N/A' }}</dd></div>
+                    @if($profile?->qr_token)
+                        <div class="is-wide"><dt>Bidding record</dt><dd><a href="{{ $profile->verificationUrl() }}" target="_blank" rel="noopener">Open the bidder's record page (successful, approved and all submitted bids)</a></dd></div>
+                    @endif
                     <div><dt>Approved</dt><dd>{{ $stamp($profile?->approved_at) ?? 'Not yet approved' }}</dd></div>
                     <div><dt>Approved by</dt><dd>{{ $profile?->approver?->name ?? '—' }}</dd></div>
                     @if($registrationStatus === 'rejected')

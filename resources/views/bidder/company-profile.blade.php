@@ -111,6 +111,14 @@
     }
     .cp-panel[hidden] { display: none; }
     .cp-panel--narrow { max-width: 760px; }
+    .cp-record { display: grid; margin: 0; padding: 0; list-style: none; }
+    .cp-record li { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 18px; border-top: 1px solid var(--ui-line); }
+    .cp-record li > div:first-child { display: grid; gap: 2px; min-width: 0; }
+    .cp-record li strong { color: var(--ui-ink); font-size: 14px; }
+    .cp-record li span { color: var(--ui-muted); font-size: 12.5px; }
+    .cp-record-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-align: right; flex: 0 0 auto; }
+    .cp-record-side strong { font-size: 14px; }
+    @media (max-width: 640px) { .cp-record li { flex-direction: column; align-items: flex-start; } .cp-record-side { flex-direction: row; align-items: center; gap: 10px; text-align: left; } }
     .cp-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; align-items: start; }
     .cp-col { display: grid; gap: 16px; min-width: 0; }
     .cp-card-note { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-muted); font-size: var(--ui-text-xs); font-weight: 600; }
@@ -302,6 +310,9 @@
         <button type="button" role="tab" class="cp-tab" id="cp-tab-company" aria-controls="cp-panel-company" aria-selected="false" data-cp-tab="company" tabindex="-1">
             <i class="fas fa-building" aria-hidden="true"></i> Company details
         </button>
+        <button type="button" role="tab" class="cp-tab" id="cp-tab-record" aria-controls="cp-panel-record" aria-selected="false" data-cp-tab="record" tabindex="-1">
+            <i class="fas fa-trophy" aria-hidden="true"></i> Bidding record <span class="cp-tab-count">{{ $recordWon->count() + $recordApproved->count() + $recordOther->count() }}</span>
+        </button>
         @if($hasQr)
             <button type="button" role="tab" class="cp-tab" id="cp-tab-qr" aria-controls="cp-panel-qr" aria-selected="false" data-cp-tab="qr" tabindex="-1">
                 <i class="fas fa-qrcode" aria-hidden="true"></i> Public record QR
@@ -443,6 +454,46 @@
                     @endif
                 </div>
             </section>
+    </div>
+
+    <div class="cp-panel" id="cp-panel-record" role="tabpanel" aria-labelledby="cp-tab-record" data-cp-panel="record" hidden>
+        @php
+            $recordTz = config('bac-office.display_timezone', 'Asia/Manila');
+            $recordGroups = [
+                ['Successful bids', 'Contracts you won.', $recordWon, 'success', 'Awarded'],
+                ['Approved for award', 'Your bid passed and the Notice of Award is next.', $recordApproved, 'info', 'Approved'],
+                ['Other submitted bids', 'Bids still being reviewed, and bids that were not awarded.', $recordOther, 'neutral', null],
+            ];
+        @endphp
+        @foreach($recordGroups as [$groupTitle, $groupHint, $groupBids, $groupTone, $groupLabel])
+            <section class="ui-card ui-mb" aria-label="{{ $groupTitle }}">
+                <div class="ui-card__head">
+                    <div>
+                        <h2 class="ui-card__title">{{ $groupTitle }} <span class="cp-tab-count">{{ $groupBids->count() }}</span></h2>
+                        <p class="ui-card__desc">{{ $groupHint }}</p>
+                    </div>
+                </div>
+                @if($groupBids->isEmpty())
+                    <div class="ui-card__body"><p class="ui-hint">Nothing here yet.</p></div>
+                @else
+                    <ul class="cp-record">
+                        @foreach($groupBids as $recordBid)
+                            <li>
+                                <div>
+                                    <strong>{{ $recordBid->project?->title ?? 'Untitled project' }}</strong>
+                                    <span>{{ $recordBid->project?->reference_no }}@if($recordBid->project?->reference_no) · @endif Submitted {{ $recordBid->submitted_at?->timezone($recordTz)->format('M d, Y') }}</span>
+                                </div>
+                                <div class="cp-record-side">
+                                    <span class="ui-badge ui-badge--{{ $groupTone }}">{{ $groupLabel ?? $recordBid->workflow_step_label }}</span>
+                                    @if($groupLabel === 'Awarded' && $recordBid->award)<strong>₱{{ number_format((float) $recordBid->award->contract_amount, 2) }}</strong>@endif
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </section>
+        @endforeach
+        <p class="ui-hint">Every bid you submitted is also listed, with its status and documents, under <a href="{{ route('bidder.my-bids') }}">My bids</a>.</p>
     </div>
 
     @if($hasQr)
