@@ -864,3 +864,16 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 
 /* Results being refreshed by a live filter. */
 .is-live-loading { opacity: .55; transition: opacity .15s ease; pointer-events: none; }
+
+/* ---------- Moving between portal pages ----------
+   The sidebar stays where it is while the page beside it changes (browsers that support cross-page view
+   transitions); the rest cross-fades quickly instead of flashing white. Others simply load as before. */
+@view-transition { navigation: auto; }
+.portal-sidebar { view-transition-name: portal-sidebar; }
+::view-transition-group(portal-sidebar) { animation: none; }
+::view-transition-old(portal-sidebar), ::view-transition-new(portal-sidebar) { animation: none; mix-blend-mode: normal; }
+::view-transition-old(root) { animation-duration: .12s; }
+::view-transition-new(root) { animation-duration: .18s; }
+@media (prefers-reduced-motion: reduce) {
+    @view-transition { navigation: none; }
+}

@@ -79,6 +79,9 @@
         </button>
     </div>
 </aside>
+
+{{-- Pages of the sidebar are fetched ahead while the pointer is on a link, so opening one is quick. --}}
+<script type="speculationrules">{"prefetch":[{"source":"document","where":{"selector_matches":".portal-nav__link"},"eagerness":"moderate"}]}</script>
 <div class="portal-backdrop" data-portal-nav-close></div>
 
 <dialog class="portal-signout" id="portalSignOutDialog" aria-labelledby="portalSignOutTitle" aria-describedby="portalSignOutText">
