@@ -42,9 +42,11 @@
                         id="resetPasswordNew"
                         name="password"
                         placeholder="Enter your new password"
+                        minlength="8"
                         required
                         autocomplete="new-password"
                     >
+                    <small>At least 8 characters with uppercase and lowercase letters, a number, and a special character.</small>
                 </div>
 
                 <div class="auth-recovery-field">

@@ -854,8 +854,8 @@ function validateRegisterForm(form) {
             addClientFieldError(errors, key, 'Please enter a valid email address.');
         }
 
-        if (input.name === 'password' && value !== '' && value.length < 6) {
-            addClientFieldError(errors, key, 'Password must be at least 6 characters.');
+        if (input.name === 'password' && value !== '' && value.length < 8) {
+            addClientFieldError(errors, key, 'Password must be at least 8 characters.');
         }
     });
 

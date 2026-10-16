@@ -33,6 +33,9 @@ class AuthController extends Controller
 {
     protected const PASSWORD_RESET_CODE_TTL_SECONDS = 180;
 
+    // Give unknown emails the same password verification work as known emails.
+    protected const DUMMY_PASSWORD_HASH = '$2y$12$6yrV7mrCkIAOgrGPu.OG6.A3Gd4aYVG3fnrIL.C40g.UqfVHB10FO';
+
     /** Pending sign-in awaiting its emailed code: the code's hash, expiry, send time and tries. */
     protected const LOGIN_VERIFICATION_SESSION = 'login_verification';
 
@@ -611,15 +614,10 @@ class AuthController extends Controller
             ->where('email', $request->email)
             ->first();
 
-        if (! $user) {
-            return $this->authResponse($request, false, 'No account found with that email. Please register first.', 'login', 422, null, [
-                'email' => ['No account found with that email.'],
-            ]);
-        }
-
-        if (! Hash::check($request->password, $user->password)) {
-            return $this->authResponse($request, false, 'Account exists, but the password is incorrect.', 'login', 422, null, [
-                'password' => ['Password is incorrect.'],
+        $passwordMatches = Hash::check($request->password, $user?->password ?? self::DUMMY_PASSWORD_HASH);
+        if (! $user || ! $passwordMatches) {
+            return $this->authResponse($request, false, 'Invalid email or password.', 'login', 422, null, [
+                'password' => ['Invalid email or password.'],
             ]);
         }
 
@@ -923,12 +921,24 @@ class AuthController extends Controller
             return $this->authResponse($request, false, $validator->errors()->first(), 'forgot', 422, null, $validator->errors()->toArray());
         }
 
-        $user = User::where('email', $request->email)->first();
+        $confirmation = fn () => $this->authResponse(
+            $request,
+            true,
+            'If this email has an account, a password reset code has been sent.',
+            'forgot_verify',
+            200,
+            null,
+            [],
+            [
+                'requires_password_code' => true,
+                'email' => $request->email,
+                'password_code_expires_in' => self::PASSWORD_RESET_CODE_TTL_SECONDS,
+            ]
+        );
 
+        $user = User::where('email', $request->email)->first();
         if (! $user) {
-            return $this->authResponse($request, false, 'No account found with that email.', 'forgot', 422, null, [
-                'email' => ['No account found with that email.'],
-            ]);
+            return $confirmation();
         }
 
         $code = (string) random_int(100000, 999999);
@@ -976,23 +986,10 @@ class AuthController extends Controller
                 report($cleanupError);
             }
 
-            return $this->authResponse($request, false, 'We could not send the password reset code right now. Please try again later or contact the SJBAC admin.', 'forgot', 503);
+            return $confirmation();
         }
 
-        return $this->authResponse(
-            $request,
-            true,
-            'Password reset code sent to your email.',
-            'forgot_verify',
-            200,
-            null,
-            [],
-            [
-                'requires_password_code' => true,
-                'email' => $user->email,
-                'password_code_expires_in' => self::PASSWORD_RESET_CODE_TTL_SECONDS,
-            ]
-        );
+        return $confirmation();
     }
 
     public function verifyPasswordResetCode(Request $request)
@@ -1038,6 +1035,7 @@ class AuthController extends Controller
         }
 
         $request->session()->put('verified_password_reset_email', $request->email);
+        $request->session()->regenerate();
 
         return $this->authResponse(
             $request,
@@ -1098,12 +1096,12 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'token' => ['nullable'],
             'email' => ['required', 'email'],
-            'password' => ['required', 'string', 'min:6', 'confirmed'],
+            'password' => ['required', 'string', PasswordRule::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
         ], [
             'email.required' => 'Email is required.',
             'email.email' => 'Please enter a valid email address.',
             'password.required' => 'Password is required.',
-            'password.min' => 'Password must be at least 6 characters.',
+            'password.min' => 'Password must be at least 8 characters.',
             'password.confirmed' => 'Password confirmation does not match.',
         ]);
 
@@ -1198,7 +1196,7 @@ class AuthController extends Controller
     protected function loginCodePolicy(User $user): ?array
     {
         return match ($user->role) {
-            'bidder' => ['ttl' => 600, 'cooldown' => 0, 'max_attempts' => null],
+            'bidder' => ['ttl' => 600, 'cooldown' => 60, 'max_attempts' => 5],
             default => null,
         };
     }

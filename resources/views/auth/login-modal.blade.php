@@ -227,7 +227,7 @@
                     <label for="resetPasswordNew" class="auth-label">New password</label>
                     <div class="auth-input-wrap">
                         <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{!! $lockIcon !!}</svg>
-                        <input type="password" id="resetPasswordNew" name="password" class="auth-input" placeholder=" " required autocomplete="new-password" aria-describedby="resetPasswordHelp">
+                        <input type="password" id="resetPasswordNew" name="password" class="auth-input" placeholder=" " minlength="8" required autocomplete="new-password" aria-describedby="resetPasswordHelp">
                         @include('auth.partials.password-toggle', ['target' => 'resetPasswordNew'])
                     </div>
                     <p id="resetPasswordHelp" class="auth-help">At least 8 characters with uppercase and lowercase letters, a number and a special character.</p>

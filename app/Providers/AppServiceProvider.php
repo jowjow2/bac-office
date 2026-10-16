@@ -5,7 +5,10 @@ namespace App\Providers;
 use App\Models\Message;
 use App\Support\PortalNavigation;
 use App\Support\SystemNotification;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\Facades\View;
@@ -25,6 +28,38 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $accountKey = static function (Request $request): string {
+            $email = $request->input('email', '');
+
+            return hash('sha256', is_string($email) ? strtolower(trim($email)) : '');
+        };
+        $ipKey = static fn (Request $request): string => (string) ($request->ip() ?: 'unknown');
+
+        RateLimiter::for('password-login', fn (Request $request) => [
+            Limit::perMinute(15)->by('login-ip:'.$ipKey($request)),
+            Limit::perMinute(5)->by('login-account:'.$accountKey($request)),
+        ]);
+        RateLimiter::for('login-code', fn (Request $request) => [
+            Limit::perMinute(30)->by('login-code-ip:'.$ipKey($request)),
+            Limit::perMinute(6)->by('login-code-session:'.$request->session()->getId()),
+        ]);
+        RateLimiter::for('login-code-resend', fn (Request $request) => [
+            Limit::perMinute(10)->by('login-resend-ip:'.$ipKey($request)),
+            Limit::perMinute(2)->by('login-resend-session:'.$request->session()->getId()),
+        ]);
+        RateLimiter::for('password-reset-request', fn (Request $request) => [
+            Limit::perMinute(10)->by('reset-request-ip:'.$ipKey($request)),
+            Limit::perMinutes(10, 3)->by('reset-request-account:'.$accountKey($request)),
+        ]);
+        RateLimiter::for('password-reset-code', fn (Request $request) => [
+            Limit::perMinute(20)->by('reset-code-ip:'.$ipKey($request)),
+            Limit::perMinutes(3, 5)->by('reset-code-account:'.$accountKey($request)),
+        ]);
+        RateLimiter::for('password-reset-submit', fn (Request $request) => [
+            Limit::perMinute(20)->by('reset-submit-ip:'.$ipKey($request)),
+            Limit::perMinutes(10, 5)->by('reset-submit-account:'.$accountKey($request)),
+        ]);
+
         // Private Vercel Blob disks (config/filesystems.php): files open through
         // short-lived signed links to the app, never a public Blob URL.
         \Illuminate\Support\Facades\Storage::extend('vercel-blob', function ($app, array $config) {

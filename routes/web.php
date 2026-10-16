@@ -186,9 +186,9 @@ Route::post('/feedback', [\App\Http\Controllers\FeedbackController::class, 'stor
 
 
 Route::get('/login', [AuthController::class, 'showLoginPage'])->name('login.page');
-Route::post('/login', [AuthController::class, 'login'])->name('login');
-Route::post('/login/verify-code', [AuthController::class, 'verifyLoginCode'])->name('login.verify-code');
-Route::post('/login/resend-code', [AuthController::class, 'resendLoginCode'])->name('login.resend-code');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:password-login')->name('login');
+Route::post('/login/verify-code', [AuthController::class, 'verifyLoginCode'])->middleware('throttle:login-code')->name('login.verify-code');
+Route::post('/login/resend-code', [AuthController::class, 'resendLoginCode'])->middleware('throttle:login-code-resend')->name('login.resend-code');
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,10')->name('register');
 // The link in the bidder's confirmation email.
 Route::get('/email/confirm/{user}/{hash}', [AuthController::class, 'confirmEmail'])->middleware(['signed', 'throttle:30,1'])->name('bidder.email.verify');
@@ -200,11 +200,11 @@ Route::get('/auth/google', [AuthController::class, 'redirectToGoogle'])->middlew
 Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback'])->middleware('throttle:20,1')->name('auth.google.callback');
 Route::middleware('guest')->group(function () {
     Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm'])->name('password.request');
-    Route::post('/forgot-password', [AuthController::class, 'sendPasswordResetLink'])->name('password.email');
-    Route::post('/forgot-password/verify-code', [AuthController::class, 'verifyPasswordResetCode'])->name('password.verify-code');
+    Route::post('/forgot-password', [AuthController::class, 'sendPasswordResetLink'])->middleware('throttle:password-reset-request')->name('password.email');
+    Route::post('/forgot-password/verify-code', [AuthController::class, 'verifyPasswordResetCode'])->middleware('throttle:password-reset-code')->name('password.verify-code');
     Route::get('/reset-password', [AuthController::class, 'showResetPasswordForm'])->name('password.reset.verified');
     Route::get('/reset-password/{token}', [AuthController::class, 'showResetPasswordForm'])->name('password.reset');
-    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:password-reset-submit')->name('password.update');
 });
 
 Route::middleware(['auth'])->group(function () {
