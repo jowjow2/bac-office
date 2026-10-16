@@ -46,8 +46,13 @@ class Uploads
         $disk = static::disk();
 
         try {
-            return $disk->temporaryUrl($path, now()->addMinutes(30));
+            return $disk->temporaryUrl($path, now()->addMinutes(10));
         } catch (Throwable) {
+            // Never turn a private Blob link into an unsigned URL if signing fails.
+            if (config('filesystems.disks.'.static::diskName().'.driver') === 'vercel-blob') {
+                return null;
+            }
+
             return $disk->url($path);
         }
     }

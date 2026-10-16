@@ -146,10 +146,21 @@ Route::get('/files/{disk}/{path}', function (string $disk, string $path) {
     $storage = \Illuminate\Support\Facades\Storage::disk($disk);
     abort_unless($storage->exists($path), 404);
 
+    $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+    $inlineTypes = [
+        'pdf' => 'application/pdf',
+        'png' => 'image/png',
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+    ];
+    $inline = isset($inlineTypes[$extension]);
+
     return $storage->response($path, basename($path), [
+        'Content-Type' => $inlineTypes[$extension] ?? 'application/octet-stream',
         'X-Content-Type-Options' => 'nosniff',
-        'Cache-Control' => 'private, no-cache',
-    ]);
+        'Cache-Control' => 'private, no-store',
+        'Referrer-Policy' => 'no-referrer',
+    ], $inline ? 'inline' : 'attachment');
 })->where('path', '.*')->middleware('signed')->name('files.blob');
 
 // Public award verification is read-only and always loads the award record fresh.
