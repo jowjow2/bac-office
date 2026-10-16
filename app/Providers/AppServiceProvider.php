@@ -69,7 +69,7 @@ class AppServiceProvider extends ServiceProvider
             $disk->buildTemporaryUrlsUsing(fn (string $path, \DateTimeInterface $expiration) => \Illuminate\Support\Facades\URL::temporarySignedRoute(
                 'files.blob',
                 $expiration,
-                ['disk' => $name ?: 'local', 'path' => $path]
+                ['disk' => $name ?: 'local', 'path' => $path, 'viewer' => (string) (auth()->id() ?? 0)]
             ));
 
             return $disk;

@@ -140,9 +140,22 @@ Route::get('/procurement/projects/{project}/qr.svg', [PublicProcurementControlle
 Route::get('/procurement/projects/{project}', [PublicProcurementController::class, 'show'])->name('public.procurement.show');
 
 // Files on a private Vercel Blob disk, through the short-lived signed links its temporaryUrl() builds.
-Route::get('/files/{disk}/{path}', function (string $disk, string $path) {
+Route::get('/files/{disk}/{path}', function (Request $request, string $disk, string $path) {
     abort_unless(in_array($disk, ['local', 'public'], true) && config("filesystems.disks.$disk.driver") === 'vercel-blob', 404);
     abort_if(str_contains($path, '..'), 404);
+    $viewer = $request->query('viewer');
+    abort_unless(is_string($viewer) && ctype_digit($viewer), 403);
+    if ($viewer !== '0') {
+        abort_unless(\Illuminate\Support\Facades\Auth::check()
+            && (int) \Illuminate\Support\Facades\Auth::id() === (int) $viewer, 403);
+    } else {
+        // A guest link must resolve to an official document of a published project.
+        abort_unless($disk === 'local' && \App\Models\ProjectDocument::where('file_path', $path)
+            ->with('project')
+            ->get()
+            ->contains(fn (\App\Models\ProjectDocument $document): bool => $document->project?->isPubliclyVisible()
+                && $document->project->publicDocuments()->contains('id', $document->id)), 403);
+    }
     $storage = \Illuminate\Support\Facades\Storage::disk($disk);
     abort_unless($storage->exists($path), 404);
 
