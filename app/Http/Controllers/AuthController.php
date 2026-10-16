@@ -747,6 +747,16 @@ class AuthController extends Controller
 
         $remember = (bool) $request->session()->pull('google_login_remember', false);
 
+        if (in_array($user->role, ['admin', 'staff'], true)) {
+            if (! $this->issueLoginVerificationCode($request, $user, $remember, 'google')) {
+                return $fail('We could not send your verification code right now. Please try again in a few minutes.');
+            }
+
+            return redirect()->route('home')
+                ->with('auth_tab', 'verify')
+                ->with('login_verification_prompt', $this->loginVerificationPayload($user));
+        }
+
         Auth::login($user, $remember);
         $request->session()->regenerate();
         $this->queueDashboardWelcome($request, $user);
@@ -876,6 +886,7 @@ class AuthController extends Controller
         Auth::login($user, $remember);
         $request->session()->regenerate();
         $this->queueDashboardWelcome($request, $user);
+        LoginAudit::record($request, $user, (string) ($pending['method'] ?? 'password'), 'success');
 
         return $this->authResponse(
             $request,
@@ -1197,6 +1208,7 @@ class AuthController extends Controller
     {
         return match ($user->role) {
             'bidder' => ['ttl' => 600, 'cooldown' => 60, 'max_attempts' => 5],
+            'admin', 'staff' => ['ttl' => 300, 'cooldown' => 60, 'max_attempts' => 5],
             default => null,
         };
     }
@@ -1210,6 +1222,7 @@ class AuthController extends Controller
 
         $available = match ($user?->role) {
             'bidder' => $user->canLoginAsBidder(),
+            'admin', 'staff' => $user->status === 'active',
             default => false,
         };
 
@@ -1239,7 +1252,7 @@ class AuthController extends Controller
      * Emails a new code (only its hash is kept, in the session) and replaces any earlier one.
      * False when the code could not be emailed: the user sees a clear message, not a server error.
      */
-    protected function issueLoginVerificationCode(Request $request, User $user, bool $remember): bool
+    protected function issueLoginVerificationCode(Request $request, User $user, bool $remember, string $method = 'password'): bool
     {
         $policy = $this->loginCodePolicy($user);
         $code = (string) random_int(100000, 999999);
@@ -1247,6 +1260,7 @@ class AuthController extends Controller
         $request->session()->put(self::LOGIN_VERIFICATION_SESSION, [
             'user_id' => $user->id,
             'role' => $user->role,
+            'method' => $method,
             'remember' => $remember,
             'code_hash' => Hash::make($code),
             'expires_at' => now()->addSeconds($policy['ttl'])->timestamp,
