@@ -23,8 +23,8 @@ use Illuminate\Http\Request;
 // Scheduled procurement transitions without a page visit (Vercel Cron, see vercel.json).
 // Idempotent: it only does what the saved schedule and server time already require.
 Route::get('/cron/procurement-schedule', function (Request $request) {
-    $secret = config('services.cron.secret');
-    abort_if(filled($secret) && ! hash_equals('Bearer '.$secret, (string) $request->header('Authorization')), 401);
+    $secret = (string) config('services.cron.secret');
+    abort_unless($secret !== '' && hash_equals('Bearer '.$secret, (string) $request->header('Authorization')), 401);
 
     // Also clears documents people chose on the registration or bid form but never submitted.
     $purged = 0;
