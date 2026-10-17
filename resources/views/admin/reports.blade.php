@@ -235,7 +235,7 @@
         .report-analytics-page.ra-animate .ra-anim.is-visible .ra-month-bar { transform: scaleY(1) !important; }
         .report-analytics-page.ra-animate .ra-anim .ra-donut-seg { stroke-dasharray: 0 999 !important; transition: stroke-dasharray 1s cubic-bezier(.2, .8, .2, 1) calc(var(--i, 0) * 90ms) !important; }
         .report-analytics-page.ra-animate .ra-anim.is-visible .ra-donut-seg { stroke-dasharray: var(--len) 999 !important; }
-        .report-analytics-page.ra-animate .ra-rise { opacity: 0; transform: translateY(8px); transition: opacity .5s ease calc(var(--i, 0) * 60ms), transform .5s ease calc(var(--i, 0) * 60ms); }
+        .report-analytics-page.ra-animate .ra-rise { transform: translateY(6px); transition: transform .35s ease calc(var(--i, 0) * 30ms); } /* the figures show at once; only a small slide plays */
         .report-analytics-page.ra-animate .ra-rise.is-visible { opacity: 1; transform: none; }
 
         @media (max-width: 1200px) {

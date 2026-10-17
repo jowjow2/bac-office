@@ -3,7 +3,7 @@
         <div class="nav-left">
             <a href="{{ route('home') }}" class="logo">
                 <img src="{{ asset('Images/Logo.png') }}" alt="Logo" class="logo-img">
-                BAC-OFFICE
+                SJBAC Procurement
             </a>
 
             <button
@@ -56,6 +56,8 @@
         </div>
 
         <div id="navRight" class="nav-right">
+            {{-- Procurement and Awards have their own search box; one is enough. --}}
+            @unless(request()->routeIs('public.procurement', 'public.awards'))
             <form action="{{ request()->routeIs('public.awards') ? route('public.awards') : route('public.procurement') }}" method="GET" class="search-form">
                 <span class="search-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -72,6 +74,7 @@
                     autocomplete="off"
                 >
             </form>
+            @endunless
 
             <button type="button" onclick="openLogin()" class="login-btn login-signup-btn" aria-label="Open login or signup" title="Login or signup">
                 Login/Signup

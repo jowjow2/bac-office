@@ -26,6 +26,7 @@ it('links to the Facebook page of the BAC by default', function () {
 
 it('keeps the search box in the navigation, with a plain Search label on the home page', function () {
     testCase()->get('/')->assertOk()->assertSee('placeholder="Search..."', false)->assertDontSee('Search procurement...');
-    testCase()->get('/procurement')->assertOk()->assertSee('Search procurement...', false);
-    testCase()->get('/awards')->assertOk()->assertSee('Search awards or contractors...', false);
+    // Procurement and Awards keep only their own, larger search box.
+    testCase()->get('/procurement')->assertOk()->assertDontSee('Search procurement...', false)->assertSee('class="board-search"', false);
+    testCase()->get('/awards')->assertOk()->assertDontSee('Search awards or contractors...', false)->assertSee('class="board-search"', false);
 });

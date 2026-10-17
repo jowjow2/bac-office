@@ -232,6 +232,8 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware(['auth'])->group(function () {
+    // One search across the portal for the BAC (Ctrl+K); the controller checks the role.
+    Route::get('/portal/search', \App\Http\Controllers\PortalSearchController::class)->middleware('throttle:120,1')->name('portal.search');
     Route::get('/notifications/feed', [NotificationController::class, 'feed'])->name('notifications.feed');
     Route::get('/messages/{message}/attachment', [MessageController::class, 'attachment'])->name('messages.attachment');
     Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');

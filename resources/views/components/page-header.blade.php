@@ -28,5 +28,11 @@
         <div class="portal-header__actions">{{ $actions }}</div>
     @endif
 
+    @if(in_array(auth()->user()?->role, ['admin', 'staff'], true))
+        {{-- Search the whole portal (portal.js); Ctrl+K opens it too. --}}
+        <button type="button" class="portal-search-btn" data-portal-search="{{ route('portal.search') }}" aria-label="Search the portal (Ctrl+K)" title="Search the portal (Ctrl+K)">
+            <i class="fas fa-magnifying-glass" aria-hidden="true"></i><span>Search</span><kbd>Ctrl K</kbd>
+        </button>
+    @endif
     <x-portal-bell />
 </header>

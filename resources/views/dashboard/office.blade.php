@@ -35,6 +35,38 @@
         @endif
     @endunless
 
+    @if($isAdmin)
+        @php
+            // The year at a glance for the BAC admin.
+            $year = now(config('bac-office.display_timezone', 'Asia/Manila'))->year;
+            $awardsYear = \App\Models\Award::query()->whereNull('cancelled_at')->whereYear('notice_of_award_date', $year);
+            $feesYear = \App\Models\BiddingFeePayment::query()->whereYear('paid_at', $year);
+            $bidsYear = \App\Models\Bid::query()->whereNotNull('submitted_at')->whereYear('submitted_at', $year)->count();
+        @endphp
+        <section class="ui-kpis" aria-label="This year at a glance">
+            <a class="ui-kpi" href="{{ route('admin.projects', ['status' => 'open']) }}">
+                <span class="ui-kpi__label">Open procurements</span>
+                <span class="ui-kpi__value">{{ number_format($kpis['open']['count']) }}</span>
+                <span class="ui-kpi__foot">{{ Format::pesoShort($kpis['open']['abc']) }} total ABC</span>
+            </a>
+            <a class="ui-kpi" href="{{ route('admin.bids') }}">
+                <span class="ui-kpi__label">Bids received in {{ $year }}</span>
+                <span class="ui-kpi__value">{{ number_format($bidsYear) }}</span>
+                <span class="ui-kpi__foot">Official submissions</span>
+            </a>
+            <a class="ui-kpi" href="{{ route('admin.awards.index') }}">
+                <span class="ui-kpi__label">Awarded in {{ $year }}</span>
+                <span class="ui-kpi__value">{{ number_format((clone $awardsYear)->count()) }}</span>
+                <span class="ui-kpi__foot">{{ Format::pesoShort((float) (clone $awardsYear)->sum('contract_amount')) }} in contracts</span>
+            </a>
+            <a class="ui-kpi" href="{{ route('admin.payments') }}">
+                <span class="ui-kpi__label">Fees collected in {{ $year }}</span>
+                <span class="ui-kpi__value">{{ Format::pesoShort((float) (clone $feesYear)->sum('amount')) }}</span>
+                <span class="ui-kpi__foot">{{ number_format((clone $feesYear)->count()) }} Official Receipts</span>
+            </a>
+        </section>
+    @endif
+
     {{-- What is waiting for this person (DashboardActions); nothing is shown for a zero. --}}
     <section class="ui-card" aria-labelledby="actions-title">
         <header class="ui-card__head ui-card__head--plain">

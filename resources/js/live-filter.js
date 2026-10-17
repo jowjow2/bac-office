@@ -75,6 +75,31 @@ export function setupLiveFilters() {
         document.dispatchEvent(new CustomEvent('bac:live-refreshed'));
     }
 
+    // Phones: a "Filters" button folds the dropdowns away (portal-shell.css), with how many are set.
+    forms.forEach((form) => {
+        const selects = Array.from(form.querySelectorAll('select'));
+        if (selects.length === 0) return;
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'ui-filters-toggle';
+        toggle.setAttribute('aria-expanded', 'false');
+        const paint = () => {
+            const set = selects.filter((select) => select.selectedIndex > 0 && select.value !== '').length;
+            toggle.innerHTML = '<i class="fas fa-sliders" aria-hidden="true"></i> Filters' + (set ? ' <b>' + set + '</b>' : '');
+        };
+        paint();
+        toggle.addEventListener('click', () => {
+            const open = form.classList.toggle('is-filters-open');
+            toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        form.addEventListener('change', paint);
+        const search = form.querySelector('.ui-search, .admin-bids-toolbar-field-search, .projects-search-control, .ul-search > input[type="search"], .fee-search, .alog-search');
+        const anchor = search && search.closest('form') === form ? search : null;
+        if (anchor && anchor.parentElement) anchor.parentElement.insertBefore(toggle, anchor.nextSibling);
+        else form.prepend(toggle);
+        form.classList.add('has-filter-toggle');
+    });
+
     forms.forEach((form) => {
         form.addEventListener('submit', (event) => {
             event.preventDefault();
