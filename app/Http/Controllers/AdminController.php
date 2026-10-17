@@ -1097,7 +1097,7 @@ class AdminController extends Controller
             return $back->withErrors(['email' => 'The confirmation email could not be sent right now. Try again in a few minutes.']);
         }
 
-        return $back->with('success', 'A new confirmation email was sent to '.$user->email.'.');
+        return $back->with('success', 'The mail server accepted a new confirmation email for '.$user->email.'. Ask the bidder to look for "Confirm your email address - SJBAC bidder registration" in Inbox, Spam or All Mail.');
     }
 
     protected function missingBidderRegistrationRequirements(Collection $registrationDocuments): array
