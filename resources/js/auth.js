@@ -70,6 +70,7 @@ window.openLogin = function () {
 };
 
 const AUTH_MESSAGE_HIDE_DELAY = 5000;
+const AUTH_ERROR_HIDE_DELAY = 6000;
 const AUTH_MESSAGE_FADE_DURATION = 350;
 const AUTH_SUCCESS_REDIRECT_DELAY = 500;
 const AUTH_WELCOME_REDIRECT_DELAY = 1100;
@@ -94,6 +95,7 @@ window.closeAuth = function () {
     if (!modal || !card) return;
     if (authModalIsClosing || !isAuthModalVisible(modal)) return;
 
+    clearAuthMessage();
     authModalIsClosing = true;
     clearAuthModalCloseTimer();
 
@@ -906,6 +908,7 @@ function renderAuthMessage(type, message) {
 
     const alert = document.createElement('div');
     alert.className = `alert ${type}`;
+    alert.setAttribute('role', type === 'error' ? 'alert' : 'status');
 
     if (type === 'success') {
         const icon = document.createElement('span');
@@ -941,7 +944,8 @@ function showAuthMessage(type, message, options = {}) {
         setAuthSuccessState(false);
     }
 
-    if (options.autoHideMs) {
+    const autoHideMs = options.autoHideMs ?? (type === 'error' ? AUTH_ERROR_HIDE_DELAY : 0);
+    if (autoHideMs) {
         scheduleAuthAlertFade(alert, () => {
             clearAuthMessage();
 
@@ -952,7 +956,7 @@ function showAuthMessage(type, message, options = {}) {
             if (typeof options.onHidden === 'function') {
                 options.onHidden();
             }
-        }, options.autoHideMs);
+        }, autoHideMs);
         return;
     }
 
@@ -961,6 +965,8 @@ function showAuthMessage(type, message, options = {}) {
 }
 
 function clearAuthMessage() {
+    window.clearTimeout(window.authMessageTimeout);
+    window.clearTimeout(window.authMessageFadeTimeout);
     const box = document.getElementById('authMessage');
     if (!box) return;
     box.innerHTML = '';
@@ -1443,6 +1449,15 @@ document.addEventListener('DOMContentLoaded', function () {
             setAuthSuccessState(false);
         }, delay);
     });
+
+    const sessionError = document.querySelector('[data-auth-session-error]');
+    if (sessionError) {
+        const message = sessionError.textContent.trim();
+        const tab = sessionError.dataset.authTab || 'login';
+        sessionError.remove();
+        window.activateAuthTab(tab);
+        showAuthMessage('error', message);
+    }
 
     if (loginForm) {
         loginForm.addEventListener('submit', function (event) {

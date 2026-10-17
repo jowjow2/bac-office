@@ -61,12 +61,7 @@
             @endif
 
             @if(session('error'))
-                <div class="alert error">{{ session('error') }}</div>
-                <script>
-                    document.addEventListener("DOMContentLoaded", function() {
-                        activateAuthTab('{{ session('auth_tab', 'login') }}');
-                    });
-                </script>
+                <div class="alert error" data-auth-session-error data-auth-tab="{{ session('auth_tab', 'login') }}" role="alert">{{ session('error') }}</div>
             @endif
 
             @if(is_array(session('login_verification_prompt')))
