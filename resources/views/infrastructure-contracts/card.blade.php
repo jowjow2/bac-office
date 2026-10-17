@@ -130,10 +130,10 @@
             <p class="infra-kicker"><span class="ui-ref">{{ $award->project->reference_no }}</span> <span class="ui-pill ui-pill--neutral">Infrastructure</span></p>
             <h2 class="infra-title">{{ $award->project->title }}</h2>
             <dl class="infra-meta">
-                <div><dt>Contractor</dt><dd>{{ $supplier ?: '—' }}</dd></div>
-                <div><dt>Notice to Proceed</dt><dd>{{ $ntpOn?->format('M d, Y') ?? '—' }}</dd></div>
+                <div><span class="infra-meta__icon" aria-hidden="true"><i class="fas fa-helmet-safety"></i></span><dt>Contractor</dt><dd>{{ $supplier ?: '—' }}</dd></div>
+                <div><span class="infra-meta__icon" aria-hidden="true"><i class="fas fa-flag-checkered"></i></span><dt>Notice to Proceed</dt><dd>{{ $ntpOn?->format('M d, Y') ?? '—' }}</dd></div>
                 @if($configured)
-                    <div><dt>Completion deadline</dt><dd>{{ $record->effectiveDeadline()?->format('M d, Y') ?? '—' }}</dd></div>
+                    <div><span class="infra-meta__icon" aria-hidden="true"><i class="fas fa-calendar-check"></i></span><dt>Completion deadline</dt><dd>{{ $record->effectiveDeadline()?->format('M d, Y') ?? '—' }}</dd></div>
                 @endif
             </dl>
         </div>
@@ -168,9 +168,12 @@
             @csrf
             @method('PUT')
             @if(request()->boolean('embed'))<input type="hidden" name="embed" value="1">@endif
-            <div class="infra-panel__head">
-                <h3>Record terms from signed contract</h3>
-                <p class="ui-hint">Enter the actual completion deadline and work site from the signed contract. The NTP date is shown separately and is not the deadline.</p>
+            <div class="infra-panel__head infra-panel__head--icon">
+                <span class="infra-panel__icon" aria-hidden="true"><i class="fas fa-file-signature"></i></span>
+                <div>
+                    <h3>Record terms from signed contract</h3>
+                    <p class="ui-hint">Enter the actual completion deadline and work site from the signed contract. The NTP date is shown separately and is not the deadline.</p>
+                </div>
             </div>
 
             @include('infrastructure-contracts.terms-fields', [
@@ -185,19 +188,19 @@
                 'note' => 'Filled in from the project. Check each value against the signed contract before saving.',
             ])
 
-            <div class="ui-fields">
-                <label class="ui-field">
-                    <span class="ui-label">Remarks <span class="ui-required">*</span></span>
-                    <textarea name="remarks" class="ui-input" rows="3" maxlength="2000" required placeholder="e.g. Terms copied from the signed contract.">{{ $termsOld('record', null, 'remarks') }}</textarea>
-                </label>
-                <label class="ui-field">
-                    <span class="ui-label">Signed contract / supporting proof <span class="ui-required">*</span></span>
-                    <input type="file" name="document" class="ui-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" required>
-                    <span class="ui-hint">PDF, image or Word file.</span>
-                </label>
-            </div>
+            <fieldset class="infra-group">
+                <legend class="infra-group__title">Signed contract and remarks</legend>
+                <div class="ui-fields">
+                    @include('infrastructure-contracts.file-drop', ['label' => 'Signed contract / supporting proof', 'hint' => 'PDF, image or Word file.'])
+                    <label class="ui-field">
+                        <span class="ui-label">Remarks <span class="ui-required">*</span></span>
+                        <textarea name="remarks" class="ui-input" rows="3" maxlength="2000" required placeholder="e.g. Terms copied from the signed contract.">{{ $termsOld('record', null, 'remarks') }}</textarea>
+                    </label>
+                </div>
+            </fieldset>
 
             <div class="infra-panel__foot">
+                <span class="ui-hint"><span class="ui-required">*</span> Required. The contractor is notified once saved.</span>
                 <button class="ui-btn ui-btn--primary"><i class="fas fa-floppy-disk" aria-hidden="true"></i> Save infrastructure terms</button>
             </div>
         </form>
@@ -240,11 +243,7 @@
                             <span class="ui-label">Reason for the correction <span class="ui-required">*</span></span>
                             <textarea name="remarks" class="ui-input" rows="3" maxlength="2000" required placeholder="e.g. Quantity was entered as 1 lot; the signed contract states 250 lm.">{{ $termsOld('correct', null, 'remarks') }}</textarea>
                         </label>
-                        <label class="ui-field">
-                            <span class="ui-label">Replace signed contract copy <span class="ui-optional">(optional)</span></span>
-                            <input type="file" name="document" class="ui-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
-                            <span class="ui-hint">Leave empty to keep the file already on record.</span>
-                        </label>
+                        @include('infrastructure-contracts.file-drop', ['label' => 'Replace signed contract copy', 'required' => false, 'hint' => 'Leave empty to keep the file already on record.'])
                     </div>
                     <div class="infra-panel__foot">
                         <button class="ui-btn ui-btn--primary"><i class="fas fa-floppy-disk" aria-hidden="true"></i> Save corrected terms</button>
@@ -269,7 +268,7 @@
                     <label class="ui-field"><span class="ui-label">Progress (%) <span class="ui-required">*</span></span><input name="progress_percent" class="ui-input" type="number" min="0" max="100" required placeholder="e.g. 45"><span class="ui-hint">Overall physical accomplishment of the whole contract.</span></label>
                     <label class="ui-field"><span class="ui-label">Milestone / work completed <span class="ui-required">*</span></span><input name="milestone" class="ui-input" maxlength="255" required placeholder="e.g. Base course laid, Sta. 0+000 to 0+120"><span class="ui-hint">What part of the work was finished in this update.</span></label>
                     <label class="ui-field"><span class="ui-label">Remarks <span class="ui-required">*</span></span><textarea name="remarks" class="ui-input" rows="3" maxlength="2000" required placeholder="e.g. Pouring done this week; 2 rain days. Curing until Oct 20."></textarea><span class="ui-hint">A short written note on this update: work done, delays or issues. This is not a signature.</span></label>
-                    <label class="ui-field"><span class="ui-label">Photo, report or progress proof <span class="ui-required">*</span></span><input type="file" name="document" class="ui-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" required></label>
+                    @include('infrastructure-contracts.file-drop', ['label' => 'Photo, report or progress proof', 'hint' => 'Photo, PDF or Word file.'])
                 </div>
                 <label class="infra-check"><input type="checkbox" name="request_inspection" value="1"> Work is ready; request site inspection</label>
                 <div class="infra-panel__foot"><button class="ui-btn ui-btn--primary">Submit update</button></div>
@@ -284,7 +283,7 @@
                     <label class="ui-field"><span class="ui-label">Result <span class="ui-required">*</span></span>
                         <select name="outcome" class="ui-input" required><option value="recommend_acceptance">Recommend formal acceptance</option><option value="correction">Request correction / reinspection</option></select>
                     </label>
-                    <label class="ui-field"><span class="ui-label">Inspection report / supporting document <span class="ui-required">*</span></span><input type="file" name="document" class="ui-input" required></label>
+                    @include('infrastructure-contracts.file-drop', ['label' => 'Inspection report / supporting document'])
                     <label class="ui-field"><span class="ui-label">Findings <span class="ui-required">*</span></span><textarea name="findings" class="ui-input" rows="3" required></textarea></label>
                     <label class="ui-field"><span class="ui-label">Deficiencies <span class="ui-optional">(if any)</span></span><textarea name="deficiencies" class="ui-input" rows="3"></textarea></label>
                     <label class="ui-field ui-field--wide"><span class="ui-label">Remarks <span class="ui-required">*</span></span><textarea name="remarks" class="ui-input" rows="2" required></textarea></label>
@@ -311,16 +310,14 @@
                             @endif
                         </select>
                     </label>
-                    <label class="ui-field">
-                        <span class="ui-label">{{ $actionDocument['label'] }} <span class="ui-required">*</span></span>
-                        <input type="file" name="document" class="ui-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" required>
-                        <span class="ui-hint">{{ $actionDocument['hint'] }}</span>
+                    <div class="ui-field">
+                        @include('infrastructure-contracts.file-drop', ['label' => $actionDocument['label'], 'hint' => $actionDocument['hint']])
                         @if($latestInspection)
                             <a href="{{ route('infrastructure.document', $latestInspection) }}" class="infra-supporting-link">
                                 <i class="fas fa-paperclip" aria-hidden="true"></i> Review End-user inspection document
                             </a>
                         @endif
-                    </label>
+                    </div>
                     <label class="ui-field ui-field--wide"><span class="ui-label">Remarks <span class="ui-required">*</span></span><textarea name="remarks" class="ui-input" rows="2" required></textarea></label>
                 </div>
                 <div class="infra-panel__foot"><button class="ui-btn ui-btn--primary">{{ $actionDocument['button'] }}</button></div>
@@ -396,25 +393,45 @@
         .infra-steps li.is-flagged .infra-steps__dot { border-color: var(--ui-danger); color: var(--ui-danger); box-shadow: 0 0 0 4px var(--ui-danger-soft); }
         .infra-steps__label { color: var(--ui-muted); font-size: 11.5px; line-height: 1.3; }
         .infra-steps li:is(.is-done, .is-current) .infra-steps__label { color: var(--ui-ink); font-weight: 600; }
-        .infra-panel { display: grid; gap: 16px; margin-top: 18px; padding: 18px 20px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg); background: var(--ui-surface-2); }
+        .infra-head .infra-meta div { display: grid; grid-template-columns: 34px auto; column-gap: 10px; align-items: center; }
+        .infra-meta__icon { display: grid; grid-row: span 2; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: var(--ui-primary-soft); color: var(--ui-primary); font-size: 13px; }
+        .infra-panel { display: grid; gap: 16px; margin-top: 18px; padding: 18px 20px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg); background: var(--ui-surface-2); counter-reset: infra-group; }
         .infra-panel__head h3 { margin: 0; color: var(--ui-ink); font-size: 15.5px; }
         .infra-panel__head .ui-hint { margin: 4px 0 0; }
-        .infra-panel__foot { display: flex; justify-content: flex-end; }
+        .infra-panel__head--icon { display: flex; align-items: flex-start; gap: 12px; }
+        .infra-panel__icon { display: grid; flex: 0 0 40px; width: 40px; height: 40px; place-items: center; border-radius: 12px; background: var(--ui-primary); color: #fff; font-size: 16px; }
+        .infra-panel__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px 16px; }
+        .infra-panel__foot > .ui-hint { margin: 0 auto 0 0; }
+        .infra-group { display: grid; gap: 12px; min-width: 0; margin: 0; padding: 16px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg); background: var(--ui-surface); counter-increment: infra-group; }
+        .infra-group__title { display: flex; align-items: center; gap: 8px; padding: 0 6px; margin-left: -6px; color: var(--ui-ink); font-size: 13.5px; font-weight: 700; }
+        .infra-group__title::before { content: counter(infra-group); display: grid; width: 22px; height: 22px; place-items: center; border-radius: 50%; background: var(--ui-primary-soft); color: var(--ui-primary); font-size: 11.5px; font-weight: 800; }
+        .infra-drop { position: relative; display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 12px 14px; border: 1.5px dashed var(--ui-line-strong); border-radius: var(--ui-radius-lg); background: var(--ui-surface-2); cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+        .infra-drop:hover, .infra-drop.is-over, .infra-drop:focus-within { border-color: var(--ui-primary); background: var(--ui-primary-soft); }
+        .infra-drop.has-file { border-style: solid; border-color: var(--ui-primary); }
+        .infra-drop__input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+        .infra-drop__icon { display: grid; flex: 0 0 38px; width: 38px; height: 38px; place-items: center; border-radius: 50%; background: var(--ui-surface); color: var(--ui-primary); box-shadow: 0 0 0 1px var(--ui-line); }
+        .infra-drop.has-file .infra-drop__icon { background: var(--ui-primary); color: #fff; box-shadow: none; }
+        .infra-drop__text { display: grid; gap: 2px; min-width: 0; }
+        .infra-drop__text strong { overflow: hidden; color: var(--ui-ink); font-size: 13.5px; text-overflow: ellipsis; white-space: nowrap; }
+        .infra-drop__text small { color: var(--ui-muted); font-size: 12px; }
         .infra-fields--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .infra-panel .ui-input { background: var(--ui-surface); }
         .infra-panel textarea.ui-input { min-height: 72px; resize: vertical; }
         .infra-supporting-link { display: inline-flex; align-items: center; gap: 7px; width: fit-content; margin-top: 7px; color: var(--ui-primary); font-size: 12px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
         .infra-supporting-link:hover { color: var(--ui-primary-hover); }
-        .infra-items { display: grid; gap: 8px; }
-        .infra-items__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-        .infra-items__cols, .infra-items__row { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1fr) 34px; gap: 8px; align-items: center; }
-        .infra-items__cols span { color: var(--ui-subtle); font-size: 11.5px; font-weight: 600; }
-        .infra-items__rows { display: grid; gap: 8px; }
+        .infra-items__table { overflow: hidden; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg); }
+        .infra-items__cols, .infra-items__row { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(0, .8fr) minmax(0, .8fr) 34px; gap: 8px; align-items: center; }
+        .infra-items__cols { padding: 9px 12px; border-bottom: 1px solid var(--ui-line); background: var(--ui-surface-2); }
+        .infra-items__cols span { color: var(--ui-muted); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+        .infra-items__rows { display: grid; }
+        .infra-items__row { padding: 8px 12px; border-bottom: 1px solid var(--ui-line-soft); }
+        .infra-items__add { display: flex; width: 100%; align-items: center; justify-content: center; gap: 8px; padding: 10px; border: 0; background: transparent; color: var(--ui-primary); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+        .infra-items__add:hover { background: var(--ui-primary-soft); }
         .infra-items__remove { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--ui-line-strong); border-radius: var(--ui-radius); background: var(--ui-surface); color: var(--ui-muted); cursor: pointer; }
         .infra-items__remove:hover { border-color: var(--ui-danger); color: var(--ui-danger); }
         .infra-items__remove[hidden] { visibility: hidden; display: grid; }
-        .infra-prefill { display: flex; align-items: center; gap: 6px; margin: -6px 0 0; }
-        .infra-prefill i { color: var(--ui-primary); }
+        .infra-prefill { display: flex; align-items: center; gap: 10px; margin: 0; padding: 10px 14px; border: 1px solid var(--ui-info-line, #c9dcf0); border-radius: var(--ui-radius-lg); background: var(--ui-info-soft, #eef5fc); color: var(--ui-ink-2); font-size: 13px; }
+        .infra-prefill i { color: var(--ui-info, #2563a6); }
         .infra-correct { gap: 0; padding: 0; }
         .infra-correct summary { display: flex; align-items: center; gap: 8px; padding: 14px 20px; color: var(--ui-primary); font-size: 13.5px; font-weight: 600; cursor: pointer; list-style: none; }
         .infra-correct summary::-webkit-details-marker { display: none; }
@@ -451,8 +468,10 @@
         @media (max-width: 640px) {
             .infra-card { padding: 16px; }
             .infra-panel .ui-fields { grid-template-columns: minmax(0, 1fr); }
+            .infra-group { padding: 14px 12px; }
             .infra-items__cols { display: none; }
             .infra-items__row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 34px; }
+            .infra-panel__foot .ui-btn { width: 100%; justify-content: center; }
             .infra-items__row > :first-child { grid-column: 1 / -1; }
         }
     </style>
@@ -470,6 +489,23 @@
                 button.disabled = true;
                 button.setAttribute('aria-busy', 'true');
             });
+        });
+        // Drop areas: show the chosen file's name, and highlight while a file is dragged over.
+        document.addEventListener('change', function (event) {
+            const input = event.target.closest('[data-infra-file]');
+            if (!input) return;
+            const drop = input.closest('.infra-drop');
+            const file = input.files && input.files[0];
+            drop.classList.toggle('has-file', !!file);
+            drop.querySelector('[data-infra-file-name]').textContent = file
+                ? file.name + ' · ' + (file.size >= 1048576 ? (file.size / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(file.size / 1024)) + ' KB')
+                : 'Choose a file or drop it here';
+        });
+        ['dragenter', 'dragover'].forEach(function (type) {
+            document.addEventListener(type, function (event) { event.target.closest?.('.infra-drop')?.classList.add('is-over'); });
+        });
+        ['dragleave', 'drop'].forEach(function (type) {
+            document.addEventListener(type, function (event) { event.target.closest?.('.infra-drop')?.classList.remove('is-over'); });
         });
         // Work items: add rows (contract_items[n][...]) and remove all but the last one.
         document.addEventListener('click', function (event) {

@@ -11,12 +11,18 @@
         html, body { min-height: 100%; background: #fff !important; }
         body.infra-embedded { margin: 0; }
         .infra-embedded__content { max-width: none; padding: 20px; background: #fff; }
-        .infra-embedded .infra-card { margin: 0; background: #fff !important; box-shadow: none; }
-        .infra-embedded .infra-panel,
+        /* Inside the modal the card is the page: no outer box, so the form is not three frames deep. */
+        .infra-embedded .infra-card { margin: 0; padding: 4px 4px 0; border: 0; background: #fff !important; box-shadow: none; }
+        .infra-embedded .infra-head { padding-bottom: 18px; border-bottom: 1px solid var(--ui-line); }
+        .infra-embedded form.infra-panel { padding: 0; border: 0; background: #fff !important; }
         .infra-embedded .infra-meta--boxed,
         .infra-embedded .infra-changes { background: #fff !important; }
+        .infra-embedded .infra-panel__foot { position: sticky; bottom: 0; z-index: 2; margin: 0 -20px; padding: 12px 20px; border-top: 1px solid var(--ui-line); background: rgba(255, 255, 255, .96); backdrop-filter: blur(4px); }
         .infra-embedded__content > .ui-alert { margin-bottom: 14px; }
-        @media (max-width: 640px) { .infra-embedded__content { padding: 12px; } }
+        @media (max-width: 640px) {
+            .infra-embedded__content { padding: 12px; }
+            .infra-embedded .infra-panel__foot { margin: 0 -12px; padding: 10px 12px; }
+        }
     </style>
 </head>
 <body class="portal infra-embedded">
