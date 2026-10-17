@@ -115,7 +115,7 @@ it('shows the page title with a plain ampersand', function () {
         ->assertSee('Registration documents')->assertDontSee('Last document update');
 });
 
-it('splits the page into Documents, Company details and Public record QR tabs', function () {
+it('splits the page into Documents, Company details and Bidding record tabs, with the QR under Company details', function () {
     $bidder = crBidder();
     $bidder->bidderProfile()->update(['review_status' => 'for_re_evaluation']);
 
@@ -129,7 +129,30 @@ it('splits the page into Documents, Company details and Public record QR tabs', 
     $bidder->update(['status' => 'active']);
     $bidder->bidderProfile()->update(['approval_status' => 'approved']);
     $approved = testCase()->actingAs($bidder->fresh())->get(route('bidder.company-profile'))->assertOk();
+    // The public record QR is a small card under Company details, not a tab of its own.
+    $approved->assertDontSee('data-cp-tab="qr"', false);
     if (str_contains($approved->getContent(), 'cp-qr-title')) {
-        $approved->assertSee('data-cp-tab="qr"', false)->assertSee('id="cp-panel-qr"', false);
+        expect($approved->getContent())->toMatch('/id="cp-panel-qr"[^>]*data-cp-panel="company"/');
     }
+});
+
+
+it('shows how complete the profile is, what the BAC made of each file, and the validity date of a document', function () {
+    $bidder = crBidder();
+    $bidder->update(['status' => 'active']);
+    $bidder->bidderProfile()->update(['approval_status' => 'approved', 'approved_at' => now()]);
+    $document = \App\Models\BidderDocument::create(['user_id' => $bidder->id, 'document_type' => 'Business Permit', 'original_name' => 'permit.pdf', 'file_path' => 'bidder-documents/permit.pdf', 'status' => 'uploaded', 'is_current' => true, 'version' => 1, 'uploaded_at' => now()->subDays(3)]);
+
+    testCase()->actingAs($bidder->fresh())->patch(route('bidder.documents.validity', $document), ['valid_until' => now()->addDays(10)->toDateString()])
+        ->assertRedirect(route('bidder.company-profile'));
+    expect($document->fresh()->valid_until->toDateString())->toBe(now()->addDays(10)->toDateString())
+        ->and($document->fresh()->validity()[0])->toBe('expiring');
+
+    testCase()->actingAs($bidder->fresh())->get(route('bidder.company-profile'))->assertOk()
+        ->assertSee('complete')->assertSee('Accepted by the BAC')
+        ->assertSee('Valid until')->assertSee('within 30 days')->assertSee('Request a change')->assertSee('data-cp-preview', false);
+
+    // Another bidder cannot touch it.
+    $other = \App\Models\User::create(['name' => 'Other', 'email' => 'cr-other@example.com', 'password' => \Illuminate\Support\Facades\Hash::make('password'), 'role' => 'bidder', 'status' => 'active']);
+    testCase()->actingAs($other)->patch(route('bidder.documents.validity', $document), ['valid_until' => '2030-01-01'])->assertNotFound();
 });

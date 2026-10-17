@@ -29,7 +29,31 @@ class BidderDocument extends Model
         'reviewed_at' => 'datetime',
         'is_current' => 'boolean',
         'version' => 'integer',
+        'valid_until' => 'date',
     ];
+
+    /** Whether the database can keep a "Valid until" date yet (the column exists). */
+    public static function tracksValidity(): bool
+    {
+        static $ready = null;
+
+        return $ready ??= \Illuminate\Support\Facades\Schema::hasColumn('bidder_documents', 'valid_until');
+    }
+
+    /**
+     * Where the document stands by its validity date: null when no date was entered,
+     * else ['expired'|'expiring'|'valid', days left (negative once expired)].
+     */
+    public function validity(int $warnDays = 30): ?array
+    {
+        if (! self::tracksValidity() || ! $this->valid_until) {
+            return null;
+        }
+        $zone = config('bac-office.display_timezone', 'Asia/Manila');
+        $days = (int) now($zone)->startOfDay()->diffInDays($this->valid_until->copy()->startOfDay(), false);
+
+        return [$days < 0 ? 'expired' : ($days <= $warnDays ? 'expiring' : 'valid'), $days];
+    }
 
     public function user(): BelongsTo
     {

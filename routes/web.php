@@ -460,6 +460,7 @@ Route::middleware(['auth', 'bidder'])->group(function () {
     Route::post('/bidder/notifications/read-all', [BidderController::class, 'markAllNotificationsRead'])->name('bidder.notifications.read-all');
     Route::patch('/bidder/profile', [BidderController::class, 'updateProfile'])->name('bidder.profile.update');
     Route::post('/bidder/company-profile/documents', [BidderController::class, 'uploadDocument'])->name('bidder.documents.store');
+    Route::patch('/bidder/company-profile/documents/{document}/validity', [BidderController::class, 'updateDocumentValidity'])->name('bidder.documents.validity');
     Route::post('/bidder/company-profile/submit-for-re-evaluation', [BidderController::class, 'submitForReevaluation'])->name('bidder.requirements.reevaluate');
     Route::get('/bidder/company-profile/documents/{document}', [BidderController::class, 'previewDocument'])->name('bidder.document.preview');
     Route::get('/bidder/company-profile/documents/{document}/pdf', [BidderController::class, 'streamOwnDocumentPdf'])->name('bidder.document.pdf');

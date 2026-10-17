@@ -55,6 +55,22 @@
     $requiredOnFile = $checklist->where('required', true)->filter(fn ($row) => $row['document'])->count();
     $documentHistory = $bidderDocumentHistory->where('is_current', false)->sortByDesc('id');
     $uploadedOn = fn ($document) => optional($document->uploaded_at ?? $document->created_at)->format('M d, Y');
+    $tracksValidity = \App\Models\BidderDocument::tracksValidity();
+    // What the BAC made of each file: corrections asked, accepted with the approval, or a newer upload it has not seen.
+    $bacStatus = function ($document, bool $flagged) use ($isApproved, $profile) {
+        if ($flagged) return ['Correction requested', 'warning'];
+        if (! $document) return null;
+        $uploaded = $document->uploaded_at ?? $document->created_at;
+        if ($isApproved && $profile?->approved_at && $uploaded && $uploaded->lessThanOrEqualTo($profile->approved_at)) {
+            return ['Accepted by the BAC · '.$profile->approved_at->format('M d, Y'), 'success'];
+        }
+        return ['Not yet reviewed by the BAC', 'neutral'];
+    };
+    $missingLabels = $checklist->filter(fn ($row) => $row['required'] && ! $row['document'])->pluck('label');
+    $expiredCount = $tracksValidity ? $bidderDocuments->filter(fn ($document) => ($document->validity()[0] ?? null) === 'expired')->count() : 0;
+    $expiringCount = $tracksValidity ? $bidderDocuments->filter(fn ($document) => ($document->validity()[0] ?? null) === 'expiring')->count() : 0;
+    $completePercent = $checklist->count() ? (int) round($onFile / $checklist->count() * 100) : 100;
+    $adminContactId = \App\Models\User::where('role', 'admin')->value('id');
 @endphp
 
 @section('title', 'Company profile & documents')
@@ -152,6 +168,35 @@
     .cp-doc-title { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: var(--ui-ink); font-size: 13px; font-weight: 600; }
     .cp-doc-meta { overflow: hidden; color: var(--ui-muted); font-size: var(--ui-text-xs); text-overflow: ellipsis; white-space: nowrap; }
     .cp-doc-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+    .cp-meter { display: grid; gap: 8px; margin-bottom: 14px; padding: 14px 16px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg, 12px); background: var(--ui-surface, #fff); }
+    .cp-meter-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+    .cp-meter-head strong { color: var(--ui-ink); font-size: 14px; }
+    .cp-meter-head span { color: var(--ui-primary); font-weight: 700; }
+    .cp-meter-note { margin: 0; color: var(--ui-muted); font-size: 12.5px; }
+    .cp-meter-note.is-alert { color: var(--ui-danger, #b42318); font-weight: 600; }
+    .cp-doc-flags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .cp-flag { padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; background: var(--ui-surface-2, #f4f7f5); color: var(--ui-muted); }
+    .cp-flag.is-success { background: var(--ui-success-soft, #ecf7f0); color: var(--ui-success, #1f7a4d); }
+    .cp-flag.is-warning { background: var(--ui-warning-soft, #fdf6e5); color: var(--ui-warning, #8a5a0b); }
+    .cp-flag.is-danger { background: var(--ui-danger-soft, #fdecec); color: var(--ui-danger, #b42318); }
+    .cp-validity { margin-top: 6px; }
+    .cp-validity label { display: inline-flex; align-items: center; gap: 8px; color: var(--ui-muted); font-size: 12px; }
+    .cp-validity input { width: auto; min-height: 32px; padding: 4px 8px; font-size: 12.5px; }
+    .cp-drop { display: flex; flex: 1 1 260px; align-items: center; justify-content: center; gap: 10px; min-height: 52px; padding: 10px 14px; border: 1.5px dashed var(--ui-line-strong); border-radius: 10px; background: var(--ui-surface-2, #f7faf8); color: var(--ui-ink-2); font-size: 13px; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+    .cp-drop:hover, .cp-drop.is-over { border-color: var(--ui-primary); background: var(--ui-primary-soft, #eef6f2); }
+    .cp-drop i { color: var(--ui-primary); font-size: 18px; }
+    .cp-upload-validity { flex: 0 1 190px; }
+    .cp-locked { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
+    .cp-locked .ui-hint { margin: 0; }
+    .cp-panel--qr { margin-top: 14px; }
+    .cp-panel--qr .cp-qr-image { width: 96px; }
+    .cp-preview { width: min(980px, calc(100vw - 24px)); height: min(860px, calc(100dvh - 24px)); padding: 0; border: 0; border-radius: 16px; overflow: hidden; }
+    .cp-preview[open] { display: grid; grid-template-rows: auto minmax(0, 1fr); }
+    .cp-preview::backdrop { background: rgba(15, 25, 21, .55); }
+    .cp-preview header { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--ui-line); }
+    .cp-preview h2 { margin: 0; font-size: 16px; }
+    .cp-preview-close { width: 32px; height: 32px; border: 1px solid var(--ui-line); border-radius: 9px; background: #fff; font-size: 18px; cursor: pointer; }
+    .cp-preview iframe { width: 100%; height: 100%; border: 0; }
     .cp-inline-form { margin: 0; }
     .cp-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
     .cp-group-title { margin: 0; padding: 12px 18px 4px; color: var(--ui-muted); font-size: var(--ui-text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; border-top: 1px solid var(--ui-line); }
@@ -303,6 +348,21 @@
     @endif
 
     @php $hasQr = $isApproved && $profile?->tokenQrUrl(); @endphp
+    <section class="cp-meter" aria-label="Profile completeness">
+        <div class="cp-meter-head">
+            <strong>Profile {{ $onFile }} of {{ $checklist->count() }} complete</strong>
+            <span>{{ $completePercent }}%</span>
+        </div>
+        <div class="ui-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $completePercent }}"><span style="width: {{ $completePercent }}%"></span></div>
+        @if($missingLabels->isNotEmpty())<p class="cp-meter-note">Missing: {{ $missingLabels->implode(', ') }}.</p>@endif
+        @if($expiredCount || $expiringCount)
+            <p class="cp-meter-note is-alert"><i class="fas fa-calendar-xmark" aria-hidden="true"></i>
+                @if($expiredCount){{ $expiredCount }} {{ \Illuminate\Support\Str::plural('document', $expiredCount) }} expired. @endif
+                @if($expiringCount){{ $expiringCount }} {{ \Illuminate\Support\Str::plural('document', $expiringCount) }} {{ $expiringCount === 1 ? 'expires' : 'expire' }} within 30 days. @endif
+                Upload the renewed copies so your bids are not disqualified.
+            </p>
+        @endif
+    </section>
     <div class="cp-tabs" role="tablist" aria-label="Profile sections">
         <button type="button" role="tab" class="cp-tab is-active" id="cp-tab-documents" aria-controls="cp-panel-documents" aria-selected="true" data-cp-tab="documents">
             <i class="fas fa-folder-open" aria-hidden="true"></i> Documents <span class="cp-tab-count {{ $requiredOnFile < $requiredTotal ? 'is-warn' : '' }}">{{ $onFile }}/{{ $checklist->count() }}</span>
@@ -313,11 +373,7 @@
         <button type="button" role="tab" class="cp-tab" id="cp-tab-record" aria-controls="cp-panel-record" aria-selected="false" data-cp-tab="record" tabindex="-1">
             <i class="fas fa-trophy" aria-hidden="true"></i> Bidding record <span class="cp-tab-count">{{ $recordWon->count() + $recordApproved->count() + $recordOther->count() }}</span>
         </button>
-        @if($hasQr)
-            <button type="button" role="tab" class="cp-tab" id="cp-tab-qr" aria-controls="cp-panel-qr" aria-selected="false" data-cp-tab="qr" tabindex="-1">
-                <i class="fas fa-qrcode" aria-hidden="true"></i> Public record QR
-            </button>
-        @endif
+
     </div>
 
     <div class="cp-panel" id="cp-panel-documents" role="tabpanel" aria-labelledby="cp-tab-documents" data-cp-panel="documents">
@@ -354,10 +410,28 @@
                                 @endif
                             </span>
                             @if($document)<span class="cp-doc-file" title="{{ $document->display_name }}"><i class="far fa-file-lines" aria-hidden="true"></i> {{ $document->display_name }}</span>@endif
+                            @php $status = $bacStatus($document, $row['flagged']); $validity = $document?->validity(); @endphp
+                            @if($document)
+                                <span class="cp-doc-flags">
+                                    @if($status && ! $row['flagged'])<span class="cp-flag is-{{ $status[1] }}">{{ $status[0] }}</span>@endif
+                                    @if($validity)
+                                        <span class="cp-flag is-{{ $validity[0] === 'expired' ? 'danger' : ($validity[0] === 'expiring' ? 'warning' : 'success') }}">
+                                            {{ $validity[0] === 'expired' ? 'Expired '.$document->valid_until->format('M d, Y').': upload the renewed copy' : 'Valid until '.$document->valid_until->format('M d, Y').($validity[0] === 'expiring' ? ' · '.$validity[1].' days left' : '') }}
+                                        </span>
+                                    @endif
+                                </span>
+                                @if($tracksValidity)
+                                    <form action="{{ route('bidder.documents.validity', $document) }}" method="POST" class="cp-validity">
+                                        @csrf
+                                        @method('PATCH')
+                                        <label>Valid until <input type="date" name="valid_until" value="{{ $document->valid_until?->format('Y-m-d') }}" class="ui-input" data-cp-validity></label>
+                                    </form>
+                                @endif
+                            @endif
                         </div>
                         <div class="cp-doc-actions">
                             @if($document)
-                                <a href="{{ route('bidder.document.preview', $document) }}" target="_blank" rel="noopener" class="ui-btn ui-btn--ghost ui-btn--sm" aria-label="Preview {{ $row['label'] }}"><i class="fas fa-eye" aria-hidden="true"></i> Preview</a>
+                                <a href="{{ route('bidder.document.preview', $document) }}" target="_blank" rel="noopener" data-cp-preview="{{ $document->document_type }}" class="ui-btn ui-btn--ghost ui-btn--sm" aria-label="Preview {{ $row['label'] }}"><i class="fas fa-eye" aria-hidden="true"></i> Preview</a>
                                 <a href="{{ $document->file_url }}" download="{{ $document->display_name }}" class="ui-btn ui-btn--ghost ui-btn--sm" aria-label="Download {{ $row['label'] }}"><i class="fas fa-download" aria-hidden="true"></i></a>
                             @endif
                             @unless($row['flagged'])
@@ -383,9 +457,25 @@
                                 <span class="cp-doc-title">{{ $document->document_type }}</span>
                                 <span class="cp-doc-meta">Version {{ $document->version ?: 1 }} &middot; Uploaded {{ $uploadedOn($document) }}</span>
                                 <span class="cp-doc-file" title="{{ $document->display_name }}"><i class="far fa-file-lines" aria-hidden="true"></i> {{ $document->display_name }}</span>
+                                @php $status = $bacStatus($document, false); $validity = $document->validity(); @endphp
+                                <span class="cp-doc-flags">
+                                    @if($status)<span class="cp-flag is-{{ $status[1] }}">{{ $status[0] }}</span>@endif
+                                    @if($validity)
+                                        <span class="cp-flag is-{{ $validity[0] === 'expired' ? 'danger' : ($validity[0] === 'expiring' ? 'warning' : 'success') }}">
+                                            {{ $validity[0] === 'expired' ? 'Expired '.$document->valid_until->format('M d, Y').': upload the renewed copy' : 'Valid until '.$document->valid_until->format('M d, Y').($validity[0] === 'expiring' ? ' · '.$validity[1].' days left' : '') }}
+                                        </span>
+                                    @endif
+                                </span>
+                                @if($tracksValidity)
+                                    <form action="{{ route('bidder.documents.validity', $document) }}" method="POST" class="cp-validity">
+                                        @csrf
+                                        @method('PATCH')
+                                        <label>Valid until <input type="date" name="valid_until" value="{{ $document->valid_until?->format('Y-m-d') }}" class="ui-input" data-cp-validity></label>
+                                    </form>
+                                @endif
                             </div>
                             <div class="cp-doc-actions">
-                                <a href="{{ route('bidder.document.preview', $document) }}" target="_blank" rel="noopener" class="ui-btn ui-btn--ghost ui-btn--sm"><i class="fas fa-eye" aria-hidden="true"></i> Preview</a>
+                                <a href="{{ route('bidder.document.preview', $document) }}" target="_blank" rel="noopener" data-cp-preview="{{ $document->document_type }}" class="ui-btn ui-btn--ghost ui-btn--sm"><i class="fas fa-eye" aria-hidden="true"></i> Preview</a>
                                 <a href="{{ $document->file_url }}" download="{{ $document->display_name }}" class="ui-btn ui-btn--ghost ui-btn--sm" aria-label="Download {{ $document->document_type }}"><i class="fas fa-download" aria-hidden="true"></i></a>
                             </div>
                         </li>
@@ -405,7 +495,13 @@
                         </select>
                     </div>
                     <input type="file" name="document_file" id="bidderDocumentUpload" class="cp-file-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
-                    <label for="bidderDocumentUpload" class="ui-btn ui-btn--secondary"><i class="fas fa-paperclip" aria-hidden="true"></i> Choose file</label>
+                    <label for="bidderDocumentUpload" class="cp-drop" data-cp-drop><i class="fas fa-cloud-arrow-up" aria-hidden="true"></i> <span>Drop the file here or <u>choose a file</u></span></label>
+                    @if($tracksValidity)
+                        <div class="ui-field cp-upload-validity">
+                            <label class="ui-label" for="bidderDocumentValidUntil">Valid until <small>(if written on it)</small></label>
+                            <input type="date" name="valid_until" id="bidderDocumentValidUntil" class="ui-input">
+                        </div>
+                    @endif
                     <button type="submit" class="ui-btn ui-btn--primary" id="bidderDocumentSubmit" disabled><i class="fas fa-upload" aria-hidden="true"></i> Upload</button>
                 </div>
                 <span class="cp-upload-name" id="bidderDocumentName">PDF, DOC, DOCX, JPG or PNG, up to 20 MB. Uploading a type you already have saves it as a new version.</span>
@@ -450,7 +546,10 @@
                         <div><dt>Business address</dt><dd>{{ $profile?->business_address ?: 'Not provided' }}</dd></div>
                     </dl>
                     @if($isApproved)
-                        <p class="ui-hint ui-mt-sm">Verified details are locked. To change them, message the SJBAC.</p>
+                        <div class="cp-locked">
+                            <p class="ui-hint">Verified details are locked. Ask the SJBAC to change them.</p>
+                            <a class="ui-btn ui-btn--secondary ui-btn--sm" href="{{ route('bidder.messages', array_filter(['user' => $adminContactId, 'draft' => 'Request to change our company details ('.$companyLabel.', registration no. '.($user->registration_no ?: 'n/a').'). Field to change: … New value: … Reason: …'])) }}"><i class="fas fa-pen-to-square" aria-hidden="true"></i> Request a change</a>
+                        </div>
                     @endif
                 </div>
             </section>
@@ -497,7 +596,7 @@
     </div>
 
     @if($hasQr)
-    <div class="cp-panel cp-panel--narrow" id="cp-panel-qr" role="tabpanel" aria-labelledby="cp-tab-qr" data-cp-panel="qr" hidden>
+    <div class="cp-panel cp-panel--narrow cp-panel--qr" id="cp-panel-qr" aria-label="Public record QR" data-cp-panel="company" hidden>
                 <section class="ui-card" aria-labelledby="cp-qr-title">
                     <div class="ui-card__head">
                         <div>
@@ -526,6 +625,11 @@
     </div>
     @endif
 </div>
+
+<dialog class="cp-preview" id="cpPreviewDialog" aria-labelledby="cpPreviewTitle">
+    <header><h2 id="cpPreviewTitle">Document</h2><button type="button" class="cp-preview-close" data-cp-preview-close aria-label="Close">&times;</button></header>
+    <iframe title="Document preview" data-cp-preview-frame></iframe>
+</dialog>
 
 {{-- Confirmation before resubmitting corrections --}}
 <dialog class="ui-dialog cp-dialog" id="confirmResubmitModal" aria-labelledby="confirmResubmitTitle" style="width: min(460px, calc(100vw - 32px))">
@@ -626,15 +730,53 @@
             });
         });
 
-        // "Upload another document": choose, then confirm with Upload.
-        const upload = document.getElementById('bidderDocumentUpload');
+        // Preview in a dialog over the page (the link still opens a tab without JavaScript).
+        const previewDialog = document.getElementById('cpPreviewDialog');
+        document.addEventListener('click', function (event) {
+            const link = event.target.closest('[data-cp-preview]');
+            if (link && previewDialog && typeof previewDialog.showModal === 'function') {
+                event.preventDefault();
+                previewDialog.querySelector('#cpPreviewTitle').textContent = link.dataset.cpPreview || 'Document';
+                previewDialog.querySelector('[data-cp-preview-frame]').src = link.href;
+                previewDialog.showModal();
+            }
+            if (event.target.closest('[data-cp-preview-close]') || event.target === previewDialog) {
+                previewDialog.close();
+                previewDialog.querySelector('[data-cp-preview-frame]').src = 'about:blank';
+            }
+        });
+
+        // A validity date saves as soon as it is picked.
+        document.querySelectorAll('[data-cp-validity]').forEach(function (input) {
+            input.addEventListener('change', function () { input.form.submit(); });
+        });
+
+        // "Upload another document": drop a file or choose one; its name and size show before Upload.
+        const drop = document.querySelector('[data-cp-drop]');
+        const dropInput = document.getElementById('bidderDocumentUpload');
+        if (drop && dropInput) {
+            ['dragenter', 'dragover'].forEach(function (type) {
+                drop.addEventListener(type, function (event) { event.preventDefault(); drop.classList.add('is-over'); });
+            });
+            ['dragleave', 'drop'].forEach(function (type) {
+                drop.addEventListener(type, function () { drop.classList.remove('is-over'); });
+            });
+            drop.addEventListener('drop', function (event) {
+                event.preventDefault();
+                if (!event.dataTransfer || !event.dataTransfer.files.length) return;
+                dropInput.files = event.dataTransfer.files;
+                dropInput.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        }
+
+        // "Upload another document": choose, then confirm with Upload.        const upload = document.getElementById('bidderDocumentUpload');
         const uploadName = document.getElementById('bidderDocumentName');
         const uploadSubmit = document.getElementById('bidderDocumentSubmit');
         if (upload) {
             upload.addEventListener('change', function () {
                 const file = upload.files.length ? upload.files[0] : null;
                 if (uploadSubmit) uploadSubmit.disabled = !file;
-                if (uploadName && file) uploadName.textContent = 'Selected: ' + file.name;
+                if (uploadName && file) uploadName.textContent = 'Selected: ' + file.name + ' (' + (file.size >= 1048576 ? (file.size / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(file.size / 1024)) + ' KB') + ')' + (file.size > 20 * 1048576 ? ': too large, the limit is 20 MB.' : '');
             });
         }
 

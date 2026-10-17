@@ -193,6 +193,10 @@
                                     'missing' => 'Not uploaded',
                                     default => 'Not uploaded (optional)',
                                 } }}</small>
+                                @php $validity = $row['file']?->validity(); @endphp
+                                @if($validity)
+                                    <small class="brv-validity is-{{ $validity[0] }}">{{ $validity[0] === 'expired' ? 'Expired' : 'Valid until' }} {{ $row['file']->valid_until->format('M d, Y') }}{{ $validity[0] === 'expiring' ? ' · '.$validity[1].' days left' : '' }}</small>
+                                @endif
                             </span>
                             <span class="brv-doc-actions">
                                 @if($isPendingReview)
@@ -398,6 +402,9 @@
     .brv :is(ul, ol) { padding: 0; list-style: none; }
     .brv-mono { font-family: var(--ui-mono); font-size: .95em; }
 
+    .brv-validity { display: inline-block; margin-top: 3px; padding: 1px 7px; border-radius: 999px; font-weight: 600; background: var(--ui-success-soft); color: var(--ui-success); }
+    .brv-validity.is-expiring { background: var(--ui-warning-soft); color: var(--ui-warning); }
+    .brv-validity.is-expired { background: var(--ui-danger-soft, #fdecec); color: var(--ui-danger); }
     .brv-alert { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid; border-radius: var(--ui-radius); font-size: var(--ui-text-sm); line-height: 1.5; }
     .brv-alert i { margin-top: 2px; }
     .brv-alert ul { padding-left: 16px; list-style: disc; }

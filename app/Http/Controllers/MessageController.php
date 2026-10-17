@@ -208,6 +208,8 @@ class MessageController extends Controller
             'conversationMessages' => $conversationMessages,
             'bidderNotificationCount' => SystemNotification::unreadCount($bidder->id),
             'bidderUnreadMessagesCount' => $this->unreadMessagesCountFor($bidder->id),
+            // A message started elsewhere (e.g. "Request a change" on the company profile).
+            'messageDraft' => \Illuminate\Support\Str::limit(trim((string) $request->query('draft', '')), 1000, ''),
         ]);
     }
 

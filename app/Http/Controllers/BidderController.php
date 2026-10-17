@@ -315,6 +315,7 @@ class BidderController extends Controller
         $validated = $request->validate([
             'document_type' => ['required', 'string', Rule::in($documentTypes)],
             'document_file' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:20480'],
+            'valid_until' => ['nullable', 'date', 'after:2000-01-01', 'before:2100-01-01'],
         ]);
 
         $file = $request->file('document_file');
@@ -345,6 +346,7 @@ class BidderController extends Controller
                 'review_status' => $user->status === 'pending' ? 'for_review' : 'uploaded',
                 'supersedes_id' => $previous?->id,
                 'uploaded_at' => now(),
+                ...(BidderDocument::tracksValidity() ? ['valid_until' => $validated['valid_until'] ?? null] : []),
             ])->save();
             AuditLog::log($previous && $user->status === 'pending' ? 'bidder_document_resubmitted' : 'bidder_document_uploaded', $document, $previous ? ['supersedes_id' => $previous->id, 'version' => $previous->version] : null, ['document_type' => $document->document_type, 'version' => $document->version], ['user_id' => $user->id]);
         });
@@ -353,6 +355,19 @@ class BidderController extends Controller
         SystemNotification::createForRole('staff', 'Bidder document uploaded', ($user->company ?: $user->name) . ' uploaded ' . $validated['document_type'] . ' for review.', 'bidder_document', ['user_id' => $user->id, 'document_type' => $validated['document_type']]);
 
         return redirect()->route('bidder.company-profile')->with('success', $validated['document_type'] . ' uploaded successfully.');
+    }
+
+    /** The bidder records (or clears) the "Valid until" date written on one of their documents. */
+    public function updateDocumentValidity(Request $request, BidderDocument $document)
+    {
+        abort_unless((int) $document->user_id === (int) Auth::id(), 404);
+        abort_unless(BidderDocument::tracksValidity(), 404);
+        $validated = $request->validate(['valid_until' => ['nullable', 'date', 'after:2000-01-01', 'before:2100-01-01']], [
+            'valid_until.date' => 'Enter the date the document is valid until.',
+        ]);
+        $document->forceFill(['valid_until' => $validated['valid_until'] ?? null])->save();
+
+        return redirect()->route('bidder.company-profile')->with('success', $document->document_type.': validity date saved.');
     }
 
     public function previewDocument(BidderDocument $document)
