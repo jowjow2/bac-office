@@ -620,6 +620,23 @@
 
     /* What the file contains: a compact, numbered two-column list. */
     .bidder-submit-modal-overlay .sb .sb-merge { display: grid; gap: 10px; margin-top: 6px; }
+    /* The key facts on one line above the notice. */
+    .bidder-submit-modal-overlay .sb-strip { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 14px 30px 4px; list-style: none; }
+    .bidder-submit-modal-overlay .sb-strip li { display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 12px; border: 1px solid var(--sb-line, #e3e8e4); border-radius: 999px; background: #fff; font-size: 13px; }
+    .bidder-submit-modal-overlay .sb-strip span { color: var(--ui-muted); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .bidder-submit-modal-overlay .sb-strip strong { color: var(--ui-ink); font-weight: 700; }
+    .bidder-submit-modal-overlay .sb-strip small { color: var(--ui-muted); font-size: 12px; }
+    .bidder-submit-modal-overlay .sb-strip li.is-ok { border-color: var(--ui-success-line, #b7dcc8); background: var(--ui-success-soft, #ecf7f0); }
+    .bidder-submit-modal-overlay .sb-strip li.is-ok strong { color: var(--ui-success, #1f7a4d); }
+    .bidder-submit-modal-overlay .sb-strip li.is-warn { border-color: var(--ui-warning-line, #f1d79c); background: var(--ui-warning-soft, #fdf6e5); }
+    .bidder-submit-modal-overlay .sb-panel > .sb-seal-note { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--ui-primary-soft, #eef6f2); color: var(--ui-ink-2); }
+    /* The order list, folded under the upload box. */
+    .bidder-submit-modal-overlay .sb details.sb-merge > summary { display: flex; justify-content: flex-start; align-items: center; cursor: pointer; list-style: none; color: var(--ui-primary); font-size: 13px; font-weight: 600; }
+    .bidder-submit-modal-overlay .sb details.sb-merge > summary::-webkit-details-marker { display: none; }
+    .bidder-submit-modal-overlay .sb details.sb-merge > summary::before { content: '\f078'; margin-right: 8px; font-family: 'Font Awesome 6 Free'; font-weight: 900; font-size: 11px; display: inline-block; transition: transform .15s ease; }
+    .bidder-submit-modal-overlay .sb details.sb-merge[open] > summary::before { transform: rotate(180deg); }
+    .bidder-submit-modal-overlay .sb-status { font-weight: 500; }
+    .bidder-submit-modal-overlay .sb-status.is-ready { color: var(--ui-success, #1f7a4d); font-weight: 600; }
     .bidder-submit-modal-overlay .sb .sb-merge-title { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0; color: var(--ui-ink); font-size: 13px; font-weight: 700; }
     .bidder-submit-modal-overlay .sb .sb-merge-title span { color: var(--ui-muted); font-size: 12px; font-weight: 600; }
     .bidder-submit-modal-overlay .sb .sb-merge-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
@@ -700,6 +717,10 @@
             const amount = form.querySelector('[data-bid-amount]');
             const pins = form.querySelectorAll('[data-pin]');
             let step = 1;
+            // A tab chosen directly also moves the status line to that step.
+            dialog.querySelectorAll('.sb-step[data-sb-go]').forEach(function (tab) {
+                tab.addEventListener('click', function () { step = Number(tab.dataset.sbGo) || 1; refresh(); });
+            });
             // The PIN is typed into one real box (so autofill guards, the eye button and validation keep working);
             // six boxes show it digit by digit on top.
             dialog.querySelectorAll('.sb-pin-control').forEach(function (control) {
@@ -809,6 +830,51 @@
                         count.classList.toggle('is-done', stepComplete(index + 1));
                     }
                 });
+
+                // Each step tab shows its progress, and a check once done.
+                const progress = {};
+                ['technical', 'financial'].forEach(function (component, index) {
+                    const list = rows(component).map(rowState);
+                    const required = list.filter(function (row) { return row.required; });
+                    const ready = required.filter(function (row) { return row.file || row.record; }).length;
+                    progress[index + 1] = { ready: ready, total: required.length };
+                });
+                dialog.querySelectorAll('.sb-step[data-sb-go]').forEach(function (tab) {
+                    const n = Number(tab.dataset.sbGo);
+                    const done = stepComplete(n);
+                    tab.classList.toggle('is-done', done);
+                    const small = tab.querySelector('small');
+                    if (!small) return;
+                    if (small.dataset.hint === undefined) small.dataset.hint = small.textContent;
+                    const p = progress[n];
+                    small.textContent = p && p.total
+                        ? p.ready + ' of ' + p.total + ' required' + (done ? ' · done' : '')
+                        : (done ? 'Done' : small.dataset.hint);
+                });
+
+                // The line beside Next: only what the current step still needs.
+                const status = dialog.querySelector('[data-bid-status]');
+                if (status && form.dataset.paymentLocked !== 'true') {
+                    let text;
+                    if (step === 1) {
+                        const p = progress[1];
+                        text = stepComplete(1)
+                            ? 'Technical documents ready. Next: the financial offer.'
+                            : 'Step 1 of 3: upload the technical documents' + (p && p.total ? ' (' + p.ready + ' of ' + p.total + ' ready).' : '.');
+                    } else if (step === 2) {
+                        const need = [];
+                        if (!amountOk()) need.push(amountOf(amount) === null ? 'the bid price' : 'a bid price within the ABC');
+                        if (electronic && !pinOk()) need.push('the 6-digit PIN');
+                        const p = progress[2];
+                        if (p && p.total > p.ready) need.push((p.total - p.ready) + ' financial ' + (p.total - p.ready === 1 ? 'file' : 'files'));
+                        text = need.length ? 'Step 2 of 3: still needed: ' + need.join(', ') + '.' : 'Financial offer ready. Next: review and submit.';
+                    } else {
+                        text = stepComplete(3) ? (electronic ? 'Ready to submit officially.' : 'Ready to save as a draft record (not an official bid).') : 'Some parts are missing: see the checklist above.';
+                    }
+                    status.textContent = text;
+                    status.classList.toggle('is-ready', stepComplete(3) && step === 3);
+                    status.dataset.sbOwned = '1';
+                }
 
                 const compare = dialog.querySelector('[data-bid-compare]');
                 if (compare) compare.innerHTML = compareText(amountOf(amount));

@@ -39,8 +39,8 @@
     </div>
 
     {{-- What the file must contain, in order; each ticks green once the file is chosen. --}}
-    <div class="sb-merge">
-        <p class="sb-merge-title">Inside your file, in this order <span>{{ $required->count() }} documents</span></p>
+    <details class="sb-merge">
+        <summary class="sb-merge-title">See the {{ $required->count() }} documents to put inside, in this order</summary>
         <ol class="sb-merge-list">
             @foreach($required as $item)
                 <li title="{{ $item['condition'] ?: $item['label'] }}">
@@ -53,5 +53,5 @@
         @if($optional->isNotEmpty())
             <p class="sb-list-note"><i class="fas fa-circle-info" aria-hidden="true"></i> Add these only if they apply to you: {{ $optional->pluck('label')->implode('; ') }}.</p>
         @endif
-    </div>
+    </details>
 </div>

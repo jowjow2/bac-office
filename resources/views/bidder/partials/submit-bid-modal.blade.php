@@ -43,25 +43,22 @@
         </header>
 
         <div class="sb-body" data-scroll-body>
-            <div class="sb-summary">
-                    <p class="sb-seal-note"><i class="fas fa-shield-halved" aria-hidden="true"></i> Submit both components now. Technical opens at the scheduled bid opening; financial stays sealed until the BAC approves the technical review.</p>
-                    <dl class="sb-facts">
-                        <div><dt>Approved budget</dt><dd>&#8369;{{ number_format($abc, 2) }}</dd></div>
-                        <div class="{{ $daysLeftLabel && str_contains($daysLeftLabel, 'today') ? 'is-warn' : '' }}">
-                            <dt>Submission deadline</dt>
-                            <dd>{{ $deadlineLocal ? $deadlineLocal->format('M d, Y · h:i A') : 'Not set' }}@if($daysLeftLabel)<small>{{ ucfirst($daysLeftLabel) }}</small>@endif</dd>
-                        </div>
-                        <div><dt>Bid opening</dt><dd>{{ $openingAt ? $openingAt->format('M d, Y · h:i A') : 'To be announced' }}</dd></div>
-                        <div class="{{ $requiresFee ? ($feePayment ? 'is-ok' : 'is-warn') : '' }}">
-                            <dt>Bidding documents fee</dt>
-                            <dd>@if($requiresFee){{ $feePayment ? 'Paid' : $feeLabel }}<small>{{ $feePayment ? 'OR No. '.$feePayment->or_number : 'Pay at the BAC office' }}</small>@else{{ $project->biddingFeeWaived() ? 'Waived' : 'None' }}@endif</dd>
-                        </div>
-                    </dl>
-            </div>
+            {{-- One line with what the bidder must keep in mind; the project notice below holds the rest. --}}
+            <ul class="sb-strip" aria-label="Key details">
+                <li><span>ABC</span><strong>&#8369;{{ number_format($abc, 2) }}</strong></li>
+                <li class="{{ $daysLeftLabel && str_contains($daysLeftLabel, 'today') ? 'is-warn' : '' }}"><span>Deadline</span><strong>{{ $deadlineLocal ? $deadlineLocal->format('M d, g:i A') : 'Not set' }}</strong>@if($daysLeftLabel)<small>{{ $daysLeftLabel }}</small>@endif</li>
+                <li><span>Opening</span><strong>{{ $openingAt ? $openingAt->format('M d, g:i A') : 'To be announced' }}</strong></li>
+                <li class="{{ $requiresFee ? ($feePayment ? 'is-ok' : 'is-warn') : '' }}"><span>Fee</span>
+                    @if($requiresFee)
+                        @if($feePayment)<strong><i class="fas fa-circle-check" aria-hidden="true"></i> Paid</strong><small>OR {{ $feePayment->or_number }}</small>@else<strong>{{ $feeLabel }}</strong><small>pay at the BAC office</small>@endif
+                    @else
+                        <strong>{{ $project->biddingFeeWaived() ? 'Waived' : 'None' }}</strong>
+                    @endif
+                </li>
+            </ul>
             <details class="sb-context" data-sb-notice>
                 <summary>
                     <span class="sb-context-title"><i class="fas fa-circle-info" aria-hidden="true"></i> Project notice &amp; bidding documents</span>
-                    <span class="sb-context-times">Deadline {{ $deadlineLocal?->format('M d, h:i A') ?? 'not set' }} <span aria-hidden="true">&middot;</span> Opening {{ $openingAt?->format('M d, h:i A') ?? 'not set' }}</span>
                 </summary>
                 <div class="sb-context-content">
                     <div class="sb-context-card">
@@ -197,8 +194,6 @@
                                         <p>The BAC Secretariat records receipt of your sealed bid only after your Official Receipt is recorded.</p>
                                     </div>
                                 </div>
-                            @elseif($feePayment)
-                                <p class="sb-paid"><i class="fas fa-circle-check" aria-hidden="true"></i> <strong>Bidding fee paid</strong> OR No. {{ $feePayment->or_number }} &middot; &#8369;{{ number_format((float) $feePayment->amount, 2) }} &middot; {{ $feePayment->paid_at->format('M d, Y') }}</p>
                             @endif
 
                             <div class="sb-panel-head">
@@ -226,6 +221,7 @@
                                 </div>
                                 <span class="sb-count" data-sb-count="2"></span>
                             </div>
+                            <p class="sb-seal-note"><i class="fas fa-shield-halved" aria-hidden="true"></i> Submit both components now. Technical opens at the scheduled bid opening; the financial offer stays sealed until the BAC approves the technical review.</p>
 
                             {{-- The financial offer: the bid price and the PIN that seals the financial component, side by side. --}}
                             <div class="sb-offer2 {{ $electronic ? '' : 'is-single' }}">

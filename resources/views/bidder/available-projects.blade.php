@@ -2231,7 +2231,7 @@
         function updateBidStatusHint(form, amountValid, missingDocuments) {
             const modal = form ? form.closest('.bidder-submit-modal, [data-bid-dialog]') : null;
             const status = modal ? modal.querySelector('[data-bid-status]') : null;
-            if (!status) return;
+            if (!status || status.dataset.sbOwned) return;
 
             const pending = [];
             if (!amountValid) pending.push('a valid bid price');

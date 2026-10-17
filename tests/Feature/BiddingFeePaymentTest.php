@@ -118,8 +118,8 @@ it('blocks the online bid until the BAC records the bidding fee payment', functi
         ->and($notification->data['url'])->toBe(route('bidder.available-projects', ['bid_project' => $this->project->id], false));
 
     testCase()->actingAs($this->bidder)->get(route('bidder.available-projects'))
-        ->assertSee('Bidding fee paid')
-        ->assertSee('OR No. OR-7654321')
+        ->assertSee('Paid')
+        ->assertSee('OR OR-7654321')
         ->assertSee('data-payment-locked="false"', false)
         ->assertDontSee('Pay the bidding documents fee first');
 
