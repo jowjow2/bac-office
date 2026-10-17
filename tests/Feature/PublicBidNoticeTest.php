@@ -63,9 +63,19 @@ it('does not jump a signed-in BAC admin to the dashboard: the login modal asks f
         ->assertRedirect(route('home'))
         ->assertSessionHas('scanned_project_signed_in_as', 'BAC Admin');
 
-    // An admin who then signs in still lands on the admin dashboard.
+    // An admin who then signs in (password, then the emailed code) still lands on the admin dashboard.
+    \Illuminate\Support\Facades\Mail::fake();
+    auth()->logout();
     testCase()->withSession(['participation_project_id' => $this->project->id])
         ->postJson(route('login'), ['email' => 'notice-admin@example.com', 'password' => 'password'])
+        ->assertOk()->assertJson(['requires_verification' => true]);
+    $code = null;
+    \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\LoginVerificationCodeMail::class, function ($mail) use (&$code) {
+        $code = $mail->code;
+
+        return true;
+    });
+    testCase()->postJson(route('login.verify-code'), ['code' => $code])
         ->assertOk()->assertJson(['redirect' => route('admin.dashboard')]);
 });
 

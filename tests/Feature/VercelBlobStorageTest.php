@@ -72,10 +72,17 @@ it('stores, reads, serves through a signed link and deletes files on a private B
         ->and($disk->get('certificates/1/award.pdf'))->toBe('%PDF-1.4 certificate')
         ->and($disk->size('certificates/1/award.pdf'))->toBe(20);
 
-    // Files open through a short-lived signed app link, never the private Blob URL.
+    // Files open through a short-lived signed app link, never the private Blob URL, and only for the account it was made for.
+    $owner = User::create(['name' => 'Viewer', 'email' => 'blob-viewer@example.com', 'password' => Hash::make('password'), 'role' => 'admin', 'status' => 'active']);
+    $other = User::create(['name' => 'Other', 'email' => 'blob-other@example.com', 'password' => Hash::make('password'), 'role' => 'staff', 'status' => 'active', 'office' => 'SJBAC']);
+    testCase()->actingAs($owner);
     $url = $disk->temporaryUrl('certificates/1/award.pdf', now()->addMinutes(5));
-    expect($url)->toContain('/files/local/certificates/1/award.pdf')->toContain('signature=');
-    testCase()->get($url)->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    expect($url)->toContain('/files/local/certificates/1/award.pdf')->toContain('signature=')->toContain('viewer='.$owner->id);
+    testCase()->actingAs($owner)->get($url)->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    testCase()->actingAs($other)->get($url)->assertForbidden();
+    // A link made without an account opens only official documents of published projects.
+    auth()->logout();
+    testCase()->get($disk->temporaryUrl('certificates/1/award.pdf', now()->addMinutes(5)))->assertForbidden();
     testCase()->get(route('files.blob', ['disk' => 'local', 'path' => 'certificates/1/award.pdf']))->assertForbidden();
 
     expect($disk->delete('certificates/1/award.pdf'))->toBeTrue()

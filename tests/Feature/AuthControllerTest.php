@@ -132,8 +132,8 @@ it('returns an error when the password is incorrect', function () {
     $response->assertStatus(422);
     $response->assertJsonPath('ok', false);
     $response->assertJsonPath('tab', 'login');
-    $response->assertJsonPath('message', 'Account exists, but the password is incorrect.');
-    $response->assertJsonPath('errors.password.0', 'Password is incorrect.');
+    $response->assertJsonPath('message', 'Invalid email or password.');
+    $response->assertJsonPath('errors.password.0', 'Invalid email or password.');
 
     $test->assertGuest();
 });
@@ -355,8 +355,8 @@ it('sends a password reset code before allowing a new password', function () {
 
     $resetResponse = $test->postJson('/reset-password', [
         'email' => 'reset@example.com',
-        'password' => 'new-password',
-        'password_confirmation' => 'new-password',
+        'password' => 'New-Password-2026!',
+        'password_confirmation' => 'New-Password-2026!',
     ]);
 
     $resetResponse->assertOk();
@@ -364,7 +364,7 @@ it('sends a password reset code before allowing a new password', function () {
     $resetResponse->assertJsonPath('tab', 'login');
 
     $user->refresh();
-    expect(Hash::check('new-password', $user->password))->toBeTrue();
+    expect(Hash::check('New-Password-2026!', $user->password))->toBeTrue();
 });
 
 it('expires password reset codes after three minutes', function () {
@@ -402,7 +402,7 @@ it('expires password reset codes after three minutes', function () {
     ]);
 });
 
-it('does not expose mail server errors when a password reset code cannot be sent', function () {
+it('does not expose mail server errors (or whether the account exists) when a reset code cannot be sent', function () {
     $test = testCase();
 
     User::create([
@@ -424,15 +424,14 @@ it('does not expose mail server errors when a password reset code cannot be sent
         'email' => 'reset@example.com',
     ]);
 
-    $response->assertStatus(503);
-    $response->assertJsonPath('ok', false);
-    $response->assertJsonPath('tab', 'forgot');
-    $response->assertJsonPath('message', 'We could not send the password reset code right now. Please try again later or contact the SJBAC admin.');
-    $response->assertJsonPath('errors', []);
+    // The same answer as for an unknown email (no hint whether the account exists), and no mail server detail.
+    $response->assertOk();
+    $response->assertJsonPath('message', 'If this email has an account, a password reset code has been sent.');
+    $response->assertJsonPath('tab', 'forgot_verify');
 
     expect($response->getContent())
         ->not->toContain('SMTP')
-        ->not->toContain('reset@example.com');
+        ->not->toContain('Failed to authenticate');
 
     $test->assertDatabaseMissing('password_reset_tokens', [
         'email' => 'reset@example.com',

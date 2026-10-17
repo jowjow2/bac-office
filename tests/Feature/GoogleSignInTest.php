@@ -73,11 +73,23 @@ it('signs in an approved bidder without the email code and logs it', function ()
     expect(LoginLog::where('user_id', $bidder->id)->where('login_method', 'google')->where('status', 'success')->exists())->toBeTrue();
 });
 
-it('signs in BAC accounts the same way', function () {
+it('asks a BAC account for the emailed code after Google, then signs it in', function () {
+    \Illuminate\Support\Facades\Mail::fake();
     $admin = User::create(['name' => 'BAC Chair', 'email' => 'chair@gmail.com', 'password' => Hash::make('Secret-pass-1'), 'role' => 'admin', 'status' => 'active']);
     ($this->google)('chair@gmail.com');
 
-    testCase()->get(route('auth.google.callback', ['code' => 'x']))->assertRedirect(route('admin.dashboard'));
+    // Google alone is not enough for the admin or staff: a code goes to the account's email first.
+    testCase()->get(route('auth.google.callback', ['code' => 'x']))->assertRedirect(route('home'))->assertSessionHas('auth_tab', 'verify');
+    testCase()->assertGuest();
+
+    $code = null;
+    \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\LoginVerificationCodeMail::class, function ($mail) use ($admin, &$code) {
+        $code = $mail->code;
+
+        return $mail->user->is($admin);
+    });
+
+    testCase()->postJson(route('login.verify-code'), ['code' => $code])->assertOk()->assertJsonPath('ok', true);
     testCase()->assertAuthenticatedAs($admin);
 });
 
