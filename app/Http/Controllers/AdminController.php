@@ -3363,7 +3363,12 @@ class AdminController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user?->id)],
             'username' => ['nullable', 'string', 'min:4', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', Rule::unique('users', 'username')->ignore($user?->id)],
-            'role' => ['required', Rule::in(['admin', 'staff', 'bidder'])],
+            'role' => ['required', Rule::in(['admin', 'staff', 'bidder']), function (string $attribute, $value, $fail) use ($user) {
+                // The BAC has a single admin account.
+                if ($value === 'admin' && User::where('role', 'admin')->when($user, fn ($query) => $query->whereKeyNot($user->id))->exists()) {
+                    $fail('There is already an admin account. The BAC has only one admin: make this account Staff instead.');
+                }
+            }],
             'status' => ['required', Rule::in(array_merge(['active', 'pending', 'rejected'], $user && $request->input('role') === 'bidder' ? [BidderSanction::TYPE_SUSPENDED, BidderSanction::TYPE_BLACKLISTED] : []))],
             'office' => [
                 Rule::excludeIf($request->input('role') !== 'staff'),

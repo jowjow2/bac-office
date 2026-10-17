@@ -5,6 +5,10 @@
         'staff' => ['fa-user-tie', 'Staff', 'BAC secretariat work'],
         'bidder' => ['fa-briefcase', 'Bidder', 'Supplier or contractor'],
     ];
+    // The BAC has a single admin: a new account cannot be another one.
+    if ($prefix === 'create' && \App\Models\User::where('role', 'admin')->exists()) {
+        unset($roles['admin']);
+    }
 @endphp
 <fieldset class="um-roles">
     <legend class="um-label">Account type</legend>

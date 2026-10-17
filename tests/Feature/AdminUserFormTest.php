@@ -186,3 +186,19 @@ it('closes an account that official records point to, instead of failing', funct
     expect($old->role)->toBe('end_user')->and($old->status)->toBe('inactive')->and($old->email)->toStartWith('deleted-');
     testCase()->actingAs($admin)->get(route('admin.users'))->assertOk()->assertDontSee('old-admin@example.com');
 });
+
+it('keeps a single admin account', function () {
+    $admin = User::create(['name' => 'Only Admin', 'email' => 'only-admin@example.com', 'password' => Hash::make('password'), 'role' => 'admin', 'status' => 'active']);
+    $staff = User::create(['name' => 'A Staff', 'email' => 'a-staff@example.com', 'password' => Hash::make('password'), 'role' => 'staff', 'status' => 'active', 'office' => 'SJBAC']);
+
+    testCase()->actingAs($admin)->post(route('admin.users.store'), ['name' => 'Second Admin', 'email' => 'second-admin@example.com', 'role' => 'admin', 'status' => 'active', 'password' => 'Secret-123'])
+        ->assertSessionHasErrors('role');
+    expect(User::where('email', 'second-admin@example.com')->exists())->toBeFalse();
+
+    testCase()->actingAs($admin)->put(route('admin.users.update', $staff), ['name' => 'A Staff', 'email' => 'a-staff@example.com', 'role' => 'admin', 'status' => 'active'])
+        ->assertSessionHasErrors('role');
+    expect($staff->fresh()->role)->toBe('staff');
+
+    // The add-user form does not offer a second admin.
+    testCase()->actingAs($admin)->get(route('admin.users'))->assertOk()->assertDontSee('id="create_role_admin"', false);
+});
