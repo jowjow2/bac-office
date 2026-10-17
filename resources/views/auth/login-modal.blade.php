@@ -174,6 +174,7 @@
                     <strong data-code-timer>05:00</strong>
                 </div>
                 <button type="submit" class="auth-button" data-loading-text="Verifying...">Verify and sign in</button>
+                <p class="auth-code-hint">No email yet? Look in Spam or Promotions, or paste the code: it fills every box.</p>
                 <div class="auth-inline-actions">
                     <button type="button" id="resendLoginCodeButton">Resend code</button>
                     <button type="button" onclick="activateAuthTab('login')">Back to sign in</button>

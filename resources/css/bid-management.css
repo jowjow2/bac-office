@@ -3388,3 +3388,42 @@ body #bid-management:not(#z) .bid-management-table .bid-review-button span { whi
 /* A document chip never spills out of its column: whatever the label, it is cut with an ellipsis (the full
    sentence is in the tooltip). */
 body #bid-management:not(#z) .bid-management-table .bid-document-status { max-width: 100% !important; box-sizing: border-box !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+
+/* ---------- Bid management polish ----------
+   Tablet widths scroll the table sideways instead of squeezing words into single letters; the amount
+   column reads right-aligned with a one-line rank note (the full text stays in its tooltip); the column
+   headings stay in view while scrolling; a row lights up under the pointer; filters keep their labels whole. */
+@media (min-width: 901px) and (max-width: 1279px) {
+    html body .admin-bids-v2 .bid-scroll-container { overflow-x: auto !important; }
+    html body #bid-management.admin-bids-v2 .bid-management-table { min-width: 1060px !important; }
+}
+html body #bid-management.admin-bids-v2 .bid-management-table :is(th, td) { overflow-wrap: normal !important; word-break: normal !important; }
+html body #bid-management.admin-bids-v2 .bid-management-table td.bid-amount-cell { text-align: right !important; white-space: nowrap !important; }
+html body #bid-management.admin-bids-v2 .bid-management-table td.bid-amount-cell .bid-rank {
+    display: flex !important;
+    justify-content: flex-end !important;
+    width: fit-content !important;
+    max-width: 100% !important;
+    margin: 6px 0 0 auto !important;
+}
+/* A rank note without a place yet ("Awaiting technical score") is left to the review; the table shows ranks only. */
+html body #bid-management.admin-bids-v2 .bid-management-table td.bid-amount-cell .bid-rank:not(:has(.bid-rank__no)) { display: none !important; }
+html body #bid-management.admin-bids-v2 .bid-management-table td.bid-amount-cell .bid-rank__text {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+html body #bid-management.admin-bids-v2 .bid-management-table thead th {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 2 !important;
+    background: var(--ui-surface-2, #f6f8f7) !important;
+    color: var(--ui-muted, #5f6b65) !important;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+    letter-spacing: .04em !important;
+    text-transform: uppercase !important;
+}
+html body #bid-management.admin-bids-v2 .bid-management-table tbody tr { transition: background-color .12s ease; }
+html body #bid-management.admin-bids-v2 .bid-management-table tbody tr:hover td { background: var(--ui-primary-soft, #eef6f2) !important; }
+html body #bid-management.admin-bids-v2 .admin-bids-toolbar select { min-width: 150px !important; text-overflow: ellipsis; }
