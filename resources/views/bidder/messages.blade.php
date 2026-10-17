@@ -1,7 +1,10 @@
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-@include('partials.dashboard-viewport')
+@extends('layouts.legacy-portal')
+
+@section('legacy-content')
 <div class="admin-dashboard dashboard-home admin-dashboard-page staff-dashboard-page bidder-dashboard-page bidder-messages-page">
+    @push('legacy-head')
     @vite(['resources/css/dashboard.css'])
+    @endpush
     @include('partials.message-page-styles')
 
     @include('partials.bidder-sidebar')
@@ -34,3 +37,4 @@
         </main>
     </div>
 </div>
+@endsection

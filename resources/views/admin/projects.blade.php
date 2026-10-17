@@ -1,9 +1,12 @@
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-@include('partials.dashboard-viewport')
+@extends('layouts.legacy-portal')
+
+@section('legacy-content')
 @include('partials.searchable-select')
 @include('partials.export-dialog')
 <div class="admin-dashboard admin-role-page">
+    @push('legacy-head')
     @vite(['resources/css/dashboard.css', 'resources/css/bid-management.css', 'resources/css/admin-projects.css', 'resources/js/bid-management.js'])
+    @endpush
 
     @include('partials.admin-sidebar')
 
@@ -1376,3 +1379,4 @@
     });
 
 </script>
+@endsection

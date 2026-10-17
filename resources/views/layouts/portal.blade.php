@@ -55,5 +55,6 @@
 
 @include('partials.notification-live')
 @stack('scripts')
+<span id="portal-page-ready" hidden></span>
 </body>
 </html>

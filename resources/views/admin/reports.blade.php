@@ -1,5 +1,6 @@
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-@include('partials.dashboard-viewport')
+@extends('layouts.legacy-portal')
+
+@section('legacy-content')
 @php
     $tz = config('bac-office.display_timezone', 'Asia/Manila');
     $statusTotal = max(1, collect($procurementStatusDistribution)->sum('value'));
@@ -36,7 +37,9 @@
     $eventIcons = ['pre_bid' => 'fa-people-group', 'deadline' => 'fa-hourglass-end', 'opening' => 'fa-envelope-open'];
 @endphp
 <div class="admin-dashboard admin-role-page">
+    @push('legacy-head')
     @vite(['resources/css/dashboard.css'])
+    @endpush
 
     <style id="report-analytics-page-styles">
         .report-analytics-page { background: var(--ui-page) !important; color: var(--ui-ink) !important; }
@@ -792,3 +795,4 @@
         });
     });
 </script>
+@endsection

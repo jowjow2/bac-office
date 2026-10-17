@@ -1,8 +1,9 @@
 {{--
     Switch portal pages in one frame, keeping the outgoing page visible until the next is ready.
-    It must be in the page head so the browser sees it before the first paint; older pages load their styles
-    later in the body, which would be too late.
+    Wait for the whole portal document, including its styles and restored sidebar position,
+    before taking the incoming snapshot. Otherwise a partial document can flash on navigation.
 --}}
+<link rel="expect" href="#portal-page-ready" blocking="render">
 <style>
     @view-transition { navigation: auto; }
     .portal-sidebar { view-transition-name: portal-sidebar; }

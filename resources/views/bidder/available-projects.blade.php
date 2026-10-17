@@ -1,12 +1,15 @@
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-@include('partials.dashboard-viewport')
+@extends('layouts.legacy-portal')
+
+@section('legacy-content')
 @php
     // Reopen the bid modal after a failed submission, or when a notification links to a project.
     $reopenProjectId = old('project_id') ?: request()->integer('bid_project');
     $reopenBidModalId = $reopenProjectId ? 'bid-modal-' . $reopenProjectId : '';
 @endphp
 <div class="admin-dashboard dashboard-home admin-dashboard-page bidder-dashboard-page bidder-available-page" data-reopen-bid-modal="{{ $reopenBidModalId }}">
+    @push('legacy-head')
     @vite(['resources/css/dashboard.css'])
+    @endpush
     @if(session('success'))
         <div id="bidSubmitSuccess" class="bidder-success-overlay" data-auto-hide="5000" role="status" aria-live="polite">
             <div class="bidder-success-alert">
@@ -2036,7 +2039,9 @@
 @include('bidder.partials.payment-live')
 @include('bidder.partials.bid-file-memory')
 @if(\App\Support\VercelBlob::enabled())
+    @push('legacy-head')
     @vite(['resources/js/bid-direct-upload.js'])
+    @endpush
 @endif
 <script>
     (function () {
@@ -2526,10 +2531,4 @@
         });
     })();
 </script>
-
-
-
-
-
-
-
+@endsection

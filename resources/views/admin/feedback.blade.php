@@ -1,9 +1,12 @@
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-@include('partials.dashboard-viewport')
+@extends('layouts.legacy-portal')
+
+@section('legacy-content')
 @include('partials.export-dialog')
 @php $kinds = \App\Models\Feedback::CATEGORIES; $tz = config('bac-office.display_timezone', 'Asia/Manila'); @endphp
 <div class="admin-dashboard admin-role-page dashboard-home admin-feedback-page">
+    @push('legacy-head')
     @vite(['resources/css/dashboard.css'])
+    @endpush
     @include('partials.admin-sidebar')
 
     <div class="main-area">
@@ -135,3 +138,4 @@
     .admin-feedback-page .afb-empty strong { color: var(--ui-ink); }
     .admin-feedback-page .afb-pager { margin-top: 14px; }
 </style>
+@endsection

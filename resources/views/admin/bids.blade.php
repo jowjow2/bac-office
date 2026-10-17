@@ -1,5 +1,6 @@
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-@include('partials.dashboard-viewport')
+@extends('layouts.legacy-portal')
+
+@section('legacy-content')
 @include('partials.export-dialog')
 @php
     // BAC Admin: every bid, with decisions. BAC Staff: the assigned projects' bids, to check documents.
@@ -7,7 +8,9 @@
     $isStaff = $portal === 'staff';
 @endphp
 <div class="admin-dashboard admin-role-page {{ $isStaff ? 'staff-role-page' : '' }} dashboard-home admin-dashboard-page admin-bids-page">
+    @push('legacy-head')
     @vite(['resources/css/dashboard.css', 'resources/css/bid-management.css', 'resources/js/bid-management.js'])
+    @endpush
 
     @if($isStaff)
         @include('partials.staff-sidebar', ['activeStaffMenu' => 'review-bids'])
@@ -191,3 +194,4 @@
 
 <script type="application/json" id="bidExportRows">@json($exportRows ?? [])</script>
 <div id="bidExportToastRegion" class="bid-export-toast-region" aria-live="polite" aria-atomic="true"></div>
+@endsection

@@ -1,11 +1,14 @@
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-@include('partials.dashboard-viewport')
+@extends('layouts.legacy-portal')
+
+@section('legacy-content')
 @php
     $tz = config('bac-office.display_timezone', 'Asia/Manila');
     $hasFilters = collect($filters)->filter(fn ($value) => $value !== '')->isNotEmpty();
 @endphp
 <div class="admin-dashboard admin-role-page">
+    @push('legacy-head')
     @vite(['resources/css/dashboard.css'])
+    @endpush
 
     @include('partials.admin-sidebar')
 
@@ -229,3 +232,4 @@
         </main>
     </div>
 </div>
+@endsection

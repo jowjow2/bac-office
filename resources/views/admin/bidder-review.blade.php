@@ -1,9 +1,11 @@
+@extends('layouts.legacy-portal', ['portalFragment' => request()->boolean('modal')])
+
+@section('legacy-content')
 {{--
     Bidder review: the Suppliers & users modal (?modal=1) and the standalone page (staff).
     users.blade.php submits the forms marked data-async-review-action by AJAX and polls
     #recentLoginActivityRows; every other form posts normally. Styles: the .brv block below.
 --}}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 @php
     $isReviewModal = request()->boolean('modal');
     $reviewRoutePrefix = auth()->user()?->role === 'staff' ? 'staff' : 'admin';
@@ -56,8 +58,9 @@
 @endphp
 
 @unless($isReviewModal)
-    @include('partials.dashboard-viewport')
-    @vite(['resources/css/dashboard.css'])
+        @push('legacy-head')
+        @vite(['resources/css/dashboard.css'])
+        @endpush
     <div class="admin-dashboard admin-role-page">
         @include(auth()->user()?->role === 'staff' ? 'partials.staff-sidebar' : 'partials.admin-sidebar')
         <div class="main-area">
@@ -526,3 +529,4 @@
         .brv-grid { grid-template-columns: 1fr; }
     }
 </style>
+@endsection
