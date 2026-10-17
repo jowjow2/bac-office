@@ -80,6 +80,25 @@
     </div>
 </aside>
 
+{{-- Restore before the first paint rather than waiting for deferred portal.js. --}}
+<script>
+    (() => {
+        const nav = document.querySelector('#portalSidebar .portal-nav');
+        if (!nav) return;
+        const key = @json('portal-nav-scroll:'.$portalUser?->id);
+        try {
+            const saved = Number(sessionStorage.getItem(key));
+            if (Number.isFinite(saved) && saved >= 0) nav.scrollTop = saved;
+        } catch (error) { /* Navigation still works when browser storage is unavailable. */ }
+        const remember = () => {
+            try { sessionStorage.setItem(key, String(nav.scrollTop)); } catch (error) { /* Storage is optional. */ }
+        };
+        nav.addEventListener('click', remember);
+        window.addEventListener('pagehide', remember);
+        window.addEventListener('pageswap', remember);
+    })();
+</script>
+
 {{-- Pages of the sidebar are fetched ahead while the pointer is on a link, so opening one is quick. --}}
 <script type="speculationrules">{"prefetch":[{"source":"document","where":{"selector_matches":".portal-nav__link"},"eagerness":"moderate"}]}</script>
 <div class="portal-backdrop" data-portal-nav-close></div>

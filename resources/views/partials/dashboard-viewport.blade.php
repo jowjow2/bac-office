@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 @include('partials.page-transition')
+@include('partials.portal.assets')
 @php
     // Older pages have no <title> of their own: name the browser tab after the page.
     $tabTitles = [

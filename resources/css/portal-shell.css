@@ -158,7 +158,6 @@
     font-weight: 500;
     line-height: 1.3;
     text-decoration: none;
-    transition: background-color .15s ease, color .15s ease;
 }
 
 .portal-nav__link > i {
