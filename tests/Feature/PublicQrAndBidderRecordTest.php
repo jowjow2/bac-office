@@ -124,3 +124,15 @@ it('shows the same record, plus every submitted bid, under Bidding record in the
         ->assertSee('id="cp-panel-record"', false)
         ->assertSeeInOrder(['Successful bids', 'Concreting of the barangay road', '₱2,900,000.00', 'Approved for award', 'Other submitted bids', 'Supply of school armchairs']);
 });
+
+it('tells the winning bidder whose turn it is on Awarded contracts, with filters and their place while awaiting award', function () {
+    $won = ($this->project)('SJ-BAC-2026-I-021', 'Road widening of Poblacion');
+    $wonBid = Bid::create(['project_id' => $won->id, 'user_id' => $this->bidderUser->id, 'bid_amount' => 3000000, 'status' => 'awarded', 'workflow_step' => Bid::STEP_AWARDED, 'submission_channel' => Bid::CHANNEL_ELECTRONIC, 'submitted_at' => now()->subDays(21), 'receipt_no' => 'R-AWC-1']);
+    Award::create(['project_id' => $won->id, 'bid_id' => $wonBid->id, 'bidder_id' => $this->bidderUser->id, 'contract_amount' => 3000000, 'notice_of_award_date' => now()->subDays(2)->toDateString(), 'status' => Award::STATUS_VALID, 'certificate_status' => Award::STATUS_VALID]);
+
+    testCase()->actingAs($this->bidderUser)->get(route('bidder.awarded-contracts'))->assertOk()
+        ->assertSee('Your turn: sign the contract at the BAC office')
+        ->assertSee('data-awc-filter="ongoing"', false)->assertSee('data-awc-filter="cancelled"', false)
+        ->assertSee('id="awcSearch"', false)
+        ->assertDontSee('class="awc-qr"', false);
+});

@@ -12,6 +12,10 @@
     // Contracts waiting for this supplier: delivery terms recorded and a delivery or correction due.
     $needsDelivery = $tracked->filter(fn ($award) => $award->contractImplementation->isConfigured()
         && in_array($award->contractImplementation->status, [CI::FOR_DELIVERY, CI::FOR_CORRECTION], true));
+    $awardedProjects = $awardedProjects->sortBy(fn ($award) => $award->isCancelled() ? 1 : 0)->values();
+    $stateOf = fn ($award) => $award->isCancelled() ? 'cancelled'
+        : (in_array($award->contractImplementation?->status, [CI::COMPLETED, CI::INFRA_COMPLETED], true) ? 'completed' : 'ongoing');
+    $stateCounts = $awardedProjects->countBy($stateOf);
 @endphp
 
 @section('title', 'Awarded contracts')
@@ -24,9 +28,29 @@
 @push('head')
 <style>
     .awc-list { display: grid; gap: 14px; }
-    .awc { display: grid; grid-template-columns: minmax(0, 1fr) 220px; overflow: hidden; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg); background: var(--ui-surface); }
+    .awc { display: grid; grid-template-columns: minmax(0, 1fr); overflow: hidden; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg); background: var(--ui-surface); }
     .awc.is-highlight { border-color: var(--ui-primary-line); box-shadow: 0 0 0 3px var(--ui-primary-soft); }
     .awc-main { display: grid; gap: 14px; min-width: 0; padding: 18px 20px; }
+    .awc.is-cancelled { opacity: .7; }
+    .awc-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 16px; margin-bottom: 12px; border-bottom: 1px solid var(--ui-line); }
+    .awc-toolbar .ui-tabs { border-bottom: 0; }
+    .awc-toolbar .ui-tab { border: 0; border-bottom: 2px solid transparent; background: none; font-family: inherit; cursor: pointer; }
+    .awc-toolbar .ui-search { flex: 0 1 280px; margin: 8px 0; }
+    .awc-kpi-filter { border: 1px solid var(--ui-line); font: inherit; text-align: left; cursor: pointer; }
+    .awc-kpi-filter:disabled { cursor: default; }
+    .awc-next { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; padding: 9px 12px; border-radius: 10px; background: var(--ui-surface-2, #f4f7f5); color: var(--ui-ink-2); font-size: 13px; }
+    .awc-next.is-you { background: var(--ui-warning-soft, #fdf6e5); color: var(--ui-ink); font-weight: 600; }
+    .awc-next.is-you > i { color: var(--ui-warning, #b7791f); }
+    .awc-next.is-done { background: var(--ui-success-soft, #ecf7f0); color: var(--ui-success, #1f7a4d); }
+    .awc-next > span { flex: 1 1 240px; }
+    .awc-due { padding: 2px 9px; border-radius: 999px; background: #fff; color: var(--ui-ink-2); font-size: 12px; }
+    .awc-due.is-soon { background: var(--ui-danger-soft, #fdecec); color: var(--ui-danger, #b42318); }
+    .awc-docs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: 13px; }
+    .awc-docs-label { color: var(--ui-muted); font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .awc-doc { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--ui-line); border-radius: 999px; background: #fff; }
+    .awc-doc i { color: var(--ui-primary); }
+    .awc-doc a { color: var(--ui-primary); font-weight: 600; }
+    .awc-certno { display: block; margin-top: 2px; color: var(--ui-muted); font-size: 12px; }
     .awc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     .awc-title { margin: 0; color: var(--ui-ink); font-size: var(--ui-text-lg); font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
     .awc-sub { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 4px 0 0; color: var(--ui-muted); font-size: var(--ui-text-sm); }
@@ -110,16 +134,16 @@
             <span class="ui-kpi__value">{{ $awardsInForce->count() }}</span>
             <span class="ui-kpi__foot">{{ Format::peso($awardsInForce->sum(fn ($award) => (float) $award->contract_amount)) }} total contract amount</span>
         </div>
-        <div class="ui-kpi">
+        <button type="button" class="ui-kpi awc-kpi-filter" data-awc-filter="implementation" @disabled($inImplementation->isEmpty())>
             <span class="ui-kpi__label">In implementation</span>
             <span class="ui-kpi__value">{{ $inImplementation->count() }}</span>
-            <span class="ui-kpi__foot">Delivery, inspection or payment in progress</span>
-        </div>
-        <div class="ui-kpi">
+            <span class="ui-kpi__foot">{{ $inImplementation->isNotEmpty() ? 'Show them' : 'Delivery, inspection or payment in progress' }}</span>
+        </button>
+        <button type="button" class="ui-kpi awc-kpi-filter {{ $needsDelivery->isNotEmpty() ? 'ui-kpi--warning' : '' }}" data-awc-filter="delivery" @disabled($needsDelivery->isEmpty())>
             <span class="ui-kpi__label">Needs your delivery</span>
             <span class="ui-kpi__value">{{ $needsDelivery->count() }}</span>
-            <span class="ui-kpi__foot">Deliveries or corrections to submit</span>
-        </div>
+            <span class="ui-kpi__foot">{{ $needsDelivery->isNotEmpty() ? 'Show them' : 'Deliveries or corrections to submit' }}</span>
+        </button>
         <a href="{{ route('bidder.bidding-track') }}" class="ui-kpi">
             <span class="ui-kpi__label">Awaiting award</span>
             <span class="ui-kpi__value">{{ $awaitingAwardBids->count() }}</span>
@@ -159,6 +183,19 @@
                 </div>
             </div>
         @else
+            <div class="awc-toolbar">
+                <nav class="ui-tabs" aria-label="Filter contracts">
+                    <button type="button" class="ui-tab" data-awc-filter="all" aria-current="page">All <span class="ui-tab__count">{{ $awardedProjects->count() }}</span></button>
+                    <button type="button" class="ui-tab" data-awc-filter="ongoing">Ongoing <span class="ui-tab__count">{{ $stateCounts['ongoing'] ?? 0 }}</span></button>
+                    <button type="button" class="ui-tab" data-awc-filter="completed">Completed <span class="ui-tab__count">{{ $stateCounts['completed'] ?? 0 }}</span></button>
+                    <button type="button" class="ui-tab" data-awc-filter="cancelled">Cancelled <span class="ui-tab__count">{{ $stateCounts['cancelled'] ?? 0 }}</span></button>
+                </nav>
+                <label class="ui-search">
+                    <span class="sr-only">Search contracts</span>
+                    <i class="fas fa-search" aria-hidden="true"></i>
+                    <input type="search" class="ui-input" id="awcSearch" placeholder="Search project or reference no." autocomplete="off">
+                </label>
+            </div>
             <div class="awc-list">
                 @foreach($awardedProjects as $award)
                     @php
@@ -171,8 +208,30 @@
                         $hasCertificate = $award->hasCertificateFile() && filled($award->qr_token) && ! $award->isCancelled();
                         $isTracked = $ciWorkflow->eligible($award) && $award->contractImplementation;
                         $criterion = $project?->award_criterion ? (\App\Models\Project::AWARD_CRITERIA[$project->award_criterion] ?? null) : null;
+                        $ci = $award->contractImplementation;
+                        $state = $stateOf($award);
+                        $waitsForDelivery = $needsDelivery->contains('id', $award->id);
+                        // Who holds the next step, in one sentence.
+                        $next = match (true) {
+                            $award->isCancelled() => null,
+                            $state === 'completed' => ['done', 'Contract completed. Thank you.'],
+                            ! $noaAt => ['bac', 'Waiting for the BAC: the Notice of Award is being prepared.'],
+                            ! $signedAt => ['you', 'Your turn: sign the contract at the BAC office and bring the performance security.'],
+                            ! $ntpAt => ['bac', 'Waiting for the BAC: the Notice to Proceed is being prepared.'],
+                            $waitsForDelivery => ['you', $ci?->status === CI::FOR_CORRECTION ? 'Your turn: send the correction the LGU asked for.' : 'Your turn: deliver and submit the delivery details and receipt.'],
+                            $ci !== null => ['bac', 'The LGU is receiving, inspecting or paying for the delivery.'],
+                            default => ['bac', 'Waiting for the BAC to record the contract terms.'],
+                        };
+                        // The delivery date in force, while it still matters.
+                        $dueOn = $ci && ! $ci->accepted_on && ! in_array($ci->status, [CI::COMPLETED, CI::INFRA_COMPLETED], true) ? $ci->effectiveDeadline() : null;
+                        $dueDays = $dueOn ? (int) now($tz)->startOfDay()->diffInDays($dueOn->copy()->startOfDay(), false) : null;
+                        // Every document of the award in one row.
+                        $documents = collect();
+                        if ($hasCertificate) $documents->push(['Notice of Award certificate', $award->tokenCertificateUrl(), null]);
+                        if ($ci?->signed_contract_file_path) $documents->push(['Signed contract', \App\Support\Uploads::url($ci->signed_contract_file_path), null]);
+                        if ($award->hasPublishedNoticeToProceed()) $documents->push(['Notice to Proceed', $award->noticeToProceedUrl(), $award->noticeToProceedUrl(download: true)]);
                     @endphp
-                    <article class="awc {{ (string) request('award') === (string) $award->id ? 'is-highlight' : '' }}" id="award-{{ $award->id }}" aria-labelledby="award-{{ $award->id }}-title">
+                    <article class="awc is-{{ $state }} {{ (string) request('award') === (string) $award->id ? 'is-highlight' : '' }}" data-awc-row data-state="{{ $state }}" data-impl="{{ $inImplementation->contains('id', $award->id) ? '1' : '0' }}" data-delivery="{{ $waitsForDelivery ? '1' : '0' }}" data-search="{{ \Illuminate\Support\Str::lower(($project?->title ?? '').' '.($project?->reference_no ?? '').' '.($award->certificate_number ?? '')) }}" id="award-{{ $award->id }}" aria-labelledby="award-{{ $award->id }}-title">
                         <div class="awc-main">
                             <div class="awc-head">
                                 <div>
@@ -187,8 +246,19 @@
                                 <div class="awc-amount">
                                     <span>Approved bid amount</span>
                                     <strong>{{ Format::peso($award->contract_amount) }}</strong>
+                                    @if($hasCertificate)<small class="awc-certno">Certificate {{ $award->certificate_number }}</small>@elseif(! $award->isCancelled())<small class="awc-certno">Certificate pending</small>@endif
                                 </div>
                             </div>
+
+                            @if($next)
+                                <p class="awc-next is-{{ $next[0] }}">
+                                    <i class="fas {{ $next[0] === 'you' ? 'fa-hand-point-right' : ($next[0] === 'done' ? 'fa-circle-check' : 'fa-hourglass-half') }}" aria-hidden="true"></i>
+                                    <span>{{ $next[1] }}</span>
+                                    @if($dueOn)
+                                        <strong class="awc-due {{ $dueDays !== null && $dueDays <= 3 ? 'is-soon' : '' }}">Delivery due {{ $dueOn->format('M d, Y') }} · {{ $dueDays < 0 ? abs($dueDays).' '.\Illuminate\Support\Str::plural('day', abs($dueDays)).' overdue' : ($dueDays === 0 ? 'today' : 'in '.$dueDays.' '.\Illuminate\Support\Str::plural('day', $dueDays)) }}</strong>
+                                    @endif
+                                </p>
+                            @endif
 
                             @if($award->isCancelled())
                                 <div class="ui-callout ui-callout--warning" role="status">
@@ -223,6 +293,17 @@
                                 </ol>
                             @endif
 
+                            @if($documents->isNotEmpty())
+                                <div class="awc-docs" aria-label="Award documents">
+                                    <span class="awc-docs-label">Documents</span>
+                                    @foreach($documents as [$label, $view, $download])
+                                        <span class="awc-doc"><i class="fas fa-file-lines" aria-hidden="true"></i> {{ $label }}
+                                            <a href="{{ $view }}" target="_blank" rel="noopener">View</a>@if($download) · <a href="{{ $download }}">Download</a>@endif
+                                        </span>
+                                    @endforeach
+                                </div>
+                            @endif
+
                             <div class="awc-foot">
                                 @if($award->isCancelled())
                                     <span class="awc-wait"><i class="fas fa-ban" aria-hidden="true"></i> This award no longer proceeds to a contract</span>
@@ -239,20 +320,6 @@
                             </div>
                         </div>
 
-                        <aside class="awc-cert" aria-label="Award certificate">
-                            @if($hasCertificate)
-                                <a class="awc-qr" href="{{ $award->tokenCertificateUrl() }}" target="_blank" rel="noopener" aria-label="Open the award certificate">
-                                    <img src="{{ $award->tokenQrUrl() }}" alt="QR code of the award certificate" width="112" height="112">
-                                </a>
-                                <strong>{{ $award->certificate_number }}</strong>
-                                <a class="ui-link" href="{{ $award->tokenCertificateUrl() }}" target="_blank" rel="noopener">View certificate</a>
-                            @else
-                                <span class="awc-cert-pending">
-                                    <i class="fas fa-qrcode" aria-hidden="true"></i>
-                                    Certificate pending
-                                </span>
-                            @endif
-                        </aside>
                     </article>
                 @endforeach
             </div>
@@ -281,6 +348,7 @@
                             <th scope="col" class="is-num">ABC (₱)</th>
                             <th scope="col" class="is-num">Bids received</th>
                             <th scope="col" class="is-num">Lowest opened bid (₱)</th>
+                            <th scope="col" class="is-num">Your bid</th>
                             <th scope="col">Your status</th>
                         </tr>
                     </thead>
@@ -302,6 +370,15 @@
                                 <td data-label="ABC (₱)" class="is-num">{{ number_format((float) ($bid->project->budget ?? 0), 2) }}</td>
                                 <td data-label="Bids received" class="is-num">{{ $projectBids->count() }}</td>
                                 <td data-label="Lowest opened bid (₱)" class="is-num">{{ $lowestBid !== null ? number_format($lowestBid, 2) : '—' }}</td>
+                                <td data-label="Your bid" class="is-num">
+                                    @if($bid->isFinancialSealed())
+                                        <span class="ui-muted">Sealed</span>
+                                    @else
+                                        {{ number_format((float) $bid->bid_amount, 2) }}
+                                        @php $myPlace = $openedPrices->filter(fn ($price) => $price < (float) $bid->bid_amount)->count() + 1; @endphp
+                                        <span class="ui-cell-sub">#{{ $myPlace }} of {{ $openedPrices->count() }} {{ $myPlace === 1 ? '(lowest)' : '' }}</span>
+                                    @endif
+                                </td>
                                 <td data-label="Your status"><span class="ui-pill ui-pill--info"><i class="fas fa-hourglass-half" aria-hidden="true"></i> {{ $myStage }}</span></td>
                             </tr>
                         @endforeach
@@ -325,6 +402,31 @@
 @endsection
 
 @push('scripts')
+<script>
+    (() => {
+        const rows = Array.from(document.querySelectorAll('[data-awc-row]'));
+        const search = document.getElementById('awcSearch');
+        let filter = 'all';
+        const apply = () => {
+            const term = (search ? search.value : '').trim().toLowerCase();
+            rows.forEach((row) => {
+                const inFilter = filter === 'all' || row.dataset.state === filter
+                    || (filter === 'implementation' && row.dataset.impl === '1')
+                    || (filter === 'delivery' && row.dataset.delivery === '1');
+                row.hidden = !(inFilter && (!term || row.dataset.search.includes(term)));
+            });
+        };
+        document.querySelectorAll('[data-awc-filter]').forEach((button) => button.addEventListener('click', () => {
+            filter = button.dataset.awcFilter;
+            document.querySelectorAll('.awc-toolbar [data-awc-filter]').forEach((tab) => {
+                if (tab.dataset.awcFilter === filter) tab.setAttribute('aria-current', 'page'); else tab.removeAttribute('aria-current');
+            });
+            apply();
+            if (!button.closest('.awc-toolbar')) document.querySelector('.awc-toolbar')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }));
+        search?.addEventListener('input', apply);
+    })();
+</script>
 <script>
     (() => {
         const dialog = document.getElementById('infrastructureTrackingModal');
