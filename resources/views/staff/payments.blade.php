@@ -10,7 +10,7 @@
         <x-page-header title="Bidding fee payments" subtitle="Record bidding documents fees paid at the BAC office">
             <x-slot:actions>
                 <a href="{{ route('staff.payments.export') }}" class="ui-btn ui-btn--secondary hd-export" data-export-dialog data-export-title="Export payments" data-export-noun="payment" data-export-file="Excel" data-export-choices-label="Which period" data-export-formats="{{ json_encode($exportFormats) }}"><i class="fas fa-file-export" aria-hidden="true"></i> Export</a>
-                <button type="button" class="ui-btn ui-btn--secondary hd-export" data-fee-open-scan><i class="fas fa-qrcode" aria-hidden="true"></i> Scan QR</button>
+                <button type="button" class="ui-btn ui-btn--secondary hd-export pay-scan" data-fee-open-scan><i class="fas fa-qrcode" aria-hidden="true"></i> Scan QR</button>
                 <button type="button" class="ui-btn ui-btn--primary pay-record" data-fee-open-record><i class="fas fa-plus" aria-hidden="true"></i> Record payment</button>
             </x-slot:actions>
         </x-page-header>

@@ -467,3 +467,18 @@ it('marks the parts of the payments page that the live refresh swaps in place, f
         }
     }
 });
+
+it('lists open projects closing soonest first, with Record and Scan QR on each, and filters the ledger to today', function () {
+    $zone = config('bac-office.display_timezone', 'Asia/Manila');
+    BiddingFeePayment::create(['project_id' => $this->project->id, 'user_id' => $this->bidder->id, 'amount' => 5000, 'or_number' => 'OR-TODAY-1', 'paid_at' => now($zone)->toDateString(), 'recorded_by' => $this->staff->id]);
+    BiddingFeePayment::create(['project_id' => $this->project->id, 'user_id' => $this->otherBidder->id, 'amount' => 5000, 'or_number' => 'OR-OLDER-1', 'paid_at' => now($zone)->subDays(3)->toDateString(), 'recorded_by' => $this->staff->id]);
+
+    $page = testCase()->actingAs($this->admin)->get(route('admin.payments'))->assertOk();
+    $page->assertSee('data-fee-record-project="'.$this->project->id.'"', false)
+        ->assertSee('data-fee-scan-project="'.$this->project->id.'"', false)
+        ->assertSee('2 paid')->assertSee('₱10,000.00 collected')
+        ->assertSee('Collected today')->assertSee('pay-scan', false);
+
+    testCase()->actingAs($this->admin)->get(route('admin.payments', ['day' => 'today']))->assertOk()
+        ->assertSee('OR-TODAY-1')->assertDontSee('OR-OLDER-1')->assertSee('Today only');
+});

@@ -34,9 +34,13 @@ class BiddingFeePaymentController extends Controller
             ->whereIn('status', Project::PUBLIC_STATUSES)
             ->with('schedule')
             ->withCount('biddingFeePayments')
+            ->withSum('biddingFeePayments as fees_collected', 'amount')
             ->orderByDesc('created_at')
             ->get();
-        $payableProjects = $feeProjects->filter->isOpenForBidding()->values();
+        // Closing soonest first: those are the ones bidders come to pay for now.
+        $payableProjects = $feeProjects->filter->isOpenForBidding()
+            ->sortBy(fn (Project $project) => $project->bidSubmissionDeadline()?->getTimestamp() ?? PHP_INT_MAX)
+            ->values();
 
         $bidders = User::query()
             ->where('role', 'bidder')
@@ -46,7 +50,10 @@ class BiddingFeePaymentController extends Controller
             ->filter->isApprovedBidder()
             ->values();
 
+        // ?day=today (the Paid today figure): only the receipts of today.
+        $onlyToday = $request->query('day') === 'today';
         $payments = $this->filteredPayments($search, $projectFilter)
+            ->when($onlyToday, fn ($query) => $query->whereDate('paid_at', now()->toDateString()))
             ->paginate(15)
             ->withQueryString();
 
@@ -66,6 +73,7 @@ class BiddingFeePaymentController extends Controller
             'payments' => BiddingFeePayment::count(),
             'collected' => (float) BiddingFeePayment::sum('amount'),
             'today' => BiddingFeePayment::whereDate('paid_at', $today)->count(),
+            'today_amount' => (float) BiddingFeePayment::whereDate('paid_at', $today)->sum('amount'),
         ];
 
         return view($role.'.payments', [
@@ -77,6 +85,7 @@ class BiddingFeePaymentController extends Controller
             'paidByProject' => $paidByProject,
             'submittedKeys' => $submittedKeys,
             'stats' => $stats,
+            'onlyToday' => $onlyToday,
             'exportFormats' => $this->exportFormats($role),
             'search' => $search,
             'projectFilter' => $projectFilter,

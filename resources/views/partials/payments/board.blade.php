@@ -143,6 +143,23 @@
     .fee-project-fee { grid-row: 1 / span 2; grid-column: 2; align-self: center; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
     .fee-project-fee small { display: block; color: var(--fee-muted); font-size: 11.5px; font-weight: 500; }
     .fee-project-meta { grid-column: 1 / -1; display: flex; gap: 14px; flex-wrap: wrap; color: var(--fee-muted); font-size: 12px; }
+    .fee-project { position: relative; transition: border-color .15s ease, box-shadow .15s ease; }
+    .fee-project:hover { border-color: var(--ui-primary); box-shadow: 0 4px 14px rgba(15, 25, 21, .06); }
+    .fee-project.is-extra { display: none; }
+    .fee-projects.is-all .fee-project.is-extra { display: grid; }
+    .fee-project-open { position: absolute; inset: 0; z-index: 0; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
+    .fee-project > :not(.fee-project-open) { position: relative; z-index: 1; pointer-events: none; }
+    .fee-project > .fee-project-actions { pointer-events: auto; grid-column: 1 / -1; display: flex; gap: 8px; margin-top: 6px; }
+    .fee-project-ref { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .fee-urgency { padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0; }
+    .fee-urgency.is-danger { background: var(--ui-danger-soft, #fdecec); color: var(--ui-danger, #b42318); }
+    .fee-urgency.is-warn { background: var(--fee-warn-soft); color: var(--fee-warn); }
+    .fee-project-paid { color: var(--fee-ok); font-weight: 600; }
+    .fee-project-paid.is-zero { color: var(--fee-muted); font-weight: 400; opacity: .8; }
+    .fee-projects-more { width: 100%; margin-top: 12px; justify-content: center; }
+    a.fee-stat, button.fee-stat { color: inherit; text-decoration: none; text-align: left; font: inherit; cursor: pointer; transition: background-color .15s ease; }
+    a.fee-stat:hover, button.fee-stat:hover, .fee-stat.is-active { background: var(--fee-soft) !important; }
+    .fee-stat-sub { display: block; color: var(--fee-muted); font-size: 11.5px; }
     .fee-empty { display: grid; justify-items: center; gap: 6px; padding: 28px 16px; text-align: center; color: var(--fee-muted); font-size: 13px; }
     .fee-empty i { font-size: 22px; color: var(--ui-subtle); }
     .fee-empty strong { color: var(--fee-ink); font-size: 14px; }
@@ -269,22 +286,22 @@
     @endif
 
     <section class="fee-stats" aria-label="Payment summary" data-live-region="stats">
-        <div class="fee-stat">
+        <a class="fee-stat" href="#fee-open-title">
             <span class="fee-stat-icon" aria-hidden="true"><i class="fas fa-folder-open"></i></span>
             <div><span class="fee-stat-label">Open projects with a fee</span><span class="fee-stat-value">{{ number_format($stats['payable_projects']) }}</span></div>
-        </div>
-        <div class="fee-stat">
+        </a>
+        <a class="fee-stat" href="{{ route($routePrefix . '.payments') }}#fee-ledger-title" data-live-link>
             <span class="fee-stat-icon" aria-hidden="true"><i class="fas fa-receipt"></i></span>
             <div><span class="fee-stat-label">Payments recorded</span><span class="fee-stat-value">{{ number_format($stats['payments']) }}</span></div>
-        </div>
-        <div class="fee-stat is-ok">
+        </a>
+        <button type="button" class="fee-stat is-ok" data-fee-open-report title="Open the collection report">
             <span class="fee-stat-icon" aria-hidden="true"><i class="fas fa-peso-sign"></i></span>
             <div><span class="fee-stat-label">Total collected</span><span class="fee-stat-value">{{ $peso($stats['collected']) }}</span></div>
-        </div>
-        <div class="fee-stat is-warn">
+        </button>
+        <a class="fee-stat is-warn {{ ($onlyToday ?? false) ? 'is-active' : '' }}" href="{{ route($routePrefix . '.payments', ['day' => 'today']) }}#fee-ledger-title" data-live-link>
             <span class="fee-stat-icon" aria-hidden="true"><i class="fas fa-calendar-day"></i></span>
-            <div><span class="fee-stat-label">Paid today</span><span class="fee-stat-value">{{ number_format($stats['today']) }}</span></div>
-        </div>
+            <div><span class="fee-stat-label">Collected today</span><span class="fee-stat-value">{{ $peso($stats['today_amount'] ?? 0) }}</span><span class="fee-stat-sub">{{ number_format($stats['today']) }} {{ \Illuminate\Support\Str::plural('receipt', $stats['today']) }}</span></div>
+        </a>
     </section>
 
     <div class="fee-grid">
@@ -427,19 +444,43 @@
                         <span>No projects right now.</span>
                     </div>
                 @else
-                    <ul class="fee-projects">
+                    @php $shownProjects = 6; @endphp
+                    <ul class="fee-projects" data-fee-projects>
                         @foreach($payableProjects as $project)
-                            <li class="fee-project">
-                                <span class="fee-project-ref">{{ $project->reference_no ?: 'REF PENDING' }}</span>
+                            @php
+                                $closesAt = $project->bidSubmissionDeadline()?->copy()->timezone($tz);
+                                $daysLeft = $closesAt ? (int) now($tz)->startOfDay()->diffInDays($closesAt->copy()->startOfDay(), false) : null;
+                                $urgency = match (true) {
+                                    $daysLeft === null => null,
+                                    $daysLeft <= 0 => ['Closes today', 'is-danger'],
+                                    $daysLeft <= 3 => ['Closes in '.$daysLeft.' '.\Illuminate\Support\Str::plural('day', $daysLeft), 'is-danger'],
+                                    $daysLeft <= 7 => ['Closes in '.$daysLeft.' days', 'is-warn'],
+                                    default => null,
+                                };
+                                $paidCount = (int) $project->bidding_fee_payments_count;
+                            @endphp
+                            <li class="fee-project {{ $loop->index >= $shownProjects ? 'is-extra' : '' }}">
+                                <button type="button" class="fee-project-open" data-fee-record-project="{{ $project->id }}" aria-label="Record a payment for {{ $project->reference_no ?: $project->title }}"></button>
+                                <span class="fee-project-ref">
+                                    {{ $project->reference_no ?: 'REF PENDING' }}
+                                    @if($urgency)<span class="fee-urgency {{ $urgency[1] }}">{{ $urgency[0] }}</span>@endif
+                                </span>
                                 <p class="fee-project-title">{{ $project->title }}</p>
                                 <span class="fee-project-fee">{{ $peso($project->bidding_documents_fee) }}<small>per bidder</small></span>
                                 <span class="fee-project-meta">
-                                    <span><i class="far fa-clock" aria-hidden="true"></i> Closes {{ $project->bidSubmissionDeadline()?->copy()->timezone($tz)->format('M d, Y g:i A') ?? 'not set' }}</span>
-                                    <span><i class="fas fa-user-check" aria-hidden="true"></i> {{ $project->bidding_fee_payments_count }} paid</span>
+                                    <span><i class="far fa-clock" aria-hidden="true"></i> Closes {{ $closesAt?->format('M d, Y g:i A') ?? 'not set' }}</span>
+                                    <span class="fee-project-paid {{ $paidCount === 0 ? 'is-zero' : '' }}"><i class="fas fa-user-check" aria-hidden="true"></i> {{ $paidCount }} paid @if($paidCount > 0)&middot; {{ $peso($project->fees_collected ?? 0) }} collected @endif</span>
+                                </span>
+                                <span class="fee-project-actions">
+                                    <button type="button" class="fee-btn fee-btn-sm fee-btn-primary" data-fee-record-project="{{ $project->id }}"><i class="fas fa-plus" aria-hidden="true"></i> Record</button>
+                                    <button type="button" class="fee-btn fee-btn-sm fee-btn-ghost" data-fee-scan-project="{{ $project->id }}"><i class="fas fa-qrcode" aria-hidden="true"></i> Scan QR</button>
                                 </span>
                             </li>
                         @endforeach
                     </ul>
+                    @if($payableProjects->count() > $shownProjects)
+                        <button type="button" class="fee-btn fee-btn-ghost fee-projects-more" data-fee-projects-more data-label-more="Show all {{ $payableProjects->count() }} projects" data-label-less="Show fewer">Show all {{ $payableProjects->count() }} projects</button>
+                    @endif
                 @endif
             </div>
         </section>
@@ -449,6 +490,7 @@
         <div class="fee-card-head">
             <div>
                 <h2 id="fee-ledger-title">Payment records</h2>
+                <span data-live-region="ledger-day" style="display: contents">@if($onlyToday ?? false)<span class="fee-urgency is-warn" style="display:inline-block;margin:4px 0">Today only &middot; <a data-live-link href="{{ route($routePrefix . '.payments') }}#fee-ledger-title">Show all</a></span>@endif</span>
                 <p>Every Official Receipt recorded. A payment already used for a submitted bid can be corrected but not removed.</p>
             </div>
             <div data-live-region="ledger-head" style="display: contents">
@@ -995,6 +1037,34 @@
                 };
 
                 document.querySelectorAll('[data-fee-scan], [data-fee-open-scan]').forEach(function (button) { button.addEventListener('click', openScan); });
+
+                const chooseProject = function (id) {
+                    const projectSelect = recordDialog.querySelector('select[data-fee-project]');
+                    if (projectSelect && projectSelect.feeCombo) projectSelect.feeCombo.pick(id);
+                };
+                document.addEventListener('click', function (event) {
+                    const record = event.target.closest('[data-fee-record-project]');
+                    if (record) {
+                        chooseProject(record.dataset.feeRecordProject);
+                        setNote('');
+                        if (!recordDialog.open) openRecord();
+                        const bidderSelect = recordDialog.querySelector('select[name="user_id"]');
+                        window.setTimeout(function () { bidderSelect && bidderSelect.feeCombo && bidderSelect.feeCombo.focus(); }, 80);
+                        return;
+                    }
+                    const scan = event.target.closest('[data-fee-scan-project]');
+                    if (scan) {
+                        chooseProject(scan.dataset.feeScanProject);
+                        openScan();
+                        return;
+                    }
+                    const more = event.target.closest('[data-fee-projects-more]');
+                    if (more) {
+                        const list = document.querySelector('[data-fee-projects]');
+                        const all = list && list.classList.toggle('is-all');
+                        more.textContent = all ? more.dataset.labelLess : more.dataset.labelMore;
+                    }
+                });
                 scanDialog.querySelectorAll('[data-fee-scan-close]').forEach(function (button) { button.addEventListener('click', closeScan); });
                 scanDialog.addEventListener('cancel', function () { if (scanner) scanner.stop(); });
                 scanDialog.querySelector('[data-fee-scan-file]').addEventListener('change', function (event) {
@@ -1020,12 +1090,12 @@
         const reportDialog = document.getElementById('fee-report-dialog');
         if (reportDialog) {
             const frame = reportDialog.querySelector('[data-fee-report-frame]');
-            document.querySelectorAll('[data-fee-open-report]').forEach(function (link) {
-                link.addEventListener('click', function (event) {
-                    event.preventDefault();
-                    if (!frame.getAttribute('src')) frame.setAttribute('src', frame.dataset.src);
-                    if (typeof reportDialog.showModal === 'function') reportDialog.showModal(); else reportDialog.setAttribute('open', '');
-                });
+            document.addEventListener('click', function (event) {
+                const link = event.target.closest('[data-fee-open-report]');
+                if (!link || reportDialog.open) return;
+                event.preventDefault();
+                if (!frame.getAttribute('src')) frame.setAttribute('src', frame.dataset.src);
+                if (typeof reportDialog.showModal === 'function') reportDialog.showModal(); else reportDialog.setAttribute('open', '');
             });
             reportDialog.querySelectorAll('[data-fee-report-close]').forEach(function (button) {
                 button.addEventListener('click', function () { reportDialog.close ? reportDialog.close() : reportDialog.removeAttribute('open'); });
