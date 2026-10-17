@@ -859,6 +859,21 @@
     height: 22px;
 }
 
+#authModal .auth-step-icon--gmail {
+    width: 60px;
+    height: 60px;
+    background: #fff;
+    border: 1px solid var(--ui-line-soft);
+    box-shadow: 0 3px 12px rgba(27, 36, 32, .05);
+}
+
+#authModal .auth-step-icon--gmail img {
+    display: block;
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+}
+
 #authModal .auth-step h3 {
     margin: 4px 0 0;
     color: var(--ui-ink);
@@ -1700,24 +1715,35 @@
 #authModal .auth-welcome {
     display: grid;
     justify-items: center;
-    gap: 10px;
-    padding: 28px 24px;
+    gap: 16px;
+    padding: 32px 24px;
     border-radius: 16px;
     background: var(--ui-surface);
     text-align: center;
-    animation: auth-welcome-in 0.2s ease-out both;
+    animation: auth-welcome-in .35s ease-out both;
 }
 
 #authModal .auth-welcome__check {
     display: grid;
-    width: 40px;
-    height: 40px;
+    width: 48px;
+    height: 48px;
     place-items: center;
     border-radius: 50%;
     background: var(--ui-primary);
     color: #fff;
-    font-size: 23px;
-    font-weight: 700;
+    box-shadow: 0 0 0 8px var(--ui-primary-soft);
+    animation: auth-welcome-check .45s cubic-bezier(.2, .8, .3, 1.2) both;
+}
+
+#authModal .auth-welcome__check svg {
+    width: 25px;
+    height: 25px;
+}
+
+#authModal .auth-welcome__check path {
+    stroke-dasharray: 24;
+    stroke-dashoffset: 24;
+    animation: auth-welcome-draw .35s ease-out .15s forwards;
 }
 
 #authModal .auth-welcome__title {
@@ -1726,22 +1752,56 @@
     font-weight: 700;
     letter-spacing: -0.01em;
     overflow-wrap: anywhere;
+    line-height: 1.4;
+    animation: auth-welcome-in .4s ease-out .1s both;
+}
+
+#authModal .auth-welcome__name {
+    display: block;
+    margin-top: 3px;
+    color: var(--ui-primary);
+    font-size: 21px;
+    animation: auth-welcome-in .4s ease-out .2s both;
 }
 
 #authModal .auth-welcome__message {
     color: var(--ui-muted, #66736c);
     font-size: 13px;
+    animation: auth-welcome-in .35s ease-out .3s both;
 }
+
+#authModal .auth-welcome__dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 5px;
+}
+
+#authModal .auth-welcome__dots i {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: auth-welcome-dot .8s ease-in-out infinite;
+}
+
+#authModal .auth-welcome__dots i:nth-child(2) { animation-delay: .12s; }
+#authModal .auth-welcome__dots i:nth-child(3) { animation-delay: .24s; }
 
 #authModal.success-state .auth-card:has(.auth-welcome) {
     width: min(380px, 100%);
 }
 
-@keyframes auth-welcome-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes auth-welcome-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes auth-welcome-check { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
+@keyframes auth-welcome-draw { to { stroke-dashoffset: 0; } }
+@keyframes auth-welcome-dot { 0%, 80%, 100% { opacity: .3; } 40% { opacity: 1; } }
 
 @media (prefers-reduced-motion: reduce) {
     #authModal .auth-tabs__thumb { transition: none; }
-    #authModal .auth-welcome { animation: none; }
+    #authModal .auth-welcome,
+    #authModal .auth-welcome * { animation: none !important; }
+    #authModal .auth-welcome__check path { stroke-dashoffset: 0; }
 }
 /* The certification under the eligibility documents. */
 #authModal .auth-certify { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--ui-line, #dfe6e1); border-radius: 10px; background: var(--ui-surface-2, #f6f8f7); }

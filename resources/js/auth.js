@@ -72,6 +72,7 @@ window.openLogin = function () {
 const AUTH_MESSAGE_HIDE_DELAY = 5000;
 const AUTH_MESSAGE_FADE_DURATION = 350;
 const AUTH_SUCCESS_REDIRECT_DELAY = 500;
+const AUTH_WELCOME_REDIRECT_DELAY = 1100;
 const AUTH_FORM_ANIMATION_DURATION = 320;
 const AUTH_HEADER_ANIMATION_DURATION = 260;
 const PASSWORD_CODE_TTL_SECONDS = 180;
@@ -1285,7 +1286,8 @@ async function submitAuthForm(form, fallbackTab, isRetry = false) {
 
             if (data.redirect) {
                 // Give the brief success confirmation time to appear before redirecting.
-                const delay = form.id === 'forgotVerifyForm' ? 250 : AUTH_SUCCESS_REDIRECT_DELAY;
+                let delay = form.id === 'forgotVerifyForm' ? 250 : AUTH_SUCCESS_REDIRECT_DELAY;
+                if (data.welcome && !prefersReducedMotion()) delay = AUTH_WELCOME_REDIRECT_DELAY;
 
                 window.setTimeout(() => {
                     window.location.href = data.redirect;
@@ -1659,11 +1661,19 @@ function showAuthWelcome(welcome) {
     card.className = 'auth-welcome';
     card.setAttribute('role', 'status');
     card.innerHTML = `
-        <span class="auth-welcome__check" aria-hidden="true">✓</span>
-        <strong class="auth-welcome__title"></strong>
-        <span class="auth-welcome__message">Opening your dashboard…</span>
+        <span class="auth-welcome__check" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>
+        </span>
+        <strong class="auth-welcome__title">Welcome back,<span class="auth-welcome__name"></span></strong>
+        <span class="auth-welcome__message">Opening your dashboard<span class="auth-welcome__dots" aria-hidden="true"><i></i><i></i><i></i></span></span>
     `;
-    card.querySelector('.auth-welcome__title').textContent = info.name ? `Welcome back, ${info.name}!` : 'Welcome back!';
+    const name = typeof info.name === 'string' ? info.name.trim() : '';
+    const isAdmin = /\badmin(?:istrator)?\b/i.test(String(info.role || ''));
+    if (name) {
+        card.querySelector('.auth-welcome__name').textContent = `${isAdmin ? 'Admin ' : ''}${name}!`;
+    } else {
+        card.querySelector('.auth-welcome__title').textContent = 'Welcome back!';
+    }
 
     box.replaceChildren(card);
     setAuthSuccessState(true);
