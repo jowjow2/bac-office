@@ -474,6 +474,7 @@ Route::middleware(['auth', 'approved.bidder'])->group(function () {
     Route::get('/bidder/my-bids', [BidderController::class, 'myBids'])->name('bidder.my-bids');
     Route::get('/bidding-track', [BiddingTrackController::class, 'index'])->name('bidder.bidding-track');
     Route::get('/bidding-track/data', [BiddingTrackController::class, 'data'])->name('bidder.bidding-track.data');
+    Route::get('/bidding-track/{bid}/acknowledgment', [BiddingTrackController::class, 'acknowledgment'])->name('bidder.bids.acknowledgment');
     Route::get('/bidder/awarded-contracts', [BidderController::class, 'awardedContracts'])->name('bidder.awarded-contracts');
     Route::get('/bidder/awards/{award}/infrastructure', [\App\Http\Controllers\InfrastructureImplementationController::class, 'showBidder'])->name('bidder.infrastructure.show');
     Route::post('/bidder/awards/{award}/infrastructure/progress', [\App\Http\Controllers\InfrastructureImplementationController::class, 'progress'])->name('bidder.infrastructure.progress');

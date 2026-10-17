@@ -25,7 +25,8 @@ class BiddingTrackController extends Controller
             $query->whereKey((int) $request->query('bid'));
         }
 
-        $bids = $query->get();
+        // Bids still in the running first; finished ones after them.
+        $bids = $query->get()->sortBy(fn (Bid $bid) => $bid->progress()->toArray()['is_closed'] ? 1 : 0)->values();
 
         $request->session()->put('bidding_track_last_viewed', now()->timestamp);
 
@@ -85,6 +86,16 @@ class BiddingTrackController extends Controller
     /**
      * Bids owned by the signed-in bidder, with everything BidProgress reads.
      */
+    /** A printable acknowledgment that the BAC received one of the bidder's own official bids. */
+    public function acknowledgment(Bid $bid)
+    {
+        abort_unless(Auth::user()->role === 'bidder' && (int) $bid->user_id === (int) Auth::id(), 404);
+        abort_unless($bid->isOfficiallySubmitted(), 404);
+        $bid->loadMissing(['project.schedule', 'documents', 'user']);
+
+        return view('bidder.bid-acknowledgment', ['bid' => $bid]);
+    }
+
     private function ownBids(): Builder
     {
         return Bid::with(['project.awards', 'project.rebidProject', 'project.schedule', 'award', 'trackings', 'documents'])

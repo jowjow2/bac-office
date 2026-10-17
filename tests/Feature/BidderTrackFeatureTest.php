@@ -548,3 +548,19 @@ it('renders the bidder timeline with history and without the live-updating claim
         ->assertOk()
         ->assertJsonStructure(['bids' => [['id', 'signature', 'html', 'stages', 'current', 'history']], 'has_recent_updates']);
 });
+
+it('shows step progress on each card, filters, and a printable acknowledgment only for the bidder who filed it', function () {
+    $bidder = ($this->makeBidder)('ack');
+    $bid = ($this->makeBid)($bidder, ['receipt_no' => 'BAC-ACK-0001', 'submitted_at' => now()->subDays(2)]);
+
+    testCase()->actingAs($bidder)->get(route('bidder.bidding-track'))->assertOk()
+        ->assertSee('data-bt-filter="active"', false)->assertSee('id="btSearch"', false)
+        ->assertSee('bt-mini', false)->assertSee(route('bidder.bids.acknowledgment', $bid), false);
+
+    testCase()->actingAs($bidder)->get(route('bidder.bids.acknowledgment', $bid))->assertOk()
+        ->assertSee('Acknowledgment of bid submission')->assertSee('BAC-ACK-0001')->assertSee('San Jose Farm-to-Market Road')
+        ->assertDontSee('950,000');
+
+    $other = ($this->makeBidder)('other-ack');
+    testCase()->actingAs($other)->get(route('bidder.bids.acknowledgment', $bid))->assertNotFound();
+});

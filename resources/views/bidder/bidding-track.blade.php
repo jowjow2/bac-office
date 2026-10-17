@@ -14,6 +14,26 @@
 
 @push('head')
 <style>
+    .bt-mini { display: flex; align-items: center; gap: 8px; margin-top: 6px; min-width: 0; }
+    .bt-mini-bar { flex: 0 0 120px; height: 6px; border-radius: 999px; background: var(--ui-line, #e3e8e4); overflow: hidden; }
+    .bt-mini-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--ui-primary, #1f5c45); }
+    .bt-mini-text { overflow: hidden; color: var(--ui-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+    .bt-expected { color: var(--ui-primary); }
+    .bt-filterbar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 16px; margin-bottom: 10px; border-bottom: 1px solid var(--ui-line); }
+    .bt-filterbar .ui-tabs { border-bottom: 0; }
+    .bt-filterbar .ui-tab { border: 0; border-bottom: 2px solid transparent; background: none; font-family: inherit; cursor: pointer; }
+    .bt-filterbar .ui-search { flex: 0 1 300px; margin: 8px 0; }
+    .bt-legend-help { position: relative; }
+    .bt-legend-help > summary { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-muted); font-size: 12.5px; cursor: pointer; list-style: none; }
+    .bt-legend-help > summary::-webkit-details-marker { display: none; }
+    .bt-legend-help[open] > .bt-legend { position: absolute; z-index: 5; top: calc(100% + 6px); left: 0; padding: 10px 12px; border: 1px solid var(--ui-line); border-radius: 10px; background: #fff; box-shadow: 0 10px 24px rgba(15, 25, 21, .1); }
+    .bt-to-list { font-size: 12.5px; }
+    .bt-ack { margin-bottom: 12px; }
+    .bt-card.is-changed { animation: bt-flash 1.2s ease 3; }
+    @keyframes bt-flash { 50% { box-shadow: 0 0 0 4px var(--ui-primary-soft, #dceee5); border-color: var(--ui-primary, #1f5c45); } }
+    .bt-toast { position: fixed; z-index: 80; right: 18px; bottom: 18px; max-width: min(460px, calc(100vw - 36px)); padding: 12px 16px; border-radius: 12px; background: #1b2420; color: #fff; font-size: 13.5px; line-height: 1.45; box-shadow: 0 12px 30px rgba(0, 0, 0, .25); }
+    @media (max-width: 768px) { .bt-toast { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); } .bt-mini-bar { flex-basis: 80px; } }
+    @media (prefers-reduced-motion: reduce) { .bt-card.is-changed { animation: none; outline: 2px solid var(--ui-primary); } }
     .bt-page { display: grid; gap: 14px; }
     .bt-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
     .bt-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0; list-style: none; color: var(--ui-muted); font-size: var(--ui-text-sm); }
@@ -136,13 +156,32 @@
                 </p>
             @endif
 
+            @unless($onlyBid)
+                <div class="bt-filterbar">
+                    <nav class="ui-tabs" aria-label="Filter bids">
+                        <button type="button" class="ui-tab" data-bt-filter="all" aria-current="page">All <span class="ui-tab__count">{{ $bids->count() }}</span></button>
+                        <button type="button" class="ui-tab" data-bt-filter="active">In progress <span class="ui-tab__count">{{ $bids->filter(fn ($b) => ! $b->progress()->toArray()['is_closed'])->count() }}</span></button>
+                        <button type="button" class="ui-tab" data-bt-filter="ended">Ended <span class="ui-tab__count">{{ $bids->filter(fn ($b) => $b->progress()->toArray()['is_closed'])->count() }}</span></button>
+                    </nav>
+                    <label class="ui-search">
+                        <span class="sr-only">Search bids</span>
+                        <i class="fas fa-search" aria-hidden="true"></i>
+                        <input type="search" class="ui-input" id="btSearch" placeholder="Search project, reference or receipt no." autocomplete="off">
+                    </label>
+                </div>
+            @endunless
+
             <div class="bt-toolbar">
+                <details class="bt-legend-help">
+                    <summary aria-label="What the marks mean"><i class="fas fa-circle-question" aria-hidden="true"></i> Legend</summary>
                 <ul class="bt-legend" aria-label="Legend">
                     <li class="is-done"><span class="bt-step-marker" aria-hidden="true"><i class="fas fa-check"></i></span> Completed</li>
                     <li class="is-current"><span class="bt-step-marker" aria-hidden="true"><i class="fas fa-circle"></i></span> Current</li>
                     <li class="is-pending"><span class="bt-step-marker" aria-hidden="true"><i class="fas fa-circle"></i></span> Pending</li>
                     <li class="is-failed"><span class="bt-step-marker" aria-hidden="true"><i class="fas fa-xmark"></i></span> Stopped</li>
                 </ul>
+                </details>
+                <a href="{{ route('bidder.my-bids') }}" class="ui-link bt-to-list">The list of your bids is under My bids</a>
                 <div class="bt-refresh-wrap">
                     <span id="bt-checked" aria-live="polite">Checks for updates every {{ $refreshLabel }}.</span>
                     <button type="button" class="ui-btn ui-btn--secondary ui-btn--sm bt-refresh" id="bt-refresh">
@@ -151,6 +190,7 @@
                 </div>
             </div>
 
+            <div class="bt-toast" id="btToast" role="status" aria-live="polite" hidden></div>
             <div id="bidding-track-container" class="bt-list">
                 @foreach($bids as $bid)
                     @include('bidder.partials.bid-progress-card', ['bid' => $bid])
@@ -188,6 +228,7 @@
                 if (!data.ok) throw new Error('Request failed');
 
                 let changed = 0;
+                const notes = [];
                 data.bids.forEach(function (bid) {
                     if (onlyBidId !== null && bid.id !== onlyBidId) return;
                     const card = container.querySelector('.bt-card[data-bid-id="' + bid.id + '"]');
@@ -200,9 +241,22 @@
                     if (!fresh) return;
                     fresh.open = wasOpen || fresh.open;
                     card.replaceWith(fresh);
+                    fresh.classList.add('is-changed');
+                    window.setTimeout(function () { fresh.classList.remove('is-changed'); }, 4000);
+                    const title = (fresh.querySelector('.bt-card-title') || {}).textContent || 'A bid';
+                    const status = (fresh.querySelector('.bt-card-head .ui-badge') || {}).textContent || 'a new status';
+                    notes.push(title.trim() + ' is now: ' + status.trim());
                     changed++;
                 });
 
+                const toast = document.getElementById('btToast');
+                if (toast && notes.length) {
+                    toast.textContent = notes.join(' · ');
+                    toast.hidden = false;
+                    window.clearTimeout(toast.timer);
+                    toast.timer = window.setTimeout(function () { toast.hidden = true; }, 8000);
+                }
+                applyFilter();
                 const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 checkedLabel.textContent = (changed ? changed + ' bid' + (changed > 1 ? 's' : '') + ' updated. ' : '') + 'Last checked ' + time + '.';
             } catch (error) {
@@ -212,6 +266,26 @@
                 refreshButton?.removeAttribute('aria-busy');
             }
         }
+
+        let btFilter = 'all';
+        const btSearch = document.getElementById('btSearch');
+        function applyFilter() {
+            const term = (btSearch ? btSearch.value : '').trim().toLowerCase();
+            container.querySelectorAll('.bt-card').forEach(function (card) {
+                const inFilter = btFilter === 'all' || card.dataset.state === btFilter;
+                card.hidden = !(inFilter && (!term || (card.dataset.search || '').includes(term)));
+            });
+        }
+        document.querySelectorAll('[data-bt-filter]').forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                btFilter = tab.dataset.btFilter;
+                document.querySelectorAll('[data-bt-filter]').forEach(function (other) {
+                    if (other === tab) other.setAttribute('aria-current', 'page'); else other.removeAttribute('aria-current');
+                });
+                applyFilter();
+            });
+        });
+        btSearch?.addEventListener('input', applyFilter);
 
         refreshButton?.addEventListener('click', refresh);
         setInterval(function () {

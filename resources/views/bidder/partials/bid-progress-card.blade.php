@@ -13,9 +13,11 @@
     $currentStage = $stages->firstWhere('state', 'current');
     $nextStage = $currentStage ? $stages->slice($stages->search($currentStage) + 1)->firstWhere('state', 'pending') : null;
     $lastRecorded = $stages->whereIn('state', ['done', 'failed'])->last();
-    $deadline = $project?->bidSubmissionDeadline()?->copy()->timezone($tz);
+    $stageTotal = $stages->count();
+    $stepNo = min($stageTotal, $stages->whereIn('state', ['done', 'unrecorded'])->count() + ($currentStage ? 1 : 0));    $deadline = $project?->bidSubmissionDeadline()?->copy()->timezone($tz);
     $opening = $project?->schedule?->bid_opening_date?->copy()->timezone($tz);
-    $canModify = $bid->canBeModifiedNow();
+    // When the next stage is expected, if the schedule says (the bid opening is the one it records).
+    $nextExpected = $nextStage && ($nextStage['key'] ?? null) === \App\Support\BidProgress::STAGE_PRELIMINARY && $opening && $opening->isFuture() ? $opening : null;    $canModify = $bid->canBeModifiedNow();
     $budget = (float) ($project?->budget ?? 0);
     $variance = $budget > 0 ? (((float) $bid->bid_amount - $budget) / $budget) * 100 : null;
     $toneClass = fn (?string $tone) => match ($tone) {
@@ -42,7 +44,7 @@
     ];
 @endphp
 
-<details class="bt-card" data-bid-id="{{ $bid->id }}" data-signature="{{ $signature }}" data-tone="{{ $current['tone'] }}" @if($isOpen) open @endif>
+<details class="bt-card" data-state="{{ $progress['is_closed'] ? 'ended' : 'active' }}" data-search="{{ \Illuminate\Support\Str::lower(($project?->title ?? '').' '.($project?->reference_no ?? '').' '.($bid->receipt_no ?? '')) }}" data-bid-id="{{ $bid->id }}" data-signature="{{ $signature }}" data-tone="{{ $current['tone'] }}" @if($isOpen) open @endif>
     <summary class="bt-card-head">
         <div class="bt-card-project">
             <p class="bt-card-ref">
@@ -51,6 +53,12 @@
             </p>
             <h3 class="bt-card-title">{{ $project?->title ?? 'Unknown Project' }}</h3>
             <span class="ui-badge ui-badge--{{ $toneClass($current['tone']) }}">{{ $current['label'] }}</span>
+            @if(! $outcome && $stageTotal)
+                <span class="bt-mini" aria-label="Step {{ $stepNo }} of {{ $stageTotal }}">
+                    <span class="bt-mini-bar"><span style="width: {{ round($stepNo / $stageTotal * 100) }}%"></span></span>
+                    <span class="bt-mini-text">Step {{ $stepNo }} of {{ $stageTotal }}{{ $currentStage ? ' · '.$currentStage['label'] : '' }}</span>
+                </span>
+            @endif
         </div>
         <div class="bt-card-amount">
             <span>Your bid</span>
@@ -80,7 +88,7 @@
                     <p class="bt-now-title">{{ $currentStage['label'] ?? $current['label'] }}</p>
                     @if($currentStage)<p class="bt-now-text">{{ $currentStage['description'] }}</p>@endif
                     <p class="bt-now-next">
-                        @if($nextStage)<span><i class="fas fa-arrow-right" aria-hidden="true"></i> Next: {{ $nextStage['label'] }}</span>@endif
+                        @if($nextStage)<span><i class="fas fa-arrow-right" aria-hidden="true"></i> Next: {{ $nextStage['label'] }}@if($nextExpected) <strong class="bt-expected">· {{ $nextExpected->format('M d, h:i A') }}</strong>@endif</span>@endif
                         <span>No result yet. Stages change only when the BAC or LGU records an action.</span>
                     </p>
                 </section>
@@ -159,8 +167,10 @@
                 </div>
             @endif
 
-            <dl class="bt-facts">
-                <div>
+            @if($bid->isOfficiallySubmitted())
+                <a href="{{ route('bidder.bids.acknowledgment', $bid) }}" target="_blank" rel="noopener" class="ui-btn ui-btn--secondary ui-btn--block bt-ack"><i class="fas fa-print" aria-hidden="true"></i> Print acknowledgment</a>
+            @endif
+            <dl class="bt-facts">                <div>
                     <dt>Receipt No.</dt>
                     <dd>
                         @if($bid->receipt_no)
