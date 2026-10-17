@@ -158,9 +158,7 @@
             <form id="verifyLoginForm" method="POST" action="{{ route('login.verify-code') }}" data-resend-url="{{ route('login.resend-code') }}" class="auth-form hidden">
                 @csrf
                 <div class="auth-step">
-                    <span class="auth-step-icon auth-step-icon--gmail" aria-hidden="true">
-                        <img src="{{ asset('Images/gmail.png') }}" width="36" height="36" alt="">
-                    </span>
+                    <span class="auth-step-icon auth-step-icon--gmail" aria-hidden="true"></span>
                     <h3>Check your email</h3>
                     <p>Enter the 6-digit code we sent to<br><strong id="verifyLoginMaskedEmail">your email</strong></p>
                 </div>

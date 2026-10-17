@@ -867,11 +867,12 @@
     box-shadow: 0 3px 12px rgba(27, 36, 32, .05);
 }
 
-#authModal .auth-step-icon--gmail img {
+#authModal .auth-step-icon--gmail::before {
+    content: '';
     display: block;
     width: 36px;
     height: 36px;
-    object-fit: contain;
+    background: url('../images/gmail.png') center / contain no-repeat;
 }
 
 #authModal .auth-step h3 {
