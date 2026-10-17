@@ -571,3 +571,13 @@ it('lets the bidder set a new financial PIN before the deadline, with the accoun
     $change(['account_password' => 'password', 'financial_password' => '333444', 'financial_password_confirmation' => '333444'])->assertSessionHasErrorsIn('pin', 'financial_password');
     expect(Hash::check('111222', $bid->fresh()->financial_opening_password_hash))->toBeTrue();
 });
+
+it('puts a draft that is still open first on My bids, with a banner, a countdown and a sort', function () {
+    $open = ($this->makeProject)(['title' => 'Draft waiting project']);
+    \App\Models\Bid::create(['project_id' => $open->id, 'user_id' => $this->bidder->id, 'bid_amount' => 400000, 'status' => 'pending', 'submission_channel' => \App\Models\Bid::CHANNEL_ELECTRONIC]);
+
+    testCase()->actingAs($this->bidder)->get(route('bidder.my-bids'))->assertOk()
+        ->assertSee('needs your action')->assertSee('Draft not submitted yet')
+        ->assertSee('Not submitted')->assertSee('data-action="1"', false)
+        ->assertSee('id="bidderBidsSort"', false)->assertSee('Action needed');
+});

@@ -9,7 +9,8 @@
     $stageCount = count(BidProgress::STAGES);
 
     // One row per bid: where it stands, what the bidder can still do, and which filter it belongs to.
-    $rows = $myBids->map(function ($bid) use ($tz, $stageCount) {
+    $myBidsSeenAt ??= null;
+    $rows = $myBids->map(function ($bid) use ($tz, $stageCount, $myBidsSeenAt) {
         $project = $bid->project;
         $progress = $bid->progress()->toArray();
         $current = $progress['current'];
@@ -23,6 +24,25 @@
             $outcome !== null => 'ended',
             default => 'active',
         };
+
+        // Technical document review in short: how many accepted, for revision, waiting.
+        $technical = $bid->documents->where('component', \App\Models\BidDocument::COMPONENT_TECHNICAL);
+        $reviews = ['accepted' => 0, 'needs_revision' => 0, 'pending' => 0];
+        foreach ($technical as $document) {
+            $status = $document->reviewEvents->last()?->status;
+            $reviews[in_array($status, ['accepted', 'needs_revision'], true) ? $status : 'pending']++;
+        }
+        $draftOpen = $isOpen && $isDraft;
+        $revisionOpen = $reviews['needs_revision'] > 0 && $bid->isModifiableOnline();
+        $needsAction = $draftOpen || $revisionOpen;
+        $actionReason = $draftOpen
+            ? 'Draft not submitted yet'
+            : ($revisionOpen ? $reviews['needs_revision'].' '.\Illuminate\Support\Str::plural('document', $reviews['needs_revision']).' for revision' : null);
+        // The last time the BAC moved this bid or reviewed one of its documents.
+        $updatedAt = collect([$bid->workflow_step_updated_at])
+            ->merge($technical->flatMap(fn ($document) => $document->reviewEvents->pluck('created_at')))
+            ->filter()->max();
+        $updatedAt = $updatedAt ? \Illuminate\Support\Carbon::parse($updatedAt) : null;
 
         $stages = collect($progress['stages']);
         $done = $stages->whereIn('state', ['done', 'unrecorded'])->count();
@@ -54,14 +74,23 @@
             'budget' => $budget,
             'variance' => $budget > 0 ? (($amount - $budget) / $budget) * 100 : null,
             'fileCount' => $bid->documents->count(),
+            'reviews' => $reviews,
+            'needsAction' => $needsAction,
+            'actionReason' => $actionReason,
+            'updatedAt' => $updatedAt,
+            'isNew' => $updatedAt && $myBidsSeenAt && $updatedAt->greaterThan($myBidsSeenAt),
         ];
-    });
+    })
+        // Bids that need the bidder come first; the rest keep their order.
+        ->sortBy(fn ($row) => $row['needsAction'] ? 0 : 1)->values();
 
     $counts = $rows->countBy('group');
     $modifiable = $rows->where('canModify', true);
     $won = $rows->where('group', 'won');
+    $actionRows = $rows->where('needsAction', true);
     $filters = [
         'all' => ['All bids', $rows->count()],
+        'action' => ['Action needed', $actionRows->count()],
         'active' => ['In progress', $counts['active'] ?? 0],
         'won' => ['Won', $counts['won'] ?? 0],
         'ended' => ['Ended', $counts['ended'] ?? 0],
@@ -87,7 +116,31 @@
     .mb-title { margin: 0; color: var(--ui-ink); font-size: var(--ui-text-lg); font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
     .mb-title a { color: inherit; text-decoration: none; }
     .mb-title a:hover { color: var(--ui-primary); }
-    .mb-status { margin-top: 8px; }
+    .mb-status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+    .mb.is-action { border-color: var(--ui-warning-line, #f1d79c); box-shadow: inset 4px 0 0 var(--ui-warning, #b7791f); }
+    .mb-updated { color: var(--ui-muted); font-size: 12px; }
+    .mb-updated.is-new { padding: 1px 8px; border-radius: 999px; background: var(--ui-info-soft, #e8f1fb); color: var(--ui-info, #1d5fa8); font-weight: 600; }
+    .mb-attention { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 14px 12px; padding: 10px 14px; border: 1px solid var(--ui-warning-line, #f1d79c); border-radius: 10px; background: var(--ui-warning-soft, #fdf6e5); color: var(--ui-ink-2); font-size: 13px; }
+    .mb-attention > i { color: var(--ui-warning, #b7791f); }
+    .mb-attention > span { flex: 1 1 260px; }
+    .mb-sort { flex: 0 0 auto; margin: 8px 0; }
+    .mb-sort select { min-height: 38px; }
+    .mb-kpi-filter { border: 1px solid var(--ui-line); font: inherit; text-align: left; cursor: pointer; }
+    .mb-kpi-filter:disabled { cursor: default; }
+    .mb-kpi-filter:not(:disabled):hover { border-color: var(--ui-warning, #b7791f); }
+    details.mb-doc-review > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; cursor: pointer; list-style: none; font-size: 13px; font-weight: 600; color: var(--ui-ink); }
+    details.mb-doc-review > summary::-webkit-details-marker { display: none; }
+    details.mb-doc-review > summary::after { content: '\f078'; margin-left: auto; font-family: 'Font Awesome 6 Free'; font-weight: 900; font-size: 11px; color: var(--ui-muted); transition: transform .15s ease; }
+    details.mb-doc-review[open] > summary::after { transform: rotate(180deg); }
+    details.mb-doc-review[open] > summary { margin-bottom: 10px; }
+    .mb-doc-count { padding: 1px 8px; border-radius: 999px; background: var(--ui-surface-2, #f4f7f5); color: var(--ui-muted); font-size: 12px; font-weight: 600; }
+    .mb-doc-count.is-ok { background: var(--ui-success-soft, #ecf7f0); color: var(--ui-success, #1f7a4d); }
+    .mb-doc-count.is-bad { background: var(--ui-danger-soft, #fdecec); color: var(--ui-danger, #b42318); }
+    @media (max-width: 768px) {
+        .mb-toolbar { position: sticky; top: 0; z-index: 5; background: var(--ui-surface, #fff); }
+        .mb-sort { flex: 1 1 100%; margin-top: 0; }
+        .mb-sort select { width: 100%; }
+    }
     .mb-amount { flex: none; text-align: right; }
     .mb-amount span { display: block; color: var(--ui-subtle); font-size: var(--ui-text-xs); font-weight: 600; }
     .mb-amount strong { display: block; color: var(--ui-ink); font-size: 19px; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -167,11 +220,11 @@
             <span class="ui-kpi__value">{{ $counts['active'] ?? 0 }}</span>
             <span class="ui-kpi__foot">Awaiting opening or under evaluation</span>
         </div>
-        <div class="ui-kpi {{ $modifiable->isNotEmpty() ? 'ui-kpi--warning' : '' }}">
+        <button type="button" class="ui-kpi mb-kpi-filter {{ $modifiable->isNotEmpty() ? 'ui-kpi--warning' : '' }}" data-bid-filter="modify" @disabled($modifiable->isEmpty())>
             <span class="ui-kpi__label">You can still modify</span>
             <span class="ui-kpi__value">{{ $modifiable->count() }}</span>
-            <span class="ui-kpi__foot">Online bids before their deadline</span>
-        </div>
+            <span class="ui-kpi__foot">{{ $modifiable->isNotEmpty() ? 'Show them' : 'Online bids before their deadline' }}</span>
+        </button>
         <a href="{{ route('bidder.awarded-contracts') }}" class="ui-kpi">
             <span class="ui-kpi__label">Won</span>
             <span class="ui-kpi__value">{{ $won->count() }}</span>
@@ -195,6 +248,13 @@
                 <a href="{{ route('bidder.available-projects') }}" class="ui-btn ui-btn--primary ui-btn--sm ui-mt-sm">View available bids</a>
             </div>
         @else
+            @if($actionRows->isNotEmpty())
+                <div class="mb-attention" role="status">
+                    <i class="fas fa-circle-exclamation" aria-hidden="true"></i>
+                    <span><strong>{{ $actionRows->count() }} {{ \Illuminate\Support\Str::plural('bid', $actionRows->count()) }} {{ $actionRows->count() === 1 ? 'needs' : 'need' }} your action.</strong> {{ $actionRows->pluck('actionReason')->filter()->unique()->implode(' · ') }}</span>
+                    <button type="button" class="ui-btn ui-btn--sm ui-btn--secondary" data-bid-filter="action">Show {{ $actionRows->count() === 1 ? 'it' : 'them' }}</button>
+                </div>
+            @endif
             <div class="mb-toolbar">
                 <nav class="ui-tabs" aria-label="Filter bids">
                     @foreach($filters as $key => [$label, $count])
@@ -208,6 +268,15 @@
                     <i class="fas fa-search" aria-hidden="true"></i>
                     <input type="search" class="ui-input" id="bidderBidsSearch" placeholder="Search project or reference no." autocomplete="off">
                 </label>
+                <label class="mb-sort">
+                    <span class="sr-only">Sort bids</span>
+                    <select class="ui-input" id="bidderBidsSort">
+                        <option value="default">Action needed first</option>
+                        <option value="deadline">Closing soonest</option>
+                        <option value="updated">Latest update</option>
+                        <option value="amount">Highest amount</option>
+                    </select>
+                </label>
             </div>
 
             <div class="mb-list">
@@ -218,7 +287,7 @@
                         $trackUrl = route('bidder.bidding-track', ['bid' => $bid->id]);
                         $modifyUrl = route('bidder.available-projects', ['tab' => 'mine', 'bid_project' => $project?->id]);
                     @endphp
-                    <article class="mb" data-bid-row data-group="{{ $row['group'] }}" data-search="{{ \Illuminate\Support\Str::lower(($project?->title ?? '').' '.($project?->reference_no ?? '').' '.($bid->receipt_no ?? '')) }}">
+                    <article class="mb {{ $row['needsAction'] ? 'is-action' : '' }}" data-bid-row data-group="{{ $row['group'] }}" data-action="{{ $row['needsAction'] ? '1' : '0' }}" data-modify="{{ $row['canModify'] ? '1' : '0' }}" data-order="{{ $loop->index }}" data-deadline="{{ $row['deadline']?->getTimestamp() ?? 9999999999 }}" data-updated="{{ $row['updatedAt']?->getTimestamp() ?? 0 }}" data-amount="{{ $row['amount'] }}" data-search="{{ \Illuminate\Support\Str::lower(($project?->title ?? '').' '.($project?->reference_no ?? '').' '.($bid->receipt_no ?? '')) }}">
                         <div class="mb-main">
                             <div class="mb-head">
                                 <div>
@@ -229,6 +298,14 @@
                                     <h3 class="mb-title"><a href="{{ $trackUrl }}">{{ $project?->title ?? 'Project removed' }}</a></h3>
                                     <div class="mb-status">
                                         <span class="ui-badge ui-badge--{{ $row['tone'] }}">{{ $row['current']['label'] }}</span>
+                                        @if($row['canContinueDraft'])
+                                            <span class="ui-badge ui-badge--danger"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> Not submitted · {{ $row['daysLeft'] !== null && $row['daysLeft'] <= 0 ? 'closes today' : 'closes in '.$row['daysLeft'].' '.\Illuminate\Support\Str::plural('day', (int) $row['daysLeft']) }}</span>
+                                        @elseif($row['actionReason'])
+                                            <span class="ui-badge ui-badge--warning"><i class="fas fa-file-pen" aria-hidden="true"></i> {{ $row['actionReason'] }}</span>
+                                        @endif
+                                        @if($row['updatedAt'])
+                                            <span class="mb-updated {{ $row['isNew'] ? 'is-new' : '' }}" title="{{ $row['updatedAt']->copy()->timezone($tz)->format('M d, Y h:i A') }}">{{ $row['isNew'] ? 'New · ' : '' }}Updated {{ $row['updatedAt']->diffForHumans() }}</span>
+                                        @endif
                                     </div>
                                 </div>
                                 <div class="mb-amount">
@@ -317,8 +394,18 @@
                                 $submissionReviewClass = $submissionForRevision ? 'is-needs_revision' : ($submissionApproved ? 'is-accepted' : 'is-pending');
                             @endphp
                             @if($technicalDocuments->isNotEmpty())
-                                <section class="mb-doc-review" aria-label="Bid document review status">
-                                    <h4>Technical document review <span class="mb-doc-review__badge {{ $submissionReviewClass }}">{{ $submissionReviewLabel }}</span></h4>
+                                <details class="mb-doc-review" aria-label="Bid document review status" @if($submissionForRevision) open @endif>
+                                    <summary class="mb-doc-summary">
+                                        <span>Technical documents</span>
+                                        @if($bid->isSealed())
+                                            <span class="mb-doc-count">Sealed until the bid opening</span>
+                                        @else
+                                            @if($row['reviews']['accepted'])<span class="mb-doc-count is-ok">{{ $row['reviews']['accepted'] }} accepted</span>@endif
+                                            @if($row['reviews']['needs_revision'])<span class="mb-doc-count is-bad">{{ $row['reviews']['needs_revision'] }} for revision</span>@endif
+                                            @if($row['reviews']['pending'])<span class="mb-doc-count">{{ $row['reviews']['pending'] }} awaiting review</span>@endif
+                                        @endif
+                                        <span class="mb-doc-review__badge {{ $submissionReviewClass }}">{{ $submissionReviewLabel }}</span>
+                                    </summary>
                                     @if($bid->isSealed())
                                         <p class="mb-doc-review__locked">Your technical and eligibility documents remain sealed until the authorized bid opening. Review results will appear here after they are opened.</p>
                                     @else
@@ -368,7 +455,7 @@
                                             </article>
                                         @endforeach
                                     @endif
-                                </section>
+                                </details>
                             @endif
                         </div>
 
@@ -496,7 +583,11 @@
             const term = (search ? search.value : '').trim().toLowerCase();
             let shown = 0;
             rows.forEach(function (row) {
-                const visible = (filter === 'all' || row.dataset.group === filter) && (!term || row.dataset.search.includes(term));
+                const inFilter = filter === 'all'
+                    || (filter === 'action' && row.dataset.action === '1')
+                    || (filter === 'modify' && row.dataset.modify === '1')
+                    || row.dataset.group === filter;
+                const visible = inFilter && (!term || row.dataset.search.includes(term));
                 row.hidden = !visible;
                 if (visible) shown += 1;
             });
@@ -507,14 +598,33 @@
         tabs.forEach(function (tab) {
             tab.addEventListener('click', function () {
                 filter = tab.dataset.bidFilter;
-                tabs.forEach(function (other) {
-                    if (other === tab) other.setAttribute('aria-current', 'page');
+                document.querySelectorAll('.mb-toolbar [data-bid-filter]').forEach(function (other) {
+                    if (other.dataset.bidFilter === filter) other.setAttribute('aria-current', 'page');
                     else other.removeAttribute('aria-current');
                 });
                 apply();
+                if (!tab.closest('.mb-toolbar')) document.querySelector('.mb-toolbar')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             });
         });
         if (search) search.addEventListener('input', apply);
+
+        // Sort: by the order the page gave (action needed first), closing soonest, latest update or amount.
+        const sort = document.getElementById('bidderBidsSort');
+        const list = document.querySelector('.mb-list');
+        if (sort && list) {
+            sort.addEventListener('change', function () {
+                const key = sort.value;
+                const value = function (row) {
+                    if (key === 'deadline') return Number(row.dataset.deadline);
+                    if (key === 'updated') return -Number(row.dataset.updated);
+                    if (key === 'amount') return -Number(row.dataset.amount);
+                    return Number(row.dataset.order);
+                };
+                const sorted = Array.from(rows).sort(function (a, b) { return value(a) - value(b); });
+                const anchor = list.querySelector('[data-no-match]');
+                sorted.forEach(function (row) { list.insertBefore(row, anchor); });
+            });
+        }
     });
 </script>
 @endpush

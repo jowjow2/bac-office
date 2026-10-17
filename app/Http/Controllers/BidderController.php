@@ -209,7 +209,13 @@ class BidderController extends Controller
 
     public function myBids(Request $request)
     {
-        return view('bidder.my-bids', $this->bidderPageData($request));
+        // What the BAC did since the bidder last opened this page is marked New (the time is kept in the session).
+        $seenBefore = $request->session()->get('my_bids_seen_at');
+        $request->session()->put('my_bids_seen_at', now()->toIso8601String());
+
+        return view('bidder.my-bids', $this->bidderPageData($request) + [
+            'myBidsSeenAt' => $seenBefore ? \Illuminate\Support\Carbon::parse($seenBefore) : null,
+        ]);
     }
 
     public function awardedContracts(Request $request)
