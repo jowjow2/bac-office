@@ -211,12 +211,19 @@
     .fee-record-dialog { width: min(580px, calc(100vw - 24px)); border-radius: 16px; overflow-x: hidden; }
     .fee-record-dialog[open] { animation: fee-rise .26s cubic-bezier(.2, .8, .2, 1) both; }
     .fee-record-dialog::backdrop { background: rgba(15, 25, 21, .55); backdrop-filter: blur(2px); }
-    .fee-qr-match { padding: 16px; border: 1px solid var(--ui-primary-line); border-radius: 10px; background: var(--ui-primary-soft); }
+    .fee-qr-match { grid-column: 1 / -1; min-width: 0; padding: 14px 16px; border: 1px solid var(--ui-primary-line); border-radius: 12px; background: var(--ui-primary-soft); }
     .fee-qr-match[hidden] { display: none; }
-    .fee-qr-match > strong { display: block; margin-bottom: 12px; color: var(--ui-primary); }
-    .fee-qr-match dl { display: grid; gap: 10px; margin: 0; }
-    .fee-qr-match dt { font-size: 11px; color: var(--ui-muted); }
-    .fee-qr-match dd { margin: 3px 0 0; font-size: 13px; overflow-wrap: anywhere; }
+    .fee-qr-match > strong { display: flex; align-items: baseline; gap: 7px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--ui-primary-line); color: var(--ui-primary); font-size: 13px; line-height: 1.4; }
+    .fee-qr-match dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; margin: 0; }
+    .fee-qr-match dl > div { min-width: 0; }
+    .fee-qr-match dt { font-size: 10px; font-weight: 600; letter-spacing: .04em; color: var(--ui-muted); }
+    .fee-qr-match dd { margin: 4px 0 0; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+    .fee-qr-match [data-fee-match-amount] { color: var(--ui-primary); font-size: 18px; font-weight: 700; line-height: 1.2; }
+    @media (max-width: 480px) {
+        .fee-qr-match { padding: 12px; }
+        .fee-qr-match dl { gap: 12px; }
+        .fee-qr-match dl > div:nth-child(-n+2) { grid-column: 1 / -1; }
+    }
     .fee-record-dialog .fee-card-head { align-items: flex-start; border-bottom: 0; padding-bottom: 6px; }
     .fee-record-dialog .fee-card-head h2 { font-size: 18px; letter-spacing: -.01em; }
     @keyframes fee-rise { from { opacity: 0; transform: translate(-50%, calc(-50% + 12px)); } to { opacity: 1; transform: translate(-50%, -50%); } }
