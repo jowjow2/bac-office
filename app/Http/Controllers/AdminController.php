@@ -1794,7 +1794,23 @@ class AdminController extends Controller
                 ->withErrors(['delete' => 'You cannot delete the last remaining admin account.']);
         }
 
-        $user->delete();
+        try {
+            DB::transaction(fn () => $user->delete());
+        } catch (\Illuminate\Database\QueryException $exception) {
+            // The account is named on official records (bids it opened, payments it recorded, approvals...), which
+            // must stay. It is closed instead: it can never sign in again and leaves the user list, its history stays.
+            $oldEmail = $user->email;
+            $user->forceFill([
+                'role' => 'end_user',
+                'status' => 'inactive',
+                'email' => 'deleted-'.$user->id.'-'.$oldEmail,
+                'password' => \Illuminate\Support\Facades\Hash::make(Str::random(48)),
+                'remember_token' => null,
+            ])->save();
+            AuditLog::log('user_closed', $user, ['email' => $oldEmail, 'status' => 'active'], ['status' => 'closed'], ['ip_address' => request()->ip(), 'user_agent' => request()->userAgent()]);
+
+            return redirect()->route('admin.users')->with('success', 'The account was closed: it can no longer sign in. It appears on official records, so those keep its name.');
+        }
 
         return redirect()->route('admin.users')->with('success', 'User deleted successfully.');
     }

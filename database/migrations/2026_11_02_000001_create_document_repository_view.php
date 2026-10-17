@@ -11,6 +11,11 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // CREATE OR REPLACE VIEW and CONCAT are PostgreSQL/MySQL; the SQLite test database has no use for the view.
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         $sources = [
             ['bid_documents', 'file_path', 'original_name', 'label', 'Bid submission'],
             ['bid_document_review_events', 'file_path', 'original_name', 'requirement_key', 'Bid document version'],

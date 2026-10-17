@@ -170,3 +170,19 @@ it('suspends or blacklists a bidder from the edit dialog, with the order details
     expect($user->fresh()->bidderProcurementStatus())->toBe('active')->and($user->bidderProfile->fresh()->hasActiveProcurementSanction())->toBeFalse();
     expect(\App\Models\UserNotification::where('user_id', $user->id)->where('type', 'bidder_sanction_lifted')->count())->toBe(1);
 });
+
+it('closes an account that official records point to, instead of failing', function () {
+    $admin = User::create(['name' => 'Main Admin', 'email' => 'main-admin@example.com', 'password' => Hash::make('password'), 'role' => 'admin', 'status' => 'active']);
+    $old = User::create(['name' => 'Old Admin', 'email' => 'old-admin@example.com', 'password' => Hash::make('password'), 'role' => 'admin', 'status' => 'active']);
+    // A bid whose financial envelope this admin opened: the record must keep it (restrict on delete).
+    $project = \App\Models\Project::create(['reference_no' => 'SJ-CLOSE-1', 'title' => 'Closed account test', 'description' => 'x', 'budget' => 100000, 'status' => 'closed', 'deadline' => now()->subDay()]);
+    $bidder = User::create(['name' => 'B', 'email' => 'close-bidder@example.com', 'password' => Hash::make('password'), 'role' => 'bidder', 'status' => 'active']);
+    \App\Models\Bid::create(['project_id' => $project->id, 'user_id' => $bidder->id, 'bid_amount' => 90000, 'status' => 'pending', 'submitted_at' => now()->subDays(2)])
+        ->forceFill(['financial_opened_by' => $old->id, 'financial_opened_at' => now()])->save();
+
+    testCase()->actingAs($admin)->delete(route('admin.users.destroy', $old))->assertRedirect(route('admin.users'));
+
+    $old->refresh();
+    expect($old->role)->toBe('end_user')->and($old->status)->toBe('inactive')->and($old->email)->toStartWith('deleted-');
+    testCase()->actingAs($admin)->get(route('admin.users'))->assertOk()->assertDontSee('old-admin@example.com');
+});
