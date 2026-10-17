@@ -50,7 +50,7 @@
                 <li><span>Opening</span><strong>{{ $openingAt ? $openingAt->format('M d, g:i A') : 'To be announced' }}</strong></li>
                 <li class="{{ $requiresFee ? ($feePayment ? 'is-ok' : 'is-warn') : '' }}"><span>Fee</span>
                     @if($requiresFee)
-                        @if($feePayment)<strong><i class="fas fa-circle-check" aria-hidden="true"></i> Paid</strong><small>OR {{ $feePayment->or_number }}</small>@else<strong>{{ $feeLabel }}</strong><small>pay at the BAC office</small>@endif
+                        @if($feePayment)<strong><i class="fas fa-circle-check" aria-hidden="true"></i> Paid</strong><small>OR {{ $feePayment->or_number }}</small>@else<strong>Not paid yet</strong>@endif
                     @else
                         <strong>{{ $project->biddingFeeWaived() ? 'Waived' : 'None' }}</strong>
                     @endif
@@ -113,32 +113,42 @@
                                 </div>
                             </div>
                         @endunless
-                        <ol class="sb-flow" aria-label="How to submit">
-                            <li class="is-current"><span>1</span><strong>Pay at the BAC office</strong><small>Bring your company name and the reference no.</small></li>
-                            <li><span>2</span><strong>The BAC records your receipt</strong><small>You are notified right away</small></li>
-                            <li><span>3</span><strong>Submit your bid here</strong><small>Technical and financial files</small></li>
+                        {{-- Three steps in one compact line: the first is the one to do now. --}}
+                        <ol class="sb-flow2" aria-label="How to submit">
+                            <li class="is-current"><span>1</span>Pay at the BAC office</li>
+                            <li><span>2</span>The BAC records your receipt</li>
+                            <li><span>3</span>Submit your bid here</li>
                         </ol>
-                        <section class="sb-pay" aria-labelledby="bsm-pay-title-{{ $pid }}">
-                            <div class="sb-pay-box">
-                                <span>Amount to pay</span>
-                                <strong>{{ $feeLabel }}</strong>
-                                <small>Bidding documents fee, non-refundable</small>
-                            </div>
-                            <div class="sb-pay-main">
-                                <h3 id="bsm-pay-title-{{ $pid }}">Pay the bidding documents fee first</h3>
-                                <p>Pay in person at the BAC office. You can submit your bid here once the BAC records your Official Receipt.</p>
-                                <dl class="sb-pay-details">
-                                    <div><dt>Where to pay</dt><dd>{{ $project->paymentVenueLabel() }}</dd></div>
-                                    <div><dt>Pay before</dt><dd>{{ $deadlineLocal ? $deadlineLocal->format('M d, Y h:i A') : 'the submission deadline' }}, during office hours (Mon&ndash;Fri, 8:00 AM&ndash;5:00 PM)</dd></div>
-                                    <div><dt>Bring</dt><dd>Your company name and this project's reference no. ({{ $project->reference_no ?: 'shown above' }})</dd></div>
-                                </dl>
-                                <p class="sb-muted"><i class="fas fa-bell" aria-hidden="true"></i> You will get a notification once your payment is recorded. Leave enough time: late bids are refused.</p>
-                            </div>
+
+                        <section class="sb-paycard" aria-labelledby="bsm-pay-title-{{ $pid }}">
+                            <header class="sb-paycard-head">
+                                <div>
+                                    <span class="sb-paycard-kicker">Amount to pay</span>
+                                    <strong class="sb-paycard-amount">{{ $feeLabel }}</strong>
+                                    <small>Bidding documents fee &middot; non-refundable</small>
+                                </div>
+                                @if($daysLeftLabel)
+                                    <span class="sb-paycard-due {{ str_contains($daysLeftLabel, 'today') ? 'is-urgent' : '' }}"><i class="fas fa-hourglass-half" aria-hidden="true"></i> Pay {{ str_contains($daysLeftLabel, 'today') ? 'today' : 'within '.str_replace(' left', '', $daysLeftLabel) }}</span>
+                                @endif
+                            </header>
+                            <h3 class="sb-paycard-title" id="bsm-pay-title-{{ $pid }}">Pay in person first, then submit here</h3>
+                            <ul class="sb-paycard-facts">
+                                <li><i class="fas fa-location-dot" aria-hidden="true"></i><span>Where</span><strong>{{ $project->paymentVenueLabel() }}</strong></li>
+                                <li><i class="far fa-clock" aria-hidden="true"></i><span>Before</span><strong>{{ $deadlineLocal ? $deadlineLocal->format('M d, g:i A') : 'the deadline' }}</strong><small>Mon&ndash;Fri, 8:00 AM&ndash;5:00 PM</small></li>
+                                <li><i class="fas fa-id-card" aria-hidden="true"></i><span>Bring</span><strong>Company name &amp; reference no.</strong>
+                                    @if($project->reference_no)
+                                        <button type="button" class="sb-copy" data-sb-copy="{{ $project->reference_no }}"><code>{{ $project->reference_no }}</code> <i class="far fa-copy" aria-hidden="true"></i><span class="sr-only"> Copy</span></button>
+                                    @endif
+                                </li>
+                            </ul>
+                            <p class="sb-paycard-note"><i class="fas fa-bell" aria-hidden="true"></i> You are notified as soon as the BAC records your Official Receipt, and this form opens. Leave enough time: late bids are refused.</p>
                         </section>
 
-                        <section class="sb-panel">
-                            <h3 class="sb-panel-title">What you will submit</h3>
-                            <p class="sb-panel-hint">Prepare these files while you wait for the BAC to record your payment.</p>
+                        <details class="sb-prepare">
+                            <summary>
+                                <span><i class="fas fa-folder-open" aria-hidden="true"></i> Prepare your files while you wait</span>
+                                <small>{{ collect($components)->sum(fn ($component) => count($component['items'])) }} files</small>
+                            </summary>
                             <div class="sb-comp-grid">
                             @foreach($components as $component)
                                 <div class="sb-comp">
@@ -152,7 +162,7 @@
                                 </div>
                             @endforeach
                             </div>
-                        </section>
+                        </details>
                     @else
                         {{-- Step navigation: one final submission contains both sealed components. --}}
                         <nav class="sb-steps" role="tablist" aria-label="Bid submission steps">
@@ -357,7 +367,7 @@
             <span class="sb-foot-actions">
                 <button type="button" class="sb-btn sb-btn--ghost" data-close-modal="bid-modal-{{ $pid }}">Cancel</button>
                 @if($paymentLocked)
-                    <button type="button" class="sb-btn sb-btn--primary" disabled><i class="fas fa-lock" aria-hidden="true"></i> Payment required</button>
+                    <button type="button" class="sb-btn sb-btn--primary" disabled title="Opens once the BAC records your payment"><i class="fas fa-lock" aria-hidden="true"></i> Submit after payment</button>
                 @else
                     <button type="button" class="sb-btn sb-btn--ghost" data-sb-prev hidden>Back</button>
                     <button type="button" class="sb-btn sb-btn--primary" data-sb-next>Next <i class="fas fa-arrow-right" aria-hidden="true"></i></button>

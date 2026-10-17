@@ -92,9 +92,9 @@ it('blocks the online bid until the BAC records the bidding fee payment', functi
         ->assertOk()
         ->assertSee('Pay ₱5,000.00 at BAC')
         ->assertSee('How to pay')
-        ->assertSee('Pay the bidding documents fee first')
+        ->assertSee('Pay in person first, then submit here')
         ->assertSee('BAC Secretariat, 2F Municipal Hall')
-        ->assertSee('Payment required')
+        ->assertSee('Submit after payment')
         ->assertSee('data-payment-locked="true"', false);
 
     // The server refuses the bid even if the locked form is bypassed.
@@ -121,7 +121,7 @@ it('blocks the online bid until the BAC records the bidding fee payment', functi
         ->assertSee('Paid')
         ->assertSee('OR OR-7654321')
         ->assertSee('data-payment-locked="false"', false)
-        ->assertDontSee('Pay the bidding documents fee first');
+        ->assertDontSee('Pay in person first, then submit here');
 
     ($this->submitBid)()->assertSessionHasNoErrors();
     expect(Bid::firstOrFail()->isDraft())->toBeFalse();

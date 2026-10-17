@@ -620,6 +620,45 @@
 
     /* What the file contains: a compact, numbered two-column list. */
     .bidder-submit-modal-overlay .sb .sb-merge { display: grid; gap: 10px; margin-top: 6px; }
+    /* Before payment: a compact step line, one payment card, and the file list folded away. */
+    .bidder-submit-modal-overlay .sb-flow2 { display: flex; align-items: center; gap: 0; margin: 4px 0 0; padding: 0; list-style: none; font-size: 12.5px; color: var(--ui-muted); }
+    .bidder-submit-modal-overlay .sb-flow2 li { display: flex; flex: 1 1 0; align-items: center; gap: 8px; min-width: 0; }
+    .bidder-submit-modal-overlay .sb-flow2 li + li::before { content: ''; flex: 0 0 24px; height: 2px; margin-right: 8px; border-radius: 1px; background: var(--ui-line-strong, #d5ddd8); }
+    .bidder-submit-modal-overlay .sb-flow2 li > span { display: grid; flex: 0 0 24px; height: 24px; place-items: center; border-radius: 50%; background: var(--ui-surface-2, #eef2ef); color: var(--ui-muted); font-size: 12px; font-weight: 700; }
+    .bidder-submit-modal-overlay .sb-flow2 li.is-current { color: var(--ui-ink); font-weight: 700; }
+    .bidder-submit-modal-overlay .sb-flow2 li.is-current > span { background: var(--ui-primary, #1f5c45); color: #fff; box-shadow: 0 0 0 4px var(--ui-primary-soft, #e3f0ea); }
+    .bidder-submit-modal-overlay .sb-paycard { display: grid; gap: 14px; padding: 20px 22px; border: 1px solid var(--ui-warning-line, #f1d79c); border-radius: 16px; background: linear-gradient(180deg, var(--ui-warning-soft, #fdf6e5) 0, #fff 120px); }
+    .bidder-submit-modal-overlay .sb-paycard-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .bidder-submit-modal-overlay .sb-paycard-kicker { display: block; color: var(--ui-warning, #8a5a0b); font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    .bidder-submit-modal-overlay .sb-paycard-amount { display: block; margin: 2px 0; color: var(--ui-ink); font-size: 32px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+    .bidder-submit-modal-overlay .sb-paycard-head small { color: var(--ui-muted); font-size: 12px; }
+    .bidder-submit-modal-overlay .sb-paycard-due { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: #fff; border: 1px solid var(--ui-warning-line, #f1d79c); color: var(--ui-warning, #8a5a0b); font-size: 13px; font-weight: 700; }
+    .bidder-submit-modal-overlay .sb-paycard-due.is-urgent { border-color: var(--ui-danger, #b42318); color: var(--ui-danger, #b42318); }
+    .bidder-submit-modal-overlay .sb-paycard-title { margin: 0; color: var(--ui-ink); font-size: 16px; }
+    .bidder-submit-modal-overlay .sb-paycard-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+    .bidder-submit-modal-overlay .sb-paycard-facts li { display: grid; align-content: start; gap: 3px; padding: 12px 14px; border: 1px solid var(--ui-line, #e3e8e4); border-radius: 12px; background: #fff; }
+    .bidder-submit-modal-overlay .sb-paycard-facts li > i { color: var(--ui-primary); font-size: 15px; }
+    .bidder-submit-modal-overlay .sb-paycard-facts li > span { color: var(--ui-muted); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .bidder-submit-modal-overlay .sb-paycard-facts li > strong { color: var(--ui-ink); font-size: 13.5px; line-height: 1.35; }
+    .bidder-submit-modal-overlay .sb-paycard-facts li > small { color: var(--ui-muted); font-size: 12px; }
+    .bidder-submit-modal-overlay .sb-copy { justify-self: start; display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; padding: 3px 8px; border: 1px dashed var(--ui-primary-line, #9fc4b3); border-radius: 8px; background: var(--ui-primary-soft, #eef6f2); color: var(--ui-primary); font-size: 12px; cursor: pointer; }
+    .bidder-submit-modal-overlay .sb-copy.is-copied { border-style: solid; }
+    .bidder-submit-modal-overlay .sb-paycard-note { margin: 0; color: var(--ui-ink-2); font-size: 12.5px; line-height: 1.5; }
+    .bidder-submit-modal-overlay .sb-paycard-note i { margin-right: 6px; color: var(--ui-primary); }
+    .bidder-submit-modal-overlay details.sb-prepare { border: 1px solid var(--ui-line, #e3e8e4); border-radius: 12px; background: #fff; }
+    .bidder-submit-modal-overlay details.sb-prepare > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; cursor: pointer; list-style: none; color: var(--ui-ink); font-size: 14px; font-weight: 600; }
+    .bidder-submit-modal-overlay details.sb-prepare > summary::-webkit-details-marker { display: none; }
+    .bidder-submit-modal-overlay details.sb-prepare > summary i { margin-right: 8px; color: var(--ui-primary); }
+    .bidder-submit-modal-overlay details.sb-prepare > summary small { color: var(--ui-muted); font-size: 12px; font-weight: 500; }
+    .bidder-submit-modal-overlay details.sb-prepare > summary small::after { content: '\f078'; margin-left: 8px; font-family: 'Font Awesome 6 Free'; font-weight: 900; font-size: 10px; }
+    .bidder-submit-modal-overlay details.sb-prepare[open] > summary small::after { content: '\f077'; }
+    .bidder-submit-modal-overlay details.sb-prepare > .sb-comp-grid { padding: 0 16px 16px; }
+    @media (max-width: 720px) {
+        .bidder-submit-modal-overlay .sb-paycard-facts { grid-template-columns: 1fr; }
+        .bidder-submit-modal-overlay .sb-flow2 li:not(.is-current) { font-size: 0; flex: 0 0 auto; }
+        .bidder-submit-modal-overlay .sb-flow2 li:not(.is-current) > span { font-size: 12px; }
+        .bidder-submit-modal-overlay .sb-paycard-amount { font-size: 28px; }
+    }
     /* The key facts on one line above the notice. */
     .bidder-submit-modal-overlay .sb-strip { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 14px 30px 4px; list-style: none; }
     .bidder-submit-modal-overlay .sb-strip li { display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 12px; border: 1px solid var(--sb-line, #e3e8e4); border-radius: 999px; background: #fff; font-size: 13px; }
@@ -717,6 +756,13 @@
             const amount = form.querySelector('[data-bid-amount]');
             const pins = form.querySelectorAll('[data-pin]');
             let step = 1;
+            dialog.querySelectorAll('[data-sb-copy]').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    const text = button.dataset.sbCopy;
+                    const done = function () { button.classList.add('is-copied'); const code = button.querySelector('code'); if (code) { const before = code.textContent; code.textContent = 'Copied'; window.setTimeout(function () { code.textContent = before; button.classList.remove('is-copied'); }, 1500); } };
+                    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(done); else done();
+                });
+            });
             // A tab chosen directly also moves the status line to that step.
             dialog.querySelectorAll('.sb-step[data-sb-go]').forEach(function (tab) {
                 tab.addEventListener('click', function () { step = Number(tab.dataset.sbGo) || 1; refresh(); });
