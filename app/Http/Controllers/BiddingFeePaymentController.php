@@ -290,6 +290,7 @@ class BiddingFeePaymentController extends Controller
         $request->merge(['or_number' => trim((string) $request->input('or_number'))]);
 
         $validated = $request->validate([
+            'payment_qr' => ['nullable', 'string', 'max:2048'],
             'project_id' => ['required', 'integer', Rule::exists('projects', 'id')],
             'user_id' => ['required', 'integer', Rule::exists('users', 'id')->where('role', 'bidder')],
             'amount' => ['required', 'numeric', 'min:0.01', 'lte:9999999999999.99'],
@@ -297,6 +298,13 @@ class BiddingFeePaymentController extends Controller
             'paid_at' => ['required', 'date', 'before_or_equal:today'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ], $this->messages(), $this->attributes());
+
+        if (filled($validated['payment_qr'] ?? null)) {
+            $pair = \App\Support\BiddingFeeQr::decode($validated['payment_qr']);
+            if (! $pair || $pair['bidder'] !== (int) $validated['user_id'] || $pair['project'] !== (int) $validated['project_id']) {
+                throw ValidationException::withMessages(['payment_qr' => 'The bidder or project does not match the scanned payment QR. Scan again before recording.']);
+            }
+        }
 
         $project = Project::with('schedule')->findOrFail($validated['project_id']);
         $bidder = User::with('bidderProfile.activeSanction')->findOrFail($validated['user_id']);
@@ -453,6 +461,10 @@ class BiddingFeePaymentController extends Controller
     public function bidderLookup(Request $request)
     {
         $this->role($request);
+        $raw = trim((string) $request->query('token', ''));
+        if (str_starts_with($raw, \App\Support\BiddingFeeQr::PREFIX)) {
+            return $this->paymentQrLookup($raw);
+        }
         $token = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $request->query('token', ''));
         $profile = strlen($token) >= 8 ? \App\Models\Bidder::with('user.bidderProfile.activeSanction')->where('qr_token', $token)->first() : null;
         $user = $profile?->user;
@@ -465,6 +477,33 @@ class BiddingFeePaymentController extends Controller
         }
 
         return response()->json(['ok' => true, 'id' => $user->id, 'label' => $user->company ?: $user->name]);
+    }
+
+    private function paymentQrLookup(string $token)
+    {
+        $pair = \App\Support\BiddingFeeQr::decode($token);
+        $bidder = $pair ? User::with('bidderProfile.activeSanction')->find($pair['bidder']) : null;
+        $project = $pair ? Project::with('schedule')->find($pair['project']) : null;
+        if (! $bidder || ! $project) {
+            return response()->json(['ok' => false, 'message' => 'This payment QR is invalid. Ask the bidder to download a new one.'], 404);
+        }
+        $problem = match (true) {
+            $bidder->role !== 'bidder' || ! $bidder->isApprovedBidder() => 'This bidder is not approved to participate.',
+            ! $project->isOpenForBidding() => 'This project is no longer open for bidding. No payment was recorded.',
+            ! $project->requiresBiddingFee() => 'This project does not require a bidding documents fee.',
+            BiddingFeePayment::where('project_id', $project->id)->where('user_id', $bidder->id)->exists() => 'A payment record already exists for this bidder and project. Check the payment records before collecting again.',
+            default => null,
+        };
+        if ($problem) {
+            return response()->json(['ok' => false, 'message' => $problem], 422);
+        }
+
+        return response()->json([
+            'ok' => true, 'id' => $bidder->id, 'label' => $bidder->company ?: $bidder->name,
+            'name' => $bidder->name, 'company' => $bidder->company,
+            'project' => ['id' => $project->id, 'title' => $project->title, 'reference' => $project->reference_no,
+                'amount' => number_format((float) $project->bidding_documents_fee, 2, '.', '')],
+        ])->header('Cache-Control', 'private, no-store');
     }
 
     private function role(Request $request): string

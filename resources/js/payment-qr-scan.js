@@ -1,17 +1,19 @@
 import jsQR from 'jsqr';
 
 /**
- * Scans a bidder's "Verified Bidding Record" QR code (a link ending in the bidder's token) with the camera, or from a
- * photo of the code, and hands the token back. Used by the bidding fee payments page.
+ * Reads project-specific payment QRs and existing bidder-record QRs, using a camera or saved photo.
  */
 window.feeQrScan = function (options) {
     const { video, canvas, onToken, onStatus } = options;
     let stream = null;
     let frame = null;
     let stopped = false;
+    let generation = 0;
 
     const tokenFrom = (text) => {
-        const match = String(text || '').trim().match(/\/bidder\/verify\/([A-Za-z0-9_-]{8,})/);
+        const value = String(text || '').trim();
+        if (/^SJBAC-PAY:[A-Za-z0-9_-]{64}$/.test(value)) return value;
+        const match = value.match(/\/bidder\/verify\/([A-Za-z0-9_-]{8,})/);
 
         return match ? match[1] : null;
     };
@@ -34,7 +36,7 @@ window.feeQrScan = function (options) {
 
             return true;
         }
-        onStatus('That QR code is not a bidder record QR. Scan the Verified Bidding Record QR from the bidder\'s profile.', 'warn');
+        onStatus('Scan a Payment QR from How to pay, or the bidder record QR from the bidder profile.', 'warn');
 
         return false;
     };
@@ -50,6 +52,7 @@ window.feeQrScan = function (options) {
     };
 
     function stop() {
+        generation++;
         stopped = true;
         if (frame) window.cancelAnimationFrame(frame);
         if (stream) stream.getTracks().forEach((track) => track.stop());
@@ -59,21 +62,30 @@ window.feeQrScan = function (options) {
 
     return {
         async start() {
+            stop();
             stopped = false;
+            const requestGeneration = generation;
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 onStatus('This browser cannot open the camera here. Upload a photo of the QR code instead.', 'warn');
 
                 return false;
             }
             try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+                const openedStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+                if (stopped || generation !== requestGeneration) {
+                    openedStream.getTracks().forEach((track) => track.stop());
+                    return false;
+                }
+                stream = openedStream;
                 video.srcObject = stream;
                 await video.play();
+                if (stopped || generation !== requestGeneration) return false;
                 onStatus('Hold the bidder\'s QR code in front of the camera.', 'info');
                 frame = window.requestAnimationFrame(tick);
 
                 return true;
             } catch (error) {
+                if (stopped || generation !== requestGeneration) return false;
                 onStatus('The camera could not be opened. Allow camera access for this site, or upload a photo of the QR code instead.', 'warn');
 
                 return false;
@@ -83,6 +95,7 @@ window.feeQrScan = function (options) {
         // A photo or screenshot of the code.
         async fromFile(file) {
             if (!file) return;
+            stop();
             const url = URL.createObjectURL(file);
             try {
                 const image = new Image();

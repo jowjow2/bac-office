@@ -16,7 +16,7 @@
         'technical' => ['step' => 1, 'title' => 'Technical Component (including Eligibility Documents)', 'hint' => 'Eligibility documents and technical forms. Opened at the bid opening.', 'items' => $requirements->technical()],
         'financial' => ['step' => 2, 'title' => 'Financial Component', 'hint' => 'Your bid price and financial forms. Opened only for bids that pass the preliminary examination.', 'items' => $requirements->financial()],
     ];
-    $title = $isModifying ? 'Modify Your Bid' : ($electronic ? 'Submit Bid Proposal' : 'Prepare Bid (Draft Record)');
+    $title = $paymentLocked ? 'Payment for bidding documents' : ($isModifying ? 'Modify Your Bid' : ($electronic ? 'Submit Bid Proposal' : 'Prepare Bid (Draft Record)'));
     $submitLabel = $isModifying ? 'Submit Modification' : ($electronic ? 'Submit Official Bid' : 'Save Draft Record');
     $daysLeftLabel = null;
     if ($deadlineLocal && $deadlineLocal->isFuture()) {
@@ -115,7 +115,7 @@
                         @endunless
                         {{-- Three steps in one compact line: the first is the one to do now. --}}
                         <ol class="sb-flow2" aria-label="How to submit">
-                            <li class="is-current"><span>1</span>Pay at the BAC office</li>
+                            <li class="is-current"><span>1</span>Download QR &amp; pay at BAC</li>
                             <li><span>2</span>The BAC records your receipt</li>
                             <li><span>3</span>Submit your bid here</li>
                         </ol>
@@ -123,19 +123,18 @@
                         <section class="sb-paycard" aria-labelledby="bsm-pay-title-{{ $pid }}">
                             <header class="sb-paycard-head">
                                 <div>
-                                    <span class="sb-paycard-kicker">Amount to pay</span>
-                                    <strong class="sb-paycard-amount">{{ $feeLabel }}</strong>
-                                    <small>Bidding documents fee &middot; non-refundable</small>
+                                    <h3 class="sb-paycard-title" id="bsm-pay-title-{{ $pid }}">Get your payment QR</h3>
+                                    <small>Unique to you and this project &middot; Fee is non-refundable</small>
                                 </div>
                                 @if($daysLeftLabel)
                                     <span class="sb-paycard-due {{ str_contains($daysLeftLabel, 'today') ? 'is-urgent' : '' }}"><i class="fas fa-hourglass-half" aria-hidden="true"></i> Pay {{ str_contains($daysLeftLabel, 'today') ? 'today' : 'within '.str_replace(' left', '', $daysLeftLabel) }}</span>
                                 @endif
                             </header>
-                            <h3 class="sb-paycard-title" id="bsm-pay-title-{{ $pid }}">Pay in person first, then submit here</h3>
+                            @include('bidder.partials.payment-qr')
                             <ul class="sb-paycard-facts">
                                 <li><i class="fas fa-location-dot" aria-hidden="true"></i><span>Where</span><strong>{{ $project->paymentVenueLabel() }}</strong></li>
                                 <li><i class="far fa-clock" aria-hidden="true"></i><span>Before</span><strong>{{ $deadlineLocal ? $deadlineLocal->format('M d, g:i A') : 'the deadline' }}</strong><small>Mon&ndash;Fri, 8:00 AM&ndash;5:00 PM</small></li>
-                                <li><i class="fas fa-id-card" aria-hidden="true"></i><span>Bring</span><strong>Company name &amp; reference no.</strong>
+                                <li><i class="fas fa-qrcode" aria-hidden="true"></i><span>Bring</span><strong>Payment QR on your phone or printed</strong>
                                     @if($project->reference_no)
                                         <button type="button" class="sb-copy" data-sb-copy="{{ $project->reference_no }}"><code>{{ $project->reference_no }}</code> <i class="far fa-copy" aria-hidden="true"></i><span class="sr-only"> Copy</span></button>
                                     @endif

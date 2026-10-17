@@ -468,6 +468,7 @@ Route::middleware(['auth', 'bidder'])->group(function () {
 
 Route::middleware(['auth', 'approved.bidder'])->group(function () {
     Route::get('/bidder/available-projects', [BidderController::class, 'availableProjects'])->name('bidder.available-projects');
+    Route::get('/bidder/projects/{project}/payment-qr', \App\Http\Controllers\BiddingFeeQrController::class)->middleware('throttle:120,1')->name('bidder.payment-qr');
     Route::get('/bidder/opportunities/{project}', [BidderController::class, 'showOpportunity'])->name('bidder.opportunities.show');
     Route::get('/bidder/projects/{project}/documents/{document}', [BidderController::class, 'previewProjectDocument'])->name('bidder.project.document.preview');
     Route::get('/bidder/projects/{project}/documents/{document}/pdf', [BidderController::class, 'streamProjectDocumentPdf'])->name('bidder.project.document.pdf');

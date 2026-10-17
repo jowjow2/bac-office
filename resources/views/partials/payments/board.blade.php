@@ -211,6 +211,12 @@
     .fee-record-dialog { width: min(580px, calc(100vw - 24px)); border-radius: 16px; overflow-x: hidden; }
     .fee-record-dialog[open] { animation: fee-rise .26s cubic-bezier(.2, .8, .2, 1) both; }
     .fee-record-dialog::backdrop { background: rgba(15, 25, 21, .55); backdrop-filter: blur(2px); }
+    .fee-qr-match { padding: 16px; border: 1px solid var(--ui-primary-line); border-radius: 10px; background: var(--ui-primary-soft); }
+    .fee-qr-match[hidden] { display: none; }
+    .fee-qr-match > strong { display: block; margin-bottom: 12px; color: var(--ui-primary); }
+    .fee-qr-match dl { display: grid; gap: 10px; margin: 0; }
+    .fee-qr-match dt { font-size: 11px; color: var(--ui-muted); }
+    .fee-qr-match dd { margin: 3px 0 0; font-size: 13px; overflow-wrap: anywhere; }
     .fee-record-dialog .fee-card-head { align-items: flex-start; border-bottom: 0; padding-bottom: 6px; }
     .fee-record-dialog .fee-card-head h2 { font-size: 18px; letter-spacing: -.01em; }
     @keyframes fee-rise { from { opacity: 0; transform: translate(-50%, calc(-50% + 12px)); } to { opacity: 1; transform: translate(-50%, -50%); } }
@@ -324,6 +330,16 @@
                     <form method="POST" action="{{ route($routePrefix . '.payments.store') }}" class="fee-form" data-fee-record-form data-fee-check-url="{{ route($routePrefix . '.payments.check-receipt') }}" data-fee-paid='@json($paidByProject ?? [])' novalidate>
                         @csrf
                         <input type="hidden" name="_form" value="record">
+                        <input type="hidden" name="payment_qr" value="{{ old('payment_qr') }}" data-fee-payment-token>
+                        <section class="fee-qr-match" data-fee-payment-match hidden aria-live="polite">
+                            <strong><i class="fas fa-circle-check" aria-hidden="true"></i> QR scanned · Bidder and project matched</strong>
+                            <dl>
+                                <div><dt>BIDDER / COMPANY</dt><dd data-fee-match-bidder></dd></div>
+                                <div><dt>PROJECT</dt><dd data-fee-match-project></dd></div>
+                                <div><dt>REFERENCE NO.</dt><dd data-fee-match-reference></dd></div>
+                                <div><dt>AMOUNT DUE</dt><dd data-fee-match-amount></dd></div>
+                            </dl>
+                        </section>
 
                         @if($reopenRecord && session('success'))
                             <div class="fee-alert fee-alert-success is-wide" role="status" style="grid-column: 1 / -1;">
@@ -364,7 +380,7 @@
                         <div class="fee-field is-wide">
                             <div class="fee-label-row">
                                 <label for="fee-bidder">Bidder <span class="fee-req" aria-hidden="true">*</span></label>
-                                <button type="button" class="fee-scan-link" data-fee-scan><i class="fas fa-qrcode" aria-hidden="true"></i> Scan bidder QR</button>
+                                <button type="button" class="fee-scan-link" data-fee-scan><i class="fas fa-qrcode" aria-hidden="true"></i> Scan payment QR</button>
                             </div>
                             <select id="fee-bidder" name="user_id" class="fee-input @if($recordFormActive && $errors->has('user_id')) is-invalid @endif" required data-fee-combo="Search by company, name or email">
                                 <option value="">Select the approved bidder who paid</option>
@@ -627,8 +643,8 @@
     <dialog class="fee-dialog fee-scan-dialog" id="fee-scan-dialog" aria-labelledby="fee-scan-title">
         <div class="fee-card-head">
             <div>
-                <h2 id="fee-scan-title">Scan the bidder's QR code</h2>
-                <p>The bidder shows the Verified Bidding Record QR from their profile. Then pick the project and finish the payment.</p>
+                <h2 id="fee-scan-title">Scan Payment QR</h2>
+                <p>Scan the QR downloaded from How to pay to fill the bidder and project. Bidder profile QRs are also accepted.</p>
             </div>
             <button type="button" class="fee-dialog-close" data-fee-scan-close aria-label="Close"><i class="fas fa-xmark" aria-hidden="true"></i></button>
         </div>
@@ -990,15 +1006,22 @@
                 const statusLine = scanDialog.querySelector('[data-fee-scan-status]');
                 const note = recordDialog.querySelector('[data-fee-scan-note]');
                 const lookupUrl = @json(route($routePrefix . '.payments.bidder-lookup'));
+                const matchCard = recordDialog.querySelector('[data-fee-payment-match]');
+                const paymentToken = recordDialog.querySelector('[data-fee-payment-token]');
+                const clearMatch = function () { matchCard.hidden = true; paymentToken.value = ''; };
+                recordDialog.querySelectorAll('select[name="user_id"], select[data-fee-project]').forEach(function (field) { field.addEventListener('change', clearMatch); });
                 const setStatus = function (text, kind) { statusLine.textContent = text; statusLine.classList.toggle('is-warn', kind === 'warn'); };
                 const setNote = function (text, warn) { note.hidden = !text; note.textContent = text || ''; note.classList.toggle('is-warn', !!warn); };
                 let scanner = null;
+                let scanVersion = 0;
 
                 const closeScan = function () {
+                    scanVersion++;
                     if (scanner) scanner.stop();
                     if (scanDialog.close) scanDialog.close(); else scanDialog.removeAttribute('open');
                 };
                 const startScan = function () {
+                    if (!scanDialog.open) return;
                     if (typeof window.feeQrScan !== 'function') { setStatus('The scanner is still loading. Close this and try again in a moment.', 'warn'); return; }
                     if (!scanner) {
                         scanner = window.feeQrScan({
@@ -1011,25 +1034,47 @@
                     scanner.start();
                 };
                 const bidderFound = function (token) {
+                    const version = scanVersion;
                     setStatus('QR code read. Looking up the bidder…');
                     fetch(lookupUrl + '?token=' + encodeURIComponent(token), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
                         .then(function (response) { return response.json().then(function (data) { return { ok: response.ok && data.ok, data: data }; }); })
                         .then(function (result) {
+                            if (version !== scanVersion || !scanDialog.open) return;
                             if (!result.ok) { setStatus(result.data.message || 'This bidder cannot be found.', 'warn'); window.setTimeout(startScan, 1800); return; }
+                            const projectSelect = recordDialog.querySelector('select[data-fee-project]');
+                            if (result.data.project && (!projectSelect?.feeCombo || !projectSelect.feeCombo.pick(result.data.project.id))) {
+                                setStatus('This project is no longer in the payable list. Refresh the payment page before recording.', 'warn');
+                                return;
+                            }
                             closeScan();
                             if (!recordDialog.open) openRecord();
                             const bidderSelect = recordDialog.querySelector('select[name="user_id"]');
                             if (bidderSelect && bidderSelect.feeCombo && bidderSelect.feeCombo.pick(result.data.id)) {
-                                setNote('Scanned: ' + result.data.label + '. Now choose the project.');
+                                if (result.data.project) {
+                                    recordDialog.querySelector('[data-fee-amount]').value = result.data.project.amount;
+                                    recordDialog.querySelector('[data-fee-amount]').dispatchEvent(new Event('input', { bubbles: true }));
+                                    paymentToken.value = token;
+                                    matchCard.querySelector('[data-fee-match-bidder]').textContent = result.data.name + (result.data.company ? ' · ' + result.data.company : '');
+                                    matchCard.querySelector('[data-fee-match-project]').textContent = result.data.project.title;
+                                    matchCard.querySelector('[data-fee-match-reference]').textContent = result.data.project.reference || 'Not assigned';
+                                    matchCard.querySelector('[data-fee-match-amount]').textContent = '₱' + Number(result.data.project.amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                    matchCard.hidden = false;
+                                    setNote('Confirm payment received, enter the Official Receipt number, then record payment.');
+                                    window.setTimeout(function () { recordDialog.querySelector('[data-fee-or]')?.focus(); }, 100);
+                                } else {
+                                    clearMatch();
+                                    setNote('Scanned: ' + result.data.label + '. Now choose the project.');
+                                }
                             } else {
                                 setNote(result.data.label + ' has already paid for the chosen project (or is not in the list). Choose another project, or scan again.', true);
                             }
-                            const projectSelect = recordDialog.querySelector('select[data-fee-project]');
                             if (projectSelect && !projectSelect.value && projectSelect.feeCombo) projectSelect.feeCombo.focus();
                         })
-                        .catch(function () { setStatus('The bidder could not be looked up. Check the connection and scan again.', 'warn'); window.setTimeout(startScan, 1800); });
+                        .catch(function () { if (version !== scanVersion || !scanDialog.open) return; setStatus('The bidder could not be looked up. Check the connection and scan again.', 'warn'); window.setTimeout(startScan, 1800); });
                 };
                 const openScan = function () {
+                    scanVersion++;
+                    clearMatch();
                     setNote('');
                     setStatus('Opening the camera…');
                     if (typeof scanDialog.showModal === 'function') scanDialog.showModal(); else scanDialog.setAttribute('open', '');

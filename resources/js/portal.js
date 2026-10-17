@@ -5,6 +5,7 @@
  * portal sidebar.
  */
 import './phone-input';
+import './payment-qr-download';
 
 import { groupDigits } from './money-input';
 import { setupLiveFilters } from './live-filter';
