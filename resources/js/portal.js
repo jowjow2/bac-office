@@ -8,7 +8,6 @@ import './phone-input';
 
 import { groupDigits } from './money-input';
 import { setupLiveFilters } from './live-filter';
-import { setupPortalSearch } from './portal-search';
 
 const body = document.body;
 
@@ -380,7 +379,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setupDialogs();
     setupAutoSubmit();
     setupLiveFilters();
-    setupPortalSearch();
     setupInlineValidation();
     setupMoneyInputs();
     setupSteppedForms();
