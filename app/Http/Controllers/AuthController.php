@@ -120,8 +120,27 @@ class AuthController extends Controller
     protected function welcomePayload(User $user): array
     {
         $name = $user->role === 'bidder' ? ($user->company ?: $user->name) : $user->name;
+        // The sign-in before this one (this one may already be logged a moment ago).
+        $previous = $user->loginLogs()
+            ->where('status', 'success')
+            ->where('created_at', '<', now()->subSeconds(15))
+            ->latest('created_at')
+            ->value('created_at');
 
-        return ['welcome' => ['name' => (string) $name]];
+        return ['welcome' => [
+            'name' => (string) $name,
+            'role' => match ($user->role) {
+                'admin' => 'BAC Administrator',
+                'staff' => 'BAC Staff',
+                default => 'Registered bidder',
+            },
+            'portal' => match ($user->role) {
+                'admin' => 'Administrator portal',
+                'staff' => 'Staff portal',
+                default => 'Bidder portal',
+            },
+            'last' => $previous ? \Illuminate\Support\Carbon::parse($previous)->timezone('Asia/Manila')->format('M j, Y · g:i A') : null,
+        ]];
     }
 
     /**

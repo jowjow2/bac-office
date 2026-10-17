@@ -71,7 +71,7 @@ window.openLogin = function () {
 
 const AUTH_MESSAGE_HIDE_DELAY = 5000;
 const AUTH_MESSAGE_FADE_DURATION = 350;
-const AUTH_SUCCESS_REDIRECT_DELAY = 1500;
+const AUTH_SUCCESS_REDIRECT_DELAY = 1900;
 const AUTH_FORM_ANIMATION_DURATION = 320;
 const AUTH_HEADER_ANIMATION_DURATION = 260;
 const PASSWORD_CODE_TTL_SECONDS = 180;
@@ -1259,7 +1259,7 @@ async function submitAuthForm(form, fallbackTab, isRetry = false) {
             } else if (data.requires_password_code || data.password_reset_verified) {
                 clearAuthMessage();
             } else if (data.welcome && data.redirect) {
-                showAuthWelcome(data.welcome.name);
+                showAuthWelcome(data.welcome);
             } else {
                 showAuthMessage('success', data.message || 'Success.', {
                     autoHideMs: AUTH_MESSAGE_HIDE_DELAY,
@@ -1648,25 +1648,59 @@ function updateCapsLockHint(event) {
 
 // Signed in: a short welcome (check, name, progress bar) while the portal opens.
 // It fills the time the redirect already waits (AUTH_SUCCESS_REDIRECT_DELAY).
-function showAuthWelcome(name) {
+// Styled as an official LGU notice: seal and office header, the signed-in role, three steps, and the last sign-in.
+function showAuthWelcome(welcome) {
     const box = document.getElementById('authMessage');
     if (!box) return;
+    const info = typeof welcome === 'object' && welcome ? welcome : { name: welcome };
 
     window.clearTimeout(window.authMessageTimeout);
     window.clearTimeout(window.authMessageFadeTimeout);
 
+    const seal = document.querySelector('.logo-img')?.getAttribute('src') || '/Images/Logo.png';
     const card = document.createElement('div');
     card.className = 'auth-welcome';
     card.setAttribute('role', 'status');
     card.innerHTML = `
-        <span class="auth-welcome__check" aria-hidden="true">
-            <svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="23"/><path d="M15 27l7 7 15-16"/></svg>
-        </span>
-        <strong class="auth-welcome__title"></strong>
-        <span class="auth-welcome__sub">Opening your portal…</span>
-        <span class="auth-welcome__bar" aria-hidden="true"><span></span></span>
+        <header class="auth-welcome__gov">
+            <img class="auth-welcome__seal" alt="" src="">
+            <span>
+                <small>Republic of the Philippines</small>
+                <b>Municipality of San Jose, Occidental Mindoro</b>
+                <small>Bids and Awards Committee</small>
+            </span>
+        </header>
+        <div class="auth-welcome__body">
+            <span class="auth-welcome__check" aria-hidden="true">
+                <svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="23"/><path d="M15 27l7 7 15-16"/></svg>
+            </span>
+            <strong class="auth-welcome__title"></strong>
+            <span class="auth-welcome__role" hidden></span>
+            <ol class="auth-welcome__steps">
+                <li style="--d:.25s"><i aria-hidden="true"></i> Identity verified</li>
+                <li style="--d:.6s"><i aria-hidden="true"></i> Secure session started</li>
+                <li class="is-last" style="--d:.95s"><i aria-hidden="true"></i> <span class="auth-welcome__portal">Opening your portal…</span></li>
+            </ol>
+            <span class="auth-welcome__bar" aria-hidden="true"><span></span></span>
+        </div>
+        <footer class="auth-welcome__foot">
+            <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z"/></svg> This sign-in is recorded for security.</span>
+            <span class="auth-welcome__last" hidden></span>
+        </footer>
     `;
-    card.querySelector('.auth-welcome__title').textContent = name ? `Welcome back, ${name}!` : 'Welcome back!';
+    card.querySelector('.auth-welcome__seal').src = seal;
+    card.querySelector('.auth-welcome__title').textContent = info.name ? `Welcome back, ${info.name}!` : 'Welcome back!';
+    if (info.role) {
+        const role = card.querySelector('.auth-welcome__role');
+        role.textContent = info.role;
+        role.hidden = false;
+    }
+    if (info.portal) card.querySelector('.auth-welcome__portal').textContent = `Opening the ${info.portal}…`;
+    if (info.last) {
+        const last = card.querySelector('.auth-welcome__last');
+        last.textContent = `Last sign-in: ${info.last}`;
+        last.hidden = false;
+    }
     card.style.setProperty('--auth-welcome-duration', `${AUTH_SUCCESS_REDIRECT_DELAY}ms`);
 
     box.replaceChildren(card);

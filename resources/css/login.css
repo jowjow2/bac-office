@@ -1699,15 +1699,128 @@
 /* ---------- Welcome after signing in (auth.js showAuthWelcome) ---------- */
 #authModal .auth-welcome {
     display: grid;
-    justify-items: center;
-    gap: 6px;
-    padding: 28px 28px 24px;
+    overflow: hidden;
     border-radius: var(--ui-radius-lg);
     background: var(--ui-surface);
     box-shadow: var(--ui-shadow-lg);
     text-align: center;
     animation: auth-welcome-in 0.35s cubic-bezier(.2, .8, .2, 1) both;
 }
+
+/* Office header: seal and name over a thin flag-coloured rule. */
+#authModal .auth-welcome__gov {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px 16px;
+    background: #123d2e;
+    color: #fff;
+    text-align: left;
+}
+
+#authModal .auth-welcome__gov::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #0038a8 0 33.3%, #fcd116 33.3% 66.6%, #ce1126 66.6%);
+}
+
+#authModal .auth-welcome__seal {
+    flex: 0 0 46px;
+    width: 46px;
+    height: 46px;
+    padding: 2px;
+    border-radius: 50%;
+    background: #fff;
+    object-fit: contain;
+    box-shadow: 0 0 0 2px #fcd116;
+}
+
+#authModal .auth-welcome__gov span { display: grid; gap: 1px; min-width: 0; }
+#authModal .auth-welcome__gov small { color: rgba(255, 255, 255, .78); font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+#authModal .auth-welcome__gov b { font-family: Georgia, 'Times New Roman', serif; font-size: 14.5px; font-weight: 700; line-height: 1.25; }
+
+#authModal .auth-welcome__body {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    padding: 22px 26px 18px;
+}
+
+#authModal .auth-welcome__role {
+    padding: 3px 12px;
+    border: 1px solid var(--ui-line);
+    border-radius: 999px;
+    background: var(--ui-surface-2);
+    color: var(--ui-ink-2);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    animation: auth-welcome-up 0.4s ease-out 0.4s both;
+}
+
+#authModal .auth-welcome__steps {
+    display: grid;
+    gap: 7px;
+    width: min(260px, 100%);
+    margin: 12px 0 2px;
+    padding: 0;
+    list-style: none;
+    text-align: left;
+}
+
+#authModal .auth-welcome__steps li {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--ui-ink-2);
+    font-size: 13px;
+    animation: auth-welcome-up 0.35s ease-out var(--d, 0s) both;
+}
+
+#authModal .auth-welcome__steps i {
+    position: relative;
+    display: grid;
+    flex: 0 0 18px;
+    width: 18px;
+    height: 18px;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--ui-primary);
+}
+
+#authModal .auth-welcome__steps i::after {
+    content: '';
+    width: 5px;
+    height: 9px;
+    margin-top: -2px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+#authModal .auth-welcome__steps li.is-last { color: var(--ui-ink); font-weight: 600; }
+#authModal .auth-welcome__steps li.is-last i { border: 2px solid var(--ui-primary-soft); border-top-color: var(--ui-primary); background: transparent; animation: auth-welcome-spin .8s linear infinite; }
+#authModal .auth-welcome__steps li.is-last i::after { display: none; }
+
+#authModal .auth-welcome__foot {
+    display: grid;
+    gap: 2px;
+    padding: 10px 18px 12px;
+    border-top: 1px solid var(--ui-line);
+    background: var(--ui-surface-2);
+    color: var(--ui-muted);
+    font-size: 11.5px;
+}
+
+#authModal .auth-welcome__foot span { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+#authModal .auth-welcome__foot svg { width: 12px; height: 12px; fill: var(--ui-primary); }
+#authModal .auth-welcome__last { color: var(--ui-subtle); }
 
 #authModal .auth-welcome__check {
     display: grid;
@@ -1759,7 +1872,7 @@
 }
 
 #authModal .auth-welcome__bar {
-    width: 160px;
+    width: min(260px, 100%);
     height: 4px;
     margin-top: 12px;
     overflow: hidden;
@@ -1778,8 +1891,10 @@
 }
 
 #authModal.success-state .auth-card:has(.auth-welcome) {
-    width: min(400px, 100%);
+    width: min(420px, 100%);
 }
+
+@keyframes auth-welcome-spin { to { transform: rotate(360deg); } }
 
 @keyframes auth-welcome-in { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
 @keyframes auth-welcome-draw { to { stroke-dashoffset: 0; } }
@@ -1788,7 +1903,7 @@
 
 @media (prefers-reduced-motion: reduce) {
     #authModal .auth-tabs__thumb { transition: none; }
-    #authModal :is(.auth-welcome, .auth-welcome__title, .auth-welcome__sub) { animation: none; }
+    #authModal :is(.auth-welcome, .auth-welcome__title, .auth-welcome__sub, .auth-welcome__role, .auth-welcome__steps li) { animation: none; }
     #authModal .auth-welcome__check :is(circle, path) { animation: none; stroke-dashoffset: 0; }
 }
 /* The certification under the eligibility documents. */
