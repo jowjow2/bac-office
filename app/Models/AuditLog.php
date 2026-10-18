@@ -159,6 +159,36 @@ class AuditLog extends Model
         $log->user_id = array_key_exists('user_id', $context) ? $context['user_id'] : auth()->id();
         $log->save();
 
+        // Administrative changes should also appear in the bell, including the actor's own work.
+        // Keep notification failures from undoing an otherwise successful business action.
+        $actor = auth()->user();
+        if ($actor && in_array($actor->role, ['admin', 'staff'], true)
+            && (int) $log->user_id === (int) $actor->id
+            && $action !== 'bidder_review_started'
+            && ! Str::contains($action, ['download', 'export', 'viewed', 'login', 'logout'])) {
+            try {
+                $url = $log->recordUrl() ?: route('admin.audit-logs', ['action' => $action]);
+                $record = $log->recordLabel();
+                if ($auditable instanceof BiddingFeePayment) {
+                    $or = $newValues['or_number'] ?? $oldValues['or_number'] ?? $auditable->or_number;
+                    $url = route('admin.payments', ['q' => $or]);
+                    $record = 'OR '.$or.' · '.($auditable->bidder?->company ?: $auditable->bidder?->name ?: 'Bidder')
+                        .' · '.($auditable->project?->reference_no ?: 'Project');
+                } elseif ($auditable instanceof Bidder) {
+                    $url = route('admin.users.review', ['user' => $auditable->user_id]);
+                    $record = $auditable->company_name ?: 'Bidder #'.$auditable->user_id;
+                } elseif ($auditable instanceof Award) {
+                    $url = route('admin.awards.index');
+                }
+                \App\Support\SystemNotification::createForRole('admin', $log->actionLabel(),
+                    $actor->name.' · '.$record, 'admin_activity', [
+                        'audit_log_id' => $log->id, 'url' => $url,
+                    ]);
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        }
+
         return $log;
     }
 }

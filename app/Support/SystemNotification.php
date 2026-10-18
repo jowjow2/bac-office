@@ -41,6 +41,7 @@ class SystemNotification
         'staff_registration',
         'bidder_registration',
         'system_alert',
+        'admin_activity',
     ];
 
     public static function createForUser(int $userId, string $title, string $message, string $type = 'general', array $data = []): void
@@ -89,7 +90,8 @@ class SystemNotification
                 $query->whereIn('type', self::IMPORTANT_TYPES)
                     ->orWhere('data->important', true);
             })
-            ->latest()
+            // Imported demo records can have future dates; newly recorded events still go first.
+            ->orderByDesc('id')
             ->limit($limit)
             ->get();
     }

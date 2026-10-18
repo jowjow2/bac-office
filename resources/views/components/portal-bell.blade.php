@@ -21,12 +21,10 @@
     <div class="portal-bell__panel" id="portalBellPanel" hidden>
         <div class="portal-bell__head">
             <strong data-notification-unread-label>{{ $portalUnreadNotifications > 0 ? $portalUnreadNotifications.' unread' : 'All caught up' }}</strong>
-            @if($portalUnreadNotifications > 0)
-                <form method="POST" action="{{ route('notifications.read-all') }}" data-notifications-read-all>
-                    @csrf
-                    <button type="submit" class="portal-bell__mark">Mark all read</button>
-                </form>
-            @endif
+            <form method="POST" action="{{ route('notifications.read-all') }}" data-notifications-read-all @if($portalUnreadNotifications <= 0) hidden @endif>
+                @csrf
+                <button type="submit" class="portal-bell__mark">Mark all read</button>
+            </form>
         </div>
         <div class="portal-bell__list" data-notification-dropdown-list>
             @forelse($portalNotifications as $notification)

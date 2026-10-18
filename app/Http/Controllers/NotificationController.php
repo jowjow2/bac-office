@@ -35,7 +35,7 @@ class NotificationController extends Controller
             'notifications' => SystemNotification::payloads($notifications, $user),
             // The page reloads itself when what it shows has changed.
             'live_version' => \App\Support\LiveVersion::for($request->query('live'), $user),
-        ]);
+        ])->header('Cache-Control', 'private, no-store');
     }
 
     public function read(Request $request, UserNotification $notification): JsonResponse|RedirectResponse

@@ -27,6 +27,7 @@
             const emptyText = 'No important notifications right now.';
             let latestIds = new Set();
             let lastToastNotificationId = null;
+            let notificationSyncing = false;
 
             // Track bidding updates for toast (skip first load)
             let lastBiddingUpdates = false;
@@ -54,7 +55,7 @@
                     event.preventDefault();
 
                     try {
-                        await fetch(config.readAllUrl, {
+                        const response = await fetch(config.readAllUrl, {
                             method: 'POST',
                             headers: {
                                 'X-CSRF-TOKEN': config.csrfToken,
@@ -62,6 +63,7 @@
                                 'Accept': 'application/json',
                             },
                         });
+                        if (!response.ok) throw new Error('Notifications could not be marked read.');
 
                         document.querySelectorAll('[data-notification-row]').forEach(markRowRead);
                         updateBadges(0);
@@ -78,8 +80,10 @@
                 const id = link.dataset.notificationId;
                 if (!id) return;
 
-                markRowRead(link.closest('[data-notification-row]'));
-                updateBadges(Math.max(currentBadgeCount() - 1, 0));
+                const row = link.closest('[data-notification-row]');
+                const wasUnread = row?.classList.contains('is-unread') || row?.classList.contains('notification-unread');
+                markRowRead(row);
+                if (wasUnread) updateBadges(Math.max(currentBadgeCount() - 1, 0));
 
                 fetch(urlFor(config.readUrlTemplate, id), {
                     method: 'POST',
@@ -93,12 +97,15 @@
             });
 
             async function syncNotifications(highlightNew) {
+                if (notificationSyncing) return;
+                notificationSyncing = true;
                 try {
                     const response = await fetch(config.feedUrl + '?' + new URLSearchParams(Object.assign({ limit: list && list.hasAttribute('data-nc-list') ? 30 : 10 }, config.liveScope ? { live: config.liveScope } : {})).toString(), {
                         headers: {
                             'Accept': 'application/json',
                             'X-Requested-With': 'XMLHttpRequest',
                         },
+                        cache: 'no-store',
                     });
 
                     if (!response.ok) return;
@@ -135,6 +142,8 @@
                     latestIds = incomingIds;
                 } catch (error) {
                     // Live notifications are best-effort; the page still works without polling.
+                } finally {
+                    notificationSyncing = false;
                 }
             }
 
@@ -616,6 +625,7 @@
             }
 
             function updateBadges(count) {
+                readAllForms.forEach(function (form) { form.hidden = count <= 0; });
                 document.querySelectorAll('.portal-bell__button').forEach(function (button) {
                     const existingBadge = button.querySelector('.portal-bell__count');
                     if (existingBadge && !existingBadge.dataset.notificationBadge) {
