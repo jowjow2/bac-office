@@ -727,6 +727,40 @@
         .bidder-submit-modal-overlay .sb .sb-filetable .sb-file { grid-template-columns: 32px minmax(0, 1fr); grid-template-areas: "icon copy" "actions actions"; }
         .bidder-submit-modal-overlay .sb .sb-filetable .sb-file-actions { padding-left: 0; }
     }
+    /* Compact final review: one summary strip, with files available on demand. */
+    .bidder-submit-modal-overlay .sb-ready[data-state="ready"] { align-items: center; gap: 8px; padding: 0; border: 0; border-radius: 0; background: transparent; }
+    .bidder-submit-modal-overlay .sb-ready[data-state="ready"] > i { margin: 0; font-size: 14px; }
+    .bidder-submit-modal-overlay .sb-ready[data-state="ready"] strong { font-size: 12.5px; font-weight: 600; color: var(--ui-success); }
+    .bidder-submit-modal-overlay .sb-ready[data-state="ready"] p { display: none; }
+    .bidder-submit-modal-overlay .sb-review-hero { grid-template-columns: minmax(200px, 1fr) minmax(0, 1.6fr); gap: 0; border: 1px solid var(--sb-line); border-radius: 10px; background: #fff; overflow: hidden; }
+    .bidder-submit-modal-overlay .sb-review-offer { min-width: 0; gap: 3px; padding: 12px 16px; border: 0; border-right: 1px solid var(--sb-line); border-radius: 0; background: transparent; }
+    .bidder-submit-modal-overlay .sb-review-offer span { font-size: 10px; }
+    .bidder-submit-modal-overlay .sb-review-offer strong { font-size: 22px; font-weight: 700; overflow-wrap: anywhere; }
+    .bidder-submit-modal-overlay .sb-review-offer small b { padding: 0; border-radius: 0; font-size: 11px; background: transparent; }
+    .bidder-submit-modal-overlay .sb-review-tiles { grid-template-columns: repeat(auto-fit, minmax(85px, 1fr)); gap: 0; }
+    .bidder-submit-modal-overlay .sb-tile { min-width: 0; padding: 12px 14px; border: 0; border-right: 1px solid var(--sb-line); border-radius: 0; }
+    .bidder-submit-modal-overlay .sb-tile:last-child { border-right: 0; }
+    .bidder-submit-modal-overlay .sb-tile span { font-size: 10px; letter-spacing: .02em; }
+    .bidder-submit-modal-overlay .sb-tile strong { font-size: 16px; }
+    .bidder-submit-modal-overlay .sb-tile small { font-size: 11px; }
+    .bidder-submit-modal-overlay .sb-tile.is-ok { background: transparent; border-color: var(--sb-line); }
+    .bidder-submit-modal-overlay .sb-tile.is-ok small { display: none; }
+    .bidder-submit-modal-overlay .sb-review-documents { border: 1px solid var(--sb-line); border-radius: 10px; overflow: hidden; }
+    .bidder-submit-modal-overlay .sb-review-documents > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 16px; color: var(--ui-ink); font-size: 13px; font-weight: 600; list-style: none; cursor: pointer; }
+    .bidder-submit-modal-overlay .sb-review-documents > summary::-webkit-details-marker { display: none; }
+    .bidder-submit-modal-overlay .sb-review-documents > summary i { font-size: 11px; color: var(--ui-muted); }
+    .bidder-submit-modal-overlay .sb-review-documents[open] > summary { border-bottom: 1px solid var(--sb-line); }
+    .bidder-submit-modal-overlay .sb-review-documents[open] > summary i { transform: rotate(180deg); }
+    .bidder-submit-modal-overlay .sb-review-documents .sb-review-grid { gap: 0; }
+    .bidder-submit-modal-overlay .sb-review-documents .sb-review-block { border: 0; border-radius: 0; }
+    .bidder-submit-modal-overlay .sb-review-documents .sb-review-block + .sb-review-block { border-left: 1px solid var(--sb-line); }
+    @media (max-width: 640px) {
+        .bidder-submit-modal-overlay .sb-review-hero { grid-template-columns: minmax(0, 1fr); }
+        .bidder-submit-modal-overlay .sb-review-offer { border-right: 0; border-bottom: 1px solid var(--sb-line); }
+        .bidder-submit-modal-overlay .sb-tile { padding: 12px 10px; }
+        .bidder-submit-modal-overlay .sb-review-documents .sb-review-grid { grid-template-columns: minmax(0, 1fr); }
+        .bidder-submit-modal-overlay .sb-review-documents .sb-review-block + .sb-review-block { border-left: 0; border-top: 1px solid var(--sb-line); }
+    }
 </style>
 
 <script>
@@ -946,6 +980,13 @@
                         return '<li class="' + state + '"><i class="fas ' + icon + '" aria-hidden="true"></i><span>' + escapeHtml(row.label) + '<small>' + escapeHtml(detail) + '</small></span></li>';
                     }).join('');
                 });
+                const fileCount = dialog.querySelector('[data-sb-review-file-count]');
+                if (fileCount) {
+                    const attached = ['technical', 'financial'].reduce(function (total, component) {
+                        return total + rows(component).map(rowState).filter(function (row) { return row.file || row.record; }).length;
+                    }, 0);
+                    fileCount.textContent = 'View ' + attached + ' attached ' + (attached === 1 ? 'file' : 'files');
+                }
                 // Readiness banner and the three summary tiles on the review step.
                 (function () {
                     const tile = function (name, value, note, state) {

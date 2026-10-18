@@ -291,7 +291,7 @@
                             <div class="sb-panel-head">
                                 <div>
                                     <h3 class="sb-panel-title" id="bsm-review-{{ $pid }}">Final submission check</h3>
-                                    <p class="sb-panel-hint">Look over everything once more. You submit once, from the button below.</p>
+                                    <p class="sb-panel-hint">Review your price and files before submitting.</p>
                                 </div>
                             </div>
 
@@ -317,19 +317,22 @@
                                     @endif
                                 </div>
                             </div>
-                            <div class="sb-review-grid">
-                                <div class="sb-review-block">
-                                    <div class="sb-review-head"><h4>Technical documents</h4></div>
-                                    <ul class="sb-review-list" data-sb-review-files="technical"></ul>
+                            <details class="sb-review-documents">
+                                <summary><span data-sb-review-file-count>View attached files</span><i class="fas fa-chevron-down" aria-hidden="true"></i></summary>
+                                <div class="sb-review-grid">
+                                    <div class="sb-review-block">
+                                        <div class="sb-review-head"><h4>Technical documents</h4></div>
+                                        <ul class="sb-review-list" data-sb-review-files="technical"></ul>
+                                    </div>
+                                    <div class="sb-review-block">
+                                        <div class="sb-review-head"><h4>Financial documents</h4></div>
+                                        <ul class="sb-review-list" data-sb-review-files="financial"></ul>
+                                        @if($electronic)
+                                            <p class="sb-review-pin" data-sb-review-pin></p>
+                                        @endif
+                                    </div>
                                 </div>
-                                <div class="sb-review-block">
-                                    <div class="sb-review-head"><h4>Financial documents</h4></div>
-                                    <ul class="sb-review-list" data-sb-review-files="financial"></ul>
-                                    @if($electronic)
-                                        <p class="sb-review-pin" data-sb-review-pin></p>
-                                    @endif
-                                </div>
-                            </div>
+                            </details>
 
                             <div class="sb-notes">
                                 <label class="sb-label" for="bid-notes-{{ $pid }}">Notes for the BAC <span class="sb-optional">(optional)</span></label>
