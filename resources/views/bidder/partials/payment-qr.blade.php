@@ -9,7 +9,7 @@
     .bidder-submit-modal-overlay .sb-payment-details dt { color: var(--ui-muted); font-size: 11px; font-weight: 600; letter-spacing: .04em; }
     .bidder-submit-modal-overlay .sb-payment-details dd { margin: 4px 0 0; color: var(--ui-ink); font-size: 15px; overflow-wrap: anywhere; }
     .bidder-submit-modal-overlay .sb-payment-details .sb-payment-amount { color: var(--ui-primary); font-size: 27px; font-weight: 700; }
-    .bidder-submit-modal-overlay .sb-payment-download { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 46px; padding: 12px 16px; border: 0; border-radius: 8px; background: var(--ui-primary); color: #fff; font: 600 14px/1.3 var(--ui-font); cursor: pointer; }
+    .bidder-submit-modal-overlay .sb-payment-download { display: flex; align-items: center; justify-content: center; justify-self: center; gap: 8px; width: fit-content; max-width: 100%; min-height: 40px; margin: 0 auto; padding: 10px 18px; border: 0; border-radius: 7px; background: var(--ui-primary); color: #fff; font: 600 13px/1.3 var(--ui-font); cursor: pointer; }
     .bidder-submit-modal-overlay .sb-payment-download:disabled { opacity: .65; cursor: wait; }
     .bidder-submit-modal-overlay .sb-payment-help { margin: 0; text-align: center; color: var(--ui-muted); font-size: 12px; line-height: 1.6; }
     @media (max-width: 640px) {
